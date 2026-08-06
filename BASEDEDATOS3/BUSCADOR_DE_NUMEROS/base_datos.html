@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base de Datos Completa - Sistema de Gestión</title>
+
+  <!-- Bootstrap 5 CSS e Iconos -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+
+  <style>
+    :root {
+      --bg-void: #070a12;
+      --bg-surface: #ffffff;
+      --bg-card: #ffffff;
+      --bg-elevated: #f8fafc;
+      --border-color: #e2e8f0;
+      --text-primary: #1e293b;
+      --text-muted: #64748b;
+      --table-header-bg: #1e293b;
+      --table-header-hover: #334155;
+      --th-color: #ffffff;
+      --shadow-color: rgba(15, 23, 42, 0.08);
+
+      --primary-accent: #0284c7;
+      --primary-accent-hover: #0369a1;
+      --nav-text-color: #cbd5e1;
+    }
+
+    html[data-bs-theme="dark"] {
+      --bg-void: #070a12;
+      --bg-surface: #0e1420;
+      --bg-card: #131a29;
+      --bg-elevated: #19233a;
+      --border-color: #232e46;
+      --text-primary: #eef2f8;
+      --text-muted: #7d8aa3;
+      --table-header-bg: #1e2433;
+      --table-header-hover: #2a3449;
+      --th-color: #ffffff;
+      --shadow-color: rgba(0, 0, 0, 0.35);
+
+      --primary-accent: #38bdf8;
+      --primary-accent-hover: #0284c7;
+      --nav-text-color: #7d8aa3;
+    }
+
+    /* Estilos Generales y Navbar */
+    body {
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      transition: background-color 0.25s ease, color 0.25s ease;
+      min-height: 100vh;
+    }
+
+    .navbar {
+      background-color: var(--table-header-bg) !important;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .btn-theme-toggle {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .btn-theme-toggle:hover {
+      border-color: var(--primary-accent);
+      color: var(--primary-accent);
+    }
+
+    /* Forzar a la tabla a no salirse del contenedor */
+    #tablaBaseDatos {
+      table-layout: fixed;
+      width: 100%;
+      --bs-table-bg: transparent;
+      --bs-table-color: var(--text-primary);
+      color: var(--text-primary);
+    }
+
+    /* ESTILOS DE LOS ENCABEZADOS (th) */
+    .tabla-compacta th {
+      background-color: var(--table-header-bg) !important;
+      color: var(--th-color) !important;
+      text-align: center !important;
+      vertical-align: middle !important;
+      padding: 0.6rem 0.25rem !important;
+      height: 42px; /* Altura suficiente y uniforme */
+      font-size: 0.68rem;
+      letter-spacing: 0.3px;
+      cursor: help; /* Cursor de ayuda al pasar el mouse sobre el título */
+      transition: background-color 0.2s ease;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .tabla-compacta th:hover {
+      background-color: var(--table-header-hover) !important; /* Resalte suave al pasar el cursor */
+    }
+
+    /* Contenedor Flex en cada TH para alineación vertical y horizontal exacta */
+    .th-header-content {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 4px;
+      width: 100%;
+      height: 100%;
+      white-space: nowrap; /* Evita que el título salte de línea */
+    }
+
+    .th-header-content span {
+      font-size: 0.65rem;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+    }
+
+    .th-header-content i {
+      font-size: 0.65rem;
+      flex-shrink: 0; /* Evita que el icono se aplaste */
+      opacity: 0.8;
+      color: #94a3b8;
+    }
+
+    /* ESTILOS DE LAS CELDAS DE DATOS / REGISTROS (td) */
+    .tabla-compacta td {
+      font-size: 0.75rem !important;
+      padding: 0.5rem 0.3rem !important;
+      vertical-align: middle !important;
+      text-align: center !important;
+      word-wrap: break-word;
+      white-space: normal;
+      line-height: 1.3;
+      color: var(--text-primary) !important;
+      background-color: var(--bg-surface) !important;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .tabla-compacta tbody tr:hover td {
+      background-color: var(--bg-elevated) !important;
+    }
+
+    /* Ajuste para los badges de STATUS */
+    .tabla-compacta .badge {
+      font-size: 0.68rem;
+      padding: 0.35em 0.6em;
+      white-space: normal;
+      word-break: break-word;
+      max-width: 100%;
+      display: inline-block;
+      line-height: 1.1;
+      font-weight: 600;
+      border-radius: 4px;
+    }
+
+    .filter-dropdown-menu {
+      min-width: 200px;
+      font-size: 0.85rem;
+      text-align: left;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+    
+    .th-active-state {
+      color: #38bdf8 !important;
+      font-weight: bold;
+    }
+
+    /* Tarjetas y Sombreados */
+    .card {
+      border-radius: 8px;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color) !important;
+      box-shadow: 0 4px 12px var(--shadow-color) !important;
+    }
+    .card-header {
+      background-color: var(--table-header-bg) !important;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .card-footer {
+      background-color: var(--bg-surface) !important;
+      border-top: 1px solid var(--border-color) !important;
+      color: var(--text-primary);
+    }
+
+    /* Controles adaptativos de UI */
+    .form-control, .form-select {
+      background-color: var(--bg-surface);
+      border-color: var(--border-color);
+      color: var(--text-primary);
+    }
+    .form-control:focus, .form-select:focus {
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+      border-color: var(--primary-accent);
+    }
+
+    .btn-outline-secondary {
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+    .btn-outline-secondary:hover {
+      background-color: var(--bg-elevated);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="index.html">📌 Dashboard Números</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto me-3 align-items-center">
+          <li class="nav-item">
+            <a class="nav-link" href="index.html"><i class="bi bi-search me-1"></i> Búsqueda Individual</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="busqueda_masiva.html"><i class="bi bi-list-check me-1"></i> Búsqueda Masiva</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="base_datos.html"><i class="bi bi-table me-1"></i> Base de Datos</a>
+          </li>
+          <!-- NUEVA OPCIÓN: BUSCADOR CRUZADO -->
+          <li class="nav-item">
+            <a class="nav-link text-warning fw-bold" href="buscador_cruzado.html"><i class="bi bi-intersect me-1"></i> Buscador Cruzado</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="cargar.html"><i class="bi bi-cloud-upload me-1"></i> Cargar DATA MASTER</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="archivos.html"><i class="bi bi-folder2-open me-1"></i> Gestión Archivos</a>
+          </li>
+          
+          <!-- ENLACE AL BUSCADOR LIBROS DE NEGOCIOS -->
+          <li class="nav-item">
+            <a class="nav-link text-info fw-bold" href="https://basededatos3-buscador-libros-de-negocios.static.hf.space/index.html" target="_blank" rel="noopener noreferrer">
+              <i class="bi bi-box-arrow-up-right me-1"></i> Buscador Libros de Negocios
+            </a>
+          </li>
+        </ul>
+
+        <!-- Botón Cambio de Tema -->
+        <button class="btn-theme-toggle" id="btn-theme-toggle" title="Cambiar Tema (Claro/Oscuro)">
+          <i class="bi bi-sun-fill" id="theme-icon"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4 mt-3">
+
+    <!-- Indicador de Carga -->
+    <div id="spinnerCarga" class="text-center my-4 py-3" style="display: none;">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted fw-semibold small">Cargando base de datos completa...</p>
+    </div>
+
+    <!-- Card de la Tabla Base de Datos -->
+    <div class="card shadow-sm border-0 mb-4 overflow-hidden">
+      <div class="card-header text-white d-flex justify-content-between align-items-center py-2 px-3">
+        <h6 class="mb-0 fw-bold small"><i class="bi bi-table me-2 text-info"></i> DATA MASTER Completa</h6>
+        <span class="badge bg-primary px-3 py-1 fw-bold shadow-sm" id="totalRegistrosBadge">0 Registros</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover table-striped align-middle mb-0 tabla-compacta" id="tablaBaseDatos">
+            <thead>
+              <tr id="headersRow">
+                <th data-col="archivo_id" style="width: 5%;" title="Identificador del archivo fuente cargado">
+                  <div class="th-header-content"><span>ARCHIVO</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="index_code" style="width: 8%;" title="Código de indexación principal del cliente">
+                  <div class="th-header-content"><span>INDEX</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="afiliados" style="width: 3%;" title="Cantidad de afiliados o dependientes">
+                  <div class="th-header-content"><span>A</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="index_member" style="width: 8%;" title="Código Member Index del cliente">
+                  <div class="th-header-content"><span>MEMBER</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="nombre" style="width: 12%;" title="Nombre completo del cliente">
+                  <div class="th-header-content"><span>NOMBRES</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="dob" style="width: 7%;" title="Fecha de nacimiento del titular">
+                  <div class="th-header-content"><span>FECHA NAC.</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="estado" style="width: 5%;" title="Estado o provincia de residencia">
+                  <div class="th-header-content"><span>ESTADO</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="numero_venta" style="width: 8%;" title="Número telefónico principal registrado en la venta">
+                  <div class="th-header-content"><span>NUM. VENTA</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="confirmado_1" style="width: 7%;" title="Primer número de confirmación">
+                  <div class="th-header-content"><span>NUM. 1</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="confirmado_2" style="width: 7%;" title="Segundo número de confirmación / respaldo">
+                  <div class="th-header-content"><span>NUM. 2</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="status" style="width: 6%;" title="Estatus actual del registro (ACTIVA, INACTIVA, etc.)">
+                  <div class="th-header-content"><span>STATUS</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="cia" style="width: 5%;" title="Compañía o aseguradora asociada">
+                  <div class="th-header-content"><span>CIA</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="ultimo_hs" style="width: 6%;" title="Último registro del sistema de salud (Health Insurance)">
+                  <div class="th-header-content"><span>ULT. HS</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="agente" style="width: 7%;" title="Nombre del asesor o agente a cargo">
+                  <div class="th-header-content"><span>ASESOR</span><i class="bi bi-info-circle"></i></div>
+                </th>
+                <th data-col="fecha_llamada" style="width: 8%;" title="Fecha y hora de la última llamada realizada">
+                  <div class="th-header-content"><span>FECHA LLAM.</span><i class="bi bi-info-circle"></i></div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="15" class="text-center py-4 text-muted">Cargando datos...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Paginación Directa desde Base de Datos -->
+      <div class="card-footer py-2 px-3 border-0 border-top" id="seccionPaginacion">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          
+          <!-- Lado Izquierdo: Selector de Registros por Página e Info -->
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small">Mostrar:</span>
+            <select class="form-select form-select-sm w-auto border-secondary-subtle" id="selectRegistrosPorPagina" onchange="cambiarLimiteDB(this.value)">
+              <option value="10">10</option>
+              <option value="15" selected>15</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <span class="text-muted small ms-2" id="infoPaginacion">Mostrando 0-0 de 0</span>
+          </div>
+
+          <!-- Lado Derecho: Controles de Paginación -->
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            
+            <!-- Botón Anterior -->
+            <button class="btn btn-sm btn-outline-secondary fw-semibold" id="btn-prev-db" onclick="cambiarPaginaDB(-1)">
+              <i class="bi bi-chevron-left me-1"></i>Anterior
+            </button>
+
+            <!-- Campo Salto a Página -->
+            <div class="d-flex align-items-center gap-1 mx-2">
+              <span class="text-muted small">Página</span>
+              <input type="number" id="input-pagina-db" class="form-control form-control-sm border-secondary-subtle text-center" style="width: 65px;" value="1" min="1" onkeydown="if(event.key==='Enter') irAPaginaDirecta(this.value)">
+              <span class="text-muted small fw-semibold me-1" id="lbl-total-paginas-db">de 1</span>
+              <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="irAPaginaDirecta(document.getElementById('input-pagina-db').value)">Ir</button>
+            </div>
+
+            <!-- Botón Siguiente -->
+            <button class="btn btn-sm btn-outline-secondary fw-semibold" id="btn-next-db" onclick="cambiarPaginaDB(1)">
+              Siguiente<i class="bi bi-chevron-right ms-1"></i>
+            </button>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script para Conmutación de Tema -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const btnTheme = document.getElementById('btn-theme-toggle');
+      const themeIcon = document.getElementById('theme-icon');
+      const currentTheme = localStorage.getItem('app-theme') || 'light'; 
+
+      aplicarTema(currentTheme);
+
+      btnTheme?.addEventListener('click', () => {
+        const nuevoTema = document.documentElement.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
+        aplicarTema(nuevoTema);
+      });
+
+      function aplicarTema(t) {
+        document.documentElement.setAttribute('data-bs-theme', t);
+        if (themeIcon) {
+          themeIcon.className = t === 'light' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+        }
+        localStorage.setItem('app-theme', t);
+      }
+    });
+  </script>
+
+  <!-- Librerías JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase_client.js"></script>
+  <script src="js/database_tab.js"></script>
+</body>
+</html>

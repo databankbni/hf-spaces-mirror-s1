@@ -1,0 +1,45 @@
+{
+  "_comment": "BACKUP of the hardcoded per-TF range tables taken before the arithmetic (sqrt-days) refactor (research/range_model.py). This is the revert/reference target: range_model must reproduce these values (exactly for 1D/3D, within tolerance for INTRADAY). Captured 2026-07-17. Sources: ai_forecast.py + database.py.",
+  "ai_forecast": {
+    "atr_target_mults__build_synthesis_prompt": {
+      "INTRADAY": [0.20, 0.45],
+      "1D": [0.25, 0.60],
+      "3D": [0.45, 0.95]
+    },
+    "_ATR_MID_CEILING": {"INTRADAY": 0.8, "1D": 1.2, "3D": 2.0},
+    "_ATR_MAX_WIDTH": {"INTRADAY": 0.55, "1D": 0.70, "3D": 1.00},
+    "_TF_HARD_CAP_PCT": {"INTRADAY": 2.0, "1D": 4.0, "3D": 7.0},
+    "_BULL_RANGE": {"INTRADAY": [0.15, 1.00], "1D": [0.25, 1.30], "3D": [0.30, 2.20], "5D": [0.40, 3.00]},
+    "_BEAR_RANGE": {"INTRADAY": [-1.00, -0.15], "1D": [-1.30, -0.25], "3D": [-2.20, -0.30], "5D": [-3.00, -0.40]},
+    "_NEUT_RANGE": {"INTRADAY": [-0.50, 0.50], "1D": [-1.0, 1.0], "3D": [-1.0, 1.0], "5D": [-1.0, 1.0]},
+    "_generate_range_from_point": {
+      "confidence_spread_non_tight": {"HIGH": 0.8, "MEDIUM": 1.5, "LOW": 2.5},
+      "min_spread_non_tight": 0.80,
+      "tf_cap": {"INTRADAY": 2.0, "1D": 4.0, "3D": 7.0, "5D": 12.0},
+      "lo_floor": {"tight": 0.10, "non_tight": 0.20},
+      "tight_spreads": {
+        "INTRADAY": {"HIGH": 0.22, "MEDIUM": 0.32, "LOW": 0.48},
+        "1D": {"HIGH": 0.30, "MEDIUM": 0.43, "LOW": 0.65},
+        "3D": {"HIGH": 0.28, "MEDIUM": 0.45, "LOW": 0.75},
+        "5D": {"HIGH": 0.35, "MEDIUM": 0.55, "LOW": 0.90}
+      },
+      "min_spreads_tight": {"INTRADAY": 0.10, "1D": 0.15, "3D": 0.20, "5D": 0.25}
+    }
+  },
+  "database": {
+    "_SNAP_BULL": {"INTRADAY": [0.15, 1.00], "1D": [0.25, 1.30], "3D": [0.30, 2.20], "5D": [0.40, 3.00]},
+    "_SNAP_BEAR": {"INTRADAY": [-1.00, -0.15], "1D": [-1.30, -0.25], "3D": [-2.20, -0.30], "5D": [-3.00, -0.40]},
+    "_SNAP_NEUT": {"INTRADAY": [-0.50, 0.50], "1D": [-1.0, 1.0], "3D": [-1.0, 1.0], "5D": [-1.0, 1.0]}
+  },
+  "predictor_core": {
+    "TIMEFRAME_DAYS": {"INTRADAY": 0, "1D": 1, "3D": 3, "5D": 5, "1W": 7},
+    "tf_scale": {"INTRADAY": 0.20, "1D": 0.35, "3D": 0.65, "5D": 1.0, "1W": 1.3},
+    "atr_mult": {"INTRADAY": 0.4, "1D": 0.7, "3D": 1.1, "5D": 1.5, "1W": 1.8}
+  },
+  "notes": {
+    "must_reproduce": ["_BULL_RANGE", "_BEAR_RANGE", "_SNAP_*"],
+    "keep_flat_by_policy": ["_NEUT_RANGE"],
+    "cost_floors_do_not_scale": "lo-bounds of _BULL/_BEAR track NSE round-trip cost (~0.11% intraday / ~0.22% delivery)",
+    "sqrt_days_fit": "hi-bounds ~1.30*sqrt(days); ATR midpoints ~0.42*sqrt(days); mid-ceiling ~1.15*sqrt(days); atr_mult ~0.68*sqrt(days)"
+  }
+}

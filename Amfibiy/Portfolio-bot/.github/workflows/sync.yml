@@ -1,0 +1,36 @@
+name: Sync to Hugging Face
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Выкачиваем историю, чтобы GitHub Actions забрал файлы кода
+          fetch-depth: 1
+          lfs: false
+
+      - name: Force Sync via Clean Git Index
+        run: |
+          # 1. Настраиваем профиль Git и расширяем сетевые буферы
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git config --global http.postBuffer 524288000
+          git config --global core.compression 9
+          
+          # 🔥 КРИТИЧЕСКИЙ ФИКС ДЛЯ УСКОРЕНИЯ: 
+          # Стираем старый сломанный индекс Гита из 440 коммитов внутри виртуальной машины!
+          rm -rf .git
+          
+          # 2. Инициализируем чистый Git с нуля (теперь в истории ВСЕГО 1 коммит)
+          git init -b main
+          git add .
+          git commit -m "Production Deploy"
+          
+          # 3. Принудительно вливаем этот чистый срез кода в Hugging Face
+          git remote add hf https://hf:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/Amfibiy/Portfolio-bot
+          git push hf main --force

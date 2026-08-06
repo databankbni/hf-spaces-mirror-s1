@@ -1,0 +1,126 @@
+name: Space control
+
+# Manual operations against the Hugging Face Space (pause / restart / factory
+# reboot) plus a runtime status read. Runs on a GitHub runner because that is
+# where HF_TOKEN lives and where huggingface.co is reachable.
+#
+# Trigger from the Actions tab → "Space control" → Run workflow, or via the API.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: What to do to the Space
+        type: choice
+        default: pause-then-restart
+        options:
+          - status
+          - restart
+          - factory-reboot
+          - pause
+          - pause-then-restart
+
+jobs:
+  control:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install huggingface_hub
+        run: pip install --upgrade huggingface_hub
+
+      - name: Operate the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ vars.HF_USERNAME }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          : "${HF_USERNAME:?set repository variable HF_USERNAME}"
+          : "${HF_SPACE:?set repository variable HF_SPACE}"
+          python - <<'PY'
+          import os, time
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          repo = f"{os.environ['HF_USERNAME']}/{os.environ['HF_SPACE']}"
+          mode = os.environ["MODE"]
+
+          def report(label):
+              """Print what HF itself thinks the Space's runtime looks like.
+
+              `stage` is the authoritative state (RUNNING / BUILDING / PAUSED /
+              RUNTIME_ERROR / BUILD_ERROR / SLEEPING / NO_APP_FILE...), which is
+              more informative than the badge on the page."""
+              try:
+                  rt = api.get_space_runtime(repo)
+              except Exception as e:
+                  print(f"{label}: could not read runtime — {e}")
+                  return None
+              print(f"{label}: stage={rt.stage} hardware={rt.hardware} "
+                    f"requested_hardware={getattr(rt, 'requested_hardware', None)}")
+              if getattr(rt, "raw", None):
+                  print(f"{label}: raw={rt.raw}")
+              return rt
+
+          report("before")
+
+          if mode in ("pause", "pause-then-restart"):
+              api.pause_space(repo)
+              print("pause requested")
+              time.sleep(20)
+              report("after pause")
+
+          if mode in ("restart", "pause-then-restart"):
+              # A paused Space is resumed by restarting it.
+              api.restart_space(repo)
+              print("restart requested")
+
+          if mode == "factory-reboot":
+              api.restart_space(repo, factory_reboot=True)
+              print("factory reboot requested")
+
+          if mode != "status":
+              time.sleep(30)
+              report("after")
+
+          # HF's runtime stage says the container is up; it does not say the app
+          # inside it is answering, or which build it is serving. Probe the
+          # public endpoints too — that is the question anyone running this
+          # actually has, and it cannot be asked from a dev sandbox because
+          # hf.space is not reachable from one.
+          import json
+          import urllib.request
+
+          base = f"https://{os.environ['HF_USERNAME']}-{os.environ['HF_SPACE']}.hf.space"
+
+          def probe(path):
+              try:
+                  with urllib.request.urlopen(f"{base}{path}", timeout=30) as r:
+                      return r.status, json.load(r)
+              except Exception as e:
+                  return None, f"{type(e).__name__}: {e}"
+
+          for path in ("/api/health", "/api/chat/status",
+                       "/api/availability?team=NYY"):
+              code, body = probe(path)
+              print(f"probe {path}: {code} {body}")
+
+          # Injury filtering is invisible either way — a lineup with an injured
+          # player in it looks identical whether the check ran and disagreed or
+          # never ran at all. Say which, out loud, since that is the only thing
+          # that distinguishes "working" from "silently doing nothing".
+          code, body = probe("/api/availability?team=NYY")
+          if isinstance(body, dict):
+              if body.get("usable"):
+                  print(f"::notice::injury filtering is live "
+                        f"({body.get('active_roster_size')} on the active roster)")
+              else:
+                  print(f"::warning::injury filtering is NOT running — "
+                        f"statsapi looks unreachable from the Space "
+                        f"({body.get('teams_endpoint')}). Lineups are passing "
+                        f"through unfiltered.")
+          PY

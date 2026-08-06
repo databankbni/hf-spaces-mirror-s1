@@ -1,0 +1,108 @@
+<% content_for :main_class, "flex-grow w-full relative" %>
+<% content_for :hide_footer, true %>
+
+  <% if @weather %>
+    <% current = @weather["current"] %>
+    <% hourly = @weather["hourly"] %>
+    <% daily = @weather["daily"] %>
+    <% current_info = WeatherService.weather_info(current["weather_code"], current["is_day"]) %>
+
+    <!-- Outer layout container:
+         On all viewports: non-scrolling full-viewport layout containing absolutely positioned map. -->
+    <div class="relative w-full h-[calc(100dvh-4rem)] flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-900 transition-colors duration-300" data-controller="mobile-drawer">
+
+      <!-- 1. Search Bar & Menu Button:
+           On mobile: floats absolutely at the top, overlaying the map with a hamburger button.
+           On desktop: floats absolutely in the top-left corner on top of the map without the hamburger button. -->
+      <div class="absolute top-4 left-4 right-4 z-20 pointer-events-auto flex items-center gap-2 lg:top-6 lg:left-6 lg:right-auto lg:w-[362px]">
+        <button type="button"
+                data-action="click->mobile-drawer#open"
+                class="lg:hidden p-3.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center shrink-0"
+                title="Open weather menu"
+                aria-label="Open weather menu">
+          <i data-lucide="menu" class="w-5 h-5" aria-hidden="true"></i>
+        </button>
+        <div class="flex-grow">
+          <%= render "weather/search" %>
+        </div>
+      </div>
+
+      <!-- 2. Interactive Map:
+           Fills the entire background on both mobile and desktop. -->
+      <div class="absolute inset-0 z-0 w-full h-full">
+        <%= render "weather/map", current: current, current_info: current_info %>
+      </div>
+
+      <!-- Mobile Backdrop Overlay -->
+      <div data-mobile-drawer-target="backdrop"
+           data-action="click->mobile-drawer#close"
+           class="lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 opacity-0 pointer-events-none transition-opacity duration-300">
+      </div>
+
+      <!-- 3. Sidebar/Details Container:
+           On mobile: behaves as a sliding drawer from the left.
+           On desktop: behaves as a permanent sidebar overlaying the map.
+           Wrapped in Turbo Frame so forecast updates ONLY reload the sidebar cards and not the map or search bar. -->
+      <turbo-frame id="weather_forecast" data-controller="refresh"
+                   refresh="morph"
+                   data-refresh-temp-value="<%= current["temperature_2m"].round %>"
+                   data-refresh-desc-value="<%= current_info[:description] %>"
+                   data-refresh-time-value="<%= @local_time.strftime("%A, %b %-d, %I:%M %p") %><%= @weather["timezone_abbreviation"] ? " #{@weather["timezone_abbreviation"]}" : "" %>"
+                   data-refresh-icon-value="<%= current_info[:icon] %>"
+                   data-refresh-precip-value="<%= current["precipitation"] %>"
+                   data-refresh-precip-unit-value="<%= unit_system == 'imperial' ? 'in' : 'mm' %>"
+                   data-refresh-metric-precip-value="<%= metric_precip(current["precipitation"]) %>"
+                   data-mobile-drawer-target="drawer"
+                   tabindex="-1"
+                   class="outline-none fixed inset-y-0 left-0 z-40 w-[340px] max-w-[85vw] transform -translate-x-full transition-transform duration-300 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-2xl flex flex-col lg:absolute lg:top-0 lg:left-0 lg:bottom-0 lg:w-[410px] lg:max-w-none lg:z-10 lg:pointer-events-none lg:bg-transparent lg:dark:bg-transparent lg:backdrop-blur-none lg:shadow-none lg:translate-x-0 lg:flex lg:flex-col lg:p-6 lg:max-h-full lg:pt-[88px]">
+
+        <!-- Mobile Drawer Header -->
+        <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 lg:hidden">
+          <div class="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-100">
+            <i data-lucide="cloud-sun" class="w-5 h-5 text-cyan-500"></i>
+            <span>Weather Details</span>
+          </div>
+          <button type="button"
+                  data-action="click->mobile-drawer#close"
+                  class="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer flex items-center justify-center"
+                  aria-label="Close weather details">
+            <i data-lucide="x" class="w-5 h-5" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div id="sidebar_scroll_container" data-refresh-target="scrollContainer" class="w-full pointer-events-auto flex-1 space-y-6 overflow-y-auto p-4 lg:p-0 lg:pr-1 lg:max-h-full scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-800">
+
+          <!-- Saved Locations Card -->
+          <%= render "weather/favorites" %>
+
+          <!-- Location Header Card -->
+          <div class="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 backdrop-blur-md p-6 shadow-lg dark:shadow-xl transition-colors duration-300">
+            <%= render "weather/header" %>
+          </div>
+
+          <!-- Current Weather Card -->
+          <%= render "weather/current_weather", current: current, current_info: current_info %>
+
+          <!-- Hourly Forecast Card -->
+          <%= render "weather/hourly_forecast", hourly: hourly %>
+
+          <!-- Daily Forecast Card -->
+          <%= render "weather/daily_forecast", daily: daily %>
+
+          <!-- Moon Info Card -->
+          <%= render "weather/moon_info", daily: daily %>
+
+          <!-- Mini Sidebar Footer -->
+          <div class="text-center text-[10px] text-slate-400 dark:text-slate-500 py-4 select-none">
+            &copy; <%= Time.current.year %> Horizon Weather. Powered by Open-Meteo & Leaflet.
+          </div>
+        </div>
+      </turbo-frame>
+
+    </div>
+
+  <% else %>
+    <div class="max-w-7xl mx-auto px-4 py-8">
+      <%= render "weather/error_state" %>
+    </div>
+  <% end %>

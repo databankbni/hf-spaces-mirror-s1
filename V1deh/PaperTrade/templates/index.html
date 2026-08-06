@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NSE Paper Trader</title>
+  <style>
+    /* Splash — inline so it renders before style.css arrives */
+    #app-loader {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #0d0f17;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px;
+      transition: opacity .4s ease;
+    }
+    #app-loader.app-loader--done { opacity: 0; pointer-events: none; }
+    .apl-mark {
+      font-size: 36px; color: #6366f1; line-height: 1;
+      animation: apl-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes apl-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .55; transform: scale(.92); }
+    }
+    .apl-name { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 18px; font-weight: 700; color: #e2e8f0; letter-spacing: -.3px; }
+    .apl-sub  { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 11px; color: #8892a4; letter-spacing: .8px; text-transform: uppercase; margin-top: -14px; }
+    .apl-spin {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 2.5px solid #2a2e42; border-top-color: #6366f1;
+      animation: apl-spin .75s linear infinite; margin-top: 8px;
+    }
+    @keyframes apl-spin { to { transform: rotate(360deg); } }
+    .apl-hint { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 11px; color: #5a6278; }
+  </style>
+  <link rel="stylesheet" href="/static/style.css?v=20260804a">
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+
+<!-- ══════════════════════════ LOADING SPLASH ═════════════════════════ -->
+<div id="app-loader" role="status" aria-label="Loading NSE Trader">
+  <div class="apl-mark">▲</div>
+  <div class="apl-name">NSE Trader</div>
+  <div class="apl-sub">Paper Trading</div>
+  <div class="apl-spin"></div>
+  <div class="apl-hint">Connecting…</div>
+</div>
+
+<!-- ══════════════════════════ SIDEBAR ══════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <span class="brand-mark">▲</span>
+    <div class="brand-text">
+      <span class="brand-name">NSE Trader</span>
+      <span class="brand-sub">Paper Trading</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a class="nav-item active" data-view="dashboard" href="#">
+      <span class="nav-icon">⬛</span> Dashboard
+    </a>
+    <a class="nav-item" data-view="watchlist" href="#">
+      <span class="nav-icon">◎</span> Watchlist
+    </a>
+    <a class="nav-item" data-view="portfolio" href="#">
+      <span class="nav-icon">◑</span> Portfolio
+    </a>
+  </nav>
+
+    <a class="nav-item" data-view="validation" href="#">
+      <span class="nav-icon">✓</span> Validation
+    </a>
+  <div class="sidebar-footer">
+    <span class="sidebar-footer-text">NSE · India VIX · Nifty 50</span>
+  </div>
+</aside>
+
+<!-- ══════════════════════════ MAIN AREA ═════════════════════════ -->
+<div class="main-wrapper">
+
+  <!-- Global Market Bar -->
+  <div class="global-market-bar" id="global-market-bar">
+    <div class="market-item">
+      <span class="market-label">India VIX</span>
+      <span class="market-value" id="gm-vix">—</span>
+    </div>
+    <div class="market-item">
+      <span class="market-label">Nifty Gate</span>
+      <span class="market-value" id="gm-nifty">—</span>
+    </div>
+    <div class="market-item">
+      <span class="market-label">Global Macro</span>
+      <span class="market-value" id="gm-macro">—</span>
+    </div>
+    <div class="market-item market-item--right">
+      <span class="market-label">Capital</span>
+      <span class="market-value market-ok">₹15,00,000</span>
+    </div>
+  </div>
+
+  <!-- ═══ VIEW: DASHBOARD ═══ -->
+  <section class="view active" id="view-dashboard">
+    <div class="view-header">
+      <h1 class="view-title">Dashboard</h1>
+      <p class="view-subtitle">Your trading overview at a glance</p>
+    </div>
+
+    <!-- Portfolio strip -->
+    <div class="dashboard-strip" id="dash-portfolio-strip">
+      <div class="strip-card">
+        <span class="strip-label">Open Trades</span>
+        <span class="strip-val" id="ds-open">—</span>
+      </div>
+      <div class="strip-card">
+        <span class="strip-label">Invested</span>
+        <span class="strip-val" id="ds-invested">—</span>
+      </div>
+      <div class="strip-card">
+        <span class="strip-label">Unrealised P&amp;L</span>
+        <span class="strip-val" id="ds-unrealised">—</span>
+      </div>
+      <div class="strip-card">
+        <span class="strip-label">Realised P&amp;L</span>
+        <span class="strip-val" id="ds-pnl">—</span>
+      </div>
+      <div class="strip-card">
+        <span class="strip-label">Win Rate</span>
+        <span class="strip-val" id="ds-winrate">—</span>
+      </div>
+      <div class="strip-card">
+        <span class="strip-label">Total Trades</span>
+        <span class="strip-val" id="ds-total">—</span>
+      </div>
+    </div>
+
+    <!-- Quick picks preview -->
+    <div class="section-header">
+      <h2 class="section-title">Top Picks This Week</h2>
+      <button class="btn-ghost" id="dash-refresh-top5">Refresh</button>
+    </div>
+    <div id="dash-top5-loading" class="loading-inline hidden">
+      <div class="spinner-sm"></div> Loading picks…
+    </div>
+    <div id="dash-top5-cards" class="picks-grid"></div>
+
+    <!-- Open trades mini table -->
+    <div class="section-header" style="margin-top:32px">
+      <h2 class="section-title">Open Positions</h2>
+      <a class="btn-ghost" data-view="portfolio" href="#">View all →</a>
+    </div>
+    <div id="dash-open-trades"></div>
+  </section>
+
+  <!-- ═══ VIEW: WATCHLIST ═══ -->
+  <section class="view" id="view-watchlist">
+    <div class="view-header view-header--row">
+      <div>
+        <h1 class="view-title">Watchlist</h1>
+        <p class="view-subtitle">Stocks you're monitoring — Today / 1D predictions with entry, stop-loss, and target.</p>
+      </div>
+      <button class="btn-ghost" id="wl-refresh-btn">Refresh</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="ticker-input-wrap toolbar-search">
+        <input id="wl-add-input" type="text" placeholder="Add ticker (e.g. RELIANCE.NS)…" autocomplete="off">
+        <div id="wl-suggestions" class="suggestions"></div>
+      </div>
+      <button class="btn-primary" id="wl-add-btn">+ Add</button>
+      <button class="btn-ghost" id="wl-highconf-filter" data-active="false" title="Show only HIGH-conviction picks — backtest 95-97% price-hit bucket">⭐ HIGH-conviction only</button>
+    </div>
+
+    <div id="wl-list" class="picks-grid"></div>
+  </section>
+
+  <!-- ═══ VIEW: PORTFOLIO ═══ -->
+  <section class="view" id="view-portfolio">
+    <div class="view-header">
+      <h1 class="view-title">Portfolio</h1>
+    </div>
+
+    <!-- P&L summary strip -->
+    <div class="dashboard-strip" id="port-summary-strip">
+      <div class="strip-card">
+        <span class="strip-label">Invested</span>
+        <span class="strip-val" id="port-invested">—</span>
+      </div>
+      <div class="strip-card">
+        <span class="strip-label">Unrealised P&amp;L</span>
+        <span class="strip-val" id="port-unrealised">—</span>
+      </div>
+      <div class="strip-card">
+        <span class="strip-label">Realised P&amp;L</span>
+        <span class="strip-val" id="port-pnl">—</span>
+      </div>
+      <div class="strip-card">
+        <span class="strip-label">Win Rate</span>
+        <span class="strip-val" id="port-winrate">—</span>
+      </div>
+      <div class="strip-card">
+        <span class="strip-label">Wins</span>
+        <span class="strip-val" id="port-wins">—</span>
+      </div>
+      <div class="strip-card">
+        <span class="strip-label">Losses</span>
+        <span class="strip-val" id="port-losses">—</span>
+      </div>
+    </div>
+
+    <div class="portfolio-tabs">
+      <button class="ptab active" data-ptab="open">Open</button>
+      <button class="ptab" data-ptab="pending">Pending <span id="pending-badge" class="pending-count hidden"></span></button>
+      <button class="ptab" data-ptab="history">Closed</button>
+    </div>
+
+    <!-- Portfolio loading state -->
+    <div id="portfolio-loading" class="portfolio-loading hidden">
+      <div class="spinner-sm"></div>
+      <span>Loading portfolio…</span>
+    </div>
+
+    <!-- Open Trades (default) -->
+    <div class="ptab-content active" id="ptab-open">
+      <div class="toolbar" style="margin-bottom:16px">
+        <button class="btn-ghost" id="port-refresh">↺ Refresh P&amp;L</button>
+        <button class="btn-primary" id="port-new-trade">+ New Trade</button>
+      </div>
+      <div id="open-trades-table"></div>
+    </div>
+
+    <!-- Pending Orders -->
+    <div class="ptab-content" id="ptab-pending">
+      <div class="toolbar" style="margin-bottom:16px">
+        <span class="view-subtitle" style="flex:1">Limit orders waiting to be filled. Click <strong>Check Orders</strong> to scan live prices.</span>
+        <button class="btn-ghost" id="port-check-orders">⟳ Check Orders</button>
+      </div>
+      <div id="pending-orders-table"></div>
+    </div>
+
+    <!-- Closed Trades -->
+    <div class="ptab-content" id="ptab-history">
+      <div id="history-trades-table"></div>
+    </div>
+  </section>
+
+  <!-- Validation View -->
+  <section class="view" id="view-validation">
+    <div class="view-header">
+      <h1 class="view-title">Prediction Validation</h1>
+      <button class="btn-ghost" id="validation-refresh">↺ Refresh</button>
+      <button class="btn-ghost" id="validation-revalidate">↺ Re-validate History</button>
+      <button class="btn-primary" id="validation-execute">✓ Execute Validation</button>
+      <button class="btn-ghost" id="ai-learn-btn" title="Analyze miss patterns and update AI calibration">🧠 Improve AI</button>
+    </div>
+
+    <div id="ai-learn-panel" class="ai-learn-panel hidden collapsed">
+      <div class="ai-learn-toggle" id="ai-learn-toggle" role="button" tabindex="0" aria-expanded="false">
+        <span class="ai-learn-toggle-title">🧠 Self-Learning Insights</span>
+        <span id="ai-learn-toggle-meta" class="ai-learn-toggle-meta"></span>
+        <span class="ai-learn-chevron" aria-hidden="true">▸</span>
+      </div>
+      <div class="ai-learn-body">
+        <div class="ai-learn-header">
+          <span class="ai-learn-title">✨ AI Self-Learning</span>
+          <span id="ai-learn-accuracy" class="ai-learn-accuracy"></span>
+        </div>
+        <ul id="ai-learn-notes" class="ai-learn-notes"></ul>
+        <div class="ai-learn-header ai-learn-header--ml">
+          <span class="ai-learn-title">🤖 ML Self-Learning</span>
+          <span id="ai-learn-ml-accuracy" class="ai-learn-accuracy"></span>
+        </div>
+        <ul id="ai-learn-ml-notes" class="ai-learn-notes"></ul>
+      </div>
+    </div>
+
+    <div id="validation-loading" class="validation-loading hidden">
+      <div class="spinner"></div>
+      <p>Running validation checks...</p>
+    </div>
+
+    <div class="val-source-bar">
+      <span class="val-source-lbl">Model</span>
+      <button class="val-source-btn" data-vsource="ai" onclick="setValSource('ai')">✨ AI</button>
+      <button class="val-source-btn" data-vsource="ml" onclick="setValSource('ml')">🤖 ML</button>
+      <button class="val-source-btn active" data-vsource="both" onclick="setValSource('both')">Both</button>
+      <span class="val-source-hint" id="val-agree-hint"></span>
+    </div>
+
+    <div class="validation-stats" id="validation-stats">
+      <div class="vstat-card">
+        <span class="vstat-label">Today Hit Rate</span>
+        <span class="vstat-val" id="vstat-intraday">—</span>
+        <span class="vstat-sub" id="vstat-intraday-sub"></span>
+      </div>
+      <div class="vstat-card">
+        <span class="vstat-label">1D Hit Rate</span>
+        <span class="vstat-val" id="vstat-1d">—</span>
+        <span class="vstat-sub" id="vstat-1d-sub"></span>
+      </div>
+      <div class="vstat-card vstat-card--highconf">
+        <span class="vstat-label">HIGH-Conf Hit Rate</span>
+        <span class="vstat-val" id="vstat-highconf">—</span>
+        <span class="vstat-sub" id="vstat-highconf-sub"></span>
+      </div>
+      <div class="vstat-card">
+        <span class="vstat-label">Pending</span>
+        <span class="vstat-val" id="vstat-pending">—</span>
+        <span class="vstat-sub" id="vstat-pending-sub"></span>
+      </div>
+    </div>
+
+    <div class="validation-tabs">
+      <button class="vtab active" data-vtab="pending">Pending Validation</button>
+      <button class="vtab" data-vtab="history">Validation History</button>
+      <button class="vtab" data-vtab="misses">Miss Analysis</button>
+    </div>
+
+    <div class="vtab-content active" id="vtab-pending">
+      <div class="tf-pills" id="pending-tf-filter" style="margin-bottom:12px">
+        <button class="tf-pill active" data-tf="ALL">All</button>
+        <button class="tf-pill" data-tf="INTRADAY">Today</button>
+        <button class="tf-pill" data-tf="1D">1D</button>
+      </div>
+      <div id="pending-validation-list"></div>
+    </div>
+
+    <div class="vtab-content" id="vtab-history">
+      <div class="tf-pills" id="history-tf-filter" style="margin-bottom:12px">
+        <button class="tf-pill active" data-tf="ALL">All</button>
+        <button class="tf-pill" data-tf="INTRADAY">Today</button>
+        <button class="tf-pill" data-tf="1D">1D</button>
+      </div>
+      <div id="validation-history-list"></div>
+    </div>
+
+    <div class="vtab-content" id="vtab-misses">
+      <div id="validation-miss-breakdown"></div>
+      <div id="validation-miss-list"></div>
+    </div>
+  </section>
+
+</div><!-- .main-wrapper -->
+
+<!-- ══════════════ NEW TRADE MODAL ═══════════════ -->
+<div class="modal-overlay hidden" id="trade-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">New Paper Trade</h2>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row two-col">
+        <div class="form-group">
+          <label class="form-label">Ticker</label>
+          <input id="tm-ticker" type="text" placeholder="RELIANCE.NS">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Direction</label>
+          <select id="tm-direction">
+            <option value="LONG">LONG (Buy)</option>
+            <option value="SHORT">SHORT (Sell)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row two-col">
+        <div class="form-group">
+          <label class="form-label">Entry Price (₹)</label>
+          <input id="tm-entry" type="number" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Shares</label>
+          <input id="tm-shares" type="number" min="1" placeholder="0">
+        </div>
+      </div>
+      <div class="form-row two-col">
+        <div class="form-group">
+          <label class="form-label">Stop Loss (₹ optional)</label>
+          <input id="tm-sl" type="number" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target (₹ optional)</label>
+          <input id="tm-target" type="number" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="modal-cancel">Cancel</button>
+      <button class="btn-primary" id="modal-submit">Open Trade</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ CLOSE TRADE MODAL ═════════════ -->
+<div class="modal-overlay hidden" id="close-modal">
+  <div class="modal modal--sm">
+    <div class="modal-header">
+      <h2 class="modal-title">Exit Position</h2>
+      <button class="modal-close" id="close-modal-x">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc" id="close-modal-desc"></p>
+      <div class="form-group">
+        <label class="form-label">Exit Price (₹)</label>
+        <input id="close-exit-price" type="number" step="0.01" placeholder="Enter exit price">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Shares to exit <span id="close-shares-hint" style="color:var(--text-muted);font-weight:400"></span></label>
+        <input id="close-shares" type="number" min="1" step="1" placeholder="Leave blank to exit all">
+      </div>
+      <button class="btn-ghost btn-sm" id="close-fetch-price">Fetch current market price</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="close-modal-cancel">Cancel</button>
+      <button class="btn-primary" id="close-modal-submit">Exit Position</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ NEWS MODAL ══════════════════════════ -->
+<div class="modal-overlay hidden" id="news-modal">
+  <div class="modal modal--news">
+    <div class="modal-header">
+      <h2 class="modal-title" id="news-modal-title">Latest News</h2>
+      <button class="modal-close" id="news-modal-close">&times;</button>
+    </div>
+    <div class="modal-body modal-body--scroll" id="news-modal-body"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ MOBILE NAV ══════════════════════════ -->
+<nav class="mobile-nav" id="mobile-nav">
+  <a class="nav-item mobile-nav-item active" data-view="dashboard" href="#">
+    <span class="mobile-nav-icon">⬛</span>
+    <span class="mobile-nav-label">Dashboard</span>
+  </a>
+  <a class="nav-item mobile-nav-item" data-view="watchlist" href="#">
+    <span class="mobile-nav-icon">◎</span>
+    <span class="mobile-nav-label">Watchlist</span>
+  </a>
+  <a class="nav-item mobile-nav-item" data-view="portfolio" href="#">
+    <span class="mobile-nav-icon">◑</span>
+    <span class="mobile-nav-label">Portfolio</span>
+  </a>
+  <a class="nav-item mobile-nav-item" data-view="validation" href="#">
+    <span class="mobile-nav-icon">✓</span>
+    <span class="mobile-nav-label">Valid.</span>
+  </a>
+</nav>
+
+<script src="/static/app.js?v=20260804a"></script>
+</body>
+</html>

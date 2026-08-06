@@ -1,0 +1,276 @@
+{
+  "package_version": "1.0.0",
+  "created_at": "2026-08-05",
+  "purpose": "Portable CKB 17-variable single-sample inference package",
+  "feature_count": 17,
+  "features": [
+    "sex",
+    "age",
+    "edu_level",
+    "marital_status",
+    "work",
+    "retire",
+    "hh_size",
+    "smoking",
+    "alcohol",
+    "height_cm",
+    "weight_kg",
+    "waist_cm",
+    "sbp_mmhg",
+    "dbp_mmhg",
+    "bp_drugs",
+    "self_health",
+    "chronic_pain"
+  ],
+  "feature_labels": {
+    "sex": "Sex",
+    "age": "Age",
+    "edu_level": "Education",
+    "marital_status": "Marital status",
+    "work": "Employment",
+    "retire": "Retirement",
+    "hh_size": "Household size",
+    "smoking": "Smoking",
+    "alcohol": "Alcohol use",
+    "height_cm": "Height (cm)",
+    "weight_kg": "Weight (kg)",
+    "waist_cm": "Waist (cm)",
+    "sbp_mmhg": "Systolic BP (mmHg)",
+    "dbp_mmhg": "Diastolic BP (mmHg)",
+    "bp_drugs": "BP medication",
+    "self_health": "Self-rated health",
+    "chronic_pain": "Chronic pain"
+  },
+  "cluster": {
+    "model": "frozen nearest-centroid CKB K=3 model",
+    "frozen_model_file": "cluster/frozen_model.npz",
+    "calibration_file": "cluster/calibration_model.npz",
+    "threshold_file": "cluster/ood_thresholds.json",
+    "shap_surrogate_file": "cluster/cluster_shap_surrogate_random_forest.joblib",
+    "label_mapping": {
+      "0": "C1",
+      "1": "C2",
+      "2": "C3"
+    },
+    "assignment_rule": "Frozen log1p/mean/SD preprocessing followed by nearest-centroid assignment; no cohort refitting.",
+    "uncertainty_rule": "Uncertain when nearest distance exceeds the frozen OOB cluster p99.5 threshold or the frozen margin p5 threshold.",
+    "ood_rule": "OOD when nearest-centroid distance exceeds the frozen OOB overall p99.9 threshold.",
+    "shap_target": "Multiclass RF surrogate probability for the deployed C1/C2/C3 label; not the geometric nearest-centroid distance."
+  },
+  "outcome_selection": {
+    "selection_basis": "Selected from the completed 13-outcome, 12-model analysis using bootstrap AUROC/AUPRC review and the full-CKB metrics table.",
+    "selection_note": "MLP is selected for 10 outcomes; RF is selected for F00_F99, H00_H95, and L00_L99.",
+    "threshold_source": "Full-CKB ROC Youden threshold retained in bootstrap_metrics CSVs; the displayed metrics CSV rounds the label to three decimals.",
+    "classification_rule": "high_risk if predicted probability >= the stored Youden threshold; otherwise low_risk."
+  },
+  "outcomes": {
+    "death": {
+      "display_name": "All-cause death",
+      "model": "MLP",
+      "classifier_file": "classifier_MLP.pkl",
+      "shap_surrogate_file": "shap_surrogate_mlp.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.5012952941656112,
+      "event_column": "all_cause_death",
+      "baseline_exclusion": null,
+      "full_metrics": {
+        "AUROC": 0.8363816708388498,
+        "AUPRC": 0.4179051223562835,
+        "N": 504448,
+        "events": 51746
+      }
+    },
+    "A00_B99": {
+      "display_name": "Infectious and parasitic diseases",
+      "model": "MLP",
+      "classifier_file": "classifier_MLP.pkl",
+      "shap_surrogate_file": "shap_surrogate_mlp.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.5017829686403275,
+      "event_column": "fu_icd_A00_B99",
+      "baseline_exclusion": "base_icd_A00_B99 == 1",
+      "full_metrics": {
+        "AUROC": 0.6321502686746348,
+        "AUPRC": 0.0646490021863826,
+        "N": 504446,
+        "events": 19433
+      }
+    },
+    "C00_D48": {
+      "display_name": "Neoplasms",
+      "model": "MLP",
+      "classifier_file": "classifier_MLP.pkl",
+      "shap_surrogate_file": "shap_surrogate_mlp.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.4923201948404312,
+      "event_column": "fu_icd_C00_D48",
+      "baseline_exclusion": "base_icd_C00_D48 == 1",
+      "full_metrics": {
+        "AUROC": 0.6183922061016776,
+        "AUPRC": 0.1295733013366395,
+        "N": 504418,
+        "events": 44506
+      }
+    },
+    "E00_E90": {
+      "display_name": "Endocrine and metabolic diseases",
+      "model": "MLP",
+      "classifier_file": "classifier_MLP.pkl",
+      "shap_surrogate_file": "shap_surrogate_mlp.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.5084152054786683,
+      "event_column": "fu_icd_E00_E90",
+      "baseline_exclusion": "base_icd_E00_E90 == 1",
+      "full_metrics": {
+        "AUROC": 0.7055830304149415,
+        "AUPRC": 0.1785838941088741,
+        "N": 504374,
+        "events": 42527
+      }
+    },
+    "F00_F99": {
+      "display_name": "Mental and behavioural disorders",
+      "model": "RandomForest",
+      "classifier_file": "classifier_RandomForest.pkl",
+      "shap_surrogate_file": "shap_surrogate_randomforest.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.5154800715462367,
+      "event_column": "fu_icd_F00_F99",
+      "baseline_exclusion": "base_icd_F00_F99 == 1",
+      "full_metrics": {
+        "AUROC": 0.644468573786205,
+        "AUPRC": 0.0208397913164343,
+        "N": 504447,
+        "events": 5172
+      }
+    },
+    "G00_G99": {
+      "display_name": "Diseases of the nervous system",
+      "model": "MLP",
+      "classifier_file": "classifier_MLP.pkl",
+      "shap_surrogate_file": "shap_surrogate_mlp.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.4989456975460053,
+      "event_column": "fu_icd_G00_G99",
+      "baseline_exclusion": "base_icd_G00_G99 == 1",
+      "full_metrics": {
+        "AUROC": 0.6610149913039929,
+        "AUPRC": 0.1135425777483282,
+        "N": 504441,
+        "events": 31609
+      }
+    },
+    "H00_H95": {
+      "display_name": "Diseases of the eye and ear",
+      "model": "RandomForest",
+      "classifier_file": "classifier_RandomForest.pkl",
+      "shap_surrogate_file": "shap_surrogate_randomforest.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.5101334088917719,
+      "event_column": "fu_icd_H00_H95",
+      "baseline_exclusion": "base_icd_H00_H95 == 1",
+      "full_metrics": {
+        "AUROC": 0.6929720836348046,
+        "AUPRC": 0.129712235105834,
+        "N": 504441,
+        "events": 33706
+      }
+    },
+    "I00_I99": {
+      "display_name": "Diseases of the circulatory system",
+      "model": "MLP",
+      "classifier_file": "classifier_MLP.pkl",
+      "shap_surrogate_file": "shap_surrogate_mlp.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.501055999994278,
+      "event_column": "fu_icd_I00_I99",
+      "baseline_exclusion": "base_icd_I00_I99 == 1",
+      "full_metrics": {
+        "AUROC": 0.7457492855272428,
+        "AUPRC": 0.5097043466025988,
+        "N": 504395,
+        "events": 137537
+      }
+    },
+    "J00_J99": {
+      "display_name": "Diseases of the respiratory system",
+      "model": "MLP",
+      "classifier_file": "classifier_MLP.pkl",
+      "shap_surrogate_file": "shap_surrogate_mlp.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.5102718234062195,
+      "event_column": "fu_icd_J00_J99",
+      "baseline_exclusion": "base_icd_J00_J99 == 1",
+      "full_metrics": {
+        "AUROC": 0.6753863521365581,
+        "AUPRC": 0.2577090089478341,
+        "N": 504433,
+        "events": 70035
+      }
+    },
+    "K00_K93": {
+      "display_name": "Diseases of the digestive system",
+      "model": "MLP",
+      "classifier_file": "classifier_MLP.pkl",
+      "shap_surrogate_file": "shap_surrogate_mlp.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.5021328943967819,
+      "event_column": "fu_icd_K00_K93",
+      "baseline_exclusion": "base_icd_K00_K93 == 1",
+      "full_metrics": {
+        "AUROC": 0.5949307479632909,
+        "AUPRC": 0.2093509246262961,
+        "N": 504431,
+        "events": 76326
+      }
+    },
+    "L00_L99": {
+      "display_name": "Diseases of the skin",
+      "model": "RandomForest",
+      "classifier_file": "classifier_RandomForest.pkl",
+      "shap_surrogate_file": "shap_surrogate_randomforest.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.5008632530575607,
+      "event_column": "fu_icd_L00_L99",
+      "baseline_exclusion": "base_icd_L00_L99 == 1",
+      "full_metrics": {
+        "AUROC": 0.6242937724091122,
+        "AUPRC": 0.0190517595636067,
+        "N": 504447,
+        "events": 5566
+      }
+    },
+    "M00_M99": {
+      "display_name": "Musculoskeletal diseases",
+      "model": "MLP",
+      "classifier_file": "classifier_MLP.pkl",
+      "shap_surrogate_file": "shap_surrogate_mlp.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.4929879426956177,
+      "event_column": "fu_icd_M00_M99",
+      "baseline_exclusion": "base_icd_M00_M99 == 1",
+      "full_metrics": {
+        "AUROC": 0.6227083457250016,
+        "AUPRC": 0.169105913949778,
+        "N": 504442,
+        "events": 55806
+      }
+    },
+    "N00_N99": {
+      "display_name": "Diseases of the genitourinary system",
+      "model": "MLP",
+      "classifier_file": "classifier_MLP.pkl",
+      "shap_surrogate_file": "shap_surrogate_mlp.pkl",
+      "shap_explainer_file": "shap_explainer.pkl",
+      "youden_threshold": 0.4924136799573898,
+      "event_column": "fu_icd_N00_N99",
+      "baseline_exclusion": "base_icd_N00_N99 == 1",
+      "full_metrics": {
+        "AUROC": 0.6201435165350175,
+        "AUPRC": 0.1279624827192337,
+        "N": 504434,
+        "events": 42585
+      }
+    }
+  }
+}

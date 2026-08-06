@@ -1,0 +1,200 @@
+{
+  "_doc": "v2 P2 模板：template = roles + flow（不变量），task = 运行时变量。\n\n设计原则（v2 §0.5）：\n- groups 定义工作流节点（不变量）\n- groups.decomposition_rules 描述 lead 如何拆 task（不变量）\n- groups.deliverable 描述本群产出（不变量）\n- groups.input_dependencies 描述上游依赖（不变量）\n- 实际 task 数量 / 标题 / 字数 = 变量（lead 运行时调 create_task 创建）\n- 实际资源 = 变量（lead 运行时调 write_resource 创建）\n\n任何小说都套这个模板，5 个 lead 按规则拆出 N 章 / N 卷 / N 人物。",
+  "groups": [
+    {
+      "name": "灵感孵化",
+      "description": "把'想写个故事'变成'清晰的项目立项'。",
+      "lead_agent": "主编·墨言",
+      "order_index": 0,
+      "autonomy_level": "semi_auto",
+      "members": [
+        { "agent_name": "主编·墨言", "role": "lead" },
+        { "agent_name": "故事架构师·织梦", "role": "participant" },
+        { "agent_name": "读者代理·灯下", "role": "participant" }
+      ],
+      "input_dependencies": [],
+      "deliverable": {
+        "type": "resource",
+        "title": "项目立项书",
+        "content_type": "markdown",
+        "is_required": true,
+        "min_content_length": 200
+      },
+      "decomposition_rules": "交付物: 项目立项书。你需要调研核心创意（主题、类型、冲突、受众），整合为一份立项书。织梦协助主题与冲突分析，灯下协助类型与受众分析。完成后通知 coordinator。",
+      "tasks": []
+    },
+    {
+      "name": "世界观设定",
+      "description": "把'故事的土壤'立起来——时代、地理、力量体系、历史、文化。",
+      "lead_agent": "世界观架构师·筑界",
+      "order_index": 1,
+      "autonomy_level": "semi_auto",
+      "members": [
+        { "agent_name": "世界观架构师·筑界", "role": "lead" },
+        { "agent_name": "主编·墨言", "role": "participant" },
+        { "agent_name": "读者代理·灯下", "role": "participant" }
+      ],
+      "input_dependencies": [
+        { "from_group": "灵感孵化", "deliverable": "项目立项书" }
+      ],
+      "deliverable": {
+        "type": "resource",
+        "title": "世界观设定",
+        "content_type": "markdown",
+        "is_required": true,
+        "min_content_length": 1500
+      },
+      "decomposition_rules": "交付物: 世界观设定文档。先 read_resource 读项目立项书了解故事类型。按题材输出时代地理、力量体系、历史文化、社会结构等维度。筑界主导创作，灯下协助市场视角校验。完成后通知 coordinator。",
+      "tasks": []
+    },
+    {
+      "name": "人物档案",
+      "description": "立人——主角/配角/反派设定、人物弧光、关系网。",
+      "lead_agent": "人物设定师·塑魂",
+      "order_index": 2,
+      "autonomy_level": "semi_auto",
+      "members": [
+        { "agent_name": "人物设定师·塑魂", "role": "lead" },
+        { "agent_name": "主编·墨言", "role": "participant" },
+        { "agent_name": "故事架构师·织梦", "role": "participant" }
+      ],
+      "input_dependencies": [
+        { "from_group": "灵感孵化", "deliverable": "项目立项书" },
+        { "from_group": "世界观设定", "deliverable": "世界观设定" }
+      ],
+      "deliverable": {
+        "type": "resource",
+        "title": "人物档案",
+        "content_type": "markdown",
+        "is_required": true,
+        "min_content_length": 1500
+      },
+      "decomposition_rules": "交付物: 人物档案。先 read_resource 读项目立项书和世界观设定。需要产出主角/配角/反派人物卡、关键关系图、冲突矩阵。塑魂负责人物建立，织梦协助检验人物能否支撑主线事件。完成后通知 coordinator。",
+      "tasks": []
+    },
+    {
+      "name": "主线大纲",
+      "description": "立骨架——主题、结构、主线事件、副线、伏笔。",
+      "lead_agent": "故事架构师·织梦",
+      "order_index": 3,
+      "autonomy_level": "semi_auto",
+      "members": [
+        { "agent_name": "故事架构师·织梦", "role": "lead" },
+        { "agent_name": "主编·墨言", "role": "participant" },
+        { "agent_name": "人物设定师·塑魂", "role": "participant" },
+        { "agent_name": "逻辑审校·较真", "role": "participant" }
+      ],
+      "input_dependencies": [
+        { "from_group": "灵感孵化", "deliverable": "项目立项书" },
+        { "from_group": "人物档案", "deliverable": "人物档案" }
+      ],
+      "deliverable": {
+        "type": "resource",
+        "title": "主线大纲",
+        "content_type": "markdown",
+        "is_required": true,
+        "min_content_length": 2000
+      },
+      "decomposition_rules": "交付物: 主线大纲。先 read_resource 读项目立项书和人物档案。需要产出结构选型、节拍表、主线事件序列、副线与伏笔规划。织梦主导创作，较真协助逻辑自检。完成后通知 coordinator。",
+      "tasks": []
+    },
+    {
+      "name": "章节细纲",
+      "description": "把骨架拆成章节——分卷、章节目录、重点章细纲。",
+      "lead_agent": "故事架构师·织梦",
+      "order_index": 4,
+      "autonomy_level": "semi_auto",
+      "members": [
+        { "agent_name": "故事架构师·织梦", "role": "lead" },
+        { "agent_name": "主笔作家·落笔", "role": "participant" },
+        { "agent_name": "逻辑审校·较真", "role": "participant" },
+        { "agent_name": "主编·墨言", "role": "participant" }
+      ],
+      "input_dependencies": [
+        { "from_group": "主线大纲", "deliverable": "主线大纲" },
+        { "from_group": "人物档案", "deliverable": "人物档案" }
+      ],
+      "deliverable": {
+        "type": "resource",
+        "title": "章节细纲",
+        "content_type": "markdown",
+        "is_required": true,
+        "min_content_length": 3000
+      },
+      "decomposition_rules": "交付物: 章节细纲。先 read_resource 读主线大纲和人物档案。根据故事长度自行评估章节数。需要产出分卷方案、章节目录（标题/POV/钩子/字数目标）、重点章细纲（开场/中点/高潮/结尾）。落笔参与重点章细纲，较真协助自检。完成后通知 coordinator。",
+      "tasks": []
+    },
+    {
+      "name": "章节正文",
+      "description": "写正文。每章 = 1 个 task（运行时由 lead 动态生成）。",
+      "lead_agent": "主笔作家·落笔",
+      "order_index": 5,
+      "autonomy_level": "full_auto",
+      "members": [
+        { "agent_name": "主笔作家·落笔", "role": "lead" },
+        { "agent_name": "风格润色师·点墨", "role": "participant" },
+        { "agent_name": "逻辑审校·较真", "role": "participant" }
+      ],
+      "input_dependencies": [
+        { "from_group": "章节细纲", "deliverable": "章节细纲" }
+      ],
+      "deliverable": {
+        "type": "resource_set",
+        "title": "N 章正文",
+        "content_type": "markdown",
+        "is_required": true,
+        "min_total_length": 100000
+      },
+      "decomposition_rules": "交付物: N 章正文（资源集合）。先 read_resource 读章节细纲解析章数 N。逐章写作，每章调 write_resource 存为项目资源。点墨参与润色，较真参与中期评审。章节数 N 由你根据细纲自行决定。完成后通知 coordinator。",
+      "tasks": []
+    },
+    {
+      "name": "审校润色",
+      "description": "全稿质量提升。一致性 + 文笔 + 读者反馈 + 修订循环。",
+      "lead_agent": "风格润色师·点墨",
+      "order_index": 6,
+      "autonomy_level": "manual",
+      "members": [
+        { "agent_name": "风格润色师·点墨", "role": "lead" },
+        { "agent_name": "逻辑审校·较真", "role": "participant" },
+        { "agent_name": "读者代理·灯下", "role": "participant" },
+        { "agent_name": "主编·墨言", "role": "participant" }
+      ],
+      "input_dependencies": [
+        { "from_group": "章节正文", "deliverable": "N 章正文" }
+      ],
+      "deliverable": {
+        "type": "resource",
+        "title": "审校报告",
+        "content_type": "markdown",
+        "is_required": true,
+        "min_content_length": 1000
+      },
+      "decomposition_rules": "交付物: 审校报告。先 read_resource 读正文资源集。从一致性检查（较真）、文笔润色（点墨）、读者反馈（灯下）三个维度并行审校。需要产出修订对照表和修订建议。含修订循环决策——通过则推进出版，有修改则打回修订。完成后通知 coordinator。",
+      "tasks": []
+    },
+    {
+      "name": "出版准备",
+      "description": "上架前的物料——书名、简介、卖点、封面概念。",
+      "lead_agent": "主编·墨言",
+      "order_index": 7,
+      "autonomy_level": "semi_auto",
+      "members": [
+        { "agent_name": "主编·墨言", "role": "lead" },
+        { "agent_name": "读者代理·灯下", "role": "participant" }
+      ],
+      "input_dependencies": [
+        { "from_group": "审校润色", "deliverable": "审校报告" }
+      ],
+      "deliverable": {
+        "type": "resource",
+        "title": "出版物料",
+        "content_type": "markdown",
+        "is_required": false,
+        "min_content_length": 500
+      },
+      "decomposition_rules": "交付物: 出版物料（书名、简介、卖点、封面概念）。先 read_resource 读审校报告。灯下负责书名备选与内容简介、卖点分析，墨言负责封面概念与推荐语。完成后通知 coordinator。",
+      "tasks": []
+    }
+  ]
+}

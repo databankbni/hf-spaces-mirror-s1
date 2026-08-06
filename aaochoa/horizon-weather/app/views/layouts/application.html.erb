@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- Theme setup script to prevent flash of light/dark theme -->
+    <script>
+      (function() {
+        const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
+    <title><%= content_for(:title) || "Horizon Weather" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Horizon Weather">
+    <meta name="mobile-web-app-capable" content="yes">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= yield :head %>
+
+    <link rel="icon" href="/icon.svg?v=2" type="image/svg+xml">
+    <link rel="icon" href="/icon.png?v=2" type="image/png">
+    <link rel="apple-touch-icon" href="/icon.png?v=2">
+
+    <!-- Leaflet.js Map CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <%# Includes all stylesheet files in app/assets/stylesheets %>
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-900 transition-colors duration-300"
+        data-controller="app-start-location"
+        data-user-logged-in="<%= authenticated? %>"
+        data-user-id="<%= Current.user&.id %>">
+    <%= render "layouts/header" %>
+
+    <!-- Flash Notifications (Toast Container) -->
+    <div id="flash_container" class="fixed top-20 right-4 sm:right-6 z-[100] flex flex-col gap-3 max-w-md w-[calc(100vw-2rem)] sm:w-96 pointer-events-none">
+      <% if flash.any? %>
+        <% flash.each do |type, message| %>
+          <%= render "layouts/flash", type: type, message: message %>
+        <% end %>
+      <% end %>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="<%= content_for?(:main_class) ? yield(:main_class) : "flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full" %>">
+      <%= yield %>
+    </main>
+
+    <% unless content_for?(:hide_footer) %>
+      <footer class="border-t border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-950/40 py-6 mt-12 text-center text-xs text-slate-500 transition-colors duration-300">
+        <p>&copy; <%= Time.current.year %> Horizon Weather. Powered by Open-Meteo & Leaflet.</p>
+      </footer>
+    <% end %>
+
+    <!-- Initialize Lucide Icons -->
+    <script>
+      function initLucide() {
+        if (typeof lucide !== 'undefined') {
+          lucide.createIcons();
+        }
+      }
+      document.addEventListener("turbo:load", initLucide);
+      document.addEventListener("turbo:render", initLucide);
+      document.addEventListener("turbo:frame-load", initLucide);
+      document.addEventListener("turbo:before-stream-render", function(event) {
+        const originalRender = event.detail.render;
+        event.detail.render = function(streamElement) {
+          originalRender(streamElement);
+          initLucide();
+        };
+      });
+    </script>
+  </body>
+</html>

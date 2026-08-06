@@ -1,0 +1,52 @@
+<details class="group rounded-3xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 backdrop-blur-md p-6 shadow-lg dark:shadow-xl transition-colors duration-300 [&_summary::-webkit-details-marker]:hidden">
+  <summary class="flex items-center justify-between cursor-pointer focus:outline-none list-none select-none">
+    <div class="flex items-center gap-2">
+      <h3 class="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+        <i data-lucide="clock" class="w-5 h-5 text-cyan-500 dark:text-cyan-400"></i>
+        <span>Hourly Forecast</span>
+      </h3>
+      <span class="text-xs text-slate-500 dark:text-slate-400">Next 12 Hours</span>
+    </div>
+    <div class="text-slate-400 dark:text-slate-500 transition-transform duration-300 group-open:rotate-180">
+      <i data-lucide="chevron-down" class="w-5 h-5"></i>
+    </div>
+  </summary>
+
+  <!-- Horizontal scrolling list of hourly data -->
+  <div class="mt-4 flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent">
+    <%
+      location_zone = @weather["timezone"] ? Time.find_zone(@weather["timezone"]) : nil
+      location_zone ||= Time.zone
+      current_hour_start = @local_time.beginning_of_hour
+      start_idx = hourly["time"].index { |t| location_zone.parse(t) >= current_hour_start } || 0
+    %>
+    <% 12.times do |offset| %>
+      <% idx = start_idx + offset %>
+      <% next if idx >= hourly["time"].size %>
+      <% time = location_zone.parse(hourly["time"][idx]) %>
+      <% temp = hourly["temperature_2m"][idx].round %>
+      <% prob = hourly["precipitation_probability"][idx] %>
+      <% h_info = WeatherService.weather_info(hourly["weather_code"][idx], hourly["is_day"] ? hourly["is_day"][idx] : 1) %>
+      <% is_current = (idx == start_idx) %>
+      
+      <div class="<%= is_current ? 'flex-shrink-0 w-20 p-3 rounded-2xl bg-cyan-50/20 dark:bg-cyan-950/30 border border-cyan-500/70 dark:border-cyan-400/70 shadow-md text-center space-y-3 transition ring-1 ring-cyan-500/20' : 'flex-shrink-0 w-20 p-3 rounded-2xl bg-slate-100/40 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-800 text-center space-y-3 transition' %>">
+        <span class="text-sm <%= is_current ? 'font-extrabold text-cyan-600 dark:text-cyan-400' : 'font-semibold text-slate-500 dark:text-slate-400' %>">
+          <%= is_current ? "Now" : time.strftime("%H:%M") %>
+        </span>
+        <div class="flex justify-center">
+          <i data-lucide="<%= h_info[:icon] %>" class="w-8 h-8 <%= is_current ? 'text-cyan-500 dark:text-cyan-400' : 'text-cyan-600 dark:text-cyan-400' %> stroke-[1.5]"></i>
+        </div>
+        <div class="text-sm font-bold <%= is_current ? 'text-cyan-700 dark:text-cyan-300 font-extrabold' : 'text-slate-900 dark:text-white' %>" data-unit-type="temp" data-metric-value="<%= metric_temp(hourly["temperature_2m"][idx]) %>"><%= temp %>°</div>
+        
+        <% if prob && prob > 0 %>
+          <div class="flex items-center justify-center gap-0.5 text-[10px] font-bold text-cyan-600 dark:text-cyan-400">
+            <i data-lucide="droplets" class="w-2.5 h-2.5"></i>
+            <span><%= prob %>%</span>
+          </div>
+        <% else %>
+          <div class="h-4"></div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</details>

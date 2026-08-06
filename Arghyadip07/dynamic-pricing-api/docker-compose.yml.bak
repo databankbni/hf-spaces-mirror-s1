@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: dynamic_pricing_api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+    command: python scripts/run_api.py
+    restart: unless-stopped
+    networks:
+      - pricing_network
+
+  dashboard:
+    build: .
+    container_name: dynamic_pricing_dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    command: python -m streamlit run apps/dashboard/streamlit_app.py
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - pricing_network
+
+networks:
+  pricing_network:
+    driver: bridge

@@ -1,0 +1,142 @@
+# Reference Router 配置设计
+
+> 按比赛类型路由需要加载的 references，避免每场加载全部 26 个
+> 未命中的 references 只读取标题行（frontmatter description），不加载全文
+
+---
+
+## 路由规则
+
+### 1. 普通足球联赛 (league, cup non-WC)
+
+```yaml
+match_type: normal_league
+condition: "!is_wc_match && !is_knockout && !is_data_issue"
+load_full:
+  - football-adapter.md
+  - ah-ou-ev-selection.md
+  - ah-ou-line-coverage.md
+  - scoring-and-report.md
+  - execution-checklist.md
+load_summary_only:
+  - water-kline-trap-detection.md
+  - non-wc-kline-calibration.md
+  - titan007-data-sourcing.md
+  - data-source-strategy.md
+expected_tokens: ~900 (vs full 2,956 = 69% reduction)
+```
+
+### 2. 世界杯小组赛
+
+```yaml
+match_type: wc_group
+condition: "is_wc_match && !is_knockout"
+load_full:
+  - wc-group-hypothesis.md
+  - wc-2026-kline-audit.md
+  - execution-checklist.md
+  - ah-ou-line-coverage.md
+  - scoring-and-report.md
+load_summary_only:
+  - football-adapter.md
+  - ah-ou-ev-selection.md
+  - knockout-history.md
+  - water-kline-trap-detection.md
+expected_tokens: ~1,200 (59% reduction)
+```
+
+### 3. 世界杯淘汰赛
+
+```yaml
+match_type: wc_knockout
+condition: "is_wc_match && is_knockout"
+load_full:
+  - wc-knockout-workflow.md
+  - knockout-history.md
+  - knockout-empirical-data.md
+  - ah-ou-line-coverage.md
+  - execution-checklist.md
+  - scoring-and-report.md
+load_summary_only:
+  - football-adapter.md
+  - ah-ou-ev-selection.md
+  - wc-group-hypothesis.md
+  - water-kline-trap-detection.md
+expected_tokens: ~1,500 (48% reduction)
+```
+
+### 4. 数据源问题排查
+
+```yaml
+match_type: data_troubleshooting
+condition: "data_quality == missing || data_quality == stale || inplay_pollution_risk"
+load_full:
+  - titan007-data-sourcing.md
+  - data-source-strategy.md
+  - changedetection-pipeline.md
+  - execution-checklist.md
+load_summary_only:
+  - football-adapter.md
+  - ah-ou-line-coverage.md
+expected_tokens: ~900 (69% reduction)
+```
+
+### 5. K线异常排查
+
+```yaml
+match_type: kline_anomaly
+condition: "kline_confidence <= 3 && water_reversal_detected"
+load_full:
+  - water-kline-trap-detection.md
+  - non-wc-kline-calibration.md
+  - wc-2026-kline-audit.md
+  - execution-checklist.md
+load_summary_only:
+  - football-adapter.md
+  - ah-ou-line-coverage.md
+expected_tokens: ~800 (72% reduction)
+```
+
+### 6. 默认摘要格式（未命中时）
+
+每个未加载全文的 reference 只显示：
+
+```yaml
+reference_summary:
+  - file_name: "changedetection-setup.md"
+  - title: "changedetection.io 部署笔记"
+  - description: "pip install策略, 启动命令, 端口配置, Titan007 API header要求"
+  - relevance: "low"
+  - load_full_if_needed: true
+```
+
+## 实现方式
+
+```python
+# reference_router.py (new)
+ROUTES = [
+    {
+        "match_type": "normal_league",
+        "condition": lambda ctx: not ctx.get("is_wc") and not ctx.get("is_knockout"),
+        "load_full": ["football-adapter.md", "ah-ou-ev-selection.md", ...],
+        "load_summary_only": [...],
+    },
+    # ... 更多路由
+]
+
+def get_references(match_ctx):
+    """返回(references_to_load_full, references_summary_only)"""
+    for route in ROUTES:
+        if route["condition"](match_ctx):
+            return route["load_full"], route["load_summary_only"]
+    # 兜底: 只加载最少的
+    return ["football-adapter.md", "ah-ou-line-coverage.md", "execution-checklist.md"], []
+```
+
+## 验收
+
+- [ ] 普通联赛：只加载5个full refs + 4个summary，不加载26个
+- [ ] WC淘汰赛：正确选择knockout refs
+- [ ] 篮球比赛：选择basketball-adapter而非football-adapter
+- [ ] 未命中的refs：只显示一行摘要
+- [ ] 零references漏加载导致的分析准确性下降

@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Klasifikasi Kemiskinan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #f6f8fb;
+    --surface: #ffffff;
+    --ink: #16213a;
+    --ink-soft: #5b6478;
+    --line: #e7ebf2;
+    --blue: #2f6fed;
+    --blue-soft: #eaf1ff;
+    --green: #15a877;
+    --green-soft: #e6f7f1;
+    --red: #e0473f;
+    --red-soft: #fdeceb;
+    --shadow: 0 12px 32px -16px rgba(22,33,58,0.12), 0 2px 8px -4px rgba(22,33,58,0.06);
+    --radius: 18px;
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; }
+
+  body{
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,h2,h3,h4{ font-family:'Sora', sans-serif; letter-spacing:-0.01em; }
+
+  /* ===== HERO ===== */
+  .hero{
+    position: relative;
+    background-image: url('https://images.pexels.com/photos/11091110/pexels-photo-11091110.jpeg');
+    background-size: cover;
+    background-position: center;
+    overflow: hidden;
+    padding: 64px 24px 96px;
+    min-height: 480px;
+    display: flex;
+    align-items: center;
+  }
+  .hero::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background: linear-gradient(135deg, rgba(16,25,45,0.92) 0%, rgba(20,35,65,0.78) 55%, rgba(10,30,55,0.9) 100%);
+    pointer-events:none;
+  }
+  .hero-inner{
+    max-width: 1400px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 2;
+    width: 100%;
+  }
+  .eyebrow{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    color:#9fc3ff;
+    font-size:0.78rem;
+    font-weight:600;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    background: rgba(47,111,237,0.15);
+    border: 1px solid rgba(47,111,237,0.3);
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 24px;
+  }
+  .eyebrow .dot{
+    width:7px; height:7px; border-radius:50%;
+    background:#3ddc97;
+    box-shadow: 0 0 0 0 rgba(61,220,151,0.6);
+    animation: ring 1.6s infinite;
+  }
+  @keyframes ring{
+    0%{ box-shadow: 0 0 0 0 rgba(61,220,151,0.5); }
+    100%{ box-shadow: 0 0 0 8px rgba(61,220,151,0); }
+  }
+  .hero h1{
+    color:#fff;
+    font-size: clamp(2.1rem, 4.2vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.12;
+    margin-bottom: 18px;
+  }
+  .hero h1 span{ color:#7db4ff; }
+  .hero p{
+    color:#c4cee3;
+    font-size: 1.02rem;
+    max-width: 560px;
+    margin-bottom: 36px;
+  }
+  .hero-stats{
+    display:grid;
+    grid-template-columns: repeat(3,1fr);
+    gap:14px;
+    max-width: 460px;
+  }
+  .stat-card{
+    background: rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    padding: 14px 12px;
+    backdrop-filter: blur(6px);
+  }
+  .stat-card .label{
+    color:#9aa8c4;
+    font-size:0.66rem;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  .stat-card .value{
+    color:#fff;
+    font-size:1.18rem;
+    font-weight:700;
+  }
+
+  /* ===== MAIN ===== */
+  .main{
+    max-width: 1400px;
+    margin: -56px auto 80px;
+    padding: 0 24px;
+    position: relative;
+    z-index: 3;
+  }
+
+  .tabs{
+    display:inline-flex;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius: 14px;
+    padding:5px;
+    gap:4px;
+    box-shadow: var(--shadow);
+    margin-bottom: 28px;
+  }
+  .tab-btn{
+    border:none; background:transparent; cursor:pointer;
+    font-family:'Inter',sans-serif;
+    font-weight:600; font-size:0.85rem;
+    color: var(--ink-soft);
+    padding:10px 22px;
+    border-radius:10px;
+    transition: all .18s ease;
+  }
+  .tab-btn.active{
+    background: var(--ink);
+    color:#fff;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 24px;
+  }
+  @media (max-width: 980px){
+    .grid{ grid-template-columns: 1fr; }
+  }
+
+  .card{
+    background: var(--surface);
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 26px;
+    box-shadow: var(--shadow);
+  }
+  .card + .card{ margin-top:24px; }
+
+  .card-head{
+    display:flex; align-items:center; gap:10px;
+    margin-bottom:22px;
+    padding-bottom:14px;
+    border-bottom: 2px solid #f1f4f9;
+  }
+  .card-head .icon-box{
+    width:38px; height:38px; border-radius:12px;
+    background: var(--blue-soft);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--blue);
+    flex-shrink:0;
+  }
+  .card-head h2{ font-size:1.08rem; font-weight:700; color:var(--ink); }
+  .card-head .sub{ font-size:0.8rem; color:var(--ink-soft); margin-top:2px; }
+
+  /* preset buttons */
+  .preset-label{
+    font-size:0.85rem; font-weight:600; color:var(--ink-soft);
+    margin-bottom:10px;
+  }
+  .preset-row{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:22px; }
+  .preset-btn{
+    border:1px solid var(--line); background:#fff;
+    border-radius:12px; padding:11px 8px;
+    font-family:'Inter',sans-serif; font-weight:600; font-size:0.8rem;
+    cursor:pointer; transition: all .15s ease;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    color: var(--ink);
+  }
+  .preset-btn:hover{ border-color:#c8d3e6; background:#fafbff; transform: translateY(-1px); }
+  .preset-btn .dot{ width:8px; height:8px; border-radius:50%; }
+  .preset-btn.tinggi .dot{ background: var(--red); }
+  .preset-btn.rendah .dot{ background: var(--green); }
+
+  /* input groups */
+  .group-title{
+    display:flex; align-items:center; gap:8px;
+    font-size:0.86rem; font-weight:700; color:var(--ink);
+    border-bottom:2px solid #f1f4f9;
+    padding-bottom:8px; margin: 22px 0 16px;
+  }
+  .group-title svg{ color: var(--blue); flex-shrink:0; }
+  .group-title.first{ margin-top:0; }
+
+  .field-grid{ display:grid; grid-template-columns:1fr 1fr; gap: 22px; }
+  @media (max-width:560px){ .field-grid{ grid-template-columns:1fr; } }
+
+  .field{ margin-bottom: 18px; }
+  .field-label{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:0.85rem; font-weight:600; color:var(--ink); margin-bottom:6px;
+  }
+  .field-label .value{
+    font-family:'Sora',sans-serif; font-weight:700; color:var(--blue);
+    font-size:0.95rem;
+  }
+  .field-caption{ font-size:0.74rem; color:var(--ink-soft); margin-bottom:8px; line-height:1.45; }
+
+  input[type="range"]{
+    -webkit-appearance:none; width:100%; height:6px;
+    background: var(--line); border-radius:999px; outline:none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+    background:#fff; border:3px solid var(--blue); cursor:pointer;
+    box-shadow: 0 2px 6px rgba(47,111,237,0.35);
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:18px; height:18px; border-radius:50%;
+    background:#fff; border:3px solid var(--blue); cursor:pointer;
+  }
+
+  .text-input{
+    width:100%; padding:11px 14px; border:1px solid var(--line);
+    border-radius:10px; font-family:'Inter',sans-serif; font-size:0.9rem;
+    color: var(--ink); background:#fff; transition: border-color .15s ease;
+  }
+  .text-input:focus{ outline:none; border-color: var(--blue); box-shadow:0 0 0 3px var(--blue-soft); }
+
+  /* run button */
+  .run-btn{
+    width:100%; margin-top:6px;
+    background: linear-gradient(135deg,#16213a, #2f6fed);
+    color:#fff; border:none; border-radius:12px;
+    padding:15px; font-family:'Sora',sans-serif; font-weight:700; font-size:0.95rem;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px;
+    transition: transform .15s ease, box-shadow .15s ease;
+    box-shadow: 0 12px 24px -10px rgba(47,111,237,0.55);
+  }
+  .run-btn:hover{ transform: translateY(-2px); box-shadow: 0 16px 30px -10px rgba(47,111,237,0.6); }
+
+  /* right column */
+  .illustration{
+    width:100%; border-radius:14px; overflow:hidden; margin-bottom:24px;
+    border:1px solid var(--line);
+  }
+  .illustration svg, .illustration img{ display:block; width:100%; height:auto; }
+  .illustration img{ object-fit: cover; max-height: 220px; }
+
+  .placeholder-box{
+    background:#f8fafc; border:1px dashed #cbd5e1; border-radius:14px;
+    padding:30px 20px; text-align:center; color: var(--ink-soft);
+  }
+  .placeholder-box svg{ color:#94a3b8; margin-bottom:10px; }
+  .placeholder-box .ph-title{ font-weight:700; color:var(--ink); margin-bottom:6px; font-size:0.95rem; font-family:'Sora',sans-serif; }
+  .placeholder-box .ph-text{ font-size:0.82rem; line-height:1.6; }
+
+  .result-skeleton{ display:none; }
+
+  /* result demo states */
+  .result-box{
+    border-radius:14px; padding:26px; text-align:center;
+  }
+  .result-box.poor{ background:var(--red-soft); border:1px solid #fbd9d6; color:#a02b25; }
+  .result-box.notpoor{ background:var(--green-soft); border:1px solid #c9eee0; color:#0c7a57; }
+  .result-box h3{ font-size:1.3rem; font-weight:800; margin: 10px 0 6px; font-family:'Sora',sans-serif; letter-spacing:0.02em; }
+  .result-box p.desc{ font-size:0.86rem; margin-bottom:18px; opacity:0.9; }
+  .conf-label{ font-weight:600; font-size:1rem; margin-bottom:8px; }
+  .conf-bar-bg{ background:rgba(0,0,0,0.08); border-radius:999px; height:10px; overflow:hidden; }
+  .conf-bar-fill{ height:100%; border-radius:999px; }
+  .result-box.poor .conf-bar-fill{ background:#dc2626; }
+  .result-box.notpoor .conf-bar-fill{ background:#059669; }
+  .reco{
+    margin-top:22px; padding-top:16px; border-top:1px solid rgba(0,0,0,0.06);
+    text-align:left;
+  }
+  .reco .reco-title{ font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; }
+  .reco ul{ margin:0; padding-left:18px; font-size:0.83rem; line-height:1.65; }
+
+  /* comparative tab */
+  .select-wrap{ margin-bottom:20px; }
+  select{
+    width:100%; padding:11px 14px; border:1px solid var(--line);
+    border-radius:10px; font-family:'Inter',sans-serif; font-size:0.9rem;
+    color: var(--ink); background:#fff;
+  }
+  .chart-placeholder{
+    border:1px solid var(--line); border-radius:14px; padding:18px;
+    background: linear-gradient(180deg,#fbfdff,#f6f8fb);
+  }
+
+  footer{
+    text-align:center; padding: 30px 24px 50px;
+    color: var(--ink-soft); font-size:0.8rem;
+  }
+
+  /* hide */
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  @media (prefers-reduced-motion: reduce){
+    .eyebrow .dot{ animation:none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-inner">
+    <div style="max-width: 720px;">
+      <div class="eyebrow">Tugas Kelompok 11 &middot; Mata Kuliah Deep Learning</div>
+      <h1>Klasifikasi Kemiskinan <span>Wilayah Indonesia</span></h1>
+      <p>Penerapan model <b>Artificial Neural Network (ANN)</b> untuk mengklasifikasikan tingkat kemiskinan kabupaten/kota berdasarkan data demografi, pendidikan, infrastruktur, dan ekonomi.</p>
+      <div class="hero-stats">
+        <div class="stat-card">
+          <div class="label">Data Wilayah</div>
+          <div class="value">514</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Indikator</div>
+          <div class="value">10</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Model</div>
+          <div class="value">ANN</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MAIN ===== -->
+<main class="main">
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="prediksi">Klasifikasi &amp; Prediksi Wilayah</button>
+    <button class="tab-btn" data-tab="komparatif">Perbandingan Nasional</button>
+  </div>
+
+  <!-- TAB: PREDIKSI -->
+  <div class="tab-panel active" id="tab-prediksi">
+    <div class="grid">
+
+      <!-- LEFT: PARAMETER INPUT -->
+      <div>
+        <div class="card">
+          <div class="card-head">
+            <div class="icon-box">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
+            <div>
+              <h2>Masukkan Parameter Wilayah</h2>
+              <div class="sub">Atur nilai indikator atau gunakan skenario demo</div>
+            </div>
+          </div>
+
+          <div class="preset-label">Skenario Demo Presentasi (Auto-Fill):</div>
+          <div class="preset-row">
+            <button class="preset-btn tinggi" onclick="applyPreset('tinggi')"><span class="dot"></span> Tinggi</button>
+            <button class="preset-btn rendah" onclick="applyPreset('rendah')"><span class="dot"></span> Rendah</button>
+          </div>
+
+          <!-- Demografi & Pendidikan -->
+          <div class="group-title first">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Demografi &amp; Pendidikan
+          </div>
+          <div class="field-grid">
+            <div>
+              <div class="field">
+                <div class="field-label"><span>Penduduk Miskin (P0) (%)</span><span class="value" id="val-p0">12.3</span></div>
+                <div class="field-caption">Persentase penduduk yang hidup di bawah garis kemiskinan.</div>
+                <input type="range" id="p0" min="2" max="45" step="0.1" value="12.27" oninput="syncVal('p0')">
+              </div>
+              <div class="field">
+                <div class="field-label"><span>Indeks Pembang. Manusia</span><span class="value" id="val-ipm">69.9</span></div>
+                <div class="field-caption">Ukuran kualitas hidup manusia (pendidikan, kesehatan, daya beli).</div>
+                <input type="range" id="ipm" min="30" max="90" step="0.1" value="69.92" oninput="syncVal('ipm')">
+              </div>
+            </div>
+            <div>
+              <div class="field">
+                <div class="field-label"><span>Rata-rata Lama Sekolah</span><span class="value" id="val-lama_sekolah">8.4</span></div>
+                <div class="field-caption">Rata-rata jumlah tahun penduduk bersekolah secara formal.</div>
+                <input type="range" id="lama_sekolah" min="1" max="15" step="0.1" value="8.44" oninput="syncVal('lama_sekolah')">
+              </div>
+              <div class="field">
+                <div class="field-label"><span>Umur Harapan Hidup</span><span class="value" id="val-uhh">69.7</span></div>
+                <div class="field-caption">Perkiraan rata-rata lama hidup penduduk yang baru lahir.</div>
+                <input type="range" id="uhh" min="50" max="80" step="0.1" value="69.65" oninput="syncVal('uhh')">
+              </div>
+            </div>
+          </div>
+
+          <!-- Infrastruktur & Kesehatan -->
+          <div class="group-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Infrastruktur &amp; Kesehatan
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <div class="field-label"><span>Akses Sanitasi Layak (%)</span><span class="value" id="val-sanitasi">77.2</span></div>
+              <div class="field-caption">Persentase rumah tangga dengan fasilitas sanitasi memadai.</div>
+              <input type="range" id="sanitasi" min="0" max="100" step="0.5" value="77.20" oninput="syncVal('sanitasi')">
+            </div>
+            <div class="field">
+              <div class="field-label"><span>Akses Air Minum Layak (%)</span><span class="value" id="val-air_minum">85.1</span></div>
+              <div class="field-caption">Persentase rumah tangga dengan sumber air minum terlindungi.</div>
+              <input type="range" id="air_minum" min="0" max="100" step="0.5" value="85.14" oninput="syncVal('air_minum')">
+            </div>
+          </div>
+
+          <!-- Ekonomi & Produktivitas -->
+          <div class="group-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Ekonomi &amp; Produktivitas
+          </div>
+          <div class="field-grid">
+            <div>
+              <div class="field">
+                <div class="field-label"><span>Pengeluaran per Kapita</span><span class="value" id="val-pengeluaran">10324</span></div>
+                <div class="field-caption">Rata-rata pengeluaran per individu per tahun (Ribu Rupiah).</div>
+                <input type="range" id="pengeluaran" min="3000" max="25000" step="100" value="10324" oninput="syncVal('pengeluaran')">
+              </div>
+              <div class="field">
+                <div class="field-label"><span>Partisipasi Angkatan Kerja</span><span class="value" id="val-tpak">69.5</span></div>
+                <div class="field-caption">Persentase penduduk usia kerja yang aktif secara ekonomi.</div>
+                <input type="range" id="tpak" min="50" max="100" step="0.1" value="69.46" oninput="syncVal('tpak')">
+              </div>
+            </div>
+            <div>
+              <div class="field">
+                <div class="field-label"><span>Tingkat Pengangguran (%)</span><span class="value" id="val-tpt">5.1</span></div>
+                <div class="field-caption">Rasio jumlah orang yang menganggur dan sedang mencari kerja.</div>
+                <input type="range" id="tpt" min="0" max="15" step="0.1" value="5.06" oninput="syncVal('tpt')">
+              </div>
+              <div class="field">
+                <div class="field-label"><span>PDRB (Rp)</span></div>
+                <div class="field-caption">Total nilai barang &amp; jasa wilayah. Bisa diketik dengan titik.</div>
+                <input type="text" class="text-input" id="pdrb" value="21.964.080">
+              </div>
+            </div>
+          </div>
+
+          <button class="run-btn" onclick="showResult()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-6 0v4M5 9h14l1 11H4z"/></svg>
+            Jalankan Analisis Prediksi
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT: HASIL -->
+      <div>
+        <div class="card">
+          <div class="illustration">
+            <img src="images/hero.jpg" alt="Ilustrasi Wilayah" />
+          </div>
+
+          <div class="card-head">
+            <div class="icon-box">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div>
+              <h2>Status &amp; Rapor Wilayah</h2>
+              <div class="sub">Hasil klasifikasi akan tampil di sini</div>
+            </div>
+          </div>
+
+          <!-- waiting state -->
+          <div class="placeholder-box" id="waitingBox">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <div class="ph-title">Belum Ada Hasil Analisis</div>
+            <div class="ph-text">Sesuaikan parameter di sebelah kiri, lalu klik tombol <b>Jalankan Analisis Prediksi</b> untuk melihat hasil klasifikasi.</div>
+          </div>
+
+          <!-- result poor (hidden by default, demo only) -->
+          <div class="result-box poor" id="resultPoor" style="display:none;">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <h3>Tingkat Kemiskinan: Tinggi</h3>
+            <p class="desc">Wilayah ini diklasifikasikan memiliki tingkat kemiskinan tinggi dan masuk ke dalam prioritas program penanggulangan kemiskinan.</p>
+            <div class="conf-label">Keyakinan Model (Probabilitas): 71.4%</div>
+            <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:71.4%"></div></div>
+            <div class="reco">
+              <div class="reco-title">Rekomendasi Kebijakan Taktis</div>
+              <ul>
+                <li><b>Perlindungan Sosial:</b> Tingkatkan ketepatan sasaran dan penyaluran jaminan sosial bagi keluarga miskin.</li>
+                <li><b>Infrastruktur Dasar:</b> Intervensi percepatan akses sanitasi layak dan air minum bersih.</li>
+                <li><b>Pemberdayaan Ekonomi:</b> Berikan program pelatihan kerja berbasis potensi lokal guna menekan tingkat pengangguran.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- result not poor -->
+          <div class="result-box notpoor" id="resultNotPoor" style="display:none;">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <h3>Tingkat Kemiskinan: Rendah</h3>
+            <p class="desc">Wilayah ini diklasifikasikan memiliki tingkat kemiskinan rendah dan tingkat kesejahteraan sosial yang stabil.</p>
+            <div class="conf-label">Keyakinan Model (Probabilitas): 84.2%</div>
+            <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:84.2%"></div></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB: KOMPARATIF -->
+  <div class="tab-panel" id="tab-komparatif">
+    <div class="card">
+      <div class="card-head">
+        <div class="icon-box">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
+        <div>
+          <h2>Bandingkan dengan Daerah Lain</h2>
+          <div class="sub">Bandingkan nilai input Anda dengan sebaran data 514 kabupaten/kota di Indonesia</div>
+        </div>
+      </div>
+
+      <div class="select-wrap">
+        <label class="field-label" style="margin-bottom:8px;">Pilih parameter yang ingin dibandingkan:</label>
+        <select id="featSelect">
+          <option>Persentase Penduduk Miskin (P0)</option>
+          <option>Pengeluaran per Kapita</option>
+          <option>Indeks Pembangunan Manusia (IPM)</option>
+          <option>Umur Harapan Hidup (UHH)</option>
+        </select>
+      </div>
+
+      <div class="chart-placeholder">
+        <svg viewBox="0 0 760 260" width="100%" height="260">
+          <defs>
+            <linearGradient id="distFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#2f6fed" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="#2f6fed" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <!-- axes -->
+          <line x1="40" y1="220" x2="730" y2="220" stroke="#e2e8f0" stroke-width="1.5"/>
+          <line x1="40" y1="20" x2="40" y2="220" stroke="#e2e8f0" stroke-width="1.5"/>
+          <!-- distribution curve -->
+          <path d="M40,210 C120,205 160,60 260,55 C360,50 420,180 520,190 C600,198 660,205 730,208" fill="none" stroke="#334155" stroke-width="2.5"/>
+          <path d="M40,210 C120,205 160,60 260,55 C360,50 420,180 520,190 C600,198 660,205 730,208 L730,220 L40,220 Z" fill="url(#distFill)"/>
+          <!-- user input marker -->
+          <line x1="300" y1="20" x2="300" y2="220" stroke="#e0473f" stroke-width="2" stroke-dasharray="5 4"/>
+          <text x="305" y="34" font-family="Inter, sans-serif" font-size="11" fill="#e0473f" font-weight="700">Nilai Input Anda</text>
+          <text x="385" y="245" text-anchor="middle" font-family="Sora, sans-serif" font-size="12" font-weight="700" fill="#0f172a">Posisi Input Anda pada Distribusi Nasional</text>
+          <text x="20" y="125" font-family="Inter, sans-serif" font-size="10" fill="#475569" transform="rotate(-90 20 125)">Kerapatan (Density)</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  Dashboard Klasifikasi Kemiskinan &middot; Tugas Kelompok 11 &middot; Mata Kuliah Deep Learning
+</footer>
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Sync slider value display
+  function syncVal(id){
+    const input = document.getElementById(id);
+    const out = document.getElementById('val-' + id);
+    let v = parseFloat(input.value);
+    if(id === 'pengeluaran'){
+      out.textContent = Math.round(v).toLocaleString('id-ID');
+    } else {
+      out.textContent = v.toFixed(1);
+    }
+  }
+  ['p0','ipm','lama_sekolah','uhh','sanitasi','air_minum','pengeluaran','tpak','tpt'].forEach(syncVal);
+
+  // Preset scenarios
+  const presets = {
+    tinggi: { p0:18.5, ipm:62.5, lama_sekolah:6.5, uhh:65.2, sanitasi:45.0, air_minum:55.0, pengeluaran:8500, tpak:65.0, tpt:8.5, pdrb:"15.000.000" },
+    rendah: { p0:3.5, ipm:82.5, lama_sekolah:11.5, uhh:74.5, sanitasi:95.0, air_minum:98.0, pengeluaran:18000, tpak:72.0, tpt:4.5, pdrb:"85.000.000" }
+  };
+
+  function applyPreset(name){
+    const p = presets[name];
+    Object.keys(p).forEach(k => {
+      if(k === 'pdrb'){
+        document.getElementById('pdrb').value = p[k];
+      } else {
+        document.getElementById(k).value = p[k];
+        syncVal(k);
+      }
+    });
+    // reset result panel back to waiting state when preset changes
+    document.getElementById('waitingBox').style.display = 'block';
+    document.getElementById('resultPoor').style.display = 'none';
+    document.getElementById('resultNotPoor').style.display = 'none';
+    updatePlot();
+  }
+
+  // Panggil API prediksi dari Flask
+  async function showResult(){
+    document.getElementById('waitingBox').style.display = 'none';
+    document.getElementById('resultPoor').style.display = 'none';
+    document.getElementById('resultNotPoor').style.display = 'none';
+
+    const data = {
+        p0: parseFloat(document.getElementById('p0').value),
+        lama_sekolah: parseFloat(document.getElementById('lama_sekolah').value),
+        pengeluaran: parseFloat(document.getElementById('pengeluaran').value),
+        ipm: parseFloat(document.getElementById('ipm').value),
+        uhh: parseFloat(document.getElementById('uhh').value),
+        sanitasi: parseFloat(document.getElementById('sanitasi').value),
+        air_minum: parseFloat(document.getElementById('air_minum').value),
+        tpt: parseFloat(document.getElementById('tpt').value),
+        tpak: parseFloat(document.getElementById('tpak').value),
+        pdrb: parseFloat(document.getElementById('pdrb').value.replace(/\./g, ''))
+    };
+
+    try {
+        const response = await fetch('/predict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (result.error) {
+            alert('Error: ' + result.error);
+            document.getElementById('waitingBox').style.display = 'block';
+            return;
+        }
+
+        if (result.prediction === 1) {
+            document.getElementById('resultPoor').style.display = 'block';
+            document.querySelector('#resultPoor .conf-label').innerText = 'Keyakinan Model (Probabilitas): ' + (result.probability * 100).toFixed(1) + '%';
+            document.querySelector('#resultPoor .conf-bar-fill').style.width = (result.probability * 100) + '%';
+        } else {
+            document.getElementById('resultNotPoor').style.display = 'block';
+            const probNotPoor = 1 - result.probability;
+            document.querySelector('#resultNotPoor .conf-label').innerText = 'Keyakinan Model (Probabilitas): ' + (probNotPoor * 100).toFixed(1) + '%';
+            document.querySelector('#resultNotPoor .conf-bar-fill').style.width = (probNotPoor * 100) + '%';
+        }
+        
+    } catch (e) {
+        alert('Gagal memanggil backend model');
+        document.getElementById('waitingBox').style.display = 'block';
+    }
+  }
+
+  // Panggil API plot dari Flask
+  async function updatePlot() {
+    const feature = document.getElementById('featSelect').value;
+    let current_value = 0;
+    
+    if (feature === 'Persentase Penduduk Miskin (P0)') current_value = parseFloat(document.getElementById('p0').value);
+    else if (feature === 'Pengeluaran per Kapita') current_value = parseFloat(document.getElementById('pengeluaran').value);
+    else if (feature === 'Indeks Pembangunan Manusia (IPM)') current_value = parseFloat(document.getElementById('ipm').value);
+    else if (feature === 'Umur Harapan Hidup (UHH)') current_value = parseFloat(document.getElementById('uhh').value);
+
+    try {
+        const response = await fetch('/plot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ feature: feature, current_value: current_value })
+        });
+        const result = await response.json();
+        
+        if (result.image) {
+            const chartPlaceholder = document.querySelector('.chart-placeholder');
+            chartPlaceholder.innerHTML = `<img src="data:image/png;base64,${result.image}" style="width:100%; height:auto;" />`;
+            // Re-apply background style since it's a card
+            chartPlaceholder.style.padding = '0';
+        }
+    } catch (e) {
+        console.error('Failed to load plot', e);
+    }
+  }
+
+  document.getElementById('featSelect').addEventListener('change', updatePlot);
+  
+  // Update plot when slider is released (change event)
+  ['p0','ipm','lama_sekolah','uhh','sanitasi','air_minum','pengeluaran','tpak','tpt'].forEach(id => {
+      document.getElementById(id).addEventListener('change', updatePlot);
+  });
+  
+  window.addEventListener('load', updatePlot);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Búsqueda Masiva - Sistema de Gestión</title>
+
+  <!-- Bootstrap 5 CSS e Iconos -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Tipografías: Fraunces (marca/títulos), Plus Jakarta Sans (UI) & JetBrains Mono (datos) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-void: #070a12;
+      --bg-surface: #0e1420;
+      --bg-card: #131a29;
+      --bg-elevated: #19233a;
+      --border-color: #232e46;
+      --border-strong: #303f5f;
+      --text-primary: #eef2f8;
+      --text-muted: #7d8aa3;
+      --th-bg: #0a0f1a;
+      --brand-text: #ffffff;
+      --shadow-color: rgba(0, 0, 0, 0.3);
+
+      /* Acento principal: dorado/ámbar, igual que el Buscador de Miembros */
+      --accent: #d7a24e;
+      --accent-strong: #f0bc6c;
+      --accent-glow: rgba(215, 162, 78, 0.22);
+      --accent-soft: rgba(215, 162, 78, 0.1);
+
+      --info: #38bdf8;
+      --success: #34d399;
+      --danger: #f87171;
+
+      /* Alias: se mantienen los nombres originales de este archivo para no romper nada */
+      --primary-accent: var(--accent);
+      --primary-accent-hover: var(--accent-strong);
+      --success-accent: var(--success);
+      --success-accent-hover: #22b384;
+      --table-header-bg: var(--th-bg);
+      --muted-text: var(--text-muted);
+    }
+
+    html[data-bs-theme="light"] {
+      --bg-void: #f3efe4;
+      --bg-surface: #fffdf8;
+      --bg-card: #ffffff;
+      --bg-elevated: #f6f0e2;
+      --border-color: #e3dac2;
+      --border-strong: #cdbf99;
+      --text-primary: #1c2333;
+      --text-muted: #6b7385;
+      --th-bg: #ece3cd;
+      --brand-text: #1c2333;
+      --shadow-color: rgba(90, 70, 20, 0.1);
+
+      --accent: #ad7a25;
+      --accent-strong: #8a5f19;
+      --accent-glow: rgba(173, 122, 37, 0.18);
+      --accent-soft: rgba(173, 122, 37, 0.1);
+    }
+
+    * { scrollbar-color: var(--border-strong) transparent; }
+
+    /* Estilos Generales */
+    body {
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      transition: background-color 0.25s ease, color 0.25s ease;
+      min-height: 100vh;
+      background-image:
+        repeating-linear-gradient(180deg, rgba(127,127,127,0.03) 0px, rgba(127,127,127,0.03) 1px, transparent 1px, transparent 34px),
+        radial-gradient(ellipse 900px 500px at 15% -10%, var(--accent-glow), transparent),
+        radial-gradient(ellipse 700px 500px at 100% 0%, rgba(56, 189, 248, 0.06), transparent);
+      background-attachment: fixed;
+    }
+
+    ::selection { background: var(--accent-glow); color: inherit; }
+
+    :focus-visible {
+      outline: 2px solid var(--accent) !important;
+      outline-offset: 2px;
+    }
+
+    h6, .fw-bold { letter-spacing: 0.01em; }
+
+    /* Navbar Global (mismo lenguaje visual que el Buscador de Miembros) */
+    .navbar {
+      background-color: color-mix(in srgb, var(--bg-surface) 85%, transparent) !important;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.7rem 1.5rem;
+    }
+
+    .navbar-brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: linear-gradient(155deg, var(--accent-strong) 0%, var(--accent) 55%, #a97627 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #1a1206;
+      font-size: 1rem;
+      box-shadow: 0 4px 14px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.35);
+      flex-shrink: 0;
+    }
+
+    .navbar-brand-text {
+      font-family: 'Fraunces', serif;
+      font-weight: 600;
+      font-size: 1.15rem;
+      letter-spacing: 0.01em;
+      line-height: 1.1;
+      color: var(--brand-text);
+    }
+
+    .navbar-brand-sub {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      line-height: 1;
+    }
+
+    .navbar-menu-pills .nav-link {
+      color: var(--text-muted);
+      border-radius: 8px;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.83rem;
+      font-weight: 600;
+      transition: all 0.18s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      border: 1px solid transparent;
+    }
+
+    .navbar-menu-pills .nav-link.active {
+      background-color: var(--accent-soft);
+      color: var(--accent-strong);
+      border-color: rgba(215, 162, 78, 0.35);
+    }
+
+    .navbar-menu-pills .nav-link:hover:not(.active) {
+      color: var(--text-primary);
+      background-color: rgba(127, 127, 127, 0.08);
+    }
+
+    .navbar-menu-pills .nav-link.link-external {
+      color: var(--info) !important;
+      border-color: rgba(56, 189, 248, 0.28) !important;
+      background-color: rgba(56, 189, 248, 0.08) !important;
+    }
+    .navbar-menu-pills .nav-link.link-external:hover {
+      background-color: rgba(56, 189, 248, 0.16) !important;
+    }
+
+    .navbar-menu-pills .nav-link.link-highlight {
+      color: var(--accent-strong) !important;
+      border-color: rgba(215, 162, 78, 0.35) !important;
+      background-color: var(--accent-soft) !important;
+    }
+
+    /* Adaptación de Controles e Inputs */
+    .card {
+      background-color: var(--bg-surface) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-primary) !important;
+      border-radius: 16px !important;
+      box-shadow: 0 12px 36px var(--shadow-color);
+    }
+
+    .card-header, .card-footer {
+      background-color: var(--bg-surface) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-primary) !important;
+    }
+
+    .card-header { border-top-left-radius: 16px !important; border-top-right-radius: 16px !important; }
+    .card-footer { border-bottom-left-radius: 16px !important; border-bottom-right-radius: 16px !important; }
+
+    .form-control, .form-select {
+      background-color: var(--bg-void) !important;
+      color: var(--text-primary) !important;
+      border-color: var(--border-color) !important;
+      border-radius: 8px;
+    }
+
+    .form-control::placeholder {
+      color: var(--text-muted) !important;
+      opacity: 0.8;
+    }
+
+    .form-control:focus, .form-select:focus {
+      background-color: var(--bg-void) !important;
+      color: var(--text-primary) !important;
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px var(--accent-glow) !important;
+    }
+
+    /* Botón Cambio de Tema */
+    .btn-theme-toggle {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+    .btn-theme-toggle:hover { border-color: var(--accent); color: var(--accent-strong); }
+
+    /* Botones Mejorados */
+    h6 .text-primary, h6 i.text-primary { color: var(--accent-strong) !important; }
+    .text-primary { color: var(--accent-strong) !important; }
+    .text-info { color: var(--info) !important; }
+
+    .btn-success {
+      background: linear-gradient(150deg, var(--accent-strong) 0%, var(--accent) 60%, #b3821f 100%) !important;
+      border-color: transparent !important;
+      color: #1a1206 !important;
+      font-weight: 700;
+      border-radius: 8px;
+      box-shadow: 0 4px 14px var(--accent-glow);
+      transition: all 0.2s ease;
+    }
+    .btn-success:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--accent-glow);
+      color: #1a1206 !important;
+    }
+
+    .btn-outline-danger {
+      border-color: var(--border-strong) !important;
+      color: var(--text-muted) !important;
+      border-radius: 8px;
+      background-color: transparent !important;
+    }
+    .btn-outline-danger:hover {
+      background-color: var(--bg-elevated) !important;
+      color: var(--danger) !important;
+      border-color: var(--danger) !important;
+    }
+
+    .btn-outline-secondary {
+      border-color: var(--border-strong) !important;
+      color: var(--text-muted) !important;
+      border-radius: 8px;
+      background-color: transparent !important;
+    }
+    .btn-outline-secondary:hover {
+      background-color: var(--bg-elevated) !important;
+      color: var(--text-primary) !important;
+      border-color: var(--border-strong) !important;
+    }
+
+    .form-check-input:checked {
+      background-color: var(--accent) !important;
+      border-color: var(--accent) !important;
+    }
+    .form-check-input:focus {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px var(--accent-glow) !important;
+    }
+
+    /* Dropdown Menus */
+    .dropdown-menu {
+      background-color: var(--bg-elevated) !important;
+      border-color: var(--border-strong) !important;
+      color: var(--text-primary) !important;
+      border-radius: 10px;
+      padding: 0.35rem;
+      box-shadow: 0 10px 30px var(--shadow-color);
+    }
+    .dropdown-item {
+      color: var(--text-primary) !important;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+    .dropdown-item:hover {
+      background-color: var(--accent-soft) !important;
+      color: var(--accent-strong) !important;
+    }
+    .dropdown-header { color: var(--text-muted) !important; }
+    .dropdown-divider { border-color: var(--border-color) !important; }
+
+    /* Estilos de la Tabla */
+    #tablaResultados {
+      table-layout: fixed;
+      width: 100%;
+    }
+
+    .table-responsive {
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-void);
+    }
+
+    .tabla-compacta th {
+      background-color: var(--th-bg) !important;
+      color: var(--text-muted) !important;
+      text-align: center !important;
+      vertical-align: middle !important;
+      padding: 0.7rem 0.25rem !important;
+      height: 42px;
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .tabla-compacta td {
+      font-size: 0.75rem !important;
+      padding: 0.55rem 0.3rem !important;
+      vertical-align: middle !important;
+      text-align: center !important;
+      word-wrap: break-word;
+      white-space: normal;
+      line-height: 1.3;
+      background-color: var(--bg-surface) !important;
+      color: var(--text-primary) !important;
+      border-bottom: 1px solid rgba(127, 127, 127, 0.08);
+    }
+
+    .tabla-compacta tbody tr:hover td {
+      background-color: var(--accent-soft) !important;
+      cursor: pointer;
+    }
+
+    /* Contenedor Flex para alinear títulos e íconos en th */
+    .th-header-content {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 4px;
+      width: 100%;
+      white-space: nowrap;
+    }
+
+    .th-header-content span {
+      font-size: 0.65rem;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+    }
+
+    .th-header-content i, .btn-col-menu {
+      font-size: 0.65rem;
+      flex-shrink: 0;
+      opacity: 0.8;
+    }
+
+    .btn-col-menu {
+      padding: 0;
+      color: var(--text-muted);
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transition: color 0.15s ease;
+    }
+
+    .btn-col-menu:hover { color: var(--accent-strong); opacity: 1; }
+
+    /* Ajuste de Badges */
+    .tabla-compacta .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      padding: 0.35em 0.6em;
+      white-space: normal;
+      word-break: break-word;
+      max-width: 100%;
+      display: inline-block;
+      line-height: 1.1;
+      font-weight: 600;
+      border-radius: 4px;
+    }
+
+    /* Badge de métricas (Registros: X / Y) */
+    #seccionMetricas .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted) !important;
+      background-color: var(--bg-void) !important;
+      border: 1px solid var(--border-color) !important;
+    }
+    #seccionMetricas .badge strong,
+    #seccionMetricas .badge #metricFiltrados { color: var(--accent-strong) !important; }
+
+    /* Estado Vacío (Empty State) */
+    .empty-state {
+      padding: 3.5rem 1rem;
+      text-align: center;
+      color: var(--text-muted);
+    }
+    .empty-state i {
+      font-size: 3.2rem;
+      color: var(--border-strong);
+      margin-bottom: 0.75rem;
+      display: block;
+    }
+
+    /* Spinner de carga */
+    .spinner-border.text-primary {
+      color: var(--accent) !important;
+    }
+
+    /* Paginación */
+    .pagination .page-link {
+      background-color: var(--bg-void);
+      border-color: var(--border-color);
+      color: var(--text-primary);
+    }
+    .pagination .page-link:hover {
+      background-color: var(--accent-soft);
+      color: var(--accent-strong);
+      border-color: var(--border-strong);
+    }
+    .pagination .page-item.active .page-link {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      color: #1a1206;
+    }
+    .pagination .page-item.disabled .page-link {
+      background-color: var(--bg-void);
+      border-color: var(--border-color);
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 575.98px) {
+      .navbar-brand-text { font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar Global -->
+  <nav class="navbar navbar-expand-lg sticky-top mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center gap-2 text-white me-4" href="index.html">
+        <span class="navbar-brand-mark"><i class="bi bi-stack"></i></span>
+        <span class="d-flex flex-column">
+          <span class="navbar-brand-text">Dashboard Números</span>
+          <span class="navbar-brand-sub">Búsqueda Masiva</span>
+        </span>
+      </a>
+
+      <div class="d-flex align-items-center gap-2 order-lg-last ms-auto ms-lg-0">
+        <button class="btn-theme-toggle" id="btn-theme-toggle" title="Cambiar Tema (Claro/Oscuro)">
+          <i class="bi bi-sun-fill" id="theme-icon"></i>
+        </button>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+      </div>
+
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="nav nav-pills navbar-menu-pills me-auto gap-1 my-2 my-lg-0">
+          <li class="nav-item">
+            <a class="nav-link" href="index.html"><i class="bi bi-search"></i> Búsqueda Individual</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="busqueda_masiva.html"><i class="bi bi-list-check"></i> Búsqueda Masiva</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="base_datos.html"><i class="bi bi-table"></i> Base de Datos</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link link-highlight" href="buscador_cruzado.html"><i class="bi bi-intersect"></i> Buscador Cruzado</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="cargar.html"><i class="bi bi-cloud-upload"></i> Cargar DATA MASTER</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="archivos.html"><i class="bi bi-folder2-open"></i> Gestión Archivos</a>
+          </li>
+
+          <!-- ENLACE EXTERNO -->
+          <li class="nav-item ms-lg-2">
+            <a class="nav-link link-external fw-semibold" href="https://basededatos3-buscador-libros-de-negocios.static.hf.space/index.html" target="_blank" rel="noopener noreferrer">
+              <i class="bi bi-box-arrow-up-right me-1"></i> Buscador Libros de Negocios
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4 mt-3">
+    <!-- Formulario de Búsqueda Masiva -->
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-body p-3">
+        <h6 class="fw-bold mb-2"><i class="bi bi-list-check me-2 text-primary"></i>Búsqueda Masiva por INDEX / Número</h6>
+        <label class="form-label small text-muted mb-2">Ingresa la lista de INDEX o Números (Uno por línea):</label>
+        <textarea class="form-control form-control-sm mb-3" id="txtMasivo" rows="4" placeholder="Ejemplo:&#10;INDEX123&#10;INDEX456&#10;3001234567"></textarea>
+        
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <button class="btn btn-success btn-sm px-4 fw-bold" id="btnBuscarMasivo">
+              <i class="bi bi-file-earmark-text me-1"></i> Procesar Lista Masiva
+            </button>
+            <button class="btn btn-outline-danger btn-sm px-3 fw-bold" id="btnLimpiarBusqueda" title="Limpiar y hacer nueva consulta">
+              <i class="bi bi-arrow-clockwise me-1"></i> Nueva Consulta / Limpiar
+            </button>
+
+            <!-- SELECTOR DE COLUMNAS AÑADIDO -->
+            <div class="dropdown d-inline-block ms-1">
+              <button class="btn btn-outline-secondary btn-sm fw-bold dropdown-toggle" type="button" id="btnDropdownColumnasMasivo" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                <i class="bi bi-layout-three-columns me-1"></i> Columnas
+              </button>
+              <ul class="dropdown-menu shadow p-2" aria-labelledby="btnDropdownColumnasMasivo" style="max-height: 300px; overflow-y: auto; min-width: 200px;">
+                <li><h6 class="dropdown-header text-uppercase fw-bold text-muted px-2 py-1">Mostrar / Ocultar</h6></li>
+                <li><hr class="dropdown-divider my-1"></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="archivo_id" checked> Archivo</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="index_code" checked> Index</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="afiliados" checked> Afiliados (A)</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="index_member" checked> Member</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="nombre" checked> Nombre</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="dob" checked> Fecha Nac.</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="estado" checked> Estado</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="numero_venta" checked> Num. Venta</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="confirmado_1" checked> Num. 1</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="confirmado_2" checked> Num. 2</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="status" checked> Status</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="cia" checked> CIA</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="ultimo_hs" checked> Ult. HS</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="agente" checked> Asesor</label></li>
+                <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-masivo" type="checkbox" value="fecha_llamada" checked> Fecha Llam.</label></li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Filtro de Registros Únicos -->
+          <div class="form-check form-switch m-0">
+            <input class="form-check-input" type="checkbox" id="chkRegistrosUnicos">
+            <label class="form-check-label small fw-bold text-secondary" for="chkRegistrosUnicos">
+              <i class="bi bi-filter-square me-1"></i> Mostrar solo 1 registro único por venta/index
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Indicador de Carga -->
+    <div id="spinnerCarga" class="text-center my-4 py-3" style="display: none;">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted fw-semibold small">Consultando base de datos...</p>
+    </div>
+
+    <!-- Tabla de Resultados con Métricas Integradas -->
+    <div class="card shadow-sm border-0 mb-4 overflow-hidden">
+      
+      <!-- Cabecera de la tabla que incluye métricas -->
+      <div class="card-header text-white d-flex justify-content-between align-items-center py-2 px-3" style="display: none;" id="seccionMetricas">
+        <h6 class="mb-0 fw-bold small"><i class="bi bi-table me-2 text-info"></i> Resultados de Búsqueda Masiva</h6>
+        <div class="badge bg-body-tertiary text-body py-1 px-3 border rounded-pill shadow-sm">
+          Registros: <strong class="text-primary" id="metricFiltrados">0</strong> / <span id="metricEncontrados">0</span>
+        </div>
+      </div>
+
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0 tabla-compacta" id="tablaResultados">
+            <thead>
+              <tr id="headersRow">
+                <th data-col="archivo_id" style="width: 5%;"><div class="th-header-content"><span>ARCHIVO</span></div></th>
+                <th data-col="index_code" style="width: 8%;"><div class="th-header-content"><span>INDEX</span></div></th>
+                <th data-col="afiliados" style="width: 3%;"><div class="th-header-content"><span>A</span></div></th>
+                <th data-col="index_member" style="width: 7%;"><div class="th-header-content"><span>MEMBER</span></div></th>
+                <th data-col="nombre" style="width: 12%;"><div class="th-header-content"><span>NOMBRE</span></div></th>
+                <th data-col="dob" style="width: 7%;"><div class="th-header-content"><span>FECHA NAC.</span></div></th>
+                <th data-col="estado" style="width: 5%;"><div class="th-header-content"><span>ESTADO</span></div></th>
+                <th data-col="numero_venta" style="width: 8%;"><div class="th-header-content"><span>NUM. VENTA</span></div></th>
+                <th data-col="confirmado_1" style="width: 7%;"><div class="th-header-content"><span>NUM. 1</span></div></th>
+                <th data-col="confirmado_2" style="width: 7%;"><div class="th-header-content"><span>NUM. 2</span></div></th>
+                <th data-col="status" style="width: 6%;"><div class="th-header-content"><span>STATUS</span></div></th>
+                <th data-col="cia" style="width: 5%;"><div class="th-header-content"><span>CIA</span></div></th>
+                <th data-col="ultimo_hs" style="width: 6%;"><div class="th-header-content"><span>ULT. HS</span></div></th>
+                <th data-col="agente" style="width: 7%;"><div class="th-header-content"><span>ASESOR</span></div></th>
+                <th data-col="fecha_llamada" style="width: 7%;"><div class="th-header-content"><span>FECHA LLAM.</span></div></th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Estado Vacío -->
+              <tr id="filaVacia">
+                <td colspan="15" class="empty-state">
+                  <i class="bi bi-list-check"></i>
+                  <h6 class="fw-bold mb-1">No hay consultas procesadas</h6>
+                  <p class="small mb-0">Ingresa la lista de INDEX o Números en el cuadro superior y haz clic en "Procesar Lista Masiva".</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Paginación -->
+      <div class="card-footer py-2 px-3 border-0 border-top" id="seccionPaginacion" style="display: none;">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small">Mostrar:</span>
+            <select class="form-select form-select-sm w-auto" id="selectRegistrosPorPagina">
+              <option value="10">10</option>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <span class="text-muted small ms-2" id="infoPaginacion">Mostrando 0-0 de 0</span>
+          </div>
+          <nav>
+            <ul class="pagination pagination-sm mb-0" id="ulPaginacion"></ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase_client.js"></script>
+  <script src="js/search_masivo.js"></script>
+
+  <!-- Lógica Toggle del Tema (Oscuro / Claro) -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const btnTheme = document.getElementById('btn-theme-toggle');
+      const themeIcon = document.getElementById('theme-icon');
+      const savedTheme = localStorage.getItem('app-theme') || 'dark';
+
+      aplicarTema(savedTheme);
+
+      btnTheme?.addEventListener('click', () => {
+        const nuevoTema = document.documentElement.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
+        aplicarTema(nuevoTema);
+      });
+
+      function aplicarTema(t) {
+        if (t === 'light') {
+          document.documentElement.setAttribute('data-bs-theme', 'light');
+          if (themeIcon) themeIcon.className = 'bi bi-sun-fill';
+        } else {
+          document.documentElement.removeAttribute('data-bs-theme');
+          if (themeIcon) themeIcon.className = 'bi bi-moon-stars-fill';
+        }
+        localStorage.setItem('app-theme', t);
+      }
+    });
+  </script>
+</body>
+</html>

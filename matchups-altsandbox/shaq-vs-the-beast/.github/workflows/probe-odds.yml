@@ -1,0 +1,141 @@
+name: Probe odds
+
+# Answers "what is ESPN actually returning for a live game" from the running
+# Space, because both ESPN hosts are blocked from a dev sandbox and the odds
+# parsers cannot otherwise be checked against reality.
+#
+# Prints what our API currently serves for a game alongside the raw core-odds
+# and pickcenter payloads it was derived from. Only *calls* the app — it never
+# uploads, so it cannot trigger a rebuild.
+
+on:
+  workflow_dispatch:
+    inputs:
+      game_id:
+        description: Game id (blank = pick a live game off today's slate)
+        type: string
+        required: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe the odds feeds
+        env:
+          HF_USERNAME: ${{ vars.HF_USERNAME }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+          GAME_ID: ${{ inputs.game_id }}
+        run: |
+          : "${HF_USERNAME:?set repository variable HF_USERNAME}"
+          : "${HF_SPACE:?set repository variable HF_SPACE}"
+          host="$(echo "${HF_USERNAME}-${HF_SPACE}" | tr '[:upper:]' '[:lower:]' | tr './' '--')"
+          base="https://${host}.hf.space"
+
+          echo "Waking ${base} ..."
+          for i in $(seq 1 10); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${base}/api/health" || true)"
+            echo "  attempt ${i}: health=${code}"
+            [ "${code}" = "200" ] && break
+            sleep 20
+          done
+
+          today="$(date -u +%F)"
+          curl -s --max-time 60 "${base}/api/games-live?days=0" -o /tmp/games.json || echo '[]' > /tmp/games.json
+          curl -s --max-time 90 "${base}/api/odds-slate?date=${today}" -o /tmp/slate.json || echo '{}' > /tmp/slate.json
+          printf '%s' "${GAME_ID}" > /tmp/wanted.txt
+
+          python3 - <<'PY' > /tmp/gid.txt
+          import json
+          wanted = open('/tmp/wanted.txt').read().strip()
+
+          def as_list(path):
+              """Whatever the endpoint returned, as a list of game dicts."""
+              try:
+                  d = json.load(open(path))
+              except Exception:
+                  return []
+              if isinstance(d, list):
+                  return [g for g in d if isinstance(g, dict)]
+              if isinstance(d, dict):
+                  for key in ("games", "items", "data"):
+                      v = d.get(key)
+                      if isinstance(v, list):
+                          return [g for g in v if isinstance(g, dict)]
+                  vals = list(d.values())
+                  if vals and all(isinstance(v, dict) for v in vals):
+                      return vals
+              return []
+
+          games = as_list('/tmp/games.json')
+          live = [g for g in games if str(g.get('status') or '') == 'Live']
+          pick = wanted or (live[0].get('game_id', '') if live else
+                            (games[0].get('game_id', '') if games else ''))
+          print(pick or '')
+          PY
+          gid="$(cat /tmp/gid.txt | head -1)"
+
+          echo "=== raw /api/games-live (first 600 chars) ==="
+          head -c 600 /tmp/games.json; echo
+          echo "=== raw /api/odds-slate (first 1200 chars) ==="
+          head -c 1200 /tmp/slate.json; echo
+
+          python3 - <<'PY'
+          import json
+
+          def load(path):
+              try:
+                  return json.load(open(path))
+              except Exception as e:
+                  print(f"  (unreadable: {e})")
+                  return None
+
+          slate = load('/tmp/slate.json')
+          if isinstance(slate, dict):
+              print(f"\n/api/odds-slate: {len(slate)} entries")
+              for gid, l in list(slate.items())[:8]:
+                  if not isinstance(l, dict):
+                      print(f"  {gid}: {l!r}")
+                      continue
+                  print(f"  {gid:26s} live={l.get('is_live')} "
+                        f"ml={l.get('home_ml')}/{l.get('away_ml')} "
+                        f"total={l.get('total')} book={l.get('provider')} "
+                        f"at={l.get('fetched_at')}")
+          else:
+              print(f"\n/api/odds-slate returned {type(slate).__name__}")
+          PY
+
+          if [ -z "${gid}" ]; then echo "::warning::no game id resolved"; exit 0; fi
+          echo "=== probing ${gid} ==="
+          curl -s --max-time 120 "${base}/api/odds-probe?game_id=${gid}" -o /tmp/probe.json || true
+          echo "--- raw probe (first 400 chars) ---"
+          head -c 400 /tmp/probe.json; echo
+
+          python3 - <<'PY'
+          import json
+          try:
+              d = json.load(open('/tmp/probe.json'))
+          except Exception as e:
+              print(f"::warning::probe unreadable ({e})")
+              raise SystemExit(0)
+          if not isinstance(d, dict):
+              print(f"::warning::probe returned {type(d).__name__}")
+              raise SystemExit(0)
+          print("event_id:", d.get("event_id"), "| error:", d.get("error"))
+          print("our API serves:", json.dumps(d.get("parsed"))[:600])
+          for name in ("core", "pickcenter"):
+              blk = d.get(name)
+              if not isinstance(blk, dict):
+                  print(f"\n----- {name}: {blk!r}")
+                  continue
+              print(f"\n----- {name}: reachable={blk.get('reachable')} "
+                    f"count={blk.get('count')} error={blk.get('error')}")
+              sample = blk.get("sample")
+              if not isinstance(sample, dict):
+                  print(f"  sample: {json.dumps(sample)[:600]}")
+                  continue
+              print(f"  keys: {sorted(sample.keys())}")
+              for k in ("current", "open", "close"):
+                  if k in sample:
+                      print(f"  {k}: {json.dumps(sample[k])[:1000]}")
+              print(f"  full: {json.dumps(sample)[:2500]}")
+          PY

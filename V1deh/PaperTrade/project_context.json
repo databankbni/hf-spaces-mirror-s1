@@ -1,0 +1,129 @@
+{
+  "projectInfo": {
+    "name": "PaperTrade",
+    "description": "NSE Indian-equity short-term price-direction prediction engine + paper-trading book. Predicts 1D/3D/INTRADAY direction using backtested technical strategies, a standalone supervised ML quantile model, macro gates, news sentiment, and an LLM bull/bear/fundamentals debate. Served via a Flask web app and an MCP server.",
+    "platform": "Python backend (Flask web app + MCP server) with an offline-trained scikit-learn ML model",
+    "language": "Python 3.13",
+    "deployment": {
+      "primary": "Hugging Face Spaces (persistent /data disk, container). Think HF Spaces first for storage/paths/env.",
+      "local": "python app.py from project root",
+      "notes": [
+        "Use os.path.dirname(__file__) or HF paths for data files; NOT pathlib.Path(__file__).parent.",
+        "Pickle/file caches do NOT survive HF container restarts — use SQLite (paper_trading.db) instead.",
+        "Static JS/CSS is inline in templates (HF CSP blocks external CDNs).",
+        "Secrets: .env locally; HF Spaces Secrets tab in prod; sync via export_env_secrets.py."
+      ]
+    }
+  },
+  "architecturalKnowledge": {
+    "pattern": "Layered prediction pipeline + service modules (not MVC/MVVM)",
+    "confidence": 95,
+    "layers": [
+      "Entry points: app.py (Flask UI + paper-trading book + validation), stock_predictor_mcp.py (MCP tools)",
+      "Prediction core: predictor_core.py (public API predict_stock_v2 / rank_stocks_v2)",
+      "Signal/feature layer: trial_run.py (S1..S20 strategy signals), ml_combiner.py (ML feature funcs)",
+      "Context providers: macro_context.py, fred_data.py, news_sentiment.py, fundamentals.py, sector_pulse.py, fii_flow.py, social_sentiment.py, intraday_live.py, price_targets.py",
+      "LLM layer: ai_forecast.py (bull/bear/fundamentals debate) -> llm_client.py (provider chain) / ollama_client.py",
+      "Data layer: data_sources.py (multi-source OHLCV + live price), universe.py (dynamic NSE universe), database.py (SQLite: trades, orders, snapshots, postmortems)",
+      "Standalone ML: ml_predictor/ (features -> dataset -> train -> infer, 21 committed joblib estimators)",
+      "Research/backtests: research/ (offline analysis, never imported by prod prediction path)"
+    ],
+    "dataFlowPredictionPipeline": [
+      "1. Market gates (VIX>25 hard block; VIX 20-25 size cut; Nifty<EMA200 -40% expected; macro/FRED risk-off cuts)",
+      "2. Strategy signals (20+ NSE-backtested booleans, fire if triggered in last 5 bars)",
+      "3. ML feature score (11 weighted features -> 0-100 + logistic prob)",
+      "4. News sentiment (Claude Haiku -> BULLISH/NEUTRAL/BEARISH)",
+      "5. Sector pulse (NSE sector heatmap -> leading/lagging flag)",
+      "6. Fundamentals (PE/D-E/ROE/FCF score, 24h cache)",
+      "7. AI forecast (up to 4-call LLM debate -> synthesis JSON) with heuristic fallback",
+      "8. Confidence scoring (additive -> HIGH/MEDIUM/LOW)",
+      "9. Risk (ATR14 stop, R:R targets scaled to timeframe)"
+    ]
+  },
+  "technologyStack": {
+    "web": "Flask (server-rendered templates/index.html, inline JS/CSS in static/)",
+    "mcp": "stock_predictor_mcp.py exposes predict_stocks, rank_best_stocks",
+    "ml": "scikit-learn HistGradientBoosting quantile regressors + isotonic-calibrated direction classifier; joblib persistence. No lightgbm/xgboost/torch (HF-safe).",
+    "dataSources": "yfinance + NSE archives + Twelve Data + Alpha Vantage (fallback chain in data_sources.py)",
+    "llmProviderChain": "OpenRouter free -> Groq -> Cerebras -> HuggingFace Router -> Gemini -> SambaNova -> NVIDIA NIM -> Ollama (local last-resort). GitHub Models removed.",
+    "database": "SQLite (paper_trading.db) — trades, pending orders, prediction snapshots, postmortems, ohlcv_cache blob",
+    "testing": "pytest (tests/test_api_contract.py — Flask endpoint schema/type checks)",
+    "caches": [
+      ".universe_cache.json (24h fresh / 7d stale, /data on HF)",
+      "fred_macro_cache.json (24h)",
+      "fundamentals_cache.json (24h/ticker)",
+      "sector pulse (5-min in-memory)",
+      "ohlcv_cache table in paper_trading.db (SQLite blob, NOT file-based)"
+    ]
+  },
+  "moduleGraph": {
+    "predictor_core.py": {"role": "Main prediction API (used by MCP + Flask). MUST stay stable.", "publicApi": ["predict_stock_v2(ticker, start_date, end_date, ...)", "rank_stocks_v2(...)", "timeframe_to_dates(tf)", "get_ml_feature_score()", "DEFAULT_UNIVERSE"]},
+    "trial_run.py": {"role": "All strategy signal generators S1..S20, S_CTRIO, S_CAPFLOW, S_SEASONAL etc. NSE-verified stats in predictor_core._STRATEGY_STATS_DEFAULT — do not change without re-running backtest.", "publicApi": ["gen_s1..gen_s20", "gen_s_confluence_trio", "gen_mfs", "gen_nira", "gen_ped", "gen_supertrend"]},
+    "ml_combiner.py": {"role": "ML feature functions used by predictor_core.get_ml_feature_score", "publicApi": ["bollinger_position", "ema_stack_score", "shadow_flag", "build_feature_matrix"]},
+    "ai_forecast.py": {"role": "LLM bull/bear/fundamentals debate -> synthesis. Trigger guardrails + ATR clamp (prod-only). Output: should_buy, entry_price, direction, ranges.", "publicApi": ["get_ai_forecast(...)"]},
+    "llm_client.py": {"role": "Provider chain + Ollama fallback + rate-limit handling", "publicApi": ["reset_ollama_state()"]},
+    "data_sources.py": {"role": "Multi-source OHLCV + live price with fallback chains. Do NOT change signatures.", "publicApi": ["fetch_ohlcv(ticker, period)", "fetch_live_price(ticker, allow_delayed=True)", "cached_tickers(period)", "fetch_market_data(period_days)"]},
+    "universe.py": {"role": "Dynamic full-NSE universe (~2062 EQ stocks). Replaces old nse_universe.py.", "publicApi": ["get_universe(force_refresh=False)", "refresh_universe()"]},
+    "database.py": {"role": "SQLite paper-trading book + prediction validation audit trail", "publicApi": ["get_open_trades_with_live_prices()", "save_prediction_snapshot(...)", "get_prediction_snapshots(...)", "get_validation_summary(...)", "save_postmortem(...)"]},
+    "macro_context.py": {"role": "Macro gates (S&P500, USD/INR, crude) + FRED regime gate", "publicApi": ["get_macro_gate()", "global_risk_on"]},
+    "fred_data.py": {"role": "US macro indicators", "publicApi": ["get_fred_macro()", "get_fred_gate()"]},
+    "fundamentals.py": {"role": "Stock fundamentals scorer (PE/D-E/rev/FCF/ROE). MUST stay stable.", "publicApi": ["get_fundamentals(ticker)"]},
+    "sector_pulse.py": {"role": "NSE 10-sector heatmap + rotation. MUST stay stable.", "publicApi": ["get_sector_pulse()", "get_sector_for_ticker(ticker)"]},
+    "risk_engine.py": {"role": "Portfolio risk metrics (Sharpe, drawdown, beta, Kelly)", "publicApi": ["compute_risk_metrics()"]},
+    "top5_picker.py": {"role": "Top picks (up to 20) INTRADAY/1D/3D, concurrent, ATR-ranked, progressive streaming", "publicApi": ["get_top5_picks(top_n=20, _universe_size=700, progress_cb=None)", "get_weekly_picks(...)"]},
+    "app.py": {"role": "Flask UI + paper-trading book + validation + all /api routes", "publicApi": ["Flask endpoints (see flaskEndpoints)"]},
+    "stock_predictor_mcp.py": {"role": "MCP server entry point. Imports predictor_core.", "publicApi": ["predict_stocks", "rank_best_stocks"]},
+    "ml_predictor/features.py": {"role": "Shared point-in-time feature builder (37 lookahead-safe features)", "publicApi": ["compute_features(...)", "FEATURE_COLUMNS"]},
+    "ml_predictor/infer.py": {"role": "MLPredictor — quantile forecast per TF. Batch via _raw_predict (fast); per-row _predict_tf is ~1000x slower.", "publicApi": ["get_ml_predictor()", "MLPredictor.predict_all_tf(ticker, live_price, today_high, news_score)", "MLPredictor._raw_predict(tf, X)", "MLPredictor._derive(...)"]},
+    "ml_predictor/train.py": {"role": "Fit 21 estimators + manifest.json (offline)", "publicApi": ["train"]},
+    "ml_predictor/dataset.py": {"role": "Build training_data.csv from ohlcv cache (offline). Labels up/dn = max/min excursion; dir = excess-of-Nifty.", "publicApi": ["_fwd_labels(...)"]}
+  },
+  "flaskEndpoints": {
+    "predictions": ["POST /api/predict", "POST /api/rank", "GET /api/top5", "GET /api/watchlist-picks", "GET /api/watchlist-pick/<ticker>", "GET /api/universe", "POST /api/universe/refresh", "GET /api/search", "GET /api/chart/<ticker>", "GET /api/live-price/<ticker>", "GET /api/ml-predict/<ticker>"],
+    "context": ["GET /api/sector-pulse", "GET /api/fundamentals/<ticker>", "GET /api/portfolio", "GET /api/portfolio-insight/<ticker>", "GET /api/signal-accuracy"],
+    "paperTrading": ["GET /api/open-trades", "GET /api/trades/open", "GET /api/trades/history", "POST /api/trades", "POST /api/trades/<id>/close", "GET /api/trades/<id>/price", "POST /api/trades/check-stops", "GET /api/orders/pending", "POST /api/orders/check", "POST /api/orders/<id>/cancel", "GET|POST /api/watchlist", "DELETE /api/watchlist/<ticker>"],
+    "validation": ["GET /api/prediction-snapshots", "GET /api/prediction-validation", "GET /api/prediction-misses", "GET /api/validation/pending", "POST /api/validation/execute", "GET /api/validation/summary", "GET /api/postmortems", "POST /api/postmortem"]
+  },
+  "criticalConstraintsDoNotBreak": [
+    "predict_stock_v2 / rank_stocks_v2 / timeframe_to_dates signatures (used by MCP + Flask).",
+    "data_sources.fetch_ohlcv / fetch_live_price signatures.",
+    "universe.get_universe, fundamentals.get_fundamentals, sector_pulse.get_sector_pulse, fred_data.get_fred_macro/get_fred_gate signatures.",
+    "ml_predictor: compute_features, MLPredictor.predict_all_tf, MLPredictor.predict signatures.",
+    "trial_run.py strategy stats in predictor_core._STRATEGY_STATS_DEFAULT are NSE-verified — do not change without re-running the backtest.",
+    "Do not add lightgbm/xgboost/torch (HF Spaces image safety).",
+    "Do not put data files behind pathlib.Path(__file__).parent; do not rely on file/pickle caches surviving HF restarts."
+  ],
+  "codeGenerationGuidelines": {
+    "paths": "os.path.dirname(__file__) or HF /data paths; never pathlib(__file__).parent for data.",
+    "persistence": "SQLite (paper_trading.db) for anything that must survive HF restarts — not pickle/file caches.",
+    "frontend": "Inline JS/CSS only (HF CSP blocks external URLs). Bump cache-buster ?v=YYYYMMDD<letter> in templates/index.html on JS/CSS change.",
+    "stability": "Keep listed public signatures stable; prod prediction path must not import research/.",
+    "ml": "Batch model inference with MLPredictor._raw_predict over a full matrix; never loop _predict_tf per row in bulk jobs.",
+    "testing": "Add/extend tests/test_api_contract.py for new endpoints (schema + field types).",
+    "backtestMetrics": "Distinguish MidHit (band-midpoint, ~90%, soft) from DirAcc/DirHit (directional, ~40-50%, the real metric). Use training_data_extra.csv (has 12 extra features); training_data.csv lacks them."
+  },
+  "envVars": {
+    "llmKeys": ["OPENROUTER_API_KEY", "GROQ_API_KEY", "CEREBRAS_API_KEY", "HF_TOKEN", "GEMINI_API_KEY", "SAMBANOVA_API_KEY", "NVIDIA_API_KEY", "OLLAMA_ENDPOINT", "OLLAMA_MODEL"],
+    "dataKeys": ["FRED_API_KEY (optional)", "ALPHA_VANTAGE_API_KEY (optional)"],
+    "unused": ["GITHUB_TOKEN (GitHub Models removed)", "ANTHROPIC_API_KEY (currently empty)"],
+    "tuning": ["BACKTEST_LLM_PACE_SECS", "ML_EXCESS_LABELS", "ML_INTRADAY_FAR_MULT/MED_MULT/NEAR_MULT", "HF_ML_MODEL_REPO_ID"]
+  },
+  "researchScripts": {
+    "note": "Offline analysis only; never imported by the production prediction path.",
+    "key": ["research/backtest.py (LLM prompt accuracy 1D/3D/5D)", "research/ml_backtest.py (ML accuracy + target-exit P&L; authoritative DirAcc/MidHit table)", "research/ml_selection_backtest.py (top-N selection edge)", "research/ml_intraday_backtest.py (true 15-min intraday)", "research/validate_on_trades.py (validate on real paper-trade dates)", "research/strategy_combo_swing.py (strategy-confluence swing study — batched inference)"]
+  },
+  "knowledgeBaseAndMemory": {
+    "livingTruth": ["CLAUDE.md (authoritative architecture + pipeline + calibration notes)", "project_context.json (this file — structured index)"],
+    "memoryDir": "memory/ (thin pointers + legacy findings)",
+    "repoScopedNotes": "/memories/repo/ (agent notes: metrics, calibration, provider chain, gotchas)",
+    "refreshPolicy": "Update CLAUDE.md + project_context.json after each meaningful feature (see .github/skills/context-updater)."
+  },
+  "contextMetadata": {
+    "generatedDate": "2026-07-24",
+    "commitHash": "4bb9928",
+    "pythonFilesAtRoot": 30,
+    "source": "Derived from CLAUDE.md (633 lines) + repository structure",
+    "maturity": "Established/Enterprise (30+ root modules, ml_predictor package, research suite)",
+    "pathPolicy": "Relative paths only; no machine-specific or personal directories."
+  }
+}

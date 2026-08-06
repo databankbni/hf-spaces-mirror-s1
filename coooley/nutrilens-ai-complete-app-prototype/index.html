@@ -1,0 +1,1688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>NutriLens AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        },
+                        slate: {
+                            850: '#1e293b',
+                            950: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            overscroll-behavior-y: none;
+            -webkit-font-smoothing: antialiased;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .glass {
+            background: rgba(255,255,255,0.72);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+        }
+        .dark .glass {
+            background: rgba(30,41,59,0.72);
+        }
+        .glass-card {
+            background: rgba(255,255,255,0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .dark .glass-card {
+            background: rgba(30,41,59,0.6);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        .page-transition {
+            animation: pageIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes pageIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .slide-up {
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .micro-bounce {
+            animation: microBounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        @keyframes microBounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+        .scan-line {
+            animation: scanLine 2s linear infinite;
+        }
+        @keyframes scanLine {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+        .pulse-ring {
+            animation: pulseRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulseRing {
+            0% { transform: scale(0.95); opacity: 0.7; }
+            50% { transform: scale(1.05); opacity: 0.3; }
+            100% { transform: scale(0.95); opacity: 0.7; }
+        }
+        .score-excellent { color: #16a34a; }
+        .score-verygood { color: #22c55e; }
+        .score-good { color: #84cc16; }
+        .score-fair { color: #eab308; }
+        .score-poor { color: #ef4444; }
+        .bg-score-excellent { background-color: #16a34a; }
+        .bg-score-verygood { background-color: #22c55e; }
+        .bg-score-good { background-color: #84cc16; }
+        .bg-score-fair { background-color: #eab308; }
+        .bg-score-poor { background-color: #ef4444; }
+        .ingredient-tag {
+            transition: all 0.2s ease;
+        }
+        .ingredient-tag:active {
+            transform: scale(0.96);
+        }
+        .tab-active {
+            position: relative;
+        }
+        .tab-active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 3px;
+            border-radius: 2px;
+            background: #22c55e;
+        }
+        .dark .tab-active::after {
+            background: #4ade80;
+        }
+        .nutrient-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .dark .nutrient-bar {
+            background: #334155;
+        }
+        .nutrient-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-press:active {
+            transform: scale(0.985);
+            transition: transform 0.1s;
+        }
+        .bottom-sheet {
+            transform: translateY(100%);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .bottom-sheet.open {
+            transform: translateY(0);
+        }
+        .overlay {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .radar-chart {
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.06));
+        }
+        .research-card {
+            border-left: 3px solid #22c55e;
+        }
+        .warning-pill {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        }
+        .dark .warning-pill {
+            background: linear-gradient(135deg, #451a03 0%, #78350f 100%);
+        }
+        .ai-glow {
+            box-shadow: 0 0 20px rgba(34,197,94,0.15);
+        }
+        .meal-photo {
+            transition: transform 0.3s ease;
+        }
+        .meal-photo:active {
+            transform: scale(0.97);
+        }
+        @media (prefers-color-scheme: dark) {
+            .auto-dark { color-scheme: dark; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden">
+    <div id="app" class="h-screen w-full max-w-md mx-auto relative bg-white dark:bg-slate-950 shadow-2xl overflow-hidden">
+        <!-- Status Bar -->
+        <div id="statusBar" class="h-11 w-full flex items-center justify-between px-6 pt-2 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md z-50 fixed top-0 max-w-md">
+            <span id="clock" class="text-sm font-semibold">9:41</span>
+            <div class="flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+                <div class="flex items-center gap-0.5">
+                    <div class="w-6 h-3 border border-current rounded-sm relative">
+                        <div class="absolute inset-0.5 bg-current rounded-sm" style="width: 75%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen Container -->
+        <div id="screenContainer" class="h-full pt-11 pb-20 overflow-y-auto hide-scrollbar">
+            <!-- Screens injected by JS -->
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav id="bottomNav" class="fixed bottom-0 w-full max-w-md h-20 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-t border-gray-200/50 dark:border-slate-800/50 flex justify-around items-center px-2 pb-2 z-50 hidden">
+            <button onclick="app.navigate('dashboard')" class="nav-btn flex flex-col items-center gap-0.5 p-2 w-16" data-screen="dashboard">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+                <span class="text-[10px] font-medium">Today</span>
+            </button>
+            <button onclick="app.navigate('diary')" class="nav-btn flex flex-col items-center gap-0.5 p-2 w-16" data-screen="diary">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+                <span class="text-[10px] font-medium">Diary</span>
+            </button>
+            <button onclick="app.navigate('log')" class="nav-btn flex flex-col items-center justify-center -mt-4" data-screen="log">
+                <div class="w-14 h-14 rounded-full bg-brand-500 flex items-center justify-center shadow-lg shadow-brand-500/30">
+                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                </div>
+            </button>
+            <button onclick="app.navigate('progress')" class="nav-btn flex flex-col items-center gap-0.5 p-2 w-16" data-screen="progress">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+                <span class="text-[10px] font-medium">Progress</span>
+            </button>
+            <button onclick="app.navigate('profile')" class="nav-btn flex flex-col items-center gap-0.5 p-2 w-16" data-screen="profile">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+                <span class="text-[10px] font-medium">Profile</span>
+            </button>
+        </nav>
+
+        <!-- Overlay for bottom sheets -->
+        <div id="overlay" class="overlay fixed inset-0 bg-black/40 backdrop-blur-sm z-40 max-w-md mx-auto" onclick="app.closeBottomSheet()"></div>
+
+        <!-- Bottom Sheet -->
+        <div id="bottomSheet" class="bottom-sheet fixed bottom-0 w-full max-w-md bg-white dark:bg-slate-900 rounded-t-3xl z-50 shadow-2xl max-h-[85vh] overflow-y-auto hide-scrollbar">
+            <div class="w-12 h-1 bg-gray-300 dark:bg-slate-600 rounded-full mx-auto mt-3 mb-2"></div>
+            <div id="bottomSheetContent"></div>
+        </div>
+
+        <!-- Scan Overlay -->
+        <div id="scanOverlay" class="fixed inset-0 bg-black z-[60] hidden max-w-md mx-auto">
+            <div class="relative h-full w-full">
+                <video id="scanVideo" class="h-full w-full object-cover" autoplay playsinline muted></video>
+                <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/40"></div>
+                <div class="absolute top-16 left-0 right-0 text-center">
+                    <p class="text-white/80 text-sm font-medium">Scanning barcode...</p>
+                </div>
+                <div class="absolute inset-16 border-2 border-white/30 rounded-3xl">
+                    <div class="absolute top-0 left-8 right-8 h-0.5 bg-brand-400 scan-line"></div>
+                    <div class="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-brand-400 rounded-tl-lg"></div>
+                    <div class="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-brand-400 rounded-tr-lg"></div>
+                    <div class="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-brand-400 rounded-bl-lg"></div>
+                    <div class="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-brand-400 rounded-br-lg"></div>
+                </div>
+                <button onclick="app.stopScan()" class="absolute bottom-12 left-1/2 -translate-x-1/2 w-14 h-14 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ APP STATE ============
+        const app = {
+            currentScreen: 'welcome',
+            darkMode: false,
+            user: null,
+            todayLog: {
+                calories: { consumed: 1240, goal: 2200 },
+                protein: { consumed: 89, goal: 165 },
+                carbs: { consumed: 112, goal: 220 },
+                fat: { consumed: 48, goal: 73 },
+                fiber: { consumed: 18, goal: 35 },
+                sugar: { consumed: 32, goal: 50 },
+                water: { consumed: 5, goal: 8 }
+            },
+            foodQuality: {
+                score: 78,
+                ultraProcessed: 15,
+                avgAdditiveRating: 3.2,
+                artificialCount: 2,
+                seedOilIntake: 8,
+                addedSugar: 12
+            },
+            meals: [
+                { id: 1, name: 'Breakfast', time: '7:30 AM', foods: [
+                    { name: 'Greek Yogurt, Plain', brand: 'Fage', calories: 130, protein: 23, carbs: 6, fat: 0, score: 92, qty: '1 cup' },
+                    { name: 'Blueberries, Fresh', brand: 'Organic', calories: 84, protein: 1, carbs: 21, fat: 0, score: 96, qty: '1 cup' },
+                    { name: 'Honey, Raw', brand: 'Local', calories: 64, protein: 0, carbs: 17, fat: 0, score: 72, qty: '1 tbsp' }
+                ]},
+                { id: 2, name: 'Lunch', time: '12:15 PM', foods: [
+                    { name: 'Grilled Chicken Breast', brand: 'Homemade', calories: 284, protein: 53, carbs: 0, fat: 6, score: 95, qty: '6 oz' },
+                    { name: 'Quinoa, Cooked', brand: 'Organic', calories: 222, protein: 8, carbs: 39, fat: 4, score: 88, qty: '1 cup' },
+                    { name: 'Olive Oil, Extra Virgin', brand: 'California Olive', calories: 120, protein: 0, carbs: 0, fat: 14, score: 91, qty: '1 tbsp' }
+                ]},
+                { id: 3, name: 'Snack', time: '3:00 PM', foods: [
+                    { name: 'Protein Bar', brand: 'RXBAR', calories: 210, protein: 12, carbs: 24, fat: 9, score: 68, qty: '1 bar' }
+                ]}
+            ],
+            ingredientDetail: null,
+            scannedProduct: null,
+
+            init() {
+                this.updateClock();
+                setInterval(() => this.updateClock(), 60000);
+                this.checkDarkMode();
+                this.navigate('welcome');
+            },
+
+            updateClock() {
+                const now = new Date();
+                const hours = now.getHours();
+                const mins = now.getMinutes();
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                const displayHours = hours % 12 || 12;
+                const displayMins = mins.toString().padStart(2, '0');
+                document.getElementById('clock').textContent = `${displayHours}:${displayMins}`;
+            },
+
+            checkDarkMode() {
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    this.darkMode = true;
+                    document.documentElement.classList.add('dark');
+                }
+            },
+
+            toggleDarkMode() {
+                this.darkMode = !this.darkMode;
+                document.documentElement.classList.toggle('dark');
+            },
+
+            navigate(screen) {
+                this.currentScreen = screen;
+                const container = document.getElementById('screenContainer');
+                const nav = document.getElementById('bottomNav');
+                
+                // Show/hide bottom nav
+                const navScreens = ['dashboard', 'diary', 'log', 'progress', 'profile'];
+                if (navScreens.includes(screen)) {
+                    nav.classList.remove('hidden');
+                    // Update active tab
+                    document.querySelectorAll('.nav-btn').forEach(btn => {
+                        btn.classList.remove('tab-active', 'text-brand-600', 'dark:text-brand-400');
+                        if (btn.dataset.screen === screen) {
+                            btn.classList.add('tab-active', 'text-brand-600', 'dark:text-brand-400');
+                        } else {
+                            btn.classList.add('text-gray-400', 'dark:text-slate-500');
+                        }
+                    });
+                } else {
+                    nav.classList.add('hidden');
+                }
+
+                // Render screen
+                container.innerHTML = this.screens[screen] ? this.screens[screen]() : '';
+                container.scrollTop = 0;
+                
+                // Animate entry
+                const content = container.firstElementChild;
+                if (content) content.classList.add('page-transition');
+            },
+
+            // ============ SCREEN RENDERERS ============
+            screens: {
+                welcome() {
+                    return `
+                    <div class="h-full flex flex-col items-center justify-center px-8 pb-20">
+                        <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center mb-8 shadow-xl shadow-brand-500/20 micro-bounce">
+                            <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </div>
+                        <h1 class="text-3xl font-bold mb-2 tracking-tight">NutriLens AI</h1>
+                        <p class="text-gray-500 dark:text-slate-400 text-center text-sm leading-relaxed mb-10 max-w-[260px]">
+                            See beyond calories. Understand every ingredient, its quality, and how it truly affects your body.
+                        </p>
+                        <div class="w-full space-y-3">
+                            <button onclick="app.navigate('onboarding')" class="w-full h-14 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-2xl shadow-lg shadow-brand-500/25 transition-all active:scale-[0.98]">
+                                Get Started
+                            </button>
+                            <button onclick="app.navigate('dashboard')" class="w-full h-14 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 font-medium rounded-2xl transition-all text-sm">
+                                Continue as Guest
+                            </button>
+                        </div>
+                        <p class="mt-6 text-xs text-gray-400 dark:text-slate-500">
+                            By continuing, you agree to our Terms and Privacy Policy
+                        </p>
+                    </div>`;
+                },
+
+                onboarding() {
+                    return `
+                    <div class="h-full flex flex-col px-6 pt-4 pb-6">
+                        <div class="flex items-center justify-between mb-8">
+                            <button onclick="app.navigate('welcome')" class="p-2 -ml-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <div class="flex gap-1.5">
+                                <div class="w-8 h-1.5 rounded-full bg-brand-500"></div>
+                                <div class="w-8 h-1.5 rounded-full bg-gray-200 dark:bg-slate-700"></div>
+                                <div class="w-8 h-1.5 rounded-full bg-gray-200 dark:bg-slate-700"></div>
+                            </div>
+                            <div class="w-10"></div>
+                        </div>
+                        <h2 class="text-2xl font-bold mb-6">About You</h2>
+                        <div class="space-y-5 flex-1">
+                            <div>
+                                <label class="text-sm font-medium text-gray-500 dark:text-slate-400 mb-2 block">Age</label>
+                                <input type="number" value="32" class="w-full h-14 px-4 bg-gray-50 dark:bg-slate-800 rounded-2xl text-lg font-semibold border-0 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Years">
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500 dark:text-slate-400 mb-2 block">Sex</label>
+                                <div class="flex gap-3">
+                                    <button class="flex-1 h-14 rounded-2xl bg-brand-50 dark:bg-brand-900/30 border-2 border-brand-500 text-brand-700 dark:text-brand-300 font-semibold">Male</button>
+                                    <button class="flex-1 h-14 rounded-2xl bg-gray-50 dark:bg-slate-800 border-2 border-transparent text-gray-500 font-medium">Female</button>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-sm font-medium text-gray-500 dark:text-slate-400 mb-2 block">Height</label>
+                                    <input type="text" value="5'11"" class="w-full h-14 px-4 bg-gray-50 dark:bg-slate-800 rounded-2xl text-lg font-semibold border-0 outline-none">
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-500 dark:text-slate-400 mb-2 block">Weight</label>
+                                    <input type="number" value="185" class="w-full h-14 px-4 bg-gray-50 dark:bg-slate-800 rounded-2xl text-lg font-semibold border-0 outline-none" placeholder="lbs">
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="app.navigate('onboarding2')" class="w-full h-14 bg-brand-500 text-white font-semibold rounded-2xl shadow-lg shadow-brand-500/25 mt-6">
+                            Continue
+                        </button>
+                    </div>`;
+                },
+
+                onboarding2() {
+                    return `
+                    <div class="h-full flex flex-col px-6 pt-4 pb-6">
+                        <div class="flex items-center justify-between mb-8">
+                            <button onclick="app.navigate('onboarding')" class="p-2 -ml-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <div class="flex gap-1.5">
+                                <div class="w-8 h-1.5 rounded-full bg-brand-500"></div>
+                                <div class="w-8 h-1.5 rounded-full bg-brand-500"></div>
+                                <div class="w-8 h-1.5 rounded-full bg-gray-200 dark:bg-slate-700"></div>
+                            </div>
+                            <div class="w-10"></div>
+                        </div>
+                        <h2 class="text-2xl font-bold mb-6">Your Goal</h2>
+                        <div class="space-y-3 flex-1">
+                            <button class="w-full h-16 rounded-2xl bg-brand-50 dark:bg-brand-900/30 border-2 border-brand-500 flex items-center px-5 gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-800 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.572L21 12M16.5 11.5L18 10m-6 7.5v-8m-4.5 6.5L9 12m-6 1.572L1.5 12"/></svg>
+                                </div>
+                                <div class="text-left">
+                                    <div class="font-semibold text-brand-700 dark:text-brand-300">Lose Fat</div>
+                                    <div class="text-xs text-gray-400">Calorie deficit with high protein</div>
+                                </div>
+                            </button>
+                            <button class="w-full h-16 rounded-2xl bg-gray-50 dark:bg-slate-800 border-2 border-transparent flex items-center px-5 gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
+                                </div>
+                                <div class="text-left">
+                                    <div class="font-semibold">Build Muscle</div>
+                                    <div class="text-xs text-gray-400">Calorie surplus, strength focused</div>
+                                </div>
+                            </button>
+                            <button class="w-full h-16 rounded-2xl bg-gray-50 dark:bg-slate-800 border-2 border-transparent flex items-center px-5 gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                </div>
+                                <div class="text-left">
+                                    <div class="font-semibold">Maintain</div>
+                                    <div class="text-xs text-gray-400">Keep current weight, optimize health</div>
+                                </div>
+                            </button>
+                        </div>
+                        <button onclick="app.navigate('onboarding3')" class="w-full h-14 bg-brand-500 text-white font-semibold rounded-2xl shadow-lg shadow-brand-500/25 mt-6">
+                            Continue
+                        </button>
+                    </div>`;
+                },
+
+                onboarding3() {
+                    const priorities = ['Hormone Health', 'Gut Health', 'Brain Health', 'Longevity', 'Heart Health', 'Athletic Performance', 'Weight Loss', 'Clean Ingredients', 'Blood Sugar Stability'];
+                    return `
+                    <div class="h-full flex flex-col px-6 pt-4 pb-6">
+                        <div class="flex items-center justify-between mb-8">
+                            <button onclick="app.navigate('onboarding2')" class="p-2 -ml-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <div class="flex gap-1.5">
+                                <div class="w-8 h-1.5 rounded-full bg-brand-500"></div>
+                                <div class="w-8 h-1.5 rounded-full bg-brand-500"></div>
+                                <div class="w-8 h-1.5 rounded-full bg-brand-500"></div>
+                            </div>
+                            <div class="w-10"></div>
+                        </div>
+                        <h2 class="text-2xl font-bold mb-2">Health Priorities</h2>
+                        <p class="text-sm text-gray-500 dark:text-slate-400 mb-6">Select all that apply. We'll personalize your analysis.</p>
+                        <div class="flex-1 overflow-y-auto hide-scrollbar">
+                            <div class="grid grid-cols-2 gap-3 pb-4">
+                                ${priorities.map((p, i) => `
+                                    <button class="priority-chip h-14 rounded-2xl bg-gray-50 dark:bg-slate-800 border-2 border-transparent flex items-center justify-center px-3 text-sm font-medium transition-all" onclick="this.classList.toggle('bg-brand-50');this.classList.toggle('dark:bg-brand-900/30');this.classList.toggle('border-brand-500');this.classList.toggle('text-brand-700');this.classList.toggle('dark:text-brand-300')">
+                                        ${p}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <button onclick="app.navigate('dashboard')" class="w-full h-14 bg-brand-500 text-white font-semibold rounded-2xl shadow-lg shadow-brand-500/25">
+                            Start My Journey
+                        </button>
+                    </div>`;
+                },
+
+                dashboard() {
+                    const calPct = Math.round((app.todayLog.calories.consumed / app.todayLog.calories.goal) * 100);
+                    const quality = app.foodQuality;
+                    const scoreColor = quality.score >= 90 ? 'score-excellent' : quality.score >= 80 ? 'score-verygood' : quality.score >= 70 ? 'score-good' : quality.score >= 60 ? 'score-fair' : 'score-poor';
+                    const scoreBg = quality.score >= 90 ? 'bg-score-excellent' : quality.score >= 80 ? 'bg-score-verygood' : quality.score >= 70 ? 'bg-score-good' : quality.score >= 60 ? 'bg-score-fair' : 'bg-score-poor';
+                    
+                    return `
+                    <div class="px-5 pt-2 pb-6">
+                        <!-- Header -->
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <p class="text-xs font-medium text-gray-400 dark:text-slate-500 uppercase tracking-wider">Tuesday, Aug 5</p>
+                                <h1 class="text-2xl font-bold">Today</h1>
+                            </div>
+                            <button onclick="app.toggleDarkMode()" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Calories Ring -->
+                        <div class="flex justify-center mb-8">
+                            <div class="relative w-48 h-48">
+                                <svg class="w-full h-full transform -rotate-90">
+                                    <circle cx="96" cy="96" r="88" fill="none" stroke="#e2e8f0" stroke-width="12" class="dark:stroke-slate-700"/>
+                                    <circle cx="96" cy="96" r="88" fill="none" stroke="url(#calGradient)" stroke-width="12" stroke-linecap="round" 
+                                        stroke-dasharray="${2 * Math.PI * 88}" 
+                                        stroke-dashoffset="${2 * Math.PI * 88 * (1 - calPct/100)}"
+                                        class="progress-ring-circle"/>
+                                    <defs>
+                                        <linearGradient id="calGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stop-color="#22c55e"/>
+                                            <stop offset="100%" stop-color="#16a34a"/>
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span class="text-4xl font-bold">${app.todayLog.calories.consumed}</span>
+                                    <span class="text-xs text-gray-400 dark:text-slate-500 mt-1">/ ${app.todayLog.calories.goal} kcal</span>
+                                    <span class="text-sm font-medium text-brand-600 dark:text-brand-400 mt-2">${app.todayLog.calories.goal - app.todayLog.calories.consumed} remaining</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Macros Grid -->
+                        <div class="grid grid-cols-4 gap-3 mb-6">
+                            ${[
+                                { label: 'Protein', val: app.todayLog.protein.consumed, goal: app.todayLog.protein.goal, color: 'bg-blue-500', pct: Math.round((app.todayLog.protein.consumed/app.todayLog.protein.goal)*100) },
+                                { label: 'Carbs', val: app.todayLog.carbs.consumed, goal: app.todayLog.carbs.goal, color: 'bg-amber-500', pct: Math.round((app.todayLog.carbs.consumed/app.todayLog.carbs.goal)*100) },
+                                { label: 'Fat', val: app.todayLog.fat.consumed, goal: app.todayLog.fat.goal, color: 'bg-rose-400', pct: Math.round((app.todayLog.fat.consumed/app.todayLog.fat.goal)*100) },
+                                { label: 'Fiber', val: app.todayLog.fiber.consumed, goal: app.todayLog.fiber.goal, color: 'bg-brand-500', pct: Math.round((app.todayLog.fiber.consumed/app.todayLog.fiber.goal)*100) }
+                            ].map(m => `
+                                <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl p-3 text-center card-press">
+                                    <p class="text-[10px] font-medium text-gray-400 dark:text-slate-500 uppercase mb-1">${m.label}</p>
+                                    <p class="text-lg font-bold">${m.val}<span class="text-xs font-normal text-gray-400">g</span></p>
+                                    <div class="nutrient-bar mt-2">
+                                        <div class="nutrient-fill ${m.color}" style="width: ${Math.min(m.pct, 100)}%"></div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <!-- Food Quality Score Card -->
+                        <div class="glass-card rounded-3xl p-5 mb-5 card-press" onclick="app.navigate('qualityDetail')">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-400 dark:text-slate-500 uppercase tracking-wider">Food Quality Score</p>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <span class="text-3xl font-bold ${scoreColor}">${quality.score}</span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full ${scoreBg} text-white font-medium">${quality.score >= 80 ? 'Very Good' : quality.score >= 70 ? 'Good' : 'Fair'}</span>
+                                    </div>
+                                </div>
+                                <div class="w-14 h-14 rounded-full ${scoreBg} flex items-center justify-center text-white text-xl font-bold">
+                                    ${quality.score}
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-white/50 dark:bg-slate-800/50 rounded-xl p-3">
+                                    <p class="text-[10px] text-gray-400 uppercase">Ultra Processed</p>
+                                    <p class="text-lg font-bold text-amber-600">${quality.ultraProcessed}%</p>
+                                </div>
+                                <div class="bg-white/50 dark:bg-slate-800/50 rounded-xl p-3">
+                                    <p class="text-[10px] text-gray-400 uppercase">Additives</p>
+                                    <p class="text-lg font-bold text-rose-500">${quality.artificialCount}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ingredient Timeline Preview -->
+                        <div class="bg-gray-50 dark:bg-slate-800/80 rounded-3xl p-5 mb-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <p class="text-sm font-semibold">Ingredient Exposure</p>
+                                <button onclick="app.navigate('timeline')" class="text-xs text-brand-600 font-medium">View All</button>
+                            </div>
+                            <div class="flex gap-3 overflow-x-auto hide-scrollbar pb-1">
+                                ${[
+                                    { icon: '🌻', label: 'Seed Oils', val: `${quality.seedOilIntake}g`, warn: true },
+                                    { icon: '🧪', label: 'Artificial', val: quality.artificialCount, warn: true },
+                                    { icon: '🍯', label: 'Added Sugar', val: `${quality.addedSugar}g`, warn: false },
+                                    { icon: '🌈', label: 'Dyes', val: '0', warn: false },
+                                    { icon: '🧂', label: 'Sodium', val: '1.8g', warn: false }
+                                ].map(item => `
+                                    <div class="flex-shrink-0 w-20 text-center">
+                                        <div class="w-12 h-12 rounded-2xl ${item.warn ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : 'bg-white dark:bg-slate-700'} flex items-center justify-center mx-auto mb-1 text-xl">
+                                            ${item.icon}
+                                        </div>
+                                        <p class="text-[10px] text-gray-500 dark:text-slate-400 leading-tight">${item.label}</p>
+                                        <p class="text-xs font-bold ${item.warn ? 'text-amber-600' : ''}">${item.val}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- AI Coach Card -->
+                        <div class="bg-gradient-to-br from-brand-500 to-brand-600 rounded-3xl p-5 text-white mb-5 ai-glow card-press" onclick="app.navigate('aiCoach')">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <div class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 01-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 011.423-1.423l.394 1.183.394-1.183a2.25 2.25 0 011.423-1.423l1.183.394-1.183.394a2.25 2.25 0 01-1.423 1.423l.394 1.183-.394 1.183a2.25 2.25 0 01-1.423 1.423l-1.183-.394z"/></svg>
+                                        </div>
+                                        <span class="text-xs font-medium bg-white/20 px-2 py-0.5 rounded-full">AI Coach</span>
+                                    </div>
+                                    <p class="text-sm leading-relaxed opacity-90">"Your protein bar contains 3 artificial sweeteners. Would you like healthier alternatives?"</p>
+                                </div>
+                                <svg class="w-5 h-5 opacity-60" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                            </div>
+                        </div>
+
+                        <!-- Water -->
+                        <div class="bg-gray-50 dark:bg-slate-800/80 rounded-3xl p-5 mb-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+                                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 11.25l-3-3m0 0l-3 3m3-3v7.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-semibold">Water</p>
+                                        <p class="text-xs text-gray-400">${app.todayLog.water.consumed} / ${app.todayLog.water.goal} glasses</p>
+                                    </div>
+                                </div>
+                                <button class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                                </button>
+                            </div>
+                            <div class="flex gap-2">
+                                ${Array.from({length: app.todayLog.water.goal}, (_, i) => `
+                                    <div class="flex-1 h-8 rounded-lg ${i < app.todayLog.water.consumed ? 'bg-blue-400' : 'bg-gray-200 dark:bg-slate-600'} transition-all"></div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+                },
+
+                diary() {
+                    return `
+                    <div class="px-5 pt-2 pb-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h1 class="text-2xl font-bold">Diary</h1>
+                            <button class="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                            </button>
+                        </div>
+
+                        ${app.meals.map(meal => `
+                            <div class="mb-5">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="font-semibold">${meal.name}</h3>
+                                        <span class="text-xs text-gray-400">${meal.time}</span>
+                                    </div>
+                                    <span class="text-xs font-medium text-gray-500">${meal.foods.reduce((a,f) => a + f.calories, 0)} kcal</span>
+                                </div>
+                                <div class="space-y-2">
+                                    ${meal.foods.map(food => `
+                                        <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl p-4 flex items-center gap-4 card-press" onclick="app.showFoodDetail('${food.name}')">
+                                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center text-xl">
+                                                ${food.name.includes('Chicken') ? '🍗' : food.name.includes('Yogurt') ? '🥣' : food.name.includes('Blueberr') ? '🫐' : food.name.includes('Quinoa') ? '🌾' : food.name.includes('Olive') ? '🫒' : food.name.includes('Protein') ? '🍫' : '🍽️'}
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-sm font-semibold truncate">${food.name}</p>
+                                                <p class="text-xs text-gray-400">${food.brand} · ${food.qty}</p>
+                                            </div>
+                                            <div class="text-right">
+                                                <p class="text-sm font-bold">${food.calories}</p>
+                                                <div class="flex items-center gap-1 mt-0.5">
+                                                    <div class="w-2 h-2 rounded-full ${food.score >= 90 ? 'bg-green-500' : food.score >= 70 ? 'bg-yellow-500' : 'bg-orange-500'}"></div>
+                                                    <span class="text-[10px] text-gray-400">${food.score}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <button class="w-full h-10 mt-2 rounded-xl border-2 border-dashed border-gray-200 dark:border-slate-700 flex items-center justify-center gap-2 text-sm text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors" onclick="app.navigate('log')">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                                    Add Food
+                                </button>
+                            </div>
+                        `).join('')}
+
+                        <!-- Nutrition Summary -->
+                        <div class="glass-card rounded-3xl p-5 mt-2">
+                            <p class="text-sm font-semibold mb-4">Daily Nutrition</p>
+                            <div class="space-y-4">
+                                ${[
+                                    { label: 'Calories', val: '1,240 / 2,200', pct: 56, color: 'bg-brand-500' },
+                                    { label: 'Protein', val: '89g / 165g', pct: 54, color: 'bg-blue-500' },
+                                    { label: 'Carbs', val: '112g / 220g', pct: 51, color: 'bg-amber-500' },
+                                    { label: 'Fat', val: '48g / 73g', pct: 66, color: 'bg-rose-400' },
+                                    { label: 'Fiber', val: '18g / 35g', pct: 51, color: 'bg-teal-500' }
+                                ].map(n => `
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1.5">
+                                            <span class="text-gray-600 dark:text-slate-300">${n.label}</span>
+                                            <span class="text-gray-400">${n.val}</span>
+                                        </div>
+                                        <div class="nutrient-bar h-2">
+                                            <div class="nutrient-fill ${n.color}" style="width: ${n.pct}%"></div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+                },
+
+                log() {
+                    return `
+                    <div class="h-full flex flex-col px-5 pt-2 pb-6">
+                        <h1 class="text-2xl font-bold mb-6">Log Food</h1>
+                        
+                        <!-- Search -->
+                        <div class="relative mb-6">
+                            <input type="text" placeholder="Search foods, brands, restaurants..." class="w-full h-14 pl-12 pr-4 bg-gray-50 dark:bg-slate-800 rounded-2xl border-0 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                            <svg class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="grid grid-cols-2 gap-3 mb-6">
+                            <button onclick="app.startScan()" class="h-20 rounded-2xl bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 flex flex-col items-center justify-center gap-1 card-press">
+                                <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"/></svg>
+                                <span class="text-xs font-semibold text-brand-700 dark:text-brand-300">Scan Barcode</span>
+                            </button>
+                            <button onclick="app.navigate('photoLog')" class="h-20 rounded-2xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 flex flex-col items-center justify-center gap-1 card-press">
+                                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/></svg>
+                                <span class="text-xs font-semibold text-purple-700 dark:text-purple-300">Photo Log</span>
+                            </button>
+                            <button class="h-20 rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex flex-col items-center justify-center gap-1 card-press">
+                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"/></svg>
+                                <span class="text-xs font-semibold text-blue-700 dark:text-blue-300">Voice Log</span>
+                            </button>
+                            <button class="h-20 rounded-2xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 flex flex-col items-center justify-center gap-1 card-press">
+                                <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"/></svg>
+                                <span class="text-xs font-semibold text-orange-700 dark:text-orange-300">Scan Label</span>
+                            </button>
+                        </div>
+
+                        <!-- Recent -->
+                        <p class="text-sm font-semibold mb-3">Recent Foods</p>
+                        <div class="space-y-2 flex-1 overflow-y-auto hide-scrollbar">
+                            ${['Grilled Chicken Breast', 'Greek Yogurt Plain', 'Blueberries', 'Quinoa Cooked', 'Avocado', 'Salmon Fillet', 'Sweet Potato', 'Eggs Pasture-Raised'].map(food => `
+                                <div class="flex items-center gap-3 p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                                    <div class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-slate-700 flex items-center justify-center text-lg">
+                                        ${food.includes('Chicken') ? '🍗' : food.includes('Yogurt') ? '🥣' : food.includes('Blueberr') ? '🫐' : food.includes('Quinoa') ? '🌾' : food.includes('Avocado') ? '🥑' : food.includes('Salmon') ? '🐟' : food.includes('Sweet') ? '🍠' : '🥚'}
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium">${food}</p>
+                                        <p class="text-xs text-gray-400">Frequently logged</p>
+                                    </div>
+                                    <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                },
+
+                progress() {
+                    return `
+                    <div class="px-5 pt-2 pb-6">
+                        <h1 class="text-2xl font-bold mb-6">Progress</h1>
+                        
+                        <!-- Weekly Health Score -->
+                        <div class="glass-card rounded-3xl p-5 mb-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-400 uppercase">Weekly Health Score</p>
+                                    <p class="text-3xl font-bold score-verygood">82</p>
+                                </div>
+                                <div class="flex items-end gap-1 h-16">
+                                    ${[65, 72, 68, 75, 80, 78, 82].map((h, i) => `
+                                        <div class="w-6 rounded-t-lg ${i === 6 ? 'bg-brand-500' : 'bg-gray-200 dark:bg-slate-600'}" style="height: ${h}%"></div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-400">
+                                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                            </div>
+                        </div>
+
+                        <!-- Weight Trend -->
+                        <div class="bg-gray-50 dark:bg-slate-800/80 rounded-3xl p-5 mb-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <p class="text-sm font-semibold">Weight Trend</p>
+                                <span class="text-xs text-brand-600 font-medium">-2.4 lbs this month</span>
+                            </div>
+                            <div class="h-32 flex items-end justify-between gap-1">
+                                ${[186.2, 185.8, 185.5, 185.1, 184.9, 184.5, 184.2, 183.9, 183.5, 183.2, 182.9, 182.5, 182.2, 181.8].map((w, i, arr) => {
+                                    const min = Math.min(...arr), max = Math.max(...arr);
+                                    const pct = ((w - min) / (max - min)) * 60 + 20;
+                                    return `<div class="flex-1 rounded-t-md ${i === arr.length-1 ? 'bg-brand-500' : 'bg-gray-300 dark:bg-slate-600'}" style="height: ${pct}%"></div>`;
+                                }).join('')}
+                            </div>
+                            <div class="flex justify-between mt-2 text-[10px] text-gray-400">
+                                <span>Jul 22</span>
+                                <span>Aug 5</span>
+                            </div>
+                        </div>
+
+                        <!-- Metrics Grid -->
+                        <div class="grid grid-cols-2 gap-3 mb-5">
+                            <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl p-4">
+                                <p class="text-[10px] text-gray-400 uppercase">Body Fat</p>
+                                <p class="text-xl font-bold">18.2<span class="text-sm font-normal text-gray-400">%</span></p>
+                                <div class="flex items-center gap-1 mt-1">
+                                    <svg class="w-3 h-3 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                                    <span class="text-xs text-green-500">-0.8%</span>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl p-4">
+                                <p class="text-[10px] text-gray-400 uppercase">Waist</p>
+                                <p class="text-xl font-bold">33.5<span class="text-sm font-normal text-gray-400">"</span></p>
+                                <div class="flex items-center gap-1 mt-1">
+                                    <svg class="w-3 h-3 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                                    <span class="text-xs text-green-500">-1.2"</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ingredient Quality Trend -->
+                        <div class="glass-card rounded-3xl p-5">
+                            <p class="text-sm font-semibold mb-4">Ingredient Quality Trend</p>
+                            <div class="space-y-3">
+                                ${[
+                                    { label: 'Avg Food Score', val: '78', change: '+4', good: true },
+                                    { label: 'Ultra Processed %', val: '15%', change: '-8%', good: true },
+                                    { label: 'Artificial Ingredients', val: '2/day', change: '-3', good: true },
+                                    { label: 'Seed Oil Intake', val: '8g', change: '-12g', good: true }
+                                ].map(m => `
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm text-gray-600 dark:text-slate-300">${m.label}</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-semibold">${m.val}</span>
+                                            <span class="text-xs px-1.5 py-0.5 rounded-full ${m.good ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700'}">${m.change}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+                },
+
+                profile() {
+                    return `
+                    <div class="px-5 pt-2 pb-6">
+                        <h1 class="text-2xl font-bold mb-6">Profile</h1>
+                        
+                        <!-- User Card -->
+                        <div class="glass-card rounded-3xl p-5 mb-5 flex items-center gap-4">
+                            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-xl font-bold">
+                                JD
+                            </div>
+                            <div>
+                                <p class="font-bold text-lg">John Doe</p>
+                                <p class="text-sm text-gray-400">Premium Member</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-medium">Lose Fat</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">Male, 32</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Settings List -->
+                        <div class="space-y-1">
+                            ${[
+                                { icon: '🎯', label: 'Goals', desc: 'Calories, macros, targets' },
+                                { icon: '⚙️', label: 'Preferences', desc: 'Diet style, allergies, priorities' },
+                                { icon: '🔔', label: 'Notifications', desc: 'Reminders, alerts, coach' },
+                                { icon: '⌚', label: 'Connected Devices', desc: 'Apple Watch, Whoop, Oura' },
+                                { icon: '🔒', label: 'Privacy & Data', desc: 'Export, delete account' },
+                                { icon: '⭐', label: 'Premium', desc: 'Manage subscription' },
+                                { icon: '❓', label: 'Help & Support', desc: 'FAQ, contact us' }
+                            ].map(item => `
+                                <button class="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors text-left">
+                                    <span class="text-2xl">${item.icon}</span>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-semibold">${item.label}</p>
+                                        <p class="text-xs text-gray-400">${item.desc}</p>
+                                    </div>
+                                    <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                </button>
+                            `).join('')}
+                        </div>
+
+                        <button class="w-full h-14 mt-6 rounded-2xl border border-red-200 dark:border-red-900 text-red-500 font-medium text-sm">
+                            Sign Out
+                        </button>
+                    </div>`;
+                },
+
+                foodDetail() {
+                    const food = app.currentFood || { name: 'Protein Bar', brand: 'RXBAR', calories: 210, protein: 12, carbs: 24, fat: 9, score: 68, ingredients: [
+                        { name: 'Dates', score: 85, natural: true },
+                        { name: 'Egg Whites', score: 92, natural: true },
+                        { name: 'Almonds', score: 88, natural: true },
+                        { name: 'Cashews', score: 86, natural: true },
+                        { name: 'Cocoa', score: 78, natural: true },
+                        { name: 'Natural Flavors', score: 45, natural: false, warn: true },
+                        { name: 'Sea Salt', score: 70, natural: true }
+                    ]};
+                    
+                    return `
+                    <div class="px-5 pt-2 pb-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <button onclick="app.navigate('diary')" class="p-2 -ml-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <h1 class="text-lg font-bold">Food Details</h1>
+                        </div>
+
+                        <!-- Header -->
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 flex items-center justify-center text-4xl">
+                                🍫
+                            </div>
+                            <div class="flex-1">
+                                <h2 class="text-xl font-bold">${food.name}</h2>
+                                <p class="text-sm text-gray-400">${food.brand}</p>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span class="text-2xl font-bold score-fair">${food.score}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium">Fair</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Warnings -->
+                        <div class="warning-pill rounded-2xl p-4 mb-5 flex items-start gap-3">
+                            <svg class="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                            <div>
+                                <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">Contains "Natural Flavors"</p>
+                                <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">This vague term may hide undisclosed chemical compounds. Click to learn more.</p>
+                            </div>
+                        </div>
+
+                        <!-- Nutrition -->
+                        <div class="glass-card rounded-3xl p-5 mb-5">
+                            <p class="text-sm font-semibold mb-4">Nutrition Facts</p>
+                            <div class="grid grid-cols-4 gap-4 text-center">
+                                <div>
+                                    <p class="text-lg font-bold">${food.calories}</p>
+                                    <p class="text-[10px] text-gray-400 uppercase">Calories</p>
+                                </div>
+                                <div>
+                                    <p class="text-lg font-bold text-blue-500">${food.protein}g</p>
+                                    <p class="text-[10px] text-gray-400 uppercase">Protein</p>
+                                </div>
+                                <div>
+                                    <p class="text-lg font-bold text-amber-500">${food.carbs}g</p>
+                                    <p class="text-[10px] text-gray-400 uppercase">Carbs</p>
+                                </div>
+                                <div>
+                                    <p class="text-lg font-bold text-rose-400">${food.fat}g</p>
+                                    <p class="text-[10px] text-gray-400 uppercase">Fat</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ingredients -->
+                        <div class="mb-5">
+                            <div class="flex items-center justify-between mb-3">
+                                <p class="text-sm font-semibold">Ingredients</p>
+                                <span class="text-xs text-gray-400">${food.ingredients.length} total</span>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                ${food.ingredients.map(ing => `
+                                    <button onclick="app.showIngredientDetail('${ing.name}')" class="ingredient-tag px-3 py-2 rounded-xl text-sm font-medium ${ing.warn ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300' : ing.score >= 80 ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300' : 'bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700'}">
+                                        ${ing.name}
+                                        ${ing.warn ? '⚠️' : ''}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Scores -->
+                        <div class="glass-card rounded-3xl p-5 mb-5">
+                            <p class="text-sm font-semibold mb-4">Quality Breakdown</p>
+                            <div class="space-y-3">
+                                ${[
+                                    { label: 'Safety', score: 72, color: 'bg-blue-500' },
+                                    { label: 'Evidence', score: 65, color: 'bg-purple-500' },
+                                    { label: 'Naturalness', score: 80, color: 'bg-green-500' },
+                                    { label: 'Processing', score: 55, color: 'bg-amber-500' },
+                                    { label: 'Bioavailability', score: 78, color: 'bg-teal-500' }
+                                ].map(s => `
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-xs w-24 text-gray-500">${s.label}</span>
+                                        <div class="flex-1 nutrient-bar h-2">
+                                            <div class="nutrient-fill ${s.color}" style="width: ${s.score}%"></div>
+                                        </div>
+                                        <span class="text-xs font-bold w-8 text-right">${s.score}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Alternatives -->
+                        <div class="bg-brand-50 dark:bg-brand-900/20 rounded-3xl p-5">
+                            <p class="text-sm font-semibold text-brand-800 dark:text-brand-200 mb-3">Healthier Alternatives</p>
+                            <div class="space-y-2">
+                                ${[
+                                    { name: 'EPIC Protein Bar', score: 88, why: 'Whole food ingredients, no natural flavors' },
+                                    { name: 'Homemade Energy Balls', score: 95, why: 'Full control over ingredients' }
+                                ].map(alt => `
+                                    <div class="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl">
+                                        <div class="w-10 h-10 rounded-lg bg-gray-100 dark:bg-slate-700 flex items-center justify-center text-lg">🥜</div>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-semibold">${alt.name}</p>
+                                            <p class="text-xs text-gray-400">${alt.why}</p>
+                                        </div>
+                                        <span class="text-sm font-bold text-green-600">${alt.score}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+                },
+
+                ingredientDetail() {
+                    const ing = app.ingredientDetail || { name: 'Sucralose', category: 'Artificial Sweetener', score: 42 };
+                    
+                    return `
+                    <div class="px-5 pt-2 pb-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <button onclick="app.closeBottomSheet()" class="p-2 -ml-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <h1 class="text-lg font-bold">Ingredient Analysis</h1>
+                        </div>
+
+                        <!-- Header -->
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center">
+                                <span class="text-3xl">🧪</span>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold">${ing.name}</h2>
+                                <p class="text-sm text-gray-400">${ing.category}</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-2xl font-bold score-poor">${ing.score}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 font-medium">Poor</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Facts -->
+                        <div class="grid grid-cols-2 gap-3 mb-5">
+                            <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl p-4">
+                                <p class="text-[10px] text-gray-400 uppercase">FDA Status</p>
+                                <p class="text-sm font-semibold text-amber-600">GRAS Approved</p>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl p-4">
+                                <p class="text-[10px] text-gray-400 uppercase">EFSA Opinion</p>
+                                <p class="text-sm font-semibold text-green-600">Safe at ADI</p>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl p-4">
+                                <p class="text-[10px] text-gray-400 uppercase">ADI Limit</p>
+                                <p class="text-sm font-semibold">15 mg/kg/day</p>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl p-4">
+                                <p class="text-[10px] text-gray-400 uppercase">Evidence Quality</p>
+                                <p class="text-sm font-semibold text-amber-600">Mixed</p>
+                            </div>
+                        </div>
+
+                        <!-- What Is It -->
+                        <div class="glass-card rounded-3xl p-5 mb-5">
+                            <p class="text-sm font-semibold mb-2">What Is It?</p>
+                            <p class="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
+                                Sucralose is a zero-calorie artificial sweetener derived from sugar through a multi-step chemical process. It's approximately 600x sweeter than sugar and heat-stable, making it popular in baked goods and beverages.
+                            </p>
+                        </div>
+
+                        <!-- Research Summary -->
+                        <div class="glass-card rounded-3xl p-5 mb-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <p class="text-sm font-semibold">Research Summary</p>
+                                <span class="text-xs text-brand-600 font-medium">View 127 studies</span>
+                            </div>
+                            
+                            <!-- Study Card -->
+                            <div class="research-card bg-white dark:bg-slate-800 rounded-xl p-4 mb-3">
+                                <div class="flex items-start justify-between mb-2">
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">RCT</span>
+                                    <span class="text-[10px] text-gray-400">2023</span>
+                                </div>
+                                <p class="text-sm font-medium mb-1">Sucralose and gut microbiome: a randomized controlled trial</p>
+                                <p class="text-xs text-gray-500 mb-2">n=120 healthy adults, 12-week intervention</p>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] text-gray-400">Outcome:</span>
+                                    <span class="text-xs text-amber-600 font-medium">Mixed effects on glucose tolerance</span>
+                                </div>
+                                <div class="flex items-center gap-3 mt-2 pt-2 border-t border-gray-100 dark:border-slate-700">
+                                    <span class="text-[10px] text-gray-400">Bias: Low</span>
+                                    <span class="text-[10px] text-gray-400">Funding: Independent</span>
+                                </div>
+                            </div>
+
+                            <div class="research-card bg-white dark:bg-slate-800 rounded-xl p-4">
+                                <div class="flex items-start justify-between mb-2">
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium">Meta-Analysis</span>
+                                    <span class="text-[10px] text-gray-400">2022</span>
+                                </div>
+                                <p class="text-sm font-medium mb-1">Non-nutritive sweeteners and weight management</p>
+                                <p class="text-xs text-gray-500 mb-2">56 studies, n=35,000 total</p>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] text-gray-400">Outcome:</span>
+                                    <span class="text-xs text-green-600 font-medium">No significant effect on body weight</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pros & Cons -->
+                        <div class="grid grid-cols-2 gap-3 mb-5">
+                            <div class="bg-green-50 dark:bg-green-900/20 rounded-2xl p-4">
+                                <p class="text-xs font-semibold text-green-700 dark:text-green-300 mb-2">Potential Benefits</p>
+                                <ul class="space-y-1.5">
+                                    <li class="text-xs text-green-600 dark:text-green-400 flex items-start gap-1.5">
+                                        <span class="mt-0.5">✓</span> Zero glycemic impact
+                                    </li>
+                                    <li class="text-xs text-green-600 dark:text-green-400 flex items-start gap-1.5">
+                                        <span class="mt-0.5">✓</span> Dental health friendly
+                                    </li>
+                                    <li class="text-xs text-green-600 dark:text-green-400 flex items-start gap-1.5">
+                                        <span class="mt-0.5">✓</span> Heat stable for cooking
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="bg-rose-50 dark:bg-rose-900/20 rounded-2xl p-4">
+                                <p class="text-xs font-semibold text-rose-700 dark:text-rose-300 mb-2">Concerns</p>
+                                <ul class="space-y-1.5">
+                                    <li class="text-xs text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
+                                        <span class="mt-0.5">⚠</span> May alter gut bacteria
+                                    </li>
+                                    <li class="text-xs text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
+                                        <span class="mt-0.5">⚠</span> Potential glucose dysregulation
+                                    </li>
+                                    <li class="text-xs text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
+                                        <span class="mt-0.5">⚠</span> Cravings & reward pathways
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Confidence -->
+                        <div class="bg-gray-50 dark:bg-slate-800/80 rounded-3xl p-5">
+                            <p class="text-sm font-semibold mb-3">Scientific Confidence</p>
+                            <div class="flex items-center gap-4">
+                                <div class="flex-1">
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-gray-500">Certainty</span>
+                                        <span class="font-medium">Medium-Low</span>
+                                    </div>
+                                    <div class="nutrient-bar h-2">
+                                        <div class="nutrient-fill bg-amber-500" style="width: 45%"></div>
+                                    </div>
+                                </div>
+                                <div class="w-12 h-12 rounded-full border-4 border-amber-400 flex items-center justify-center">
+                                    <span class="text-sm font-bold text-amber-600">C</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-3 leading-relaxed">
+                                Current evidence is mixed. Some RCTs show metabolic effects, while others find no impact. Long-term human data is limited. Regulatory bodies consider it safe at recommended doses.
+                            </p>
+                        </div>
+                    </div>`;
+                },
+
+                aiCoach() {
+                    return `
+                    <div class="h-full flex flex-col px-5 pt-2 pb-6">
+                        <div class="flex items-center gap-3 mb-4">
+                            <button onclick="app.navigate('dashboard')" class="p-2 -ml-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <h1 class="text-lg font-bold">AI Nutrition Coach</h1>
+                        </div>
+
+                        <!-- Chat Area -->
+                        <div class="flex-1 overflow-y-auto hide-scrollbar space-y-4 mb-4">
+                            <!-- AI Message -->
+                            <div class="flex gap-3">
+                                <div class="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-slate-800 rounded-2xl rounded-tl-sm p-4 max-w-[85%]">
+                                    <p class="text-sm leading-relaxed">Hi John! I noticed your protein bar today contains "natural flavors" — a vague term that can hide undisclosed compounds. Based on your goal of <strong>Clean Ingredients</strong>, would you like me to suggest alternatives?</p>
+                                    <div class="flex gap-2 mt-3">
+                                        <button class="px-3 py-1.5 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 text-xs font-medium">Yes, show alternatives</button>
+                                        <button class="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 text-xs font-medium">Explain more</button>
+                                    </div>
+                                    <p class="text-[10px] text-gray-400 mt-2">Confidence: High · Based on 3 peer-reviewed sources</p>
+                                </div>
+                            </div>
+
+                            <!-- User Message -->
+                            <div class="flex gap-3 justify-end">
+                                <div class="bg-brand-500 text-white rounded-2xl rounded-tr-sm p-4 max-w-[85%]">
+                                    <p class="text-sm">Why is canola oil controversial?</p>
+                                </div>
+                            </div>
+
+                            <!-- AI Response -->
+                            <div class="flex gap-3">
+                                <div class="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-slate-800 rounded-2xl rounded-tl-sm p-4 max-w-[85%]">
+                                    <p class="text-sm leading-relaxed mb-3">Great question. The controversy around canola oil involves several factors with <strong>varying levels of evidence</strong>:</p>
+                                    
+                                    <div class="space-y-2 mb-3">
+                                        <div class="bg-white dark:bg-slate-700 rounded-xl p-3">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 font-medium">WELL-SUPPORTED</span>
+                                            </div>
+                                            <p class="text-xs">Most canola is heavily refined using heat and chemical solvents (hexane). Cold-pressed versions avoid this.</p>
+                                        </div>
+                                        <div class="bg-white dark:bg-slate-700 rounded-xl p-3">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 font-medium">MIXED EVIDENCE</span>
+                                            </div>
+                                            <p class="text-xs">High omega-6 content may promote inflammation when consumed in excess and not balanced with omega-3s.</p>
+                                        </div>
+                                        <div class="bg-white dark:bg-slate-700 rounded-xl p-3">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 font-medium">PRELIMINARY</span>
+                                            </div>
+                                            <p class="text-xs">Some animal studies suggest heated canola oil may have negative metabolic effects. Human data is limited.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <p class="text-xs text-gray-500"><strong>My take:</strong> If you consume canola oil, prefer cold-pressed/organic, and balance with omega-3 sources. The dose makes the poison.</p>
+                                    <p class="text-[10px] text-gray-400 mt-2">Confidence: Medium · 12 studies cited</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Input -->
+                        <div class="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-slate-800">
+                            <button class="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"/></svg>
+                            </button>
+                            <input type="text" placeholder="Ask about any food, ingredient, or health topic..." class="flex-1 h-12 px-4 bg-gray-50 dark:bg-slate-800 rounded-full text-sm border-0 outline-none focus:ring-2 focus:ring-brand-500">
+                            <button class="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
+                            </button>
+                        </div>
+                    </div>`;
+                },
+
+                timeline() {
+                    return `
+                    <div class="px-5 pt-2 pb-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <button onclick="app.navigate('dashboard')" class="p-2 -ml-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <h1 class="text-lg font-bold">Ingredient Timeline</h1>
+                        </div>
+
+                        <p class="text-sm text-gray-500 mb-5">Track your daily exposure to potentially problematic ingredients.</p>
+
+                        <div class="space-y-4">
+                            ${[
+                                { name: 'Seed Oils', icon: '🌻', today: 8, avg: 25, goal: 0, unit: 'g', color: 'bg-amber-500', warn: true },
+                                { name: 'Artificial Sweeteners', icon: '🧪', today: 2, avg: 5, goal: 0, unit: 'servings', color: 'bg-purple-500', warn: true },
+                                { name: 'Added Sugars', icon: '🍯', today: 12, avg: 45, goal: 25, unit: 'g', color: 'bg-rose-400', warn: false },
+                                { name: 'Food Dyes', icon: '🌈', today: 0, avg: 2, goal: 0, unit: 'servings', color: 'bg-pink-500', warn: false },
+                                { name: 'Preservatives', icon: '🧂', today: 3, avg: 8, goal: 0, unit: 'types', color: 'bg-slate-500', warn: true },
+                                { name: 'Emulsifiers', icon: '🥄', today: 2, avg: 6, goal: 0, unit: 'types', color: 'bg-blue-400', warn: false },
+                                { name: 'Saturated Fat', icon: '🥩', today: 18, avg: 22, goal: 30, unit: 'g', color: 'bg-yellow-500', warn: false },
+                                { name: 'Omega-3', icon: '🐟', today: 1.2, avg: 0.8, goal: 2, unit: 'g', color: 'bg-teal-500', warn: false },
+                                { name: 'Caffeine', icon: '☕', today: 180, avg: 200, goal: 400, unit: 'mg', color: 'bg-amber-700', warn: false }
+                            ].map(item => `
+                                <div class="glass-card rounded-2xl p-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-2xl">${item.icon}</span>
+                                            <div>
+                                                <p class="text-sm font-semibold">${item.name}</p>
+                                                <p class="text-[10px] text-gray-400">7-day avg: ${item.avg}${item.unit}</p>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-lg font-bold ${item.warn ? 'text-amber-600' : ''}">${item.today}<span class="text-xs font-normal text-gray-400">${item.unit}</span></p>
+                                        </div>
+                                    </div>
+                                    <div class="nutrient-bar h-2">
+                                        <div class="nutrient-fill ${item.color}" style="width: ${Math.min((item.today / (item.goal || item.avg * 2)) * 100, 100)}%"></div>
+                                    </div>
+                                    ${item.warn ? '<p class="text-[10px] text-amber-600 mt-1.5">Above optimal range for your health priorities</p>' : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                },
+
+                qualityDetail() {
+                    const q = app.foodQuality;
+                    return `
+                    <div class="px-5 pt-2 pb-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <button onclick="app.navigate('dashboard')" class="p-2 -ml-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <h1 class="text-lg font-bold">Quality Breakdown</h1>
+                        </div>
+
+                        <!-- Score Circle -->
+                        <div class="flex justify-center mb-8">
+                            <div class="relative w-40 h-40">
+                                <svg class="w-full h-full transform -rotate-90">
+                                    <circle cx="80" cy="80" r="72" fill="none" stroke="#e2e8f0" stroke-width="10" class="dark:stroke-slate-700"/>
+                                    <circle cx="80" cy="80" r="72" fill="none" stroke="#22c55e" stroke-width="10" stroke-linecap="round"
+                                        stroke-dasharray="${2 * Math.PI * 72}"
+                                        stroke-dashoffset="${2 * Math.PI * 72 * (1 - q.score/100)}"
+                                        class="progress-ring-circle"/>
+                                </svg>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span class="text-4xl font-bold score-verygood">${q.score}</span>
+                                    <span class="text-xs text-gray-400 mt-1">Very Good</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Radar Chart Placeholder -->
+                        <div class="glass-card rounded-3xl p-5 mb-5">
+                            <p class="text-sm font-semibold mb-4">Score Dimensions</p>
+                            <div class="space-y-3">
+                                ${[
+                                    { label: 'Ingredient Quality', score: 82, color: 'bg-green-500' },
+                                    { label: 'Processing Level', score: 70, color: 'bg-amber-500' },
+                                    { label: 'Nutrient Density', score: 88, color: 'bg-blue-500' },
+                                    { label: 'Additives & Chemicals', score: 75, color: 'bg-purple-500' },
+                                    { label: 'Protein Quality', score: 90, color: 'bg-teal-500' },
+                                    { label: 'Environmental Impact', score: 65, color: 'bg-emerald-600' }
+                                ].map(d => `
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-xs w-32 text-gray-500">${d.label}</span>
+                                        <div class="flex-1 nutrient-bar h-2">
+                                            <div class="nutrient-fill ${d.color}" style="width: ${d.score}%"></div>
+                                        </div>
+                                        <span class="text-xs font-bold w-6 text-right">${d.score}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Today's Foods by Score -->
+                        <div class="bg-gray-50 dark:bg-slate-800/80 rounded-3xl p-5">
+                            <p class="text-sm font-semibold mb-4">Today's Foods Ranked</p>
+                            <div class="space-y-2">
+                                ${[
+                                    { name: 'Blueberries, Fresh', score: 96, meal: 'Breakfast' },
+                                    { name: 'Grilled Chicken Breast', score: 95, meal: 'Lunch' },
+                                    { name: 'Greek Yogurt, Plain', score: 92, meal: 'Breakfast' },
+                                    { name: 'Olive Oil, EVOO', score: 91, meal: 'Lunch' },
+                                    { name: 'Quinoa, Cooked', score: 88, meal: 'Lunch' },
+                                    { name: 'Honey, Raw', score: 72, meal: 'Breakfast' },
+                                    { name: 'Protein Bar', score: 68, meal: 'Snack' }
+                                ].map(f => `
+                                    <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-700 transition-colors">
+                                        <div class="w-8 h-8 rounded-lg ${f.score >= 90 ? 'bg-green-100 dark:bg-green-900/30 text-green-600' : f.score >= 70 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-600'} flex items-center justify-center text-xs font-bold">
+                                            ${f.score}
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-medium">${f.name}</p>
+                                            <p class="text-[10px] text-gray-400">${f.meal}</p>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+                },
+
+                photoLog() {
+                    return `
+                    <div class="h-full flex flex-col px-5 pt-2 pb-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <button onclick="app.navigate('log')" class="p-2 -ml-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <h1 class="text-lg font-bold">Photo Log</h1>
+                        </div>
+
+                        <!-- Camera Preview -->
+                        <div class="flex-1 bg-gray-900 rounded-3xl relative overflow-hidden mb-4 flex items-center justify-center">
+                            <div class="text-center text-white/60">
+                                <svg class="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"/></svg>
+                                <p class="text-sm">Camera preview would appear here</p>
+                                <p class="text-xs opacity-60 mt-1">Point at your meal to analyze</p>
+                            </div>
+                            
+                            <!-- Scanning overlay -->
+                            <div class="absolute inset-4 border-2 border-white/20 rounded-2xl">
+                                <div class="absolute top-0 left-0 right-0 h-0.5 bg-brand-400 scan-line opacity-50"></div>
+                            </div>
+                        </div>
+
+                        <!-- AI Analysis Preview -->
+                        <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl p-4 mb-4">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="w-5 h-5 rounded-full bg-brand-500 flex items-center justify-center">
+                                    <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+                                </div>
+                                <span class="text-xs font-medium text-brand-600">AI Detected</span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-slate-300">Grilled salmon with quinoa and roasted vegetables</p>
+                            <div class="flex gap-2 mt-2">
+                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 font-medium">Est. 520 kcal</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 font-medium">42g protein</span>
+                            </div>
+                        </div>
+
+                        <button class="w-full h-14 bg-brand-500 text-white font-semibold rounded-2xl shadow-lg shadow-brand-500/25">
+                            Confirm & Log Meal
+                        </button>
+                    </div>`;
+                },
+
+                scannedProduct() {
+                    const product = app.scannedProduct || {
+                        name: 'Organic Greek Yogurt',
+                        brand: 'Fage',
+                        score: 92,
+                        calories: 130,
+                        protein: 23,
+                        carbs: 6,
+                        fat: 0,
+                        ingredients: ['Cultured Grade A Milk', 'Live Active Cultures'],
+                        warnings: [],
+                        processing: 'Minimally Processed',
+                        origin: 'USA'
+                    };
+
+                    const scoreColor = product.score >= 90 ? 'score-excellent' : product.score >= 80 ? 'score-verygood' : product.score >= 70 ? 'score-good' : 'score-fair';
+                    
+                    return `
+                    <div class="px-5 pt-2 pb-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <button onclick="app.navigate('log')" class="p-2 -ml-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <h1 class="text-lg font-bold">Scanned Product</h1>
+                        </div>
+
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center text-4xl">
+                                🥣
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold">${product.name}</h2>
+                                <p class="text-sm text-gray-400">${product.brand}</p>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span class="text-3xl font-bold ${scoreColor}">${product.score}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-medium">Excellent</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass-card rounded-3xl p-5 mb-5">
+                            <p class="text-sm font-semibold mb-3">Quick Facts</p>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-white dark:bg-slate-800 rounded-xl p-3">
+                                    <p class="text-[10px] text-gray-400 uppercase">Processing</p>
+                                    <p class="text-sm font-semibold text-green-600">${product.processing}</p>
+                                </div>
+                                <div class="bg-white dark:bg-slate-800 rounded-xl p-3">
+                                    <p class="text-[10px] text-gray-400 uppercase">Origin</p>
+                                    <p class="text-sm font-semibold">${product.origin}</p>
+                                </div>
+                                <div class="bg-white dark:bg-slate-800 rounded-xl p-3">
+                                    <p class="text-[10px] text-gray-400 uppercase">Additives</p>
+                                    <p class="text-sm font-semibold text-green-600">None</p>
+                                </div>
+                                <div class="bg-white dark:bg-slate-800 rounded-xl p-3">
+                                    <p class="text-[10px] text-gray-400 uppercase">Organic</p>
+                                    <p class="text-sm font-semibold text-green-600">Yes ✓</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass-card rounded-3xl p-5 mb-5">
+                            <p class="text-sm font-semibold mb-3">Nutrition per Serving</p>
+                            <div class="grid grid-cols-4 gap-3 text-center">
+                                <div>
+                                    <p class="text-lg font-bold">${product.calories}</p>
+                                    <p class="text-[10px] text-gray-400">kcal</p>
+                                </div>
+                                <div>
+                                    <p class="text-lg font-bold text-blue-500">${product.protein}g</p>
+                                    <p class="text-[10px] text-gray-400">protein</p>
+                                </div>
+                                <div>
+                                    <p class="text-lg font-bold text-amber-500">${product.carbs}g</p>
+                                    <p class="text-[10px] text-gray-400">carbs</p>
+                                </div>
+                                <div>
+                                    <p class="text-lg font-bold text-rose-400">${product.fat}g</p>
+                                    <p class="text-[10px] text-gray-400">fat</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-green-50 dark:bg-green-900/20 rounded-3xl p-5 mb-6">
+                            <div class="flex items-center gap-2 mb-2">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
+                                <span class="text-sm font-semibold text-green-800 dark:text-green-200">Clean Choice</span>
+                            </div>
+                            <p class="text-xs text-green-700 dark:text-green-300 leading-relaxed">
+                                This product contains only two ingredients: cultured milk and live active cultures. No additives, no sweeteners, no preservatives. Excellent protein-to-calorie ratio.
+                            </p>
+                        </div>
+
+                        <button class="w-full h-14 bg-brand-500 text-white font-semibold rounded-2xl shadow-lg shadow-brand-500/25 mb-3">
+                            Add to Diary
+                        </button>
+                        <button class="w-full h-14 bg-gray-100 dark:bg-slate-800 font-medium rounded-2xl text-sm">
+                            View Full Analysis
+                        </button>
+                    </div>`;
+                }
+            },
+
+            // ============ ACTIONS ============
+            showFoodDetail(foodName) {
+                this.currentFood = {
+                    name: foodName,
+                    brand: 'Generic',
+                    calories: 210,
+                    protein: 12,
+                    carbs: 24,
+                    fat: 9,
+                    score: 68,
+                    ingredients: [
+                        { name: 'Dates', score: 85, natural: true },
+                        { name: 'Egg Whites', score: 92, natural: true },
+                        { name: 'Almonds', score: 88, natural: true },
+                        { name: 'Cashews', score: 86, natural: true },
+                        { name: 'Cocoa', score: 78, natural: true },
+                        { name: 'Natural Flavors', score: 45, natural: false, warn: true },
+                        { name: 'Sea Salt', score: 70, natural: true }
+                    ]
+                };
+                this.navigate('foodDetail');
+            },
+
+            showIngredientDetail(name) {
+                this.ingredientDetail = {
+                    name: name,
+                    category: name === 'Natural Flavors' ? 'Flavoring Agent' : 'Food Ingredient',
+                    score: name === 'Natural Flavors' ? 45 : 85
+                };
+                this.openBottomSheet('ingredientDetail');
+            },
+
+            openBottomSheet(content) {
+                const sheet = document.getElementById('bottomSheet');
+                const overlay = document.getElementById('overlay');
+                const contentDiv = document.getElementById('bottomSheetContent');
+                
+                contentDiv.innerHTML = this.screens[content] ? this.screens[content]() : '';
+                sheet.classList.add('open');
+                overlay.classList.add('open');
+            },
+
+            closeBottomSheet() {
+                document.getElementById('bottomSheet').classList.remove('open');
+                document.getElementById('overlay').classList.remove('open');
+            },
+
+            startScan() {
+                document.getElementById('scanOverlay').classList.remove('hidden');
+                // Simulate scan completion
+                setTimeout(() => {
+                    this.stopScan();
+                    this.scannedProduct = {
+                        name: 'Organic Greek Yogurt',
+                        brand: 'Fage',
+                        score: 92,
+                        calories: 130,
+                        protein: 23,
+                        carbs: 6,
+                        fat: 0,
+                        processing: 'Minimally Processed',
+                        origin: 'USA'
+                    };
+                    this.navigate('scannedProduct');
+                }, 2500);
+            },
+
+            stopScan() {
+                document.getElementById('scanOverlay').classList.add('hidden');
+            }
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+</body>
+</html>
+<script data-huggingchat-badge="script">
+(function () {
+	try {
+		if (document.querySelector("[data-huggingchat-badge]:not(script)")) return;
+		var host = document.createElement("div");
+		host.setAttribute("data-huggingchat-badge", "");
+		var styles = [["all","initial"],["position","fixed"],["right","12px"],["bottom","12px"],["z-index","2147483647"],["display","block"],["visibility","visible"],["opacity","1"],["pointer-events","auto"],["width","auto"],["height","auto"],["margin","0"],["padding","0"],["max-width","none"],["max-height","none"],["transform","none"],["filter","none"],["clip-path","none"],["color-scheme","light"]];
+		for (var i = 0; i < styles.length; i++) {
+			host.style.setProperty(styles[i][0], styles[i][1], "important");
+		}
+		host.attachShadow({ mode: "closed" }).innerHTML = "<style>\n:host { all: initial; }\na {\n  display: flex;\n  align-items: center;\n  gap: 5px;\n  box-sizing: border-box;\n  height: 26px;\n  padding: 0 9px 0 7px;\n  border-radius: 999px;\n  border: 1px solid rgba(0, 0, 0, 0.07);\n  background: rgba(255, 255, 255, 0.92);\n  -webkit-backdrop-filter: saturate(180%) blur(8px);\n  backdrop-filter: saturate(180%) blur(8px);\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);\n  color: #111827;\n  font: 500 11px/1 ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  letter-spacing: 0.01em;\n  text-decoration: none;\n  white-space: nowrap;\n  opacity: 0.72;\n  transition: opacity 0.15s ease, transform 0.15s ease;\n}\na:hover, a:focus-visible { opacity: 1; transform: translateY(-1px); }\nsvg { width: 14px; height: 14px; flex: none; }\n@media print { a { display: none; } }\n<\/style><a href=\"https://huggingface.co/chat\" target=\"_blank\" rel=\"noopener noreferrer nofollow\"><svg viewBox=\"0 0 32 32\" fill=\"none\" aria-hidden=\"true\"><path d=\"M16.0006 25.9992C13.8266 25.999 11.7118 25.2901 9.97686 23.9799C8.2419 22.6698 6.98127 20.8298 6.38599 18.7388C5.79071 16.6478 5.89323 14.4198 6.678 12.3923C7.46278 10.3648 8.88705 8.64837 10.735 7.50308C12.5829 6.35779 14.7538 5.84606 16.9187 6.04544C19.0837 6.24481 21.1246 7.14442 22.7323 8.60795C24.34 10.0715 25.4268 12.0192 25.8281 14.1559C26.2293 16.2926 25.9232 18.5019 24.9561 20.449C24.7703 20.8042 24.7223 21.2155 24.8211 21.604L25.4211 23.8316C25.4803 24.0518 25.4805 24.2837 25.4216 24.5039C25.3627 24.7242 25.2468 24.925 25.0856 25.0862C24.9244 25.2474 24.7235 25.3633 24.5033 25.4222C24.283 25.4811 24.0512 25.4809 23.831 25.4217L21.6034 24.8217C21.2172 24.7248 20.809 24.7729 20.4558 24.9567C19.0683 25.6467 17.5457 26.0068 16.0006 26.0068V25.9992Z\" fill=\"currentColor\"/><path d=\"M9.62598 16.0013C9.62598 15.3799 10.1294 14.8765 10.7508 14.8765C11.3721 14.8765 11.8756 15.3799 11.8756 16.0013C11.8756 17.0953 12.3102 18.1448 13.0838 18.9184C13.8574 19.692 14.9069 20.1266 16.001 20.1267C17.095 20.1267 18.1445 19.692 18.9181 18.9184C19.6918 18.1448 20.1264 17.0953 20.1264 16.0013C20.1264 15.3799 20.6299 14.8765 21.2512 14.8765C21.8725 14.8765 22.3759 15.3799 22.3759 16.0013C22.3759 17.6921 21.7046 19.3137 20.509 20.5093C19.3134 21.7049 17.6918 22.3762 16.001 22.3762C14.3102 22.3762 12.6885 21.7049 11.4929 20.5093C10.2974 19.3137 9.62598 17.6921 9.62598 16.0013Z\" fill=\"#fff\"/><\/svg><span>Made with HuggingChat<\/span><\/a>";
+		function attach() {
+			var parent = document.body || document.documentElement;
+			if (parent && host.parentNode !== parent) parent.appendChild(host);
+		}
+		attach();
+		// Artifacts that rewrite document.body wholesale would drop the badge.
+		if (document.body && typeof MutationObserver === "function") {
+			new MutationObserver(attach).observe(document.body, { childList: true });
+		} else {
+			document.addEventListener("DOMContentLoaded", attach);
+		}
+	} catch (e) {}
+})();
+</script>

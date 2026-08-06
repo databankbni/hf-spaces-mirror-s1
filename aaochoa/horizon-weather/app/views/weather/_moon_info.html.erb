@@ -1,0 +1,101 @@
+<%
+  current_phase_val = daily["moon_phase"]&.first
+  details = WeatherService.moon_phase_details(current_phase_val || 0)
+  
+  # Format helper for parsing and showing time safely
+  format_time = ->(time_str) {
+    Time.parse(time_str).strftime("%I:%M %p") rescue "--:--"
+  }
+%>
+
+<details class="group relative overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 backdrop-blur-md p-6 shadow-lg dark:shadow-xl transition-colors duration-300 [&_summary::-webkit-details-marker]:hidden">
+  <!-- Decorative background glow -->
+  <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+  <summary class="flex items-center justify-between cursor-pointer focus:outline-none list-none select-none">
+    <!-- Header -->
+    <div class="flex items-center gap-2">
+      <div class="p-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/60">
+        <i data-lucide="moon-star" class="w-5 h-5"></i>
+      </div>
+      <h3 class="text-sm font-bold text-slate-950 dark:text-slate-200 uppercase tracking-wider">Lunar Cycle</h3>
+    </div>
+    <div class="text-slate-400 dark:text-slate-500 transition-transform duration-300 group-open:rotate-180">
+      <i data-lucide="chevron-down" class="w-5 h-5"></i>
+    </div>
+  </summary>
+
+  <div class="mt-4 space-y-6">
+
+  <!-- Current Moon Details -->
+  <div class="flex items-center justify-between gap-4 mb-6">
+    <div class="space-y-1">
+      <div class="text-2xl font-black text-slate-900 dark:text-white">
+        <%= details[:name] %>
+      </div>
+      <div class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+        <span><%= details[:illumination] %>% Illuminated</span>
+      </div>
+    </div>
+    <div class="w-16 h-16 rounded-full bg-slate-100/50 dark:bg-slate-800/20 border border-slate-200/60 dark:border-slate-800/80 flex items-center justify-center shadow-inner">
+      <span class="text-4xl select-none leading-none"><%= details[:emoji] %></span>
+    </div>
+  </div>
+
+  <!-- Astro times (Sunrise/Sunset & Moonrise/Moonset) -->
+  <div class="grid grid-cols-2 gap-4 text-sm mb-6 p-4 rounded-2xl bg-slate-50/50 dark:bg-slate-950/20 border border-slate-100 dark:border-slate-800/40">
+    <div class="space-y-3">
+      <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+        <i data-lucide="sunrise" class="w-4 h-4 text-amber-500"></i>
+        <div class="flex flex-col">
+          <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Sunrise</span>
+          <strong class="text-base font-extrabold text-slate-900 dark:text-white mt-0.5"><%= format_time.call(daily["sunrise"]&.first) %></strong>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+        <i data-lucide="sunset" class="w-4 h-4 text-orange-500"></i>
+        <div class="flex flex-col">
+          <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Sunset</span>
+          <strong class="text-base font-extrabold text-slate-900 dark:text-white mt-0.5"><%= format_time.call(daily["sunset"]&.first) %></strong>
+        </div>
+      </div>
+    </div>
+    
+    <div class="space-y-3">
+      <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+        <i data-lucide="moon" class="w-4 h-4 text-indigo-400"></i>
+        <div class="flex flex-col">
+          <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Moonrise</span>
+          <strong class="text-base font-extrabold text-slate-900 dark:text-white mt-0.5"><%= format_time.call(daily["moonrise"]&.first) %></strong>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+        <i data-lucide="moon" class="w-4 h-4 text-purple-400 opacity-60"></i>
+        <div class="flex flex-col">
+          <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Moonset</span>
+          <strong class="text-base font-extrabold text-slate-900 dark:text-white mt-0.5"><%= format_time.call(daily["moonset"]&.first) %></strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7-Day Lunar Preview -->
+  <div class="space-y-2">
+    <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">7-Day Moon Phase Preview</span>
+    <div class="grid grid-cols-7 gap-1 pt-1 text-center">
+      <% daily["time"]&.each_with_index do |time, index| %>
+        <%
+          day_name = Date.parse(time).strftime("%a") rescue "Day"
+          phase_val = daily["moon_phase"]&.[](index) || 0
+          day_details = WeatherService.moon_phase_details(phase_val)
+        %>
+        <div class="flex flex-col items-center gap-1 py-1.5 rounded-lg hover:bg-slate-50/80 dark:hover:bg-slate-950/20 transition cursor-help" title="<%= day_details[:name] %> (<%= day_details[:illumination] %>% illuminated)">
+          <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase"><%= day_name %></span>
+          <span class="text-lg select-none leading-none"><%= day_details[:emoji] %></span>
+          <span class="text-[9px] font-bold text-slate-500 dark:text-slate-400"><%= day_details[:illumination] %>%</span>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</details>

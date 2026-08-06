@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GridWorld Warehouse Navigation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --grid-size: 11;
+      --cell-gap: 2px;
+      --cell-size: min(5vw, 40px);
+      --color-bg: #0f172a;
+      --color-panel: #111827;
+      --color-border: #1f2937;
+      --color-text: #e5e7eb;
+      --color-muted: #9ca3af;
+      --color-start: #3b82f6;
+      --color-goal: #22c55e;
+      --color-obstacle: #111827;
+      --color-empty: #e5e7eb;
+      --color-agent: #ef4444;
+      --color-score: #facc15;
+      --color-button: #1d4ed8;
+      --color-button-hover: #2563eb;
+      --color-button-disabled: #6b7280;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1f2937 0, #020617 55%, #000 100%);
+      color: var(--color-text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .app {
+      max-width: 1100px;
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      gap: 1.5rem;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .left-panel,
+    .right-panel {
+      padding: 1.25rem 1.5rem;
+    }
+
+    .left-panel {
+      border-right: 1px solid var(--color-border);
+    }
+
+    @media (max-width: 900px) {
+      .left-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+      }
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 1rem;
+    }
+
+    .title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--color-muted);
+    }
+
+    .grid-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0.75rem 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(var(--grid-size), var(--cell-size));
+      grid-template-rows: repeat(var(--grid-size), var(--cell-size));
+      gap: var(--cell-gap);
+      padding: 0.5rem;
+      background: #020617;
+      border-radius: 0.75rem;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
+    .cell {
+      width: var(--cell-size);
+      height: var(--cell-size);
+      border-radius: 0.35rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      font-size: 0.8rem;
+      font-weight: 600;
+      user-select: none;
+    }
+
+    .cell.empty {
+      background: var(--color-empty);
+      color: #111827;
+    }
+
+    .cell.start {
+      background: var(--color-start);
+      color: #0b1120;
+    }
+
+    .cell.goal {
+      background: var(--color-goal);
+      color: #052e16;
+    }
+
+    .cell.obstacle {
+      background: var(--color-obstacle);
+      color: #4b5563;
+    }
+
+    .agent {
+      position: absolute;
+      width: 60%;
+      height: 60%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fecaca 0, var(--color-agent) 40%, #7f1d1d 100%);
+      box-shadow: 0 0 0 2px rgba(248, 250, 252, 0.8);
+    }
+
+    .controls {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: repeat(3, auto);
+      gap: 0.5rem;
+      max-width: 260px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .controls button {
+      padding: 0.5rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: linear-gradient(135deg, var(--color-button) 0, #0ea5e9 100%);
+      color: #f9fafb;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+    }
+
+    .controls button span.action-id {
+      font-size: 0.7rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.7);
+    }
+
+    .controls button:hover {
+      background: linear-gradient(135deg, var(--color-button-hover) 0, #22d3ee 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.7);
+    }
+
+    .controls button:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    .controls button.reset {
+      grid-column: 1 / 4;
+      background: linear-gradient(135deg, #f97316 0, #facc15 100%);
+      color: #111827;
+    }
+
+    .controls button.reset:hover {
+      background: linear-gradient(135deg, #fb923c 0, #fde047 100%);
+    }
+
+    .controls button.disabled {
+      background: var(--color-button-disabled);
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .controls button.disabled:hover {
+      background: var(--color-button-disabled);
+    }
+
+    .hint {
+      margin-top: 0.5rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--color-muted);
+    }
+
+    .scoreboard {
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 0.75rem;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      padding: 1rem;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem 1rem;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 600px) {
+      .scoreboard {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .score-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      font-size: 0.85rem;
+    }
+
+    .score-label {
+      color: var(--color-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.7rem;
+    }
+
+    .score-value {
+      font-weight: 600;
+    }
+
+    .score-value.highlight {
+      color: var(--color-score);
+      font-size: 1rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+    }
+
+    .status-pill.ok {
+      background: rgba(22, 163, 74, 0.15);
+      border-color: rgba(22, 163, 74, 0.7);
+      color: #bbf7d0;
+    }
+
+    .status-pill.warn {
+      background: rgba(234, 179, 8, 0.15);
+      border-color: rgba(234, 179, 8, 0.7);
+      color: #fef9c3;
+    }
+
+    .status-pill.bad {
+      background: rgba(220, 38, 38, 0.15);
+      border-color: rgba(220, 38, 38, 0.7);
+      color: #fecaca;
+    }
+
+    .legend {
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 0.75rem;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      padding: 1rem;
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .legend-title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .legend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      align-items: center;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .legend-swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 0.35rem;
+      border: 1px solid rgba(15, 23, 42, 0.7);
+    }
+
+    .legend-swatch.start {
+      background: var(--color-start);
+    }
+
+    .legend-swatch.goal {
+      background: var(--color-goal);
+    }
+
+    .legend-swatch.obstacle {
+      background: var(--color-obstacle);
+    }
+
+    .legend-swatch.empty {
+      background: var(--color-empty);
+    }
+
+    .legend-swatch.agent {
+      border-radius: 50%;
+      background: var(--color-agent);
+      box-shadow: 0 0 0 2px rgba(248, 250, 252, 0.8);
+    }
+
+    .reward-guide {
+      margin-top: 0.25rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      gap: 0.75rem;
+    }
+
+    @media (max-width: 700px) {
+      .reward-guide {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .reward-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .reward-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .reward-label {
+      color: var(--color-muted);
+    }
+
+    .reward-value {
+      font-weight: 600;
+    }
+
+    .reward-positive {
+      color: #bbf7d0;
+    }
+
+    .reward-negative {
+      color: #fecaca;
+    }
+
+    .reward-note {
+      font-size: 0.8rem;
+      color: var(--color-muted);
+    }
+
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.1rem 0.35rem;
+      border-radius: 0.35rem;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      font-size: 0.75rem;
+      background: rgba(15, 23, 42, 0.8);
+      color: #e5e7eb;
+      margin: 0 0.1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="left-panel">
+      <div class="header">
+        <div>
+          <div class="title">GridWorld Warehouse Navigation</div>
+          <div class="subtitle">11×11 solvable maze • Gymnasium-style environment • Arrow keys + on-screen controls</div>
+        </div>
+        <div class="subtitle">Actions: 0=↑ 1=→ 2=↓ 3=←</div>
+      </div>
+
+      <div class="grid-container">
+        <div id="grid" class="grid"></div>
+      </div>
+
+      <div class="controls">
+        <div></div>
+        <button id="btn-up">
+          ↑ Up
+          <span class="action-id">0</span>
+        </button>
+        <div></div>
+
+        <button id="btn-left">
+          ← Left
+          <span class="action-id">3</span>
+        </button>
+        <button id="btn-down">
+          ↓ Down
+          <span class="action-id">2</span>
+        </button>
+        <button id="btn-right">
+          → Right
+          <span class="action-id">1</span>
+        </button>
+
+        <button id="btn-reset" class="reset">Reset &amp; Randomize (Solvable)</button>
+      </div>
+
+      <div class="hint">
+        Use arrow keys or buttons. Diagonal moves, obstacles, and boundaries are blocked. Environment is exposed as <span class="kbd">window.env</span>.
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="scoreboard">
+        <div class="score-item">
+          <div class="score-label">Total Score</div>
+          <div id="score-total" class="score-value highlight">0</div>
+        </div>
+        <div class="score-item">
+          <div class="score-label">Last Reward</div>
+          <div id="score-last" class="score-value">0</div>
+        </div>
+        <div class="score-item">
+          <div class="score-label">Steps</div>
+          <div id="score-steps" class="score-value">0 / 150</div>
+        </div>
+        <div class="score-item">
+          <div class="score-label">Manhattan Distance</div>
+          <div id="score-distance" class="score-value">0</div>
+        </div>
+        <div class="score-item">
+          <div class="score-label">Agent Position</div>
+          <div id="score-agent" class="score-value">(0, 0)</div>
+        </div>
+        <div class="score-item">
+          <div class="score-label">Goal Position</div>
+          <div id="score-goal" class="score-value">(0, 0)</div>
+        </div>
+        <div class="score-item">
+          <div class="score-label">Goal Status</div>
+          <div id="score-goal-status" class="score-value">
+            <span class="status-pill ok">Not reached</span>
+          </div>
+        </div>
+        <div class="score-item">
+          <div class="score-label">Timeout Status</div>
+          <div id="score-timeout-status" class="score-value">
+            <span class="status-pill ok">Active</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div>
+          <div class="legend-title">Legend</div>
+          <div class="legend-row">
+            <div class="legend-item">
+              <div class="legend-swatch start"></div>
+              <span><strong>S</strong> — Start</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-swatch goal"></div>
+              <span><strong>G</strong> — Goal</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-swatch obstacle"></div>
+              <span><strong>X</strong> — Obstacle (blocked)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-swatch empty"></div>
+              <span><strong>.</strong> — Empty cell</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-swatch agent"></div>
+              <span><strong>A</strong> — Agent</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="reward-guide">
+          <div>
+            <div class="legend-title">Reward Guide</div>
+            <ul class="reward-list">
+              <li>
+                <span class="reward-label">Reach goal</span>
+                <span class="reward-value reward-positive">+25</span>
+              </li>
+              <li>
+                <span class="reward-label">Move closer (Manhattan)</span>
+                <span class="reward-value reward-positive">+1</span>
+              </li>
+              <li>
+                <span class="reward-label">Visit new cell</span>
+                <span class="reward-value reward-positive">+0.25</span>
+              </li>
+              <li>
+                <span class="reward-label">Move farther (Manhattan)</span>
+                <span class="reward-value reward-negative">−0.5</span>
+              </li>
+              <li>
+                <span class="reward-label">Invalid move (wall/obstacle)</span>
+                <span class="reward-value reward-negative">−2</span>
+              </li>
+              <li>
+                <span class="reward-label">Timeout &gt; 150 steps</span>
+                <span class="reward-value reward-negative">−10</span>
+              </li>
+            </ul>
+          </div>
+          <div class="reward-note">
+            Observations are a normalized 4-value vector:
+            <br />
+            <span class="kbd">[agent_row, agent_col, goal_row, goal_col]</span> scaled to <span class="kbd">[0, 1]</span>.
+            <br />
+            Action space is discrete with 4 actions:
+            <span class="kbd">0=UP</span>
+            <span class="kbd">1=RIGHT</span>
+            <span class="kbd">2=DOWN</span>
+            <span class="kbd">3=LEFT</span>.
+            <br />
+            The environment is Gymnasium-style with <span class="kbd">reset()</span>,
+            <span class="kbd">step(action)</span>,
+            <span class="kbd">observation()</span>, and <span class="kbd">info()</span>, exposed as
+            <span class="kbd">window.env</span>.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const GRID_SIZE = 11;
+      const MAX_STEPS = 150;
+      const OBSTACLE_DENSITY = 0.2; // ~20%
+
+      class GridWorldEnv {
+        constructor(size = GRID_SIZE) {
+          this.size = size;
+          this.grid = [];
+          this.agentPos = { row: 0, col: 0 };
+          this.goalPos = { row: size - 1, col: size - 1 };
+          this.steps = 0;
+          this.score = 0;
+          this.lastReward = 0;
+          this.done = false;
+          this.timeout = false;
+          this.reachedGoal = false;
+          this.visited = new Set();
+          this.reset();
+        }
+
+        reset() {
+          this._generateSolvableMaze();
+          this.steps = 0;
+          this.score = 0;
+          this.lastReward = 0;
+          this.done = false;
+          this.timeout = false;
+          this.reachedGoal = false;
+          this.visited = new Set();
+          this._markVisited(this.agentPos.row, this.agentPos.col);
+          return this.observation();
+        }
+
+        step(action) {
+          if (this.done) {
+            return {
+              observation: this.observation(),
+              reward: 0,
+              done: true,
+              info: this.info()
+            };
+          }
+
+          const prevRow = this.agentPos.row;
+          const prevCol = this.agentPos.col;
+          const prevDist = this._manhattan(prevRow, prevCol, this.goalPos.row, this.goalPos.col);
+
+          let newRow = prevRow;
+          let newCol = prevCol;
+
+          if (action === 0) newRow -= 1; // UP
+          else if (action === 1) newCol += 1; // RIGHT
+          else if (action === 2) newRow += 1; // DOWN
+          else if (action === 3) newCol -= 1; // LEFT
+
+          let reward = 0;
+          let validMove = true;
+
+          if (!this._inBounds(newRow, newCol) || this.grid[newRow][newCol] === "X") {
+            // Invalid move
+            reward += -2;
+            validMove = false;
+            newRow = prevRow;
+            newCol = prevCol;
+          }
+
+          if (validMove) {
+            const newDist = this._manhattan(newRow, newCol, this.goalPos.row, this.goalPos.col);
+            if (newDist < prevDist) {
+              reward += 1;
+            } else if (newDist > prevDist) {
+              reward += -0.5;
+            }
+
+            const key = this._posKey(newRow, newCol);
+            if (!this.visited.has(key)) {
+              reward += 0.25;
+              this._markVisited(newRow, newCol);
+            }
+
+            this.agentPos.row = newRow;
+            this.agentPos.col = newCol;
+
+            if (newRow === this.goalPos.row && newCol === this.goalPos.col) {
+              reward += 25;
+              this.done = true;
+              this.reachedGoal = true;
+            }
+          }
+
+          this.steps += 1;
+
+          if (this.steps > MAX_STEPS && !this.done) {
+            reward += -10;
+            this.done = true;
+            this.timeout = true;
+          }
+
+          this.score += reward;
+          this.lastReward = reward;
+
+          return {
+            observation: this.observation(),
+            reward: reward,
+            done: this.done,
+            info: this.info()
+          };
+        }
+
+        observation() {
+          const norm = (v) => v / (this.size - 1);
+          return [
+            norm(this.agentPos.row),
+            norm(this.agentPos.col),
+            norm(this.goalPos.row),
+            norm(this.goalPos.col)
+          ];
+        }
+
+        info() {
+          const dist = this._manhattan(
+            this.agentPos.row,
+            this.agentPos.col,
+            this.goalPos.row,
+            this.goalPos.col
+          );
+          return {
+            score: this.score,
+            lastReward: this.lastReward,
+            steps: this.steps,
+            maxSteps: MAX_STEPS,
+            agentPos: { ...this.agentPos },
+            goalPos: { ...this.goalPos },
+            manhattanDistance: dist,
+            reachedGoal: this.reachedGoal,
+            timeout: this.timeout,
+            done: this.done
+          };
+        }
+
+        // Internal helpers
+
+        _posKey(r, c) {
+          return `${r},${c}`;
+        }
+
+        _markVisited(r, c) {
+          this.visited.add(this._posKey(r, c));
+        }
+
+        _inBounds(r, c) {
+          return r >= 0 && r < this.size && c >= 0 && c < this.size;
+        }
+
+        _manhattan(r1, c1, r2, c2) {
+          return Math.abs(r1 - r2) + Math.abs(c1 - c2);
+        }
+
+        _generateSolvableMaze() {
+          let attempts = 0;
+          while (true) {
+            attempts++;
+            this.grid = Array.from({ length: this.size }, () =>
+              Array.from({ length: this.size }, () => ".")
+            );
+
+            // Random start and goal
+            const startRow = Math.floor(Math.random() * this.size);
+            const startCol = Math.floor(Math.random() * this.size);
+            let goalRow, goalCol;
+            do {
+              goalRow = Math.floor(Math.random() * this.size);
+              goalCol = Math.floor(Math.random() * this.size);
+            } while (goalRow === startRow && goalCol === startCol);
+
+            this.agentPos = { row: startRow, col: startCol };
+            this.goalPos = { row: goalRow, col: goalCol };
+
+            // Place obstacles
+            for (let r = 0; r < this.size; r++) {
+              for (let c = 0; c < this.size; c++) {
+                if ((r === startRow && c === startCol) || (r === goalRow && c === goalCol)) {
+                  continue;
+                }
+                if (Math.random() < OBSTACLE_DENSITY) {
+                  this.grid[r][c] = "X";
+                }
+              }
+            }
+
+            // Ensure solvable via BFS
+            if (this._hasPath(startRow, startCol, goalRow, goalCol)) {
+              break;
+            }
+            // Otherwise, regenerate
+          }
+        }
+
+        _hasPath(sr, sc, gr, gc) {
+          const visited = Array.from({ length: this.size }, () =>
+            Array.from({ length: this.size }, () => false)
+          );
+          const queue = [];
+          queue.push({ r: sr, c: sc });
+          visited[sr][sc] = true;
+
+          const dirs = [
+            { dr: -1, dc: 0 },
+            { dr: 1, dc: 0 },
+            { dr: 0, dc: -1 },
+            { dr: 0, dc: 1 }
+          ];
+
+          while (queue.length > 0) {
+            const { r, c } = queue.shift();
+            if (r === gr && c === gc) return true;
+
+            for (const { dr, dc } of dirs) {
+              const nr = r + dr;
+              const nc = c + dc;
+              if (
+                this._inBounds(nr, nc) &&
+                !visited[nr][nc] &&
+                this.grid[nr][nc] !== "X"
+              ) {
+                visited[nr][nc] = true;
+                queue.push({ r: nr, c: nc });
+              }
+            }
+          }
+          return false;
+        }
+      }
+
+      // Expose environment globally
+      window.env = new GridWorldEnv();
+
+      // Rendering and UI
+      const gridEl = document.getElementById("grid");
+      const btnUp = document.getElementById("btn-up");
+      const btnRight = document.getElementById("btn-right");
+      const btnDown = document.getElementById("btn-down");
+      const btnLeft = document.getElementById("btn-left");
+      const btnReset = document.getElementById("btn-reset");
+
+      const scoreTotalEl = document.getElementById("score-total");
+      const scoreLastEl = document.getElementById("score-last");
+      const scoreStepsEl = document.getElementById("score-steps");
+      const scoreDistanceEl = document.getElementById("score-distance");
+      const scoreAgentEl = document.getElementById("score-agent");
+      const scoreGoalEl = document.getElementById("score-goal");
+      const scoreGoalStatusEl = document.getElementById("score-goal-status");
+      const scoreTimeoutStatusEl = document.getElementById("score-timeout-status");
+
+      function renderGrid() {
+        gridEl.innerHTML = "";
+        const env = window.env;
+        for (let r = 0; r < env.size; r++) {
+          for (let c = 0; c < env.size; c++) {
+            const cellEl = document.createElement("div");
+            cellEl.classList.add("cell");
+
+            const isStart = r === env.agentPos.row && c === env.agentPos.col;
+            const isGoal = r === env.goalPos.row && c === env.goalPos.col;
+            const isObstacle = env.grid[r][c] === "X";
+
+            if (isObstacle) {
+              cellEl.classList.add("obstacle");
+              cellEl.textContent = "X";
+            } else if (isGoal) {
+              cellEl.classList.add("goal");
+              cellEl.textContent = "G";
+            } else if (isStart) {
+              cellEl.classList.add("start");
+              cellEl.textContent = "S";
+            } else {
+              cellEl.classList.add("empty");
+              cellEl.textContent = ".";
+            }
+
+            if (r === env.agentPos.row && c === env.agentPos.col) {
+              const agentEl = document.createElement("div");
+              agentEl.classList.add("agent");
+              cellEl.appendChild(agentEl);
+            }
+
+            gridEl.appendChild(cellEl);
+          }
+        }
+      }
+
+      function renderScoreboard() {
+        const info = window.env.info();
+        scoreTotalEl.textContent = info.score.toFixed(2);
+        scoreLastEl.textContent = info.lastReward.toFixed(2);
+        scoreStepsEl.textContent = `${info.steps} / ${info.maxSteps}`;
+        scoreDistanceEl.textContent = info.manhattanDistance;
+        scoreAgentEl.textContent = `(${info.agentPos.row}, ${info.agentPos.col})`;
+        scoreGoalEl.textContent = `(${info.goalPos.row}, ${info.goalPos.col})`;
+
+        // Goal status pill
+        const goalSpan = document.createElement("span");
+        goalSpan.classList.add("status-pill");
+        if (info.reachedGoal) {
+          goalSpan.classList.add("ok");
+          goalSpan.textContent = "Reached";
+        } else {
+          goalSpan.classList.add("ok");
+          goalSpan.textContent = "Not reached";
+        }
+        scoreGoalStatusEl.innerHTML = "";
+        scoreGoalStatusEl.appendChild(goalSpan);
+
+        // Timeout status pill
+        const timeoutSpan = document.createElement("span");
+        timeoutSpan.classList.add("status-pill");
+        if (info.timeout) {
+          timeoutSpan.classList.add("bad");
+          timeoutSpan.textContent = "Timed out";
+        } else if (info.done && !info.timeout && info.reachedGoal) {
+          timeoutSpan.classList.add("ok");
+          timeoutSpan.textContent = "Episode complete";
+        } else {
+          timeoutSpan.classList.add("warn");
+          timeoutSpan.textContent = "Active";
+        }
+        scoreTimeoutStatusEl.innerHTML = "";
+        scoreTimeoutStatusEl.appendChild(timeoutSpan);
+
+        // Disable controls if done
+        const disable = info.done;
+        [btnUp, btnRight, btnDown, btnLeft].forEach((btn) => {
+          if (disable) {
+            btn.classList.add("disabled");
+          } else {
+            btn.classList.remove("disabled");
+          }
+        });
+      }
+
+      function handleAction(action) {
+        const result = window.env.step(action);
+        renderGrid();
+        renderScoreboard();
+        return result;
+      }
+
+      // Button events
+      btnUp.addEventListener("click", () => {
+        if (!window.env.info().done) handleAction(0);
+      });
+      btnRight.addEventListener("click", () => {
+        if (!window.env.info().done) handleAction(1);
+      });
+      btnDown.addEventListener("click", () => {
+        if (!window.env.info().done) handleAction(2);
+      });
+      btnLeft.addEventListener("click", () => {
+        if (!window.env.info().done) handleAction(3);
+      });
+
+      btnReset.addEventListener("click", () => {
+        window.env.reset();
+        renderGrid();
+        renderScoreboard();
+      });
+
+      // Keyboard controls
+      window.addEventListener("keydown", (e) => {
+        const info = window.env.info();
+        if (info.done) return;
+
+        let action = null;
+        if (e.key === "ArrowUp") action = 0;
+        else if (e.key === "ArrowRight") action = 1;
+        else if (e.key === "ArrowDown") action = 2;
+        else if (e.key === "ArrowLeft") action = 3;
+
+        if (action !== null) {
+          e.preventDefault();
+          handleAction(action);
+        }
+      });
+
+      // Initial render
+      renderGrid();
+      renderScoreboard();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>Sign in · Transcriber</title>
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --bg:#080D1A;
+  --text:#F4F7FB;          /* headings */
+  --text-2:#E2E8F0;        /* values, input text */
+  --muted:rgba(203,213,225,.6);
+  --muted-2:rgba(203,213,225,.55);
+  --dim:rgba(203,213,225,.45);
+  --faint:rgba(148,163,184,.6);   /* micro-labels */
+  --faint-2:rgba(148,163,184,.45);/* footnotes */
+  --surface:rgba(148,163,184,.07);
+  --surface-2:rgba(148,163,184,.08);
+  --border:rgba(148,163,184,.14);
+  --border-2:rgba(148,163,184,.16);
+  --border-hover:rgba(148,163,184,.35);
+  --dash:rgba(148,163,184,.25);
+  --dash-soft:rgba(148,163,184,.22);
+  --dash-softer:rgba(148,163,184,.18);
+  --accent-1:#34D399;
+  --accent-2:#14B8A6;
+  --accent-grad:linear-gradient(135deg,#34D399,#14B8A6);
+  --accent-hover:rgba(52,211,153,.5);
+  --on-accent:#062B1F;
+  --cta-shadow:0 12px 34px rgba(20,184,166,.32), inset 0 1px 0 rgba(255,255,255,.35);
+  --skeleton:rgba(148,163,184,.08);
+}
+
+/* ============ BASE ============ */
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);font-family:Manrope,system-ui,sans-serif;color:var(--text)}
+input{font-family:inherit}
+input::placeholder{color:rgba(226,232,240,.4)}
+/* Chrome/Safari autofill: keep glass inputs dark in ALL states.
+   The ~infinite background-color transition delay stops Chrome ever painting
+   the autofill fill, so the field keeps its transparent glass bg; text-fill-color
+   fixes the text in every state incl. focus. (Do NOT add background-clip:text —
+   it flips the text to black on focus.) LITERAL colour, not var() — Chrome does
+   not resolve custom properties inside :-webkit-autofill. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active{
+  -webkit-text-fill-color:#E2E8F0 !important;
+  caret-color:#E2E8F0 !important;
+  transition:background-color 9999999s ease-in-out 0s;
+}
+/* Firefox */
+input:autofill{background:transparent;color:#E2E8F0}
+svg{display:block;flex:none}
+
+/* ============ PAGE + AURORA GLOWS ============ */
+.page{position:relative;overflow:hidden;min-height:100vh}
+.glow{position:absolute;border-radius:50%;pointer-events:none}
+.glow-1{top:-200px;left:-160px;width:560px;height:560px;background:radial-gradient(circle,rgba(16,185,129,.30),transparent 68%)}
+.glow-2{top:-120px;right:-200px;width:480px;height:480px;background:radial-gradient(circle,rgba(45,212,191,.14),transparent 68%)}
+.glow-3{bottom:-220px;left:34%;width:560px;height:560px;background:radial-gradient(circle,rgba(99,102,241,.14),transparent 68%)}
+.container{position:relative;max-width:980px;margin:0 auto;padding:40px 40px 30px}
+
+/* ============ GLASS SURFACE (the core recipe) ============ */
+.glass{background:var(--surface);border:1px solid var(--border);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+
+/* ============ APP HEADER ============ */
+.brand{display:flex;align-items:center;gap:14px}
+.logo-tile{width:46px;height:46px;border-radius:14px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:var(--on-accent);box-shadow:0 8px 24px rgba(20,184,166,.3)}
+.brand-name{font-weight:800;font-size:19px;color:var(--text)}
+.brand-tag{margin-top:2px;font-weight:500;font-size:12.5px;color:var(--muted-2)}
+
+/* ============ HERO ============ */
+.hero{margin-top:30px;padding:36px;border-radius:26px}
+.eyebrow{font-weight:800;font-size:11px;letter-spacing:.16em;color:var(--accent-1)}
+.hero h1{margin:10px 0 0;font-weight:800;font-size:40px;line-height:1.1;letter-spacing:-1px;color:var(--text)}
+.lede{margin-top:12px;max-width:600px;font-weight:500;font-size:15px;line-height:1.6;color:var(--muted)}
+.chips{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:7px 14px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-2);font-weight:600;font-size:12.5px;color:#CBD5E1}
+
+/* ============ TWO-COLUMN GRID ============ */
+.grid{margin-top:22px;display:grid;grid-template-columns:5fr 6fr;gap:22px;align-items:stretch}
+.panel{padding:22px;border-radius:24px}
+.panel-label{font-weight:800;font-size:10.5px;letter-spacing:.14em;color:var(--faint)}
+
+/* ============ LINK INPUT (pill) ============ */
+.input-pill{margin-top:14px;display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-2);transition:border-color .15s}
+.input-pill:hover,.input-pill:focus-within{border-color:var(--accent-hover)}
+.input-pill input{flex:1;min-width:0;background:transparent;border:none;outline:none;font-weight:500;font-size:13.5px;color:var(--text-2)}
+
+/* ============ DROP ZONE ============ */
+.dropzone{margin-top:10px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px;border-radius:18px;border:1.5px dashed var(--dash);cursor:pointer;transition:border-color .15s}
+.dropzone:hover{border-color:rgba(52,211,153,.55)}
+.dz-main{font-weight:600;font-size:13px;color:var(--muted)}
+.dz-sub{font-weight:500;font-size:11px;color:rgba(148,163,184,.5)}
+
+/* ============ SELECT ROWS (compact row, NOT a boxed native select) ============ */
+.row-stack{margin-top:10px;display:flex;flex-direction:column;gap:10px}
+.select-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:border-color .15s}
+.select-row:hover{border-color:var(--border-hover)}
+.select-micro{font-weight:700;font-size:9.5px;letter-spacing:.09em;color:var(--faint)}
+.select-value{margin-top:2px;font-weight:600;font-size:13.5px;color:var(--text-2)}
+
+/* ============ SUMMARY ROW + SWITCH ============ */
+.summary-row{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--border);cursor:pointer;user-select:none}
+.summary-left{display:flex;align-items:center;gap:8px;min-width:0}
+.summary-title{font-weight:600;font-size:12.5px;color:var(--text-2)}
+.free-tag{font-weight:800;font-size:9px;letter-spacing:.07em;color:var(--accent-1);background:rgba(52,211,153,.12);padding:3px 7px;border-radius:999px;flex:none}
+.switch{width:40px;height:24px;border-radius:999px;padding:3px;flex:none;display:flex;align-items:center;background:rgba(148,163,184,.25);transition:background .2s}
+.switch .knob{width:18px;height:18px;border-radius:50%;background:#F8FAFC;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .2s}
+.switch.on{background:var(--accent-grad)}
+.switch.on .knob{transform:translateX(16px)}
+
+/* ============ CTA (gradient pill) ============ */
+.cta{margin-top:16px;display:flex;align-items:center;justify-content:center;gap:9px;padding:15px;border-radius:999px;background:var(--accent-grad);box-shadow:var(--cta-shadow);cursor:pointer;user-select:none;border:none;width:100%;transition:transform .15s,filter .15s}
+.cta:hover{filter:brightness(1.07)}
+.cta:active{transform:scale(.98)}
+.cta span{font-weight:800;font-size:15px;line-height:1;color:var(--on-accent)}
+
+/* ============ RESULT PANEL ============ */
+.panel-result{display:flex;flex-direction:column}
+.files-strip{margin-top:14px;display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:16px;border:1.5px dashed var(--dash-soft)}
+.files-strip span{font-weight:500;font-size:12.5px;color:rgba(203,213,225,.5)}
+.output{margin-top:10px;flex:1;min-height:330px;display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:18px;border:1.5px dashed var(--dash-softer)}
+.skel{height:10px;border-radius:6px;background:var(--skeleton)}
+.output-hint{flex:1;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:13px;color:rgba(148,163,184,.5)}
+
+/* ============ FOOTNOTE ============ */
+.footnote{margin-top:20px;text-align:center;font-weight:500;font-size:12px;color:var(--faint-2)}
+
+/* ============ LOGIN ============ */
+.login-wrap{position:relative;min-height:600px;display:flex;align-items:center;justify-content:center;padding:50px}
+.login-card{width:380px;padding:30px;border-radius:26px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.login-card .logo-tile{margin:0 auto}
+.login-title{margin-top:14px;text-align:center;font-weight:800;font-size:21px;color:var(--text)}
+.login-tag{margin-top:5px;text-align:center;font-weight:500;font-size:12.5px;color:var(--muted-2)}
+.login-fields{margin-top:22px;display:flex;flex-direction:column;gap:10px}
+.login-fields .input-pill{margin-top:0;padding:13px 16px}
+.login-card .cta{margin-top:14px;padding:14px}
+
+/* ============ SCREEN DIVIDER (reference file only — not part of the app) ============ */
+.divider{position:relative;text-align:center;padding:18px;font:600 10px Manrope;letter-spacing:.2em;color:var(--faint-2);border-top:1px dashed var(--dash);border-bottom:1px dashed var(--dash)}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width:900px){
+  .grid{grid-template-columns:1fr}
+  .hero h1{font-size:32px}
+  .container{padding:28px 20px 24px}
+}
+
+/* ===== app-specific additions (logic wiring + loading/result/error states) ===== */
+.select-row{position:relative}
+.native-select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.file-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;
+background:var(--surface-2);border:1px solid var(--border-2);font-weight:600;font-size:12px;
+color:#CBD5E1;text-decoration:none;margin:2px 6px 2px 0}
+.file-chip:hover{border-color:var(--accent-hover)}
+.output-text{flex:1;overflow:auto;white-space:pre-wrap;font-weight:500;font-size:12.5px;
+line-height:1.65;color:var(--muted)}
+.output.loading .skel{animation:skelpulse 1.2s ease-in-out infinite}
+@keyframes skelpulse{50%{opacity:.35}}
+.cta[disabled]{opacity:.6;pointer-events:none}
+.login-err{margin-top:10px;text-align:center;font-weight:600;font-size:12.5px;color:#FCA5A5;min-height:16px}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="glow glow-1" style="top:-180px;left:-120px;width:520px;height:520px;background:radial-gradient(circle,rgba(16,185,129,.28),transparent 68%)"></div>
+  <div class="glow" style="bottom:-200px;right:-160px;width:520px;height:520px;background:radial-gradient(circle,rgba(99,102,241,.16),transparent 68%)"></div>
+
+  <div class="login-wrap">
+    <div class="login-card glass">
+      <div class="logo-tile">T.</div>
+      <div class="login-title">Sign in to Transcriber</div>
+      <div class="login-tag">Video &amp; audio → text</div>
+      <div class="login-fields">
+        <label class="input-pill">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <input placeholder="Username" id="u" name="username" autocomplete="username">
+        </label>
+        <label class="input-pill">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <input type="password" placeholder="Password" id="p" name="password" autocomplete="current-password">
+        </label>
+      </div>
+      <button class="cta" type="button" id="loginBtn"><span>Log in</span></button>
+      <div class="login-err" id="err"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function doLogin() {
+  const err = document.getElementById('err');
+  err.textContent = '';
+  try {
+    const r = await fetch('/login', { method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        username: document.getElementById('u').value,
+        password: document.getElementById('p').value }) });
+    if (r.ok) location.href = '/';
+    else err.textContent = 'Wrong username or password';
+  } catch (e) { err.textContent = 'Network error — try again'; }
+}
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>

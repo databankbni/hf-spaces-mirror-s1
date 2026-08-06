@@ -1,0 +1,49 @@
+name: Sync to Hugging Face Hub
+
+on:
+  push:
+    branches: [main]
+  # 🚀 FIX: Yeh naya block dono workflows ko chain kar dega!
+  workflow_run:
+    workflows: ["Continuous Training (CT) Pipeline"] # Yahan CT file ke 'name' ka exact match hona chahiye
+    types:
+      - completed
+
+jobs:
+  sync:
+    # 🚀 FIX: Yeh line check karegi ke CT pipeline successful hui thi ya fail
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push Clean Slate to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # 1. Purani saari git history ka kachra runner se delete karo
+          rm -rf .git
+          
+          # 2. Ek bilkul naya, fresh git repository shuru karo
+          git init -b main
+          
+          # 3. Dummy user config (Commit karne ke liye zaroori hai)
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          
+          # 4. Git LFS ko naye sire se initialize karo
+          git lfs install
+          git lfs track "backend/*.pkl"
+          git lfs track "*.pkl"
+          
+          # 5. Saari files ko naye sire se add karo (Ab model pakka LFS mein jayega)
+          git add .
+          git commit -m "Automatic Deployment: Fresh Build"
+          
+          # 6. Hugging Face par bina kisi purani history ke force push karo
+          git remote add hf https://sheikhali4221:$HF_TOKEN@huggingface.co/spaces/sheikhali4221/traffic-ml
+          git push --force hf main

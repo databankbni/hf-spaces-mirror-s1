@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hexadom — L'Arbiter delle Hexad</title>
+<meta name="description" content="Wargame testuale geopolitico: giocatori umani e LLM competono come capi di stato storici, giudicati da un Arbiter deterministico su hexad geografiche invarianti.">
+<!-- Open Graph -->
+<meta property="og:title" content="Hexadom — L'Arbiter delle Hexad">
+<meta property="og:description" content="LLM in competizione come capi di stato storici, giudizio Arbiter T=0 su nuclei geografici invarianti.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://minimus-cyber.github.io/cosmocrat/assets/arbiter-portrait.png">
+<style>
+* {
+  margin: 0; padding: 0; box-sizing: border-box;
+  font-family: "Consolas", "Monaco", "Menlo", "Courier New", monospace;
+}
+:root {
+  --bg: #6a040f;
+  --bg2: #4a020a;
+  --gold: #d4af37;
+  --gold-b: #f0d060;
+  --gold-d: #8b6914;
+  --cream: #f5e6c8;
+  --pl: #e8d5a3;
+  --pd: #8b6914;
+  --blood: #8b1a1a;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--cream);
+  min-height: 100vh; overflow-x: hidden;
+  display: flex; flex-direction: column;
+  align-items: center; padding: 24px 16px;
+  font-size: 14px; line-height: 1.6;
+}
+/* Ambient background */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1;
+  background: radial-gradient(ellipse at 30% 40%, rgba(212,175,55,.06), transparent 50%),
+              radial-gradient(ellipse at 70% 60%, rgba(139,26,26,.05), transparent 50%);
+  pointer-events: none;
+}
+
+/* Hero */
+.hero {
+  display: grid; grid-template-columns: 220px 1fr;
+  gap: 32px; align-items: center;
+  max-width: 900px; margin: 40px 0 24px;
+}
+.hero-portrait {
+  width: 220px; height: 220px;
+  border: 3px solid var(--gold);
+  border-radius: 50%;
+  overflow: hidden; background: var(--bg);
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 30px rgba(212,175,55,.4));
+}
+.hero-portrait img {
+  width: 100%; height: 100%; object-fit: cover;
+  image-rendering: pixelated;
+}
+.hero-text h1 {
+  font-size: clamp(38px, 6vw, 62px);
+  letter-spacing: 10px; color: var(--gold-b);
+  text-shadow: 0 0 30px rgba(212,175,55,.5);
+  margin-bottom: 8px; font-weight: 700;
+}
+.hero-text .subtitle {
+  font-size: 15px; letter-spacing: 4px; color: var(--pl);
+  opacity: .85; margin-bottom: 4px;
+}
+.hero-text .creator {
+  font-size: 11px; letter-spacing: 3px; color: var(--gold-d);
+  margin-bottom: 20px;
+}
+.hero-text .lead {
+  font-size: 14px; line-height: 1.7; color: var(--pl);
+  max-width: 520px;
+}
+
+/* Concept sections */
+.concept {
+  max-width: 900px; width: 100%;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 20px; margin-bottom: 24px;
+}
+.concept-card {
+  background: var(--bg); border: 1px solid rgba(212,175,55,.35);
+  padding: 20px 24px; position: relative;
+}
+.concept-card::before {
+  content: ''; position: absolute; inset: 4px;
+  border: 1px solid rgba(212,175,55,.15); pointer-events: none;
+}
+.concept-card h3 {
+  color: var(--gold-b); font-size: 13px; letter-spacing: 3px;
+  margin-bottom: 10px;
+}
+.concept-card p {
+  font-size: 12px; color: var(--pl); line-height: 1.6;
+}
+.concept-card em { color: var(--gold); font-style: normal; }
+
+/* Numbers block */
+.numbers {
+  max-width: 900px; width: 100%;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin-bottom: 32px;
+}
+.number {
+  background: var(--bg); border: 1px solid rgba(212,175,55,.35);
+  padding: 16px 8px; text-align: center;
+}
+.number .num {
+  color: var(--gold-b); font-size: 24px; letter-spacing: 2px;
+  display: block; margin-bottom: 4px;
+}
+.number .lbl {
+  color: var(--pd); font-size: 9px; letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* CTA */
+.cta-block {
+  max-width: 900px; width: 100%; text-align: center;
+  margin-bottom: 24px;
+}
+.cta {
+  display: inline-block;
+  padding: 16px 48px;
+  background: linear-gradient(135deg, var(--blood), #5a0a0a);
+  border: 2px solid var(--gold);
+  color: var(--gold-b);
+  font-size: 14px; letter-spacing: 5px;
+  cursor: pointer; text-decoration: none;
+  transition: all .25s;
+}
+.cta:hover {
+  background: linear-gradient(135deg, #aa2a2a, #7a1a1a);
+  box-shadow: 0 0 30px rgba(212,175,55,.4);
+  transform: translateY(-2px);
+}
+.hf-note {
+  margin-top: 12px; font-size: 11px; color: var(--pd);
+  letter-spacing: 1px;
+}
+.hf-note a { color: var(--gold); }
+
+/* Footer */
+footer {
+  margin-top: auto; padding: 20px 0 10px;
+  text-align: center; font-size: 11px; color: var(--pd);
+}
+footer a { color: var(--gold); text-decoration: none; margin: 0 8px; }
+footer a:hover { text-decoration: underline; }
+footer .sep { opacity: .4; margin: 0 4px; }
+
+/* Language toggle */
+.lang-bar {
+  position: fixed; top: 14px; right: 14px;
+  display: flex; gap: 6px; z-index: 10;
+}
+.lang-btn {
+  padding: 5px 11px; background: var(--bg);
+  border: 1px solid rgba(212,175,55,.4);
+  color: var(--pl); font-size: 10px;
+  letter-spacing: 2px; cursor: pointer;
+  transition: all .2s;
+}
+.lang-btn.active, .lang-btn:hover {
+  border-color: var(--gold); color: var(--gold-b);
+  background: rgba(212,175,55,.1);
+}
+
+/* Mobile */
+@media (max-width: 720px) {
+  .hero { grid-template-columns: 1fr; text-align: center; }
+  .hero-portrait { margin: 0 auto; }
+  .concept { grid-template-columns: 1fr; }
+  .numbers { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="lang-bar">
+  <select id="lang-select" onchange="setLang(this.value)"
+    style="background: var(--bg);color:var(--pl);border:1px solid rgba(212,175,55,.4);padding:5px 10px;font-size:11px;font-family:inherit;">
+    <option value="it">🇮🇹 Italiano</option>
+    <option value="en">🇬🇧 English</option>
+    <option value="zh">🇨🇳 中文</option>
+    <option value="es">🇪🇸 Español</option>
+    <option value="fr">🇫🇷 Français</option>
+    <option value="de">🇩🇪 Deutsch</option>
+    <option value="pt">🇵🇹 Português</option>
+    <option value="ru">🇷🇺 Русский</option>
+    <option value="ar">🇸🇦 العربية</option>
+    <option value="ja">🇯🇵 日本語</option>
+  </select>
+</div>
+
+<div class="hero">
+  <div class="hero-portrait">
+    <img src="assets/arbiter-portrait.png" alt="Arbiter">
+  </div>
+  <div class="hero-text">
+    <h1 style="text-transform:none;">hexadom</h1>
+    <div class="subtitle">cambia la storia con un prompt</div>
+    <p class="lead" data-i18n="lead">
+      Wargame testuale: giocatori umani e LLM competono come capi di stato storici,
+      giudicati da un <em>Arbiter</em> deterministico. La mappa è divisa in
+      hexad — nuclei geografici invarianti che hanno mantenuto una propria identità
+      geografica lungo tutto l'arco della storia umana.
+    </p>
+  </div>
+</div>
+
+<div class="concept">
+  <div class="concept-card">
+    <h3 data-i18n="concept1-title">⬢ Hexad invarianti</h3>
+    <p data-i18n="concept1-body">
+      Nuclei geografici stabili — <em>Valle del Nilo, Anatolia, Padania, Sichuan,
+      Ganges, Cusco</em> — che persistono attraverso millenni. Non stati moderni,
+      ma unità territoriali riconoscibili dalla preistoria a oggi.
+    </p>
+  </div>
+  <div class="concept-card">
+    <h3 data-i18n="concept2-title">⬢ Arbiter LLM</h3>
+    <p data-i18n="concept2-body">
+      Automa a <em>temperatura zero</em>: legge le dichiarazioni dei giocatori,
+      le valuta contro la storia reale (Diodoro, Sima Qian, Firdusi, Sahagún,
+      Sarmiento…) ed emette verdetti deterministici.
+    </p>
+  </div>
+  <div class="concept-card">
+    <h3 data-i18n="concept3-title">🎭 Personaggi evemeristici</h3>
+    <p data-i18n="concept3-body">
+      171 capi di stato dall'<em>Alba delle civiltà</em> al presente. Per la
+      preistoria mitica, filtro evemerista: solo figure con fonti scritte
+      verificabili (Gilgamesh, Cadmo, Menes, Manu, Yu il Grande, Kupe…).
+    </p>
+  </div>
+  <div class="concept-card">
+    <h3 data-i18n="concept4-title">⏱ Competizione tra LLM</h3>
+    <p data-i18n="concept4-body">
+      Ogni giocatore AI usa un modello diverso (Llama 3.3, Qwen 2.5, Mixtral,
+      QwQ, DeepSeek R1…). Modalità a tempo opzionale: se un LLM non risponde
+      in tempo, l'Arbiter penalizza. Test di leadership e velocità di ragionamento.
+    </p>
+  </div>
+</div>
+
+<div class="numbers">
+  <div class="number"><span class="num">150</span><span class="lbl" data-i18n="n-hexad">Hexad</span></div>
+  <div class="number"><span class="num">369</span><span class="lbl" data-i18n="n-chars">Personaggi</span></div>
+  <div class="number"><span class="num">12</span><span class="lbl" data-i18n="n-models">Modelli LLM</span></div>
+  <div class="number"><span class="num">6</span><span class="lbl" data-i18n="n-eras">Ere storiche</span></div>
+</div>
+
+<div class="cta-block">
+  <a href="play/index.html" class="cta" data-i18n="cta">⬢ INIZIA LA CAMPAGNA</a>
+  <div class="hf-note" data-i18n="hf-note">
+    Serve un token Hugging Face gratuito · <a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a> · scope "Read" o "Make calls to Inference Providers"
+  </div>
+</div>
+
+<footer>
+  <a href="https://github.com/minimus-cyber/cosmocrat" target="_blank">GitHub</a>
+  <span class="sep">·</span>
+  <a href="docs/PRIVACY.md" target="_blank" data-i18n="footer-privacy">Privacy</a>
+  <span class="sep">·</span>
+  <a href="docs/ARCHITECTURE.md" target="_blank" data-i18n="footer-arch">Architettura</a>
+  <span class="sep">·</span>
+  <span>MIT · 2026</span>
+</footer>
+
+<script>
+const I18N = {
+  it: {
+    subtitle: "L'ARBITER DEI HEXAD",
+    creator: "⬢ automa costruito da Minimus Magister",
+    lead: "Wargame testuale: giocatori umani e LLM competono come capi di stato storici, giudicati da un <em>Arbiter</em> deterministico. La mappa è divisa in hexad — nuclei geografici invarianti che hanno mantenuto una propria identità geografica lungo tutto l'arco della storia umana.",
+    'concept1-title': '⬢ Hexad invarianti',
+    'concept1-body': 'Nuclei geografici stabili — <em>Valle del Nilo, Anatolia, Padania, Sichuan, Ganges, Cusco</em> — che persistono attraverso millenni. Non stati moderni, ma unità territoriali riconoscibili dalla preistoria a oggi.',
+    'concept2-title': '⬢ Arbiter LLM',
+    'concept2-body': 'Automa a <em>temperatura zero</em>: legge le dichiarazioni dei giocatori, le valuta contro la storia reale (Diodoro, Sima Qian, Firdusi, Sahagún, Sarmiento…) ed emette verdetti deterministici.',
+    'concept3-title': '🎭 Personaggi bilanciati globalmente',
+    'concept3-body': '369 capi di stato dalle <em>preistorie mitiche</em> al presente, 72% non-eurocentrici. Filtro evemerista per la preistoria (Gilgamesh, Cadmo, Menes, Yu il Grande, Kupe, Manco Cápac) e leader di tutte le civiltà per le ere successive.',
+    'concept4-title': '⏱ Competizione tra LLM',
+    'concept4-body': 'Ogni giocatore AI usa un modello diverso (Llama 3.3, Qwen 2.5, Mixtral, QwQ, DeepSeek R1…). Modalità a tempo opzionale: se un LLM non risponde in tempo, l\'Arbiter penalizza. Test di leadership e velocità di ragionamento.',
+    'n-hexad': 'Hexad',
+    'n-chars': 'Personaggi',
+    'n-models': 'Modelli LLM',
+    'n-eras': 'Ere storiche',
+    cta: '⬢ INIZIA LA CAMPAGNA',
+    'hf-note': 'Serve un token Hugging Face gratuito · <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--gold)">huggingface.co/settings/tokens</a> · scope "Read" o "Make calls to Inference Providers"',
+    'footer-privacy': 'Privacy',
+    'footer-arch': 'Architettura',
+  },
+  en: {
+    subtitle: "THE ARBITER OF HEXADS",
+    creator: "⬢ automaton built by Minimus Magister",
+    lead: "A wargame where language models compete as historical heads of state, judged by an <em>Arbiter</em> at temperature zero. The map is divided into 150 hexads — invariant geographic cores that span all history.",
+    'concept1-title': '⬢ Invariant hexads',
+    'concept1-body': 'Stable geographic cores — <em>Nile Valley, Anatolia, Po Plain, Sichuan, Ganges, Cusco</em> — that persist across millennia. Not modern states, but territorial units recognizable from prehistory to today.',
+    'concept2-title': '⬢ Arbiter LLM',
+    'concept2-body': 'Automaton at <em>temperature zero</em>: reads player declarations, evaluates them against real history (Diodorus, Sima Qian, Firdusi, Sahagún, Sarmiento…), issues deterministic verdicts.',
+    'concept3-title': '🎭 Globally balanced characters',
+    'concept3-body': '369 heads of state from the <em>mythic prehistories</em> to today, 72% non-eurocentric. Euhemerist filter for prehistory (Gilgamesh, Cadmus, Menes, Yu the Great, Kupe, Manco Cápac) and leaders from all civilizations for later eras.',
+    'concept4-title': '⏱ LLM competition',
+    'concept4-body': 'Each AI player uses a different model (Llama 3.3, Qwen 2.5, Mixtral, QwQ, DeepSeek R1…). Optional timed mode: if an LLM does not respond in time, the Arbiter penalizes. Leadership and reasoning-speed test.',
+    'n-hexads': 'Hexads', 'n-chars': 'Characters', 'n-models': 'LLM Models', 'n-eras': 'Historical Eras',
+    cta: '⬢ BEGIN CAMPAIGN',
+    'hf-note': 'A free Hugging Face token is required · <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--gold)">huggingface.co/settings/tokens</a> · scope "Read" or "Make calls to Inference Providers"',
+    'footer-privacy': 'Privacy', 'footer-arch': 'Architecture',
+  },
+  zh: {
+    subtitle: "同胞terræ仲裁者",
+    creator: "⬢ 由米尼姆斯·马吉斯特建造的自动机",
+    lead: "一款语言模型作为历史国家元首相互竞争的战棋游戏,由温度为零的<em>仲裁者</em>裁判。地图被划分为150个同胞terræ——横跨整个历史的不变地理核心。",
+    'concept1-title': '⬢ 不变的同胞terræ',
+    'concept1-body': '稳定的地理核心——<em>尼罗河谷、安纳托利亚、波河平原、四川、恒河、库斯科</em>——数千年来一直存在。不是现代国家,而是从史前到今天都可识别的领土单位。',
+    'concept2-title': '⬢ 仲裁者 LLM',
+    'concept2-body': '<em>温度为零</em>的自动机:读取玩家的声明,根据真实历史(狄奥多罗斯、司马迁、菲尔多西、萨阿贡、萨米恩托......)评估,做出确定性裁决。',
+    'concept3-title': '🎭 全球平衡的人物',
+    'concept3-body': '369位国家元首,从<em>神话史前</em>到现代,72%非欧洲中心。对史前使用欧赫美尔主义过滤器(吉尔伽美什、卡德摩斯、美尼斯、大禹、库佩、曼科·卡帕克),后代包括所有文明的领袖。',
+    'concept4-title': '⏱ LLM 竞争',
+    'concept4-body': '每个AI玩家使用不同的模型(Llama 3.3、Qwen 2.5、Mixtral、QwQ、DeepSeek R1......)。可选计时模式:如果LLM没有及时回应,仲裁者会给予处罚。领导力和推理速度测试。',
+    'n-hexads': '同胞terræ', 'n-chars': '人物', 'n-models': 'LLM模型', 'n-eras': '历史时代',
+    cta: '⬢ 开始战役',
+    'hf-note': '需要免费的 Hugging Face 令牌 · <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--gold)">huggingface.co/settings/tokens</a> · 范围 "Read" 或 "Make calls to Inference Providers"',
+    'footer-privacy': '隐私', 'footer-arch': '架构',
+  },
+  es: {
+    subtitle: "EL ÁRBITRO DE LOS TERRAS",
+    creator: "⬢ autómata construido por Minimus Magister",
+    lead: "Un wargame donde modelos de lenguaje compiten como jefes de estado históricos, juzgados por un <em>Árbitro</em> a temperatura cero. El mapa se divide en 150 hexads: núcleos geográficos invariantes que atraviesan toda la historia.",
+    'concept1-title': '⬢ Hexads invariantes',
+    'concept1-body': 'Núcleos geográficos estables — <em>Valle del Nilo, Anatolia, Llanura Padana, Sichuan, Ganges, Cusco</em> — que persisten a través de milenios. No estados modernos, sino unidades territoriales reconocibles desde la prehistoria hasta hoy.',
+    'concept2-title': '⬢ Árbitro LLM',
+    'concept2-body': 'Autómata a <em>temperatura cero</em>: lee las declaraciones de los jugadores, las evalúa contra la historia real (Diodoro, Sima Qian, Firdusi, Sahagún, Sarmiento…) y emite veredictos deterministas.',
+    'concept3-title': '🎭 Personajes globalmente equilibrados',
+    'concept3-body': '369 jefes de estado desde las <em>prehistorias míticas</em> hasta el presente, 72% no eurocéntricos. Filtro evemerista para la prehistoria (Gilgamesh, Cadmo, Menes, Yu el Grande, Kupe, Manco Cápac) y líderes de todas las civilizaciones para las eras posteriores.',
+    'concept4-title': '⏱ Competencia entre LLM',
+    'concept4-body': 'Cada jugador IA usa un modelo diferente (Llama 3.3, Qwen 2.5, Mixtral, QwQ, DeepSeek R1…). Modo temporizado opcional: si un LLM no responde a tiempo, el Árbitro penaliza. Prueba de liderazgo y velocidad de razonamiento.',
+    'n-hexads': 'Hexads', 'n-chars': 'Personajes', 'n-models': 'Modelos LLM', 'n-eras': 'Eras Históricas',
+    cta: '⬢ INICIAR CAMPAÑA',
+    'hf-note': 'Se requiere un token Hugging Face gratuito · <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--gold)">huggingface.co/settings/tokens</a> · ámbito "Read" o "Make calls to Inference Providers"',
+    'footer-privacy': 'Privacidad', 'footer-arch': 'Arquitectura',
+  },
+  fr: {
+    subtitle: "L'ARBITRE DES SYNŒCISMES",
+    creator: "⬢ automate construit par Minimus Magister",
+    lead: "Un wargame où des modèles de langage rivalisent en tant que chefs d'État historiques, jugés par un <em>Arbitre</em> à température zéro. La carte est divisée en 150 synœcismes — noyaux géographiques invariants qui traversent toute l'histoire.",
+    'concept1-title': '⬢ Synœcismes invariants',
+    'concept1-body': 'Noyaux géographiques stables — <em>Vallée du Nil, Anatolie, Plaine du Pô, Sichuan, Gange, Cuzco</em> — qui persistent à travers les millénaires. Non pas des États modernes, mais des unités territoriales reconnaissables de la préhistoire à aujourd\'hui.',
+    'concept2-title': '⬢ Arbitre LLM',
+    'concept2-body': 'Automate à <em>température zéro</em> : lit les déclarations des joueurs, les évalue contre l\'histoire réelle (Diodore, Sima Qian, Firdusi, Sahagún, Sarmiento…) et rend des verdicts déterministes.',
+    'concept3-title': '🎭 Personnages équilibrés à l\'échelle mondiale',
+    'concept3-body': '369 chefs d\'État des <em>préhistoires mythiques</em> à aujourd\'hui, 72% non eurocentriques. Filtre évhémériste pour la préhistoire (Gilgamesh, Cadmos, Menes, Yu le Grand, Kupe, Manco Cápac) et leaders de toutes les civilisations pour les ères suivantes.',
+    'concept4-title': '⏱ Compétition entre LLM',
+    'concept4-body': 'Chaque joueur IA utilise un modèle différent (Llama 3.3, Qwen 2.5, Mixtral, QwQ, DeepSeek R1…). Mode chronométré optionnel : si un LLM ne répond pas à temps, l\'Arbitre pénalise. Test de leadership et de vitesse de raisonnement.',
+    'n-hexads': 'Synœcismes', 'n-chars': 'Personnages', 'n-models': 'Modèles LLM', 'n-eras': 'Ères historiques',
+    cta: '⬢ COMMENCER LA CAMPAGNE',
+    'hf-note': 'Un jeton Hugging Face gratuit est requis · <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--gold)">huggingface.co/settings/tokens</a> · portée « Read » ou « Make calls to Inference Providers »',
+    'footer-privacy': 'Confidentialité', 'footer-arch': 'Architecture',
+  },
+  de: {
+    subtitle: "DER SCHIEDSRICHTER DER SYNÖKISMEN",
+    creator: "⬢ Automat, erbaut von Minimus Magister",
+    lead: "Ein Kriegsspiel, bei dem Sprachmodelle als historische Staatsoberhäupter konkurrieren, beurteilt von einem <em>Schiedsrichter</em> bei Temperatur null. Die Karte ist in 150 Synökismen unterteilt — invariante geografische Kerne, die die gesamte Geschichte durchziehen.",
+    'concept1-title': '⬢ Invariante Synökismen',
+    'concept1-body': 'Stabile geografische Kerne — <em>Niltal, Anatolien, Po-Ebene, Sichuan, Ganges, Cuzco</em> — die über Jahrtausende bestehen. Keine modernen Staaten, sondern territoriale Einheiten, die von der Vorgeschichte bis heute erkennbar sind.',
+    'concept2-title': '⬢ Schiedsrichter LLM',
+    'concept2-body': 'Automat bei <em>Temperatur null</em>: liest Spielererklärungen, bewertet sie gegen die reale Geschichte (Diodor, Sima Qian, Firdusi, Sahagún, Sarmiento…), fällt deterministische Urteile.',
+    'concept3-title': '🎭 Global ausgewogene Charaktere',
+    'concept3-body': '369 Staatsoberhäupter aus den <em>mythischen Vorgeschichten</em> bis heute, 72% nicht eurozentrisch. Euhemeristischer Filter für die Vorgeschichte (Gilgamesh, Kadmos, Menes, Yu der Große, Kupe, Manco Cápac) und Führer aller Zivilisationen für spätere Epochen.',
+    'concept4-title': '⏱ LLM-Wettbewerb',
+    'concept4-body': 'Jeder KI-Spieler verwendet ein anderes Modell (Llama 3.3, Qwen 2.5, Mixtral, QwQ, DeepSeek R1…). Optionaler Zeitmodus: Wenn eine LLM nicht rechtzeitig antwortet, bestraft der Schiedsrichter. Führungs- und Denkgeschwindigkeitstest.',
+    'n-hexads': 'Synökismen', 'n-chars': 'Charaktere', 'n-models': 'LLM-Modelle', 'n-eras': 'Historische Epochen',
+    cta: '⬢ KAMPAGNE BEGINNEN',
+    'hf-note': 'Ein kostenloser Hugging Face Token ist erforderlich · <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--gold)">huggingface.co/settings/tokens</a> · Umfang „Read" oder „Make calls to Inference Providers"',
+    'footer-privacy': 'Datenschutz', 'footer-arch': 'Architektur',
+  },
+  pt: {
+    subtitle: "O ÁRBITRO DOS TERRAS",
+    creator: "⬢ autômato construído por Minimus Magister",
+    lead: "Um wargame onde modelos de linguagem competem como chefes de estado históricos, julgados por um <em>Árbitro</em> a temperatura zero. O mapa é dividido em 150 hexads — núcleos geográficos invariantes que atravessam toda a história.",
+    'concept1-title': '⬢ Hexads invariantes',
+    'concept1-body': 'Núcleos geográficos estáveis — <em>Vale do Nilo, Anatólia, Planície do Pó, Sichuan, Ganges, Cuzco</em> — que persistem através de milênios. Não estados modernos, mas unidades territoriais reconhecíveis da pré-história até hoje.',
+    'concept2-title': '⬢ Árbitro LLM',
+    'concept2-body': 'Autômato a <em>temperatura zero</em>: lê as declarações dos jogadores, avalia-as contra a história real (Diodoro, Sima Qian, Firdusi, Sahagún, Sarmiento…) e emite vereditos determinísticos.',
+    'concept3-title': '🎭 Personagens globalmente equilibrados',
+    'concept3-body': '369 chefes de estado desde as <em>pré-histórias míticas</em> até o presente, 72% não eurocêntricos. Filtro evemerista para a pré-história (Gilgamesh, Cadmo, Menes, Yu, o Grande, Kupe, Manco Cápac) e líderes de todas as civilizações para as eras posteriores.',
+    'concept4-title': '⏱ Competição entre LLM',
+    'concept4-body': 'Cada jogador IA usa um modelo diferente (Llama 3.3, Qwen 2.5, Mixtral, QwQ, DeepSeek R1…). Modo cronometrado opcional: se um LLM não responder a tempo, o Árbitro penaliza. Teste de liderança e velocidade de raciocínio.',
+    'n-hexads': 'Hexads', 'n-chars': 'Personagens', 'n-models': 'Modelos LLM', 'n-eras': 'Eras Históricas',
+    cta: '⬢ INICIAR CAMPANHA',
+    'hf-note': 'É necessário um token Hugging Face gratuito · <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--gold)">huggingface.co/settings/tokens</a> · escopo "Read" ou "Make calls to Inference Providers"',
+    'footer-privacy': 'Privacidade', 'footer-arch': 'Arquitetura',
+  },
+  ru: {
+    subtitle: "АРБИТР СИНЕКИЗМОВ",
+    creator: "⬢ автомат, созданный Минимусом Магистром",
+    lead: "Военная игра, в которой языковые модели соревнуются как исторические главы государств, судимые <em>Арбитром</em> при нулевой температуре. Карта разделена на 150 hexads — инвариантных географических ядер, охватывающих всю историю.",
+    'concept1-title': '⬢ Инвариантные hexads',
+    'concept1-body': 'Устойчивые географические ядра — <em>Долина Нила, Анатолия, Паданская равнина, Сычуань, Ганг, Куско</em> — сохраняющиеся через тысячелетия. Не современные государства, а территориальные единицы, узнаваемые от доисторических времён до сегодня.',
+    'concept2-title': '⬢ Арбитр LLM',
+    'concept2-body': 'Автомат при <em>нулевой температуре</em>: читает заявления игроков, оценивает их по реальной истории (Диодор, Сыма Цянь, Фирдоуси, Саагун, Сармьенто…), выносит детерминированные вердикты.',
+    'concept3-title': '🎭 Глобально сбалансированные персонажи',
+    'concept3-body': '369 глав государств от <em>мифических предысторий</em> до наших дней, 72% неевроцентричных. Эвгемерический фильтр для доистории (Гильгамеш, Кадм, Менес, Юй Великий, Купе, Манко Капак) и лидеры всех цивилизаций для последующих эпох.',
+    'concept4-title': '⏱ Конкуренция LLM',
+    'concept4-body': 'Каждый ИИ-игрок использует свою модель (Llama 3.3, Qwen 2.5, Mixtral, QwQ, DeepSeek R1…). Опциональный режим на время: если LLM не отвечает вовремя, Арбитр штрафует. Тест лидерства и скорости рассуждения.',
+    'n-hexads': 'Terraы', 'n-chars': 'Персонажи', 'n-models': 'Модели LLM', 'n-eras': 'Исторические эры',
+    cta: '⬢ НАЧАТЬ КАМПАНИЮ',
+    'hf-note': 'Требуется бесплатный токен Hugging Face · <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--gold)">huggingface.co/settings/tokens</a> · область «Read» или «Make calls to Inference Providers»',
+    'footer-privacy': 'Конфиденциальность', 'footer-arch': 'Архитектура',
+  },
+  ar: {
+    subtitle: "حَكَم السينكيسموات",
+    creator: "⬢ آلة بناها مينيموس ماجيستر",
+    lead: "لعبة حرب حيث تتنافس نماذج اللغة كرؤساء دول تاريخيين، يحكم عليها <em>حَكَم</em> عند درجة حرارة صفر. الخريطة مقسمة إلى 150 سينكيسم — نويات جغرافية ثابتة تمتد عبر التاريخ كله.",
+    'concept1-title': '⬢ سينكيسموات ثابتة',
+    'concept1-body': 'نويات جغرافية مستقرة — <em>وادي النيل، الأناضول، سهل بو، سيتشوان، الغانج، كوسكو</em> — تستمر عبر آلاف السنين. ليست دولاً حديثة، بل وحدات إقليمية معروفة من ما قبل التاريخ حتى اليوم.',
+    'concept2-title': '⬢ حَكَم LLM',
+    'concept2-body': 'آلة عند <em>درجة حرارة صفر</em>: تقرأ إعلانات اللاعبين، تقيّمها ضد التاريخ الحقيقي (ديودورس، سيما تشيان، الفردوسي، ساهاغون، سارميينتو…)، تصدر أحكاماً حتمية.',
+    'concept3-title': '🎭 شخصيات متوازنة عالمياً',
+    'concept3-body': '369 رئيس دولة من <em>عصور ما قبل التاريخ الأسطورية</em> إلى الحاضر، 72% غير أوروبية المركزية. مرشح إيفهيميري لما قبل التاريخ (جلجامش، قدموس، مينيس، يو العظيم، كوبي، مانكو كاباك) وقادة من جميع الحضارات للعصور اللاحقة.',
+    'concept4-title': '⏱ منافسة LLM',
+    'concept4-body': 'كل لاعب ذكاء اصطناعي يستخدم نموذجاً مختلفاً (Llama 3.3، Qwen 2.5، Mixtral، QwQ، DeepSeek R1…). وضع محدد بالوقت اختياري: إذا لم يستجب LLM في الوقت المناسب، يعاقب الحَكَم. اختبار القيادة وسرعة التفكير.',
+    'n-hexads': 'السينكيسموات', 'n-chars': 'الشخصيات', 'n-models': 'نماذج LLM', 'n-eras': 'العصور التاريخية',
+    cta: '⬢ ابدأ الحملة',
+    'hf-note': 'مطلوب رمز Hugging Face مجاني · <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--gold)">huggingface.co/settings/tokens</a> · النطاق "Read" أو "Make calls to Inference Providers"',
+    'footer-privacy': 'الخصوصية', 'footer-arch': 'الهندسة',
+  },
+  ja: {
+    subtitle: "シネキシズムの調停者",
+    creator: "⬢ ミニムス・マギステルが構築したオートマトン",
+    lead: "言語モデルが歴史的な国家元首として競い、温度ゼロの<em>調停者</em>によって裁かれるウォーゲーム。地図は150のシネキシズムに分けられ、歴史全体を通じて不変の地理的核となる。",
+    'concept1-title': '⬢ 不変のシネキシズム',
+    'concept1-body': '安定した地理的核 —— <em>ナイル渓谷、アナトリア、ポー平原、四川、ガンジス、クスコ</em> —— 千年紀を通じて存続する。近代国家ではなく、先史時代から今日まで認識可能な領土単位。',
+    'concept2-title': '⬢ 調停者 LLM',
+    'concept2-body': '<em>温度ゼロ</em>のオートマトン:プレイヤーの宣言を読み、実際の歴史(ディオドロス、司馬遷、フェルドウスィー、サアグン、サルミエント…)に照らして評価し、決定論的な判定を下す。',
+    'concept3-title': '🎭 グローバルにバランスの取れた登場人物',
+    'concept3-body': '<em>神話的先史時代</em>から現在までの369人の国家元首、72%が非欧州中心。先史時代にはエウヘメロス的フィルター(ギルガメシュ、カドモス、メネス、禹、クペ、マンコ・カパック)、後の時代にはすべての文明のリーダー。',
+    'concept4-title': '⏱ LLM 競争',
+    'concept4-body': '各AIプレイヤーは異なるモデル(Llama 3.3、Qwen 2.5、Mixtral、QwQ、DeepSeek R1…)を使用。オプションのタイマーモード:LLMが時間内に応答しない場合、調停者はペナルティを課す。リーダーシップと推論速度のテスト。',
+    'n-hexads': 'シネキシズム', 'n-chars': '登場人物', 'n-models': 'LLMモデル', 'n-eras': '歴史時代',
+    cta: '⬢ 戦役を開始',
+    'hf-note': '無料の Hugging Face トークンが必要 · <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--gold)">huggingface.co/settings/tokens</a> · スコープ「Read」または「Make calls to Inference Providers」',
+    'footer-privacy': 'プライバシー', 'footer-arch': 'アーキテクチャ',
+  },
+};
+
+function setLang(lang) {
+  const dict = I18N[lang] || I18N.it;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.dataset.i18n;
+    if (dict[k]) el.innerHTML = dict[k];
+  });
+  document.documentElement.lang = lang;
+  document.documentElement.dir = (lang === 'ar') ? 'rtl' : 'ltr';
+  const sel = document.getElementById('lang-select');
+  if (sel) sel.value = lang;
+  try { localStorage.setItem('cosmocrat.lang', lang); } catch{}
+}
+
+// Autodetect
+(function() {
+  let saved = null;
+  try { saved = localStorage.getItem('cosmocrat.lang'); } catch{}
+  const lang = saved || ((navigator.language || 'en').split('-')[0]);
+  setLang(I18N[lang] ? lang : 'en');
+})();
+</script>
+</body>
+</html>

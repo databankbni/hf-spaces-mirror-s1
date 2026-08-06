@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kronos · US Forecast Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#30363d;
+    --fg:#e6edf3; --muted:#8b949e; --accent:#e5484d; --blue:#4493f8; --good:#3fb950;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg);color:var(--fg)}
+  header{padding:16px 22px;border-bottom:1px solid var(--line);display:flex;
+    align-items:baseline;gap:12px;flex-wrap:wrap}
+  header h1{font-size:17px;margin:0;font-weight:650}
+  header .sub{color:var(--muted);font-size:12.5px}
+  .wrap{display:grid;grid-template-columns:290px 1fr;gap:18px;padding:18px 22px;
+    align-items:start}
+  @media(max-width:880px){.wrap{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+    margin:0 0 12px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  input,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--fg);
+    border-radius:7px;padding:8px 9px;font-size:13px}
+  input:focus,select:focus{outline:none;border-color:var(--blue)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  button{width:100%;margin-top:16px;background:var(--accent);color:#fff;border:none;
+    border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  .chk{display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--muted);font-size:12.5px}
+  .chk input{width:auto}
+  .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+  @media(max-width:880px){.metrics{grid-template-columns:repeat(2,1fr)}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .card .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .card .v{font-size:22px;font-weight:680;margin-top:5px}
+  .card .u{font-size:12px;color:var(--muted);font-weight:400}
+  .chartbox{position:relative;height:460px}
+  .status{color:var(--muted);font-size:13px;margin-top:10px;min-height:18px}
+  .status.err{color:var(--accent)}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--muted);
+    border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;
+    vertical-align:-2px;margin-right:7px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .empty{color:var(--muted);text-align:center;padding:120px 0;font-size:13px}
+  .warn{background:#3a2d00;border:1px solid #7a5c00;color:#f5c518;border-radius:9px;
+    padding:11px 14px;margin-bottom:14px;font-size:13px;line-height:1.55}
+  .warn b{color:#ffdd55}
+  /* trust card */
+  .trust{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;margin-bottom:14px}
+  .trust-head{display:flex;align-items:center;gap:13px}
+  .grade{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;
+    justify-content:center;font-size:22px;font-weight:800;color:#fff;flex:0 0 auto}
+  .g-A{background:#238636} .g-B{background:#2f81f7} .g-C{background:#b58500} .g-D{background:#da3633}
+  .trust-title{font-size:14px;font-weight:650}
+  .trust-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .trust-head button{width:auto;margin:0 0 0 auto;padding:8px 13px;font-size:12.5px;
+    background:var(--panel2);border:1px solid var(--line);color:var(--fg)}
+  .trust-head button:hover{border-color:var(--blue)}
+  .trust-m{display:flex;gap:20px;flex-wrap:wrap;margin:12px 0 4px;font-size:12.5px}
+  .trust-m b{font-size:15px;font-weight:680}
+  .trust-m .lbl{color:var(--muted);display:block;font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.04em;margin-bottom:2px}
+  .trust-reasons{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:12px;line-height:1.6}
+  .trust-rec{margin-top:9px;font-size:12px;color:var(--fg);background:var(--panel2);
+    border-radius:7px;padding:8px 10px}
+  .calib-note{font-size:11.5px;color:var(--muted);margin-top:6px}
+  .automode{font-size:12px;border-radius:8px;padding:9px 11px;margin:4px 0 8px;line-height:1.5}
+  .automode.on{background:#0d2a17;border:1px solid #1f6f43;color:#4ac17e}
+  .automode.off{background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+  .automode b{color:inherit}
+  .advtoggle{display:inline-block;font-size:12px;color:var(--blue);cursor:pointer;
+    margin:0 0 8px;user-select:none}
+  .advtoggle:hover{text-decoration:underline}
+  /* info tooltips */
+  .info{display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;
+    border-radius:50%;background:#30363d;color:#8b949e;font-size:10px;font-weight:700;
+    cursor:help;position:relative;margin-left:5px;vertical-align:1px}
+  .info::before{content:'?'}
+  .info:hover{background:var(--blue);color:#fff}
+  .info:hover::after{content:attr(data-tip);position:absolute;top:19px;left:0;width:230px;
+    background:#0d1117;border:1px solid var(--line);border-radius:7px;padding:9px 11px;
+    color:var(--fg);font-size:11.5px;line-height:1.5;font-weight:400;z-index:60;
+    box-shadow:0 8px 24px rgba(0,0,0,.55);white-space:normal;text-transform:none;letter-spacing:0}
+  .info.il:hover::after{left:auto;right:0}   /* right-column fields open leftward */
+</style>
+</head>
+<body>
+<header>
+  <h1>Kronos · US Forecast</h1>
+  <span class="sub">CPU ensemble · median + 10–90% band · yfinance data</span>
+</header>
+
+<div class="wrap">
+  <!-- controls -->
+  <div class="panel">
+    <h2>Parameters</h2>
+    <label>Ticker
+      <span class="info" data-tip="股票/ETF 代號,任何 yfinance 抓得到的美股皆可,如 AAPL、NVDA、MSFT、SPY、QQQ。自動轉大寫。冷門或剛上市的可能資料不足。"></span></label>
+    <input id="ticker" value="AAPL" autocomplete="off">
+    <div class="row2">
+      <div><label>Interval
+        <span class="info" data-tip="K 線週期。1d 日線最穩。1h/5m 為 intraday:yfinance 只保留最近一段(5m≈60天、1h≈730天),系統會自動把抓取範圍夾到上限,所以 intraday 時 Period 選項不影響結果。"></span></label>
+        <select id="interval"><option>1d</option><option>1h</option><option>5m</option></select>
+      </div>
+      <div><label>Mode
+        <span class="info il" data-tip="backtest:藏起最後 Pred len 根真值讓模型預測、再對比打分(才有下方指標)。future:用全部最新資料預測真正的未來,無真值、無分數。"></span></label>
+        <select id="mode"><option value="backtest">backtest</option><option value="future">future</option></select>
+      </div>
+    </div>
+
+    <div id="automode" class="automode"></div>
+    <a id="advtoggle" class="advtoggle">▸ 進階參數(手動微調)</a>
+    <div id="advanced" style="display:none">
+      <div class="row2">
+        <div><label>Period
+          <span class="info" data-tip="往回下載多久的歷史。這是資料範圍,不是餵給模型的長度(那是 Lookback)。只要夠切出 Lookback+Pred len 根即可。"></span></label>
+          <select id="period"><option>1y</option><option selected>3y</option><option>5y</option></select>
+        </div>
+        <div><label>Pred len
+          <span class="info il" data-tip="要預測未來幾根。越長越不準(不確定性隨步數累積)。backtest 模式也用它決定藏起幾根當真值。"></span></label>
+          <input id="pred_len" type="number" value="20"></div>
+      </div>
+      <div class="row2">
+        <div><label>Lookback
+          <span class="info" data-tip="餵給模型看的歷史根數(context)。模型上限 512。過大且視窗價格範圍寬會觸發正規化崩壞;autoconfig 會為每股選出驗證過的值。"></span></label>
+          <input id="lookback" type="number" value="120"></div>
+        <div><label>Paths
+          <span class="info il" data-tip="集成路徑數（此線上版上限 30）。每條是一次獨立抽樣;中位數與 10–90% 區間都由這 N 條算出。越多越穩越慢(CPU 每條 ~1–2s)。"></span></label>
+          <input id="n_paths" type="number" value="20" max="30"></div>
+      </div>
+      <div class="row2">
+        <div><label>Temperature T
+          <span class="info" data-tip="抽樣亂度。低(0.5–0.7)保守、集中;高(1.0+)發散。官方預設 1.0,實測 0.7 常較佳。"></span></label>
+          <input id="T" type="number" step="0.05" value="0.7"></div>
+        <div><label>top_p
+          <span class="info il" data-tip="Nucleus 抽樣:只從累積機率前 p 的候選裡抽。低更保守,高更極端。一般 0.9。"></span></label>
+          <input id="top_p" type="number" step="0.05" value="0.9"></div>
+      </div>
+    </div>
+    <label class="chk"><input type="checkbox" id="showpaths"> show sample paths
+      <span class="info" data-tip="只是顯示開關,不影響計算。勾選會把 N 條原始抽樣路徑疊上圖,直觀看發散程度;不勾只留乾淨的中位數 + 區間。"></span></label>
+    <button id="run">Run forecast</button>
+    <div id="status" class="status"></div>
+  </div>
+
+  <!-- results -->
+  <div>
+    <div id="trust" class="trust" style="display:none"></div>
+    <div id="warn" class="warn" style="display:none"></div>
+    <div class="metrics" id="metrics" style="display:none">
+      <div class="card"><div class="k">MAE <span class="info" data-tip="平均絕對誤差(美元)。越小越好。會隨股價高低而變,不同標的之間別直接比。"></span></div><div class="v" id="m_mae">–</div></div>
+      <div class="card"><div class="k">MAPE <span class="info" data-tip="平均百分比誤差。跨標的可比的主要指標,~6% 算不錯。"></span></div><div class="v" id="m_mape">–</div></div>
+      <div class="card"><div class="k">Dir Acc <span class="info" data-tip="方向命中率(每步漲跌預測對不對)。50% = 瞎猜,>55% 才算有訊號。"></span></div><div class="v" id="m_dir">–</div></div>
+      <div class="card"><div class="k">Band cover <span class="info il" data-tip="真值落在 10–90% 區間內的比例,理想 ~80%。目前偏低 = 模型過度自信,是待辦裡『區間校準』要修的。"></span></div><div class="v" id="m_cov">–</div></div>
+      <div class="card"><div class="k">Runtime <span class="info il" data-tip="這次集成在 CPU 上花的秒數,主要由 Paths × Pred len 決定。"></span></div><div class="v" id="m_time">–</div></div>
+    </div>
+    <div class="panel">
+      <div class="chartbox">
+        <canvas id="chart" style="display:none"></canvas>
+        <div class="empty" id="empty">Set parameters and click <b>Run forecast</b>.<br>
+          First run downloads/loads the model (~20–40s), then each path ~1–2s on CPU.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let chart = null;
+let profile = null;      // trust profile for current ticker (from autoconfig)
+let useCalib = false;    // apply profile band-scale only when using recommended config
+const fmtDate = s => s.slice(0,10);
+
+// ---- trust profile ----
+async function fetchProfile(){
+  const tk = $('ticker').value.toUpperCase().trim();
+  const iv = $('interval').value;
+  try{
+    const r = await fetch(`/api/profile?ticker=${encodeURIComponent(tk)}&interval=${iv}`);
+    const j = await r.json();
+    profile = j.exists ? j.profile : null;
+  }catch(e){ profile = null; }
+  if(profile){ renderTrust(); applyRecommended(); }  // auto-adopt validated params
+  else { useCalib = false; renderTrust(); }
+  updateAutoMode();
+}
+
+function updateAutoMode(){
+  const el = $('automode');
+  if(profile && useCalib){
+    const r = profile.recommended;
+    el.className = 'automode on';
+    el.innerHTML = `🟢 自動:採用 <b>${profile.ticker}</b> 驗證參數(評等 ${profile.verdict.grade})`
+      + ` · lb=${r.lookback} T=${r.T} · 區間已校準`;
+  } else if(profile && !useCalib){
+    el.className = 'automode off';
+    el.innerHTML = '⚪ 手動微調中 · 校準已停用(點信任卡「套用建議參數」還原)';
+  } else {
+    el.className = 'automode off';
+    el.innerHTML = '⚪ 此標的尚無驗證檔 · 使用預設參數(未校準)';
+  }
+}
+
+function renderTrust(){
+  const el = $('trust');
+  if(!profile){ el.style.display='none'; return; }
+  const v = profile.verdict, tr = profile.track_record, c = profile.calibration,
+        rec = profile.recommended, val = profile.validation;
+  const g = v.grade;
+  const num = (x,d=2)=> (x==null||isNaN(x))?'–':(+x).toFixed(d);
+  const scheme = val && val.scheme==='nested'
+    ? `nested walk-forward · 誠實數字取自 ${val.n_outer} 個「選參沒看過」的窗`
+    : `walk-forward ${tr.n_windows} 窗`;
+  el.style.display='block';
+  el.innerHTML =
+    `<div class="trust-head">
+       <span class="grade g-${g}">${g}</span>
+       <div><div class="trust-title">${profile.ticker} 信任評等 · ${v.trust}</div>
+         <div class="trust-sub">${scheme} · ${profile.generated.slice(0,10)}</div></div>
+       <button id="applyrec">套用建議參數</button>
+     </div>
+     <div class="trust-m">
+       <div><span class="lbl">skill vs RW</span><b>${num(tr.skill_vs_rw)}</b></div>
+       <div><span class="lbl">IC</span><b>${num(tr.IC)}</b></div>
+       <div><span class="lbl">Dir Acc</span><b>${num(tr['DirAcc%'],0)}%</b></div>
+       <div><span class="lbl">校準覆蓋</span><b>${num(c.coverage_calibrated*100,0)}%</b> <span style="color:var(--muted)">(×${num(c.band_scale)})</span></div>
+     </div>
+     <ul class="trust-reasons">${v.reasons.map(x=>'<li>'+x+'</li>').join('')}</ul>
+     <div class="trust-rec">建議參數:lookback=<b>${rec.lookback}</b> · T=<b>${rec.T}</b> · top_p=${rec.top_p} · pred_len=${rec.pred_len} · paths=${rec.n_paths}</div>
+     <div class="calib-note" id="calibnote"></div>`;
+  $('applyrec').addEventListener('click', applyRecommended);
+  updateCalibNote();
+}
+
+function applyRecommended(){
+  if(!profile) return;
+  const r = profile.recommended;
+  $('lookback').value=r.lookback; $('pred_len').value=r.pred_len;
+  $('T').value=r.T; $('top_p').value=r.top_p; $('n_paths').value=r.n_paths;
+  useCalib = true;
+  updateCalibNote(); updateAutoMode();
+}
+function updateCalibNote(){
+  const n = $('calibnote'); if(!n) return;
+  n.innerHTML = useCalib
+    ? '✔ 使用建議參數,區間將以校準倍率 ×'+profile.calibration.band_scale+' 呈現(達目標覆蓋)。'
+    : '目前為自訂參數 → 校準停用,區間為原始 10–90%。點「套用建議參數」啟用校準。';
+}
+
+async function run(){
+  const btn = $('run'), st = $('status');
+  const body = {
+    ticker:$('ticker').value, interval:$('interval').value, period:$('period').value,
+    lookback:+$('lookback').value, pred_len:+$('pred_len').value, mode:$('mode').value,
+    n_paths:+$('n_paths').value, T:+$('T').value, top_p:+$('top_p').value,
+    band_scale: (useCalib && profile) ? profile.calibration.band_scale : 1.0,
+  };
+  btn.disabled = true;
+  st.className = 'status';
+  const t0 = Date.now();
+  const tick = setInterval(()=>{ st.innerHTML =
+    `<span class="spin"></span>running ${body.n_paths} paths on CPU… ${((Date.now()-t0)/1000).toFixed(0)}s`;
+  }, 200);
+  try{
+    const r = await fetch('/api/forecast', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const j = await r.json();
+    clearInterval(tick);
+    if(!j.ok){ st.className='status err'; st.textContent = 'Error: '+j.error; return; }
+    st.textContent = `done in ${j.result.meta.elapsed}s`;
+    render(j.result);
+  }catch(e){
+    clearInterval(tick); st.className='status err'; st.textContent = 'Request failed: '+e;
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function render(res){
+  $('empty').style.display='none';
+  $('chart').style.display='block';
+
+  // wide-range normalisation warning
+  const wb = $('warn');
+  if(res.warning){
+    const w = res.warning;
+    wb.style.display='block';
+    wb.innerHTML = '⚠️ 此 Lookback 視窗價格範圍達 <b>'+w.range_ratio+'×</b>(最高/最低價)。'
+      + 'Kronos 以視窗統計正規化,範圍過大時最新價會變成極端離群值,預測易崩(斷崖式暴跌)。'
+      + (w.suggest_lookback ? ' 建議把 Lookback 降到約 <b>'+w.suggest_lookback+'</b> 再 Run。'
+                            : ' 建議縮短 Lookback。');
+  } else { wb.style.display='none'; }
+
+  const H = res.history, F = res.forecast, Tr = res.truth, M = res.metrics;
+  const labels = [...H.t, ...F.t].map(fmtDate);
+  const nH = H.t.length, nF = F.t.length;
+  const anchor = H.close[nH-1];               // connect history -> forecast
+  const pad = n => Array(n).fill(null);
+
+  // forecast series padded to sit under the forecast portion, anchored to last hist pt
+  const fc = arr => { const d = pad(nH-1); d.push(anchor); return d.concat(arr); };
+  const histLine = H.close.concat(pad(nF));
+
+  const bs = res.meta.band_scale || 1;
+  const bandLbl = (bs && bs !== 1) ? `80% band (校準 ×${bs})` : '10–90% band';
+  const ds = [
+    {label:'History', data:histLine, borderColor:'#8b949e', borderWidth:1.4,
+      pointRadius:0, tension:.15},
+    {label:bandLbl+' (hi)', data:fc(F.hi), borderColor:'transparent',
+      backgroundColor:'rgba(229,72,77,.16)', pointRadius:0, fill:'+1'},
+    {label:bandLbl+' (lo)', data:fc(F.lo), borderColor:'transparent',
+      pointRadius:0, fill:false},
+    {label:'Median forecast', data:fc(F.median), borderColor:'#e5484d',
+      borderWidth:2.4, pointRadius:0, tension:.15},
+  ];
+  if(Tr){ ds.push({label:'Ground truth', data:fc(Tr.close), borderColor:'#4493f8',
+      borderWidth:2.4, pointRadius:0, tension:.15}); }
+  if($('showpaths').checked){
+    F.paths.forEach(p => ds.push({label:'_path', data:fc(p), borderColor:'rgba(229,72,77,.13)',
+      borderWidth:.6, pointRadius:0, tension:.1}));
+  }
+
+  const cfg = {type:'line', data:{labels, datasets:ds}, options:{
+    responsive:true, maintainAspectRatio:false, animation:false,
+    interaction:{mode:'index', intersect:false},
+    plugins:{legend:{labels:{color:'#e6edf3', filter:i=>!i.text.startsWith('_')
+        && !i.text.includes('(lo)')}},
+      tooltip:{filter:i=>i.dataset.label!=='_path' && !i.dataset.label.includes('(lo)')}},
+    scales:{
+      x:{ticks:{color:'#8b949e',maxTicksLimit:12,autoSkip:true},grid:{color:'#21262d'}},
+      y:{ticks:{color:'#8b949e'},grid:{color:'#21262d'}},
+    }}};
+  if(chart) chart.destroy();
+  chart = new Chart($('chart'), cfg);
+
+  // metrics (accuracy cards only exist in backtest; runtime always shown)
+  $('metrics').style.display='grid';
+  const U = '<span class="u">%</span>';
+  $('m_mae').innerHTML  = M ? M['MAE'].toFixed(2) : '–';
+  $('m_mape').innerHTML = M ? M['MAPE%'].toFixed(2)+U : '–';
+  $('m_dir').innerHTML  = M ? M['DirAcc%'].toFixed(0)+U : '–';
+  $('m_cov').innerHTML  = M ? M['coverage%'].toFixed(0)+U : '–';
+  $('m_time').innerHTML = res.meta.elapsed+'<span class="u">s</span>';
+}
+
+$('run').addEventListener('click', run);
+$('ticker').addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
+// refresh trust profile when the ticker/interval changes
+$('ticker').addEventListener('change', fetchProfile);
+$('ticker').addEventListener('blur', fetchProfile);
+$('interval').addEventListener('change', fetchProfile);
+// manual edits to sampling params disable calibration (it's only valid for the recommended config)
+['lookback','pred_len','T','top_p','n_paths'].forEach(id =>
+  $(id).addEventListener('input', ()=>{
+    if(useCalib){ useCalib=false; updateCalibNote(); updateAutoMode(); } }));
+// advanced (manual) panel toggle
+$('advtoggle').addEventListener('click', ()=>{
+  const a = $('advanced'), open = a.style.display !== 'none';
+  a.style.display = open ? 'none' : 'block';
+  $('advtoggle').textContent = (open ? '▸' : '▾') + ' 進階參數(手動微調)';
+});
+fetchProfile();  // on load: auto-adopt the ticker's validated params
+</script>
+</body>
+</html>

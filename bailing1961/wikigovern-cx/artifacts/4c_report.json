@@ -1,0 +1,230 @@
+{
+ "C1_correct": {
+  "compiler_idempotent": true,
+  "conflict_scan": {
+   "aggregation_k_satisfiable": true,
+   "conflicts": [
+    {
+     "detail": "no retention period can satisfy all of ['RET-001', 'RET-003'] for transaction_record records in scope 'partner_linked'",
+     "record_class": "transaction_record",
+     "scope": "partner_linked",
+     "unsat_core": [
+      "RET-001",
+      "RET-003"
+     ]
+    }
+   ],
+   "formally_scanned_rules": [
+    "AGG-001",
+    "RET-001",
+    "RET-002",
+    "RET-003"
+   ],
+   "pairs_checked": 3,
+   "planted_conflict_detected": true,
+   "test_covered_rules": [
+    "AGG-002",
+    "CON-001",
+    "CON-002",
+    "CON-003",
+    "CON-004",
+    "RET-010",
+    "RET-011",
+    "SHR-001",
+    "SHR-010",
+    "SHR-020"
+   ]
+  },
+  "golden_gate": {
+   "n_cases": 40,
+   "n_pass": 40,
+   "pass": true
+  },
+  "provenance_completeness": {
+   "pass": true,
+   "rules_linked": 14,
+   "rules_total": 14
+  }
+ },
+ "C2_consistent": {
+  "csi": [
+   {
+    "concept": "customer_status",
+    "csi": 0.4,
+    "dataset": "brand_a_customers",
+    "field": "status",
+    "flagged": false
+   },
+   {
+    "concept": "customer_status",
+    "csi": 0.0,
+    "dataset": "brand_b_members",
+    "field": "member_status",
+    "flagged": true
+   },
+   {
+    "concept": "marketing_consent",
+    "csi": 0.2,
+    "dataset": "brand_a_customers",
+    "field": "consent_marketing",
+    "flagged": false
+   },
+   {
+    "concept": "marketing_consent",
+    "csi": 0.062,
+    "dataset": "brand_b_members",
+    "field": "marketing_pref",
+    "flagged": true
+   },
+   {
+    "concept": "marketing_consent",
+    "csi": 0.0,
+    "dataset": "brand_c_customers",
+    "field": "newsletter",
+    "flagged": true
+   }
+  ],
+  "csi_threshold": 0.12,
+  "incremental_demo": {
+   "added": "brand_d_fixture.status",
+   "delta_findings": [
+    {
+     "concept": "customer_status",
+     "csi": 0.056,
+     "dataset": "brand_d_fixture",
+     "field": "status",
+     "flagged": true
+    }
+   ],
+   "existing_findings_unchanged": true,
+   "pass": true
+  },
+  "rule_base_problems": []
+ },
+ "C3_current": {
+  "consent_currency": {
+   "brand_a_consents_older_24m": 1498,
+   "note": "informational until CON-005 becomes effective",
+   "rule": "CON-005 (future-dated)"
+  },
+  "dependency_graph_docs": {
+   "contracts/analytics_standard.md": [
+    "AGG-001",
+    "CON-004"
+   ],
+   "contracts/group_records_policy.md": [
+    "RET-001",
+    "RET-010"
+   ],
+   "contracts/msa_brand_a_b.md": [
+    "SHR-001",
+    "SHR-020"
+   ],
+   "contracts/partner_dsa.md": [
+    "AGG-002",
+    "RET-002",
+    "RET-003",
+    "SHR-010"
+   ],
+   "sources/app06_use_disclosure.md": [
+    "CON-001",
+    "CON-003",
+    "CON-004"
+   ],
+   "sources/app11_security.md": [
+    "RET-010",
+    "RET-011"
+   ],
+   "sources/oaic_consent.md": [
+    "CON-001",
+    "CON-002",
+    "CON-005"
+   ]
+  },
+  "effective_date_gating": {
+   "future_excluded": [
+    "CON-005"
+   ]
+  },
+  "staleness_fixture": {
+   "flagged_dependents": [
+    "AGG-002",
+    "RET-002",
+    "RET-003",
+    "SHR-010"
+   ],
+   "updated_doc": "contracts/partner_dsa.md"
+  }
+ },
+ "C4_complete": {
+  "customer360_matrix": {
+   "customer_status": [
+    "brand_a_customers",
+    "brand_b_members"
+   ],
+   "marketing_consent": [
+    "brand_a_customers",
+    "brand_b_members",
+    "brand_c_customers"
+   ]
+  },
+  "gate_coverage": {
+   "combos": 18,
+   "decidable": 18,
+   "pass": true
+  },
+  "known_gap_register": [
+   {
+    "dataset": "brand_c_customers",
+    "finding": "newsletter is default opt-in (pre-selected true)"
+   },
+   {
+    "dataset": "brand_c_customers",
+    "finding": "no consent_date column exists"
+   }
+  ],
+  "regulatory_coverage": {
+   "anchors": {
+    "sources/app06_use_disclosure.md#s6_1": true,
+    "sources/app06_use_disclosure.md#s6_2a": true,
+    "sources/app11_security.md#s11_1": false,
+    "sources/app11_security.md#s11_2": true,
+    "sources/oaic_consent.md#consent_elements": true,
+    "sources/oaic_consent.md#no_default_optin": true
+   },
+   "coverage_pct": 83.3,
+   "uncited": [
+    "sources/app11_security.md#s11_1"
+   ]
+  }
+ },
+ "harness": "4C v0.2",
+ "honesty_register": [
+  {
+   "assertion": "CON-004",
+   "id": "H-001",
+   "note": "APP 6.2(a) 'reasonably expected' is not formalisable; this is a declared under-approximation (H-001).",
+   "type": "under-approximation"
+  },
+  {
+   "id": "H-002",
+   "note": "rules outside the numeric Z3 mirror are covered by golden tests, not formal scan",
+   "test_covered_rules": [
+    "AGG-002",
+    "CON-001",
+    "CON-002",
+    "CON-003",
+    "CON-004",
+    "RET-010",
+    "RET-011",
+    "SHR-001",
+    "SHR-010",
+    "SHR-020"
+   ],
+   "type": "verification-split"
+  }
+ ],
+ "kb_hash": "a2479bfea3e5283e1adbbfccff977f0ee5dad72439df237c0ec2f11f6099e355",
+ "ref_date": "2026-07-03",
+ "release": "approved by Bailing Zhang on 2026-07-10"
+}

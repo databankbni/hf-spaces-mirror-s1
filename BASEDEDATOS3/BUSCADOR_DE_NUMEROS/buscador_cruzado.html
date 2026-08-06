@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buscador Cruzado - Sistema de Gestión</title>
+
+  <!-- Bootstrap 5 CSS e Iconos -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <!-- Tipografías: Fraunces, Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+
+  <style>
+    :root {
+      --bg-void: #070a12;
+      --bg-surface: #0e1420;
+      --bg-card: #131a29;
+      --bg-elevated: #19233a;
+      --border-color: #232e46;
+      --border-strong: #303f5f;
+      --text-primary: #eef2f8;
+      --text-muted: #7d8aa3;
+      --th-bg: #1e2433;
+      --th-color: #ffffff;
+      --brand-text: #ffffff;
+      --shadow-color: rgba(0, 0, 0, 0.35);
+
+      --accent: #0284c7;
+      --accent-strong: #38bdf8;
+      --accent-glow: rgba(2, 132, 199, 0.25);
+      --accent-soft: rgba(2, 132, 199, 0.12);
+
+      --info: #38bdf8;
+      --success: #34d399;
+      --warning: #f59e0b;
+      --danger: #f87171;
+    }
+
+    html[data-bs-theme="light"] {
+      --bg-void: #f4f6f9;
+      --bg-surface: #ffffff;
+      --bg-card: #ffffff;
+      --bg-elevated: #f8fafc;
+      --border-color: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text-primary: #1e293b;
+      --text-muted: #64748b;
+      --th-bg: #1e2433;
+      --th-color: #ffffff;
+      --brand-text: #ffffff;
+      --shadow-color: rgba(15, 23, 42, 0.08);
+
+      --accent: #0284c7;
+      --accent-strong: #0369a1;
+      --accent-glow: rgba(2, 132, 199, 0.15);
+      --accent-soft: rgba(2, 132, 199, 0.08);
+      
+      --nav-text-color: #cbd5e1;
+      --nav-active-color: #ffc107;
+    }
+
+    * { scrollbar-color: var(--border-strong) transparent; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      min-height: 100vh;
+      background-image: none; 
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    ::selection { background: var(--accent-glow); color: inherit; }
+
+    /* Navbar */
+    .navbar {
+      background-color: var(--th-bg) !important;
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.65rem 1.25rem;
+    }
+
+    .navbar-brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent-strong) 0%, var(--accent) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 1rem;
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+
+    .navbar-menu-pills .nav-link {
+      color: var(--nav-text-color, var(--text-muted));
+      border-radius: 8px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      transition: all 0.18s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1px solid transparent;
+    }
+
+    .navbar-menu-pills .nav-link.active {
+      background-color: transparent;
+      color: var(--nav-active-color, var(--accent-strong));
+      border-color: transparent;
+    }
+
+    .navbar-menu-pills .nav-link:hover:not(.active) {
+      color: #ffffff;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-theme-toggle {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .btn-theme-toggle:hover { border-color: var(--accent); color: var(--accent-strong); }
+
+    /* KPIs */
+    .kpi-card {
+      background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-surface) 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.6rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .kpi-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+    }
+
+    /* Targetas & UI Controls */
+    .card-custom {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      box-shadow: 0 4px 12px var(--shadow-color);
+      color: var(--text-primary);
+    }
+
+    .search-input-container {
+      background-color: var(--bg-void);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.2rem 0.5rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .search-input-container input {
+      color: var(--text-primary) !important;
+    }
+
+    .search-input-container:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .toolbar-control {
+      background-color: var(--bg-surface) !important;
+      border: 1px solid var(--border-color) !important;
+      color: var(--text-primary) !important;
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+    .toolbar-control:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-glow); outline: none; }
+
+    .btn-adaptive {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+    .btn-adaptive:hover {
+      background-color: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    .nav-pills-custom {
+      background-color: var(--bg-void);
+      border: 1px solid var(--border-color);
+    }
+
+    /* Estilos de Tabla Adaptativa */
+    .table-container {
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      overflow: auto;
+      background-color: var(--bg-surface);
+      max-height: 60vh;
+    }
+
+    .table-compacta {
+      margin-bottom: 0;
+      --bs-table-bg: transparent;
+      --bs-table-color: var(--text-primary);
+      color: var(--text-primary);
+    }
+
+    .table-compacta th {
+      background-color: var(--th-bg) !important;
+      color: var(--th-color) !important;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+      padding: 0.75rem 0.4rem;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      white-space: nowrap;
+    }
+
+    .table-compacta td {
+      padding: 0.6rem 0.5rem;
+      vertical-align: middle;
+      font-size: 0.82rem;
+      border-bottom: 1px solid var(--border-color);
+      text-align: center;
+      white-space: nowrap;
+      background-color: var(--bg-surface) !important;
+      color: var(--text-primary) !important;
+      transition: background-color 0.15s ease;
+    }
+
+    .table-compacta.density-compact td { padding: 0.35rem 0.4rem; font-size: 0.78rem; }
+    .table-compacta tbody tr:hover td { background-color: var(--bg-elevated) !important; cursor: pointer; }
+
+    .table-footer {
+      background-color: var(--bg-surface);
+      border-top: 1px solid var(--border-color);
+    }
+
+    /* Soporte Ocultar Columnas Dinámicas */
+    .table-compacta.col-hide-select th[data-col="select"], .table-compacta.col-hide-select td:nth-child(1) { display: none; }
+    .table-compacta.col-hide-index_code th[data-col="index_code"], .table-compacta.col-hide-index_code td:nth-child(2) { display: none; }
+    .table-compacta.col-hide-id_member th[data-col="id_member"], .table-compacta.col-hide-id_member td:nth-child(3) { display: none; }
+    .table-compacta.col-hide-nombres th[data-col="nombres"], .table-compacta.col-hide-nombres td:nth-child(4) { display: none; }
+
+    /* Encabezados con Filtro */
+    .th-header-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .btn-col-menu {
+      padding: 0; color: #ffffff; border: none; background: transparent;
+      font-size: 0.7rem; cursor: pointer; transition: color 0.15s ease;
+    }
+    .btn-col-menu:hover { color: var(--accent-strong); }
+
+    .filter-dropdown-menu {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      min-width: 200px;
+      padding: 0.5rem;
+      color: var(--text-primary);
+    }
+    .filter-dropdown-menu .dropdown-item {
+      color: var(--text-primary);
+    }
+    .filter-dropdown-menu .dropdown-item:hover {
+      background-color: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    /* Vista de Tarjetas */
+    #card-view-wrapper { display: none; }
+    .result-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.85rem;
+      transition: all 0.15s ease;
+      height: 100%;
+      color: var(--text-primary);
+    }
+    .result-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 20px var(--shadow-color); }
+    .result-card .rc-row { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.78rem; padding: 0.25rem 0; border-bottom: 1px dashed var(--border-color); }
+    .result-card .rc-row:last-child { border-bottom: none; }
+
+    /* Toast Notification System */
+    .ln-toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--accent);
+      color: var(--text-primary);
+      padding: 0.65rem 1.2rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      box-shadow: 0 10px 25px var(--shadow-color);
+      z-index: 9999;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.25s ease;
+      pointer-events: none;
+    }
+    .ln-toast.is-visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+    /* Floating Scroll Top */
+    .btn-scroll-top {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.2s ease;
+      z-index: 900;
+    }
+    .btn-scroll-top.is-visible { opacity: 1; }
+    .btn-scroll-top:hover { background: var(--accent); color: #fff; }
+
+    /* Modales adaptados */
+    .modal-content {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+    }
+    .modal-header { border-bottom: 1px solid var(--border-color); }
+    .modal-footer { border-top: 1px solid var(--border-color); }
+
+    .modal-content .table {
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+    .modal-content .table th, .modal-content .table td {
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+
+    .nav-pills .nav-link.active {
+      background-color: var(--accent) !important;
+      color: #fff !important;
+    }
+    .nav-pills .nav-link {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar Global -->
+  <nav class="navbar navbar-expand-lg sticky-top">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="index.html">
+        <div class="navbar-brand-mark"><i class="bi bi-intersect"></i></div>
+        <div>
+          <div class="lh-1" style="color: var(--brand-text); font-size: 1.05rem;">Dashboard Números</div>
+          <small class="text-uppercase fw-bold" style="color: #cbd5e1; font-size: 0.6rem; letter-spacing: 0.1em;">Gestión & Cruces</small>
+        </div>
+      </a>
+
+      <button class="navbar-toggler border-0 text-light" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <i class="bi bi-list fs-3"></i>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav navbar-menu-pills ms-auto me-3 gap-1">
+          <li class="nav-item">
+            <a class="nav-link" href="index.html"><i class="bi bi-search"></i> Búsqueda Individual</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="busqueda_masiva.html"><i class="bi bi-list-check"></i> Búsqueda Masiva</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="base_datos.html"><i class="bi bi-table"></i> Base de Datos</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="buscador_cruzado.html"><i class="bi bi-intersect"></i> Buscador Cruzado</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="cargar.html"><i class="bi bi-cloud-upload"></i> Cargar DATA MASTER</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="archivos.html"><i class="bi bi-folder2-open"></i> Gestión Archivos</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link link-external" href="https://basededatos3-buscador-libros-de-negocios.static.hf.space/index.html" target="_blank" rel="noopener">
+              <i class="bi bi-box-arrow-up-right"></i> Libros de Negocios
+            </a>
+          </li>
+        </ul>
+
+        <!-- Botón Cambio de Tema -->
+        <button class="btn-theme-toggle" id="btn-theme-toggle" title="Cambiar Tema (Claro/Oscuro)">
+          <i class="bi bi-sun-fill" id="theme-icon"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4 mt-3">
+
+    <!-- KPI Banner & Sync Control -->
+    <div class="row g-2 mb-3">
+      <div class="col-md-4 col-xl-3">
+        <div class="kpi-card">
+          <div class="kpi-icon bg-primary bg-opacity-10 text-primary">
+            <i class="bi bi-intersect"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-bold text-uppercase" style="font-size: 0.65rem;">Coincidencias Totales</div>
+            <div class="fs-5 fw-bold" id="badge-coincidencias-count">0 coincidencias</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-8 col-xl-9 d-flex align-items-center justify-content-end gap-2 card-custom p-2 px-3">
+        <div id="msg-sync-status" class="small fw-semibold text-muted me-auto"></div>
+        <button class="btn btn-warning btn-sm fw-bold shadow-sm" id="btn-sync-coincidencias" onclick="ejecutarSincronizacionCruzada()">
+          <i class="bi bi-arrow-repeat me-1"></i> Sincronizar Coincidencias
+        </button>
+      </div>
+    </div>
+
+    <!-- Tarjeta Principal de Control -->
+    <div class="card-custom mb-3 p-3">
+      
+      <!-- CONTROLES & NAVEGACIÓN -->
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <ul class="nav nav-pills nav-pills-custom p-1 rounded-3" id="searchTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active btn-sm" id="tab-individual" data-bs-toggle="pill" data-bs-target="#view-individual" type="button" role="tab">
+              <i class="bi bi-person-search me-1"></i> Búsqueda Individual
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link btn-sm" id="tab-masiva" data-bs-toggle="pill" data-bs-target="#view-masiva" type="button" role="tab">
+              <i class="bi bi-card-checklist me-1"></i> Búsqueda Masiva
+            </button>
+          </li>
+        </ul>
+
+        <!-- ACCIONES Y EXPORTACIÓN -->
+        <div class="d-flex align-items-center gap-2">
+          
+          <div class="btn-group btn-group-sm shadow-sm" role="group">
+            <button type="button" class="btn btn-outline-success fw-bold" id="btn-export-excel" onclick="exportarTablaCruzada('excel')" title="Exportar a Excel">
+              <i class="bi bi-file-earmark-excel-fill me-1"></i> Excel
+            </button>
+            <button type="button" class="btn btn-outline-info fw-bold" id="btn-export-csv" onclick="exportarTablaCruzada('csv')" title="Exportar a CSV">
+              <i class="bi bi-file-earmark-text-fill me-1"></i> CSV
+            </button>
+          </div>
+
+          <!-- SELECTOR DE COLUMNAS -->
+          <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm fw-bold dropdown-toggle" type="button" id="btnDropdownColumnasCruzado" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+              <i class="bi bi-layout-three-columns me-1"></i> Columnas
+            </button>
+            <ul class="dropdown-menu shadow p-2 dropdown-menu-end filter-dropdown-menu" style="max-height: 350px; overflow-y: auto;">
+              <li><h6 class="dropdown-header text-uppercase fw-bold text-muted px-2 py-1">Mostrar / Ocultar</h6></li>
+              <li><hr class="dropdown-divider my-1"></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="select" checked> SELECCIÓN</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="index_code" checked> INDEX</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="id_member" checked> ID MEMBER</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="nombres" checked> NOMBRES</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="estado" checked> ESTADO</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="compania" checked> COMPAÑÍA</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="status_venta" checked> STATUS VENTA</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="status_miembro" checked> STATUS MIEMBRO</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="numero_venta"> Nº VENTA</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="numero_confirmado_1"> CONFIRMADO 1</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="afiliados"> AFILIADOS</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="dob"> DOB</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="ultimo_hs"> ÚLTIMO HS</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="plan"> PLAN</label></li>
+              <li><label class="dropdown-item small py-1 px-2"><input class="form-check-input me-2 col-toggle-cruzado" type="checkbox" value="agente"> AGENTE</label></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- VISTAS -->
+      <div class="tab-content" id="searchTabContent">
+        <div class="tab-pane fade show active" id="view-individual" role="tabpanel">
+          <div class="row g-2 align-items-center">
+            <div class="col-md-9">
+              <div class="search-input-container d-flex align-items-center px-2">
+                <i class="bi bi-search text-muted me-2"></i>
+                <input type="text" id="txt-busqueda-cruzada" class="form-control form-control-sm border-0 bg-transparent" placeholder="Buscar por Nombre, ID Member o Index...">
+              </div>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+              <button class="btn btn-primary btn-sm w-100 fw-bold" onclick="ejecutarBusquedaCruzada()">
+                <i class="bi bi-search me-1"></i> Buscar
+              </button>
+              <button class="btn btn-adaptive btn-sm px-3" onclick="limpiarBusquedaCruzada()">
+                <i class="bi bi-eraser me-1"></i> Limpiar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="view-masiva" role="tabpanel">
+          <div class="row g-2 align-items-center">
+            <div class="col-md-8">
+              <textarea id="txt-busqueda-masiva-cruzada" class="form-control form-control-sm toolbar-control" rows="3" placeholder="Pega aquí varios Nombres, IDs de Member o Index (uno por línea)..."></textarea>
+            </div>
+            
+            <div class="col-md-4">
+              <div class="row row-cols-2 g-2">
+                <div class="col">
+                  <button class="btn btn-primary btn-sm w-100 fw-bold py-1" onclick="ejecutarBusquedaCruzadaMasiva()">
+                    <i class="bi bi-list-check me-1"></i> Procesar
+                  </button>
+                </div>
+                <div class="col">
+                  <button class="btn btn-adaptive btn-sm w-100 py-1" onclick="limpiarBusquedaCruzadaMasiva()">
+                    <i class="bi bi-eraser me-1"></i> Limpiar
+                  </button>
+                </div>
+                <div class="col">
+                  <button class="btn btn-warning btn-sm w-100 fw-bold py-1" onclick="editarSeleccionadoCruzado()">
+                    <i class="bi bi-pencil-square me-1"></i> Editar
+                  </button>
+                </div>
+                <div class="col">
+                  <button class="btn btn-danger btn-sm w-100 fw-bold py-1" onclick="eliminarSeleccionadosCruzados()">
+                    <i class="bi bi-trash me-1"></i> Eliminar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Toolbar Interactivo de Filtros Vista -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 p-2 card-custom">
+      <div class="d-flex align-items-center gap-2 flex-grow-1">
+        <input type="text" id="quick-filter-input" class="form-control form-control-sm toolbar-control" style="max-width: 250px;" placeholder="Filtro rápido en pantalla...">
+        <select id="quick-filter-status" class="form-select form-select-sm toolbar-control" style="max-width: 180px;">
+          <option value="">Status: Todos</option>
+        </select>
+        <button class="btn btn-sm btn-adaptive" id="btn-clear-quick-filters"><i class="bi bi-x-circle"></i></button>
+      </div>
+
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-adaptive" id="btn-density-toggle" title="Cambiar Densidad Compacta">
+          <i class="bi bi-text-paragraph"></i>
+        </button>
+        
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn btn-adaptive active" id="btn-view-table" onclick="cambiarVistaCruzada('table')"><i class="bi bi-table"></i></button>
+          <button type="button" class="btn btn-adaptive" id="btn-view-cards" onclick="cambiarVistaCruzada('cards')"><i class="bi bi-grid-fill"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISTA TABLA DE RESULTADOS -->
+    <div id="table-view-wrapper">
+      <div class="card-custom mb-3 overflow-hidden p-0">
+        <div class="table-container">
+          <table class="table table-sm align-middle table-compacta" id="tablaCruzada">
+            <thead>
+              <tr id="headersRowCruzado">
+                <th data-col="select"><input type="checkbox" id="check-all-cruzado" onclick="toggleSelectAllCruzado(this)"></th>
+                <th data-col="index_code">INDEX</th>
+                <th data-col="id_member">ID MEMBER</th>
+                <th data-col="nombres">NOMBRES</th>
+                <th data-col="estado">ESTADO</th>
+                <th data-col="compania">COMPAÑÍA</th>
+                <th data-col="status_venta">STATUS VENTA</th>
+                <th data-col="status_miembro">STATUS MIEMBRO</th>
+                <th data-col="acciones">DETALLES</th>
+                <th data-col="numero_venta" class="d-none">Nº VENTA</th>
+                <th data-col="numero_confirmado_1" class="d-none">CONFIRMADO 1</th>
+                <th data-col="afiliados" class="d-none">AFILIADOS</th>
+                <th data-col="dob" class="d-none">DOB</th>
+                <th data-col="ultimo_hs" class="d-none">ÚLTIMO HS</th>
+                <th data-col="plan" class="d-none">PLAN</th>
+                <th data-col="agente" class="d-none">AGENTE</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-cruzado">
+              <tr>
+                <td colspan="9" class="text-center text-muted py-5">
+                  <i class="bi bi-search fs-2 text-secondary d-block mb-2"></i>
+                  Ingresa términos para realizar una consulta individual o masiva.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- FOOTER PAGINACIÓN -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center p-2 px-3 table-footer">
+          <div class="small text-muted" id="info-paginacion">Mostrando 0 de 0 registros</div>
+          <nav><ul class="pagination pagination-sm mb-0" id="ul-paginacion"></ul></nav>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISTA EN TARJETAS -->
+    <div id="card-view-wrapper" class="row g-2 mb-3"></div>
+
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div class="ln-toast" id="ln-toast">
+    <i class="bi bi-check-circle-fill text-success me-2"></i>
+    <span id="ln-toast-text">Notificación</span>
+  </div>
+
+  <button class="btn-scroll-top" id="btn-scroll-top"><i class="bi bi-arrow-up-short fs-4"></i></button>
+
+  <!-- MODAL: VER DETALLE -->
+  <div class="modal fade" id="modalDetalleRegistro" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header py-2">
+          <h6 class="modal-title fw-bold">
+            <i class="bi bi-eye text-info me-2"></i>Detalle Coincidencia Cruzada
+          </h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-3">
+          <ul class="nav nav-tabs mb-3" id="tabDetalleSource" role="tablist">
+            <li class="nav-item">
+              <button class="nav-link active fw-bold text-primary" id="tab-venta-detail" data-bs-toggle="tab" data-bs-target="#detail-venta" type="button">
+                <i class="bi bi-cart-check me-1"></i> Información MASTER
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link fw-bold text-success" id="tab-miembro-detail" data-bs-toggle="tab" data-bs-target="#detail-miembro" type="button">
+                <i class="bi bi-book me-1"></i> Libros de Negocios
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="detail-venta">
+              <table class="table table-sm table-bordered mb-0 small">
+                <tbody>
+                  <tr><th style="width:35%;">INDEX:</th><td id="det-v-index" class="fw-bold text-primary">--</td></tr>
+                  <tr><th>NOMBRES:</th><td id="det-v-nombres">--</td></tr>
+                  <tr><th>ESTADO:</th><td id="det-v-estado">--</td></tr>
+                  <tr><th>COMPAÑÍA:</th><td id="det-v-compania">--</td></tr>
+                  <tr><th>STATUS VENTA:</th><td id="det-v-status">--</td></tr>
+                  <tr><th>Nº VENTA:</th><td id="det-v-num-venta">--</td></tr>
+                  <tr><th>CONFIRMADO 1:</th><td id="det-v-confirmado">--</td></tr>
+                  <tr><th>AFILIADOS:</th><td id="det-v-afiliados">--</td></tr>
+                  <tr><th>DOB:</th><td id="det-v-dob">--</td></tr>
+                  <tr><th>ÚLTIMO HS:</th><td id="det-v-ultimo-hs">--</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="tab-pane fade" id="detail-miembro">
+              <table class="table table-sm table-bordered mb-0 small">
+                <tbody>
+                  <tr><th style="width:35%;">ID MEMBER:</th><td id="det-m-id" class="fw-bold text-success">--</td></tr>
+                  <tr><th>NOMBRES:</th><td id="det-m-nombres">--</td></tr>
+                  <tr><th>ESTADO:</th><td id="det-m-estado">--</td></tr>
+                  <tr><th>COMPAÑÍA:</th><td id="det-m-compania">--</td></tr>
+                  <tr><th>STATUS MIEMBRO:</th><td id="det-m-status">--</td></tr>
+                  <tr><th>PLAN:</th><td id="det-m-plan">--</td></tr>
+                  <tr><th>AGENTE:</th><td id="det-m-agente">--</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EDITAR -->
+  <div class="modal fade" id="modalEditarRegistro" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Registro Coincidente</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-3">
+          <form id="form-editar-cruzado">
+            <input type="hidden" id="edit-id-coincidencia">
+            
+            <div class="mb-2">
+              <label class="form-label small fw-bold mb-1">Nombres</label>
+              <input type="text" class="form-control form-control-sm toolbar-control" id="edit-nombres">
+            </div>
+
+            <div class="row g-2 mb-2">
+              <div class="col-md-4">
+                <label class="form-label small fw-bold mb-1">Estado</label>
+                <input type="text" class="form-control form-control-sm toolbar-control" id="edit-estado">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold mb-1">Compañía</label>
+                <input type="text" class="form-control form-control-sm toolbar-control" id="edit-compania">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold mb-1">Agente</label>
+                <input type="text" class="form-control form-control-sm toolbar-control" id="edit-agente">
+              </div>
+            </div>
+
+            <div class="row g-2 mb-2">
+              <div class="col-md-6">
+                <label class="form-label small fw-bold mb-1">Status Venta</label>
+                <input type="text" class="form-control form-control-sm toolbar-control" id="edit-status-venta">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold mb-1">Status Miembro</label>
+                <input type="text" class="form-control form-control-sm toolbar-control" id="edit-status-miembro">
+              </div>
+            </div>
+
+            <div class="row g-2 mb-2">
+              <div class="col-md-4">
+                <label class="form-label small fw-bold mb-1">Nº Venta</label>
+                <input type="text" class="form-control form-control-sm toolbar-control" id="edit-numero-venta">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold mb-1">Confirmado 1</label>
+                <input type="text" class="form-control form-control-sm toolbar-control" id="edit-confirmado">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold mb-1">Plan</label>
+                <input type="text" class="form-control form-control-sm toolbar-control" id="edit-plan">
+              </div>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label small fw-bold mb-1">Afiliados</label>
+                <input type="text" class="form-control form-control-sm toolbar-control" id="edit-afiliados">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold mb-1">DOB</label>
+                <input type="date" class="form-control form-control-sm toolbar-control" id="edit-dob">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold mb-1">Último HS</label>
+                <input type="text" class="form-control form-control-sm toolbar-control" id="edit-ultimo-hs">
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="guardarEdicionCruzada()">Guardar Cambios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase_config.js"></script>
+  <script src="js/sync_coincidencias.js"></script>
+  <script src="js/cross_project_search.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- LÓGICA DE UI INTEGRADA -->
+  <script>
+    let vistaCruzada = 'table';
+
+    document.addEventListener("DOMContentLoaded", () => {
+        // Inicializar Tema Claro / Oscuro
+        const btnTheme = document.getElementById('btn-theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+        const currentTheme = localStorage.getItem('app-theme') || 'light'; 
+
+        aplicarTema(currentTheme);
+
+        btnTheme?.addEventListener('click', () => {
+            const nuevoTema = document.documentElement.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
+            aplicarTema(nuevoTema);
+        });
+
+        function aplicarTema(t) {
+            document.documentElement.setAttribute('data-bs-theme', t);
+            if (themeIcon) {
+                themeIcon.className = t === 'light' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+            }
+            localStorage.setItem('app-theme', t);
+        }
+
+        // Cambio Densidad Compacta
+        document.getElementById('btn-density-toggle')?.addEventListener('click', function() {
+            document.getElementById('tablaCruzada')?.classList.toggle('density-compact');
+            this.classList.toggle('active');
+        });
+
+        // Toggle Visualización Columnas Ocultas
+        document.querySelectorAll('.col-toggle-cruzado').forEach(chk => {
+            chk.addEventListener('change', (e) => {
+                const colVal = e.target.value;
+                const tabla = document.getElementById('tablaCruzada');
+                if (e.target.checked) {
+                    tabla.classList.remove(`col-hide-${colVal}`);
+                } else {
+                    tabla.classList.add(`col-hide-${colVal}`);
+                }
+            });
+        });
+
+        // Scroll Top
+        const btnScrollTop = document.getElementById('btn-scroll-top');
+        window.addEventListener('scroll', () => {
+            btnScrollTop?.classList.toggle('is-visible', window.scrollY > 300);
+        });
+        btnScrollTop?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    });
+
+    function cambiarVistaCruzada(v) {
+        vistaCruzada = v;
+        const tableWrap = document.getElementById('table-view-wrapper');
+        const cardWrap = document.getElementById('card-view-wrapper');
+        const btnTable = document.getElementById('btn-view-table');
+        const btnCards = document.getElementById('btn-view-cards');
+
+        if (v === 'table') {
+            tableWrap.style.display = 'block';
+            cardWrap.style.display = 'none';
+            btnTable.classList.add('active');
+            btnCards.classList.remove('active');
+        } else {
+            tableWrap.style.display = 'none';
+            cardWrap.style.display = 'flex';
+            btnTable.classList.remove('active');
+            btnCards.classList.add('active');
+            renderizarTarjetasCruzadas();
+        }
+    }
+
+    function renderizarTarjetasCruzadas() {
+        const cardWrap = document.getElementById('card-view-wrapper');
+        const trs = Array.from(document.querySelectorAll('#tbody-cruzado tr[data-json]'));
+        cardWrap.innerHTML = '';
+
+        if (!trs.length) {
+            cardWrap.innerHTML = '<div class="col-12 text-center text-muted py-4">No hay datos en pantalla.</div>';
+            return;
+        }
+
+        trs.forEach(tr => {
+            const data = JSON.parse(tr.dataset.json || '{}');
+            const col = document.createElement('div');
+            col.className = 'col-12 col-md-6 col-lg-4';
+            col.innerHTML = `
+                <div class="result-card" onclick="abrirDetalleModalCruzado(${JSON.stringify(data).replace(/"/g, '&quot;')})">
+                    <div class="fw-bold text-primary mb-2"><i class="bi bi-person-fill"></i> ${data.nombres || 'Sin Nombre'}</div>
+                    <div class="rc-row"><span class="text-muted">INDEX</span><span class="fw-bold">${data.index_code || '-'}</span></div>
+                    <div class="rc-row"><span class="text-muted">ID MEMBER</span><span class="fw-bold text-success">${data.id_member || '-'}</span></div>
+                    <div class="rc-row"><span class="text-muted">ESTADO</span><span>${data.estado || '-'}</span></div>
+                    <div class="rc-row"><span class="text-muted">COMPAÑÍA</span><span>${data.compania || '-'}</span></div>
+                    <div class="rc-row"><span class="text-muted">STATUS VENTA</span><span>${data.status_venta || '-'}</span></div>
+                    <div class="rc-row"><span class="text-muted">STATUS MIEMBRO</span><span>${data.status_miembro || '-'}</span></div>
+                </div>
+            `;
+            cardWrap.appendChild(col);
+        });
+    }
+
+    function mostrarToast(msg, icon = 'bi-check-circle-fill') {
+        const toast = document.getElementById('ln-toast');
+        const text = document.getElementById('ln-toast-text');
+        if (!toast || !text) return;
+
+        text.textContent = msg;
+        toast.querySelector('i').className = `bi ${icon} text-success me-2`;
+        toast.classList.add('is-visible');
+
+        setTimeout(() => toast.classList.remove('is-visible'), 2800);
+    }
+  </script>
+</body>
+</html>

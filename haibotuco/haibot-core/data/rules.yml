@@ -1,0 +1,399 @@
+version: "3.1"
+rules:
+  - rule: Handle NLU fallback
+    steps:
+      - intent: nlu_fallback
+      - action: utter_default
+
+  - rule: Trigger satisfaction survey on requirement close
+    steps:
+      - intent: survey_satisfaction_trigger
+      - action: utter_survey_satisfaction_start
+
+  - rule: Start satisfaction survey from resource
+    steps:
+      - intent: survey_satisfaction_start
+      - action: utter_survey_satisfaction_start
+
+  - rule: Skip satisfaction survey
+    steps:
+      - intent: skip_survey
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Handle satisfaction survey negative answer
+    steps:
+      - intent: survey_satisfaction_no
+      - action: action_prepare_survey_comment
+      - action: survey_comment_form
+      - active_loop: survey_comment_form
+
+  - rule: Handle satisfaction survey positive answer
+    steps:
+      - intent: survey_satisfaction_yes
+      - action: utter_survey_satisfaction_recommend
+
+  - rule: Handle satisfaction survey comment provided
+    steps:
+      - intent: survey_satisfaction_comment
+      - action: utter_survey_satisfaction_recommend
+
+  - rule: Handle satisfaction survey recommend yes
+    steps:
+      - intent: survey_satisfaction_recommend_yes
+      - action: utter_survey_satisfaction_end
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Handle satisfaction survey recommend no
+    steps:
+      - intent: survey_satisfaction_recommend_no
+      - action: utter_survey_satisfaction_end
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Handle typed affirm on survey usefulness
+    steps:
+      - action: utter_survey_satisfaction_start
+      - intent: affirm
+      - action: utter_survey_satisfaction_recommend
+
+  - rule: Handle typed deny on survey usefulness
+    steps:
+      - action: utter_survey_satisfaction_start
+      - intent: deny
+      - action: action_prepare_survey_comment
+      - action: survey_comment_form
+      - active_loop: survey_comment_form
+
+  - rule: Skip survey comment
+    condition:
+      - active_loop: survey_comment_form
+    steps:
+      - intent: skip_comment
+      - action: action_deactivate_loop
+      - active_loop: null
+      - action: utter_survey_satisfaction_recommend
+
+  - rule: Submit survey comment form
+    condition:
+      - active_loop: survey_comment_form
+    steps:
+      - action: survey_comment_form
+      - active_loop: null
+      - action: utter_survey_satisfaction_recommend
+
+  - rule: Handle typed affirm on survey recommendation
+    steps:
+      - action: utter_survey_satisfaction_recommend
+      - intent: affirm
+      - action: utter_survey_satisfaction_end
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Handle typed deny on survey recommendation
+    steps:
+      - action: utter_survey_satisfaction_recommend
+      - intent: deny
+      - action: utter_survey_satisfaction_end
+      - action: utter_choose_option
+      - action: utter_options_list
+      
+      
+  - rule: Initial greet
+    steps:
+      - intent: greet
+      - action: utter_ask_what_help_needed
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Handle typed selection from main menu
+    steps:
+      - action: utter_options_list
+      - intent: select_option
+      - action: action_handle_select_option
+
+  - rule: Emotional control
+    steps:
+      - intent: emotional_control
+      - action: utter_emotional_control
+  
+  - rule: Select behavioral control from menu
+    steps:
+      - intent: behavioral_control
+      - action: utter_behavioral_control
+
+  - rule: Affirm emotional control
+    steps:
+      - intent: affirm_emotional_control
+      - action: utter_emotional_control_more_info_questions
+
+  - rule: Typed affirm emotional control
+    steps:
+      - action: utter_emotional_control
+      - intent: affirm
+      - action: utter_emotional_control_more_info_questions
+
+  - rule: Deny emotional control
+    steps:
+      - intent: deny_emotional_control
+      - action: utter_explain_emotional_control
+      - action: utter_emotional_control_more_info_questions
+
+  - rule: Typed deny emotional control
+    steps:
+      - action: utter_emotional_control
+      - intent: deny
+      - action: utter_explain_emotional_control
+      - action: utter_emotional_control_more_info_questions
+
+  - rule: Emotional control info TDAH
+    steps:
+      - intent: emotional_control_info_tdah
+      - action: utter_emotional_control_info_tdah
+
+  - rule: Handle typed selection from emotional control submenu
+    steps:
+      - action: utter_emotional_control_more_info_questions
+      - intent: select_option
+      - action: action_handle_select_option
+
+  - rule: Affirm emotional control info TDAH
+    steps:
+      - intent: affirm_emotional_control_info_tdah
+      - action: utter_affirm_emotional_control_info_tdah
+
+  - rule: Typed affirm emotional control info TDAH
+    steps:
+      - action: utter_emotional_control_info_tdah
+      - intent: affirm
+      - action: utter_affirm_emotional_control_info_tdah
+      
+  - rule: Deny emotional control info TDAH
+    steps:
+      - intent: deny_emotional_control_info_tdah
+      - action: utter_deny_info_request_general
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Typed deny emotional control info TDAH
+    steps:
+      - action: utter_emotional_control_info_tdah
+      - intent: deny
+      - action: utter_deny_info_request_general
+      - action: utter_choose_option
+      - action: utter_options_list
+      
+  - rule: Emotional control info caregiver
+    steps:
+      - intent: emotional_control_info_caregiver
+      - action: utter_emotional_control_info_caregiver
+
+
+  - rule: Affirm emotional control info caregiver
+    steps:
+      - intent: affirm_emotional_control_info_caregiver
+      - action: utter_affirm_emotional_control_info_caregiver
+
+  - rule: Typed affirm emotional control info caregiver
+    steps:
+      - action: utter_emotional_control_info_caregiver
+      - intent: affirm
+      - action: utter_affirm_emotional_control_info_caregiver
+      
+  - rule: Deny emotional control info caregiver
+    steps:
+      - intent: deny_emotional_control_info_caregiver
+      - action: utter_deny_info_request_general
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Typed deny emotional control info caregiver
+    steps:
+      - action: utter_emotional_control_info_caregiver
+      - intent: deny
+      - action: utter_deny_info_request_general
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Behavioral control
+    steps:
+      - intent: behavioral_control
+      - action: utter_behavioral_control
+
+  - rule: Affirm behavioral control
+    steps:
+      - intent: affirm_behavioral_control
+      - action: utter_behavioral_control_more_info_questions
+
+  - rule: Typed affirm behavioral control
+    steps:
+      - action: utter_behavioral_control
+      - intent: affirm
+      - action: utter_behavioral_control_more_info_questions
+      
+  - rule: Deny behavioral control
+    steps:
+      - intent: deny_behavioral_control
+      - action: utter_explain_behavioral_control
+      - action: utter_behavioral_control_more_info_questions
+
+  - rule: Typed deny behavioral control
+    steps:
+      - action: utter_behavioral_control
+      - intent: deny
+      - action: utter_explain_behavioral_control
+      - action: utter_behavioral_control_more_info_questions
+      
+  - rule: Behavioral control info TDAH
+    steps:
+      - intent: behavioral_control_info_tdah
+      - action: utter_behavioral_control_info_tdah
+
+  - rule: Handle typed selection from behavioral control submenu
+    steps:
+      - action: utter_behavioral_control_more_info_questions
+      - intent: select_option
+      - action: action_handle_select_option
+
+  - rule: Affirm behavioral control info TDAH
+    steps:
+      - intent: affirm_behavioral_control_info_tdah
+      - action: utter_affirm_behavioral_control_info_tdah
+
+  - rule: Typed affirm behavioral control info TDAH
+    steps:
+      - action: utter_behavioral_control_info_tdah
+      - intent: affirm
+      - action: utter_affirm_behavioral_control_info_tdah
+
+  - rule: Deny behavioral control info TDAH
+    steps:
+      - intent: deny_behavioral_control_info_tdah
+      - action: utter_deny_info_request_general
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Typed deny behavioral control info TDAH
+    steps:
+      - action: utter_behavioral_control_info_tdah
+      - intent: deny
+      - action: utter_deny_info_request_general
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Behavioral control info caregiver
+    steps:
+      - intent: behavioral_control_info_caregiver
+      - action: utter_behavioral_control_info_caregiver
+
+
+  - rule: Affirm behavioral control info caregiver
+    steps:
+      - intent: affirm_behavioral_control_info_caregiver
+      - action: utter_affirm_behavioral_control_info_caregiver
+
+  - rule: Typed affirm behavioral control info caregiver
+    steps:
+      - action: utter_behavioral_control_info_caregiver
+      - intent: affirm
+      - action: utter_affirm_behavioral_control_info_caregiver
+
+  - rule: Deny behavioral control info caregiver
+    steps:
+      - intent: deny_behavioral_control_info_caregiver
+      - action: utter_deny_info_request_general
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Typed deny behavioral control info caregiver
+    steps:
+      - action: utter_behavioral_control_info_caregiver
+      - intent: deny
+      - action: utter_deny_info_request_general
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Assertive communication
+    steps:
+      - intent: assertive_communication
+      - action: utter_assertive_communication
+
+  - rule: Affirm assertive communication
+    steps:
+      - intent: affirm_assertive_communication
+      - action: utter_assertive_communication_info_tdah
+
+  - rule: Typed affirm assertive communication
+    steps:
+      - action: utter_assertive_communication
+      - intent: affirm
+      - action: utter_assertive_communication_info_tdah
+
+  - rule: Deny assertive communication
+    steps:
+      - intent: deny_assertive_communication
+      - action: utter_explain_assertive_communication
+      - action: utter_assertive_communication_info_tdah
+
+  - rule: Typed deny assertive communication
+    steps:
+      - action: utter_assertive_communication
+      - intent: deny
+      - action: utter_explain_assertive_communication
+      - action: utter_assertive_communication_info_tdah
+
+  - rule: Affirm assertive communication info TDAH
+    steps:
+      - intent: affirm_assertive_communication_info_tdah
+      - action: utter_affirm_assertive_communication_info_tdah
+
+  - rule: Typed affirm assertive communication info TDAH
+    steps:
+      - action: utter_assertive_communication_info_tdah
+      - intent: affirm
+      - action: utter_affirm_assertive_communication_info_tdah
+
+  - rule: Deny assertive communication info TDAH
+    steps:
+      - intent: deny_assertive_communication_info_tdah
+      - action: utter_deny_info_request_general
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Typed deny assertive communication info TDAH
+    steps:
+      - action: utter_assertive_communication_info_tdah
+      - intent: deny
+      - action: utter_deny_info_request_general
+      - action: utter_choose_option
+      - action: utter_options_list
+
+  - rule: Psychoeducational activity
+    steps:
+      - intent: psychoeducational_activity
+      - action: utter_psychoeducational_activity
+
+  - rule: Affirm psychoeducational activity
+    steps:
+      - intent: affirm_psychoeducational_activity
+      - action: utter_affirm_psychoeducational_activity
+
+  - rule: Typed affirm psychoeducational activity
+    steps:
+      - action: utter_psychoeducational_activity
+      - intent: affirm
+      - action: utter_affirm_psychoeducational_activity
+
+  - rule: Deny psychoeducational activity
+    steps:
+      - intent: deny_psychoeducational_activity
+      - action: utter_explain_psychoeducational_activity
+      - action: utter_affirm_psychoeducational_activity
+
+  - rule: Typed deny psychoeducational activity
+    steps:
+      - action: utter_psychoeducational_activity
+      - intent: deny
+      - action: utter_explain_psychoeducational_activity
+      - action: utter_affirm_psychoeducational_activity

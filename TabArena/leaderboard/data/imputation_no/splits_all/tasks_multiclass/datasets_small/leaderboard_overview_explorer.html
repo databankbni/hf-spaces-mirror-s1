@@ -1,0 +1,1411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TabArena leaderboard explorer — no imputation | Multiclass | Small</title>
+<style>
+  :root {
+        --fam-foundation: #b07cf0;
+    --fam-nn: #5aa9e6;
+    --fam-tree: #5cb85c;
+    --fam-reference: #f0a35a;
+    --fam-baseline: #9e9e9e;
+    --fam-other: #9e9e9e;
+    --paper: #ffffff;
+    --card: #ffffff;
+    --ink: #14161a;
+    --muted: #6d6c65;
+    --line: #e4e3db;
+    --accent: #2a78d6;
+    --chip-bg: #f2f1ec;
+    --pt-muted: #b9b8b1;
+    /* The same family hues as *text*. The mark colors are tuned for fills and
+    drop below readable contrast as small labels on the light surface, so
+    light mode darkens them; dark mode reuses the mark colors as-is. */
+    --fam-foundation-ink: #7d3fc2;
+    --fam-nn-ink: #1c6fa8;
+    --fam-tree-ink: #2f7d32;
+    --fam-reference-ink: #a4600f;
+    --fam-baseline-ink: #5f5f5f;
+    --fam-other-ink: #5f5f5f;
+    /* Tuning-variant series (default / tuned / tuned + ensembled). Light mode
+    is the paper view's surface, so it uses the *static figures' own* seaborn
+    pastels — figures exported from here drop straight into a paper beside
+    them. The cost is colorblind separation: green vs. orange is 4.0 deutan
+    ΔE, well inside the band that needs secondary encoding, which here is the
+    fixed concentric bar widths plus the legend and the data table. Dark mode
+    (the website) keeps the stepped, better-separated version below. */
+    --var-default: #a1c9f4;
+    --var-tuned: #ffb482;
+    --var-tunedens: #8de5a1;
+    --optimal: #228b22;
+    --tooltip-bg: #14161a;
+    --tooltip-ink: #fbfbf9;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #131316;
+      --card: #1b1b1f;
+      --ink: #f0efea;
+      --muted: #9b9a92;
+      --line: #2e2e33;
+      --accent: #3987e5;
+      --chip-bg: #232327;
+      --pt-muted: #55555c;
+      --fam-foundation-ink: var(--fam-foundation);
+      --fam-nn-ink: var(--fam-nn);
+      --fam-tree-ink: var(--fam-tree);
+      --fam-reference-ink: var(--fam-reference);
+      --fam-baseline-ink: var(--fam-baseline);
+      --fam-other-ink: var(--fam-other);
+      --var-default: #4386d5;
+      --var-tuned: #c05f38;
+      --var-tunedens: #289972;
+      --optimal: #2ea043;
+      --tooltip-bg: #f0efea;
+      --tooltip-ink: #14161a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #131316;
+    --card: #1b1b1f;
+    --ink: #f0efea;
+    --muted: #9b9a92;
+    --line: #2e2e33;
+    --accent: #3987e5;
+    --chip-bg: #232327;
+    --pt-muted: #55555c;
+    --fam-foundation-ink: var(--fam-foundation);
+    --fam-nn-ink: var(--fam-nn);
+    --fam-tree-ink: var(--fam-tree);
+    --fam-reference-ink: var(--fam-reference);
+    --fam-baseline-ink: var(--fam-baseline);
+    --fam-other-ink: var(--fam-other);
+    --var-default: #4386d5;
+    --var-tuned: #c05f38;
+    --var-tunedens: #289972;
+    --optimal: #2ea043;
+    --tooltip-bg: #f0efea;
+    --tooltip-ink: #14161a;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --paper: #ffffff;
+    --card: #ffffff;
+    --ink: #14161a;
+    --muted: #6d6c65;
+    --line: #e4e3db;
+    --accent: #2a78d6;
+    --chip-bg: #f2f1ec;
+    --pt-muted: #b9b8b1;
+    /* The same family hues as *text*. The mark colors are tuned for fills and
+    drop below readable contrast as small labels on the light surface, so
+    light mode darkens them; dark mode reuses the mark colors as-is. */
+    --fam-foundation-ink: #7d3fc2;
+    --fam-nn-ink: #1c6fa8;
+    --fam-tree-ink: #2f7d32;
+    --fam-reference-ink: #a4600f;
+    --fam-baseline-ink: #5f5f5f;
+    --fam-other-ink: #5f5f5f;
+    /* Tuning-variant series (default / tuned / tuned + ensembled). Light mode
+    is the paper view's surface, so it uses the *static figures' own* seaborn
+    pastels — figures exported from here drop straight into a paper beside
+    them. The cost is colorblind separation: green vs. orange is 4.0 deutan
+    ΔE, well inside the band that needs secondary encoding, which here is the
+    fixed concentric bar widths plus the legend and the data table. Dark mode
+    (the website) keeps the stepped, better-separated version below. */
+    --var-default: #a1c9f4;
+    --var-tuned: #ffb482;
+    --var-tunedens: #8de5a1;
+    --optimal: #228b22;
+    --tooltip-bg: #14161a;
+    --tooltip-ink: #fbfbf9;
+    color-scheme: light;
+  }
+  html, body { margin: 0; background: var(--paper); }
+  /* The colour emoji fonts are named *before* the generic `sans-serif`. A generic
+     family matches every character through the browser's own fallback chain, so
+     anything listed after it is unreachable — and that fallback resolves emoji to
+     a monochrome font on Linux, which flattens the family symbols on the chips.
+     Latin glyphs are unaffected: the emoji fonts carry none. */
+  body {
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI",
+      "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    line-height: 1.5;
+    padding: 10px 12px 14px;
+  }
+  /* The [hidden] attribute must beat author display rules (e.g. the
+     inline-flex on .metricpick), else hidden controls render empty. */
+  [hidden] { display: none !important; }
+
+  .explorer-title { font-size: 15px; font-weight: 650; margin: 0 0 8px; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 10px; }
+  .controls .hint { font-size: 12.5px; color: var(--muted); }
+  .btnrow { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn {
+    font: 600 12.5px/1 system-ui, sans-serif; color: var(--ink);
+    background: var(--chip-bg); border: 1px solid var(--line); border-radius: 7px;
+    padding: 6px 11px; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn:focus-visible, .chip:focus-visible, .famchip:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .metricpick { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .metricpick select {
+    font: 600 12.5px/1.2 system-ui, sans-serif; color: var(--ink);
+    background: var(--chip-bg); border: 1px solid var(--line); border-radius: 7px;
+    padding: 5px 7px; cursor: pointer;
+  }
+
+  .chips { display: flex; flex-direction: column; gap: 9px; }
+  /* One block per family: the family toggle on top, its chips wrapping below. */
+  .chiprow { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+  .famchip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font: 650 10.5px/1.3 system-ui, sans-serif; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted); background: var(--chip-bg); border: 1px dashed var(--line);
+    border-radius: 999px; padding: 5px 10px; cursor: pointer;
+  }
+  .famchip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fam); flex: none; }
+  .famchip .count { font-weight: 500; letter-spacing: 0; opacity: 0.75; }
+  /* The family symbol sits at text size, not the chip's small-caps size. */
+  .famchip .sym { font-size: 1.05em; letter-spacing: 0; }
+  .famchip:hover { border-color: var(--fam); color: var(--ink); }
+  .famchip[aria-pressed="true"] {
+    border: 1px solid var(--fam);
+    background: color-mix(in srgb, var(--fam) 13%, transparent);
+    color: var(--ink);
+  }
+  /* A toggle button that carries its own colour: off is faded with a neutral
+     border, on takes the colour as border and tint. Opt-in via `.toggle` so the
+     older explorers, which fade their variant buttons with inline styles, are
+     unaffected. */
+  .btn.toggle[aria-pressed] { opacity: 0.5; }
+  .btn.toggle[aria-pressed="true"] {
+    opacity: 1;
+    border-color: var(--fam);
+    background: color-mix(in srgb, var(--fam) 18%, var(--chip-bg));
+  }
+  .btn.toggle .swatch {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--fam); margin-right: 6px; vertical-align: middle;
+  }
+  .btn.toggle[aria-pressed="false"] .swatch { background: var(--pt-muted); }
+  .grouplabel { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+
+  .chipset { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font: 500 12.5px/1 system-ui, sans-serif; color: var(--ink);
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 10px 5px 8px; cursor: pointer;
+  }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pt-muted); flex: none; }
+  .chip .imp-mark { color: var(--muted); font-weight: 700; margin-left: -2px; }
+  .chip[aria-pressed="true"] { border-color: var(--fam); background: color-mix(in srgb, var(--fam) 13%, transparent); font-weight: 650; }
+  .chip[aria-pressed="true"] .dot { background: var(--fam); }
+  .chip:hover { border-color: var(--muted); }
+
+  .legendstrip {
+    display: flex; flex-wrap: wrap; gap: 5px 16px; align-items: center;
+    font-size: 12.5px; color: var(--muted); padding: 2px 2px 8px;
+  }
+  .legendstrip .item { display: inline-flex; align-items: center; gap: 6px; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; display: none;
+    background: var(--tooltip-bg); color: var(--tooltip-ink);
+    border-radius: 8px; padding: 8px 11px; font-size: 12px; line-height: 1.45;
+    max-width: 260px; z-index: 5; font-variant-numeric: tabular-nums;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  }
+  .tooltip .t-name { font-weight: 700; font-size: 12.5px; }
+  .tooltip .t-var { opacity: 0.75; }
+  .tooltip .t-imp { opacity: 0.85; font-style: italic; }
+
+  details.datatable { margin-top: 8px; font-size: 12.5px; }
+  details.datatable summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+  details.datatable .tblwrap { overflow-x: auto; margin-top: 8px; }
+  details.datatable table { border-collapse: collapse; font-variant-numeric: tabular-nums; min-width: 560px; }
+  details.datatable th, details.datatable td {
+    text-align: left; padding: 3px 12px 3px 0; border-bottom: 1px solid var(--line);
+  }
+  details.datatable th { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+
+  svg text {
+    font-family: system-ui, -apple-system, "Segoe UI",
+      "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .chip, .btn, .famchip { transition: border-color 120ms ease, background-color 120ms ease; }
+  }
+
+  /* --- Paper view -----------------------------------------------------------
+     A figure-ready state for slides and papers: white surface, and only the
+     things needed to read the plot — the caption, the legend and the chart.
+     The controls, the chip list and the data table are interactive scaffolding,
+     not part of the figure. Entered via the "Paper view" button (which stamps
+     data-theme="light" on the root, see the scopes above). */
+  /* One toggle, in the same place in both states and never hidden — an exit
+     tucked into a corner of the figure was easy to miss. */
+  .viewbar { display: flex; align-items: center; gap: 10px; margin: 0 0 9px; }
+  body.paper .controls,
+  body.paper .chips,
+  body.paper .sidebox,
+  body.paper details.datatable { display: none !important; }
+  body.paper { padding: 14px 18px 18px; }
+  /* Export controls, revealed with the paper view. */
+  .exportbar { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+  .exportbar .hint { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+
+
+  /* Chart: a fixed y-axis pane beside a horizontally scrolling plot pane, so
+     the axis stays readable however far right the reader scrolls. */
+  .lb-chartwrap { position: relative; display: flex; align-items: flex-start; }
+  .lb-axis { flex: none; }
+  .lb-scroll {
+    flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: thin; scrollbar-color: var(--pt-muted) transparent;
+  }
+  .lb-scroll::-webkit-scrollbar { height: 10px; }
+  .lb-scroll::-webkit-scrollbar-thumb {
+    background: var(--pt-muted); border-radius: 8px;
+    border: 3px solid transparent; background-clip: content-box;
+  }
+  .rangepick input[type=range] { width: 96px; accent-color: var(--accent); cursor: pointer; }
+  .rangeval { font-variant-numeric: tabular-nums; font-weight: 500; min-width: 3.4em; }
+  .lb-empty { padding: 40px 0; text-align: center; color: var(--muted); font-size: 13px; }
+  /* Puts the family key on its own line of the legend strip. */
+  .legendstrip .legendbreak { flex-basis: 100%; height: 0; }
+  /* Family blocks pack side by side rather than stacking: below a full-width
+     chart, one row per family leaves the small ones (Other, Baseline) each
+     wasting a line. The wide families still claim a row of their own. */
+  .chips { margin-top: 10px; flex-direction: row; flex-wrap: wrap; gap: 12px 28px; align-items: flex-start; }
+  .chips-head { flex: 1 1 100%; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+  .chiprow { flex: 0 1 auto; min-width: 0; }
+</style>
+</head>
+<body>
+  <div class="viewbar">
+    <button class="btn" id="btn-paper" title="White background, chart and legend only — for slides and papers">Paper view</button>
+  </div>
+  <p class="explorer-title" id="title"></p>
+  <!-- One control row above everything it scopes (axis, sorting, variants, selection). -->
+  <div class="controls">
+    <label class="metricpick">Y-axis
+      <select id="metric-select"></select>
+    </label>
+    <label class="metricpick">Sort
+      <select id="sort-select"></select>
+    </label>
+    <label class="metricpick rangepick" title="Raise the axis floor to spread out the top of the field">Zoom
+      <input type="range" id="ymin-range" aria-label="Y-axis minimum">
+      <span class="rangeval" id="ymin-val"></span>
+    </label>
+    <div class="btnrow" id="variant-btns"></div>
+    <div class="btnrow">
+      <button class="btn" id="btn-all">All methods</button>
+      <button class="btn" id="btn-top">Top 15</button>
+      <button class="btn" id="btn-none">Clear</button>
+    </div>
+    <span class="hint">Click a column or chip to remove a method &middot; hover for exact values</span>
+  </div>
+  <div class="exportbar" id="exportbar" hidden>
+    <span class="hint">Export figure</span>
+    <button class="btn" id="btn-svg" title="Download as SVG — vector, keeps text selectable">SVG</button>
+    <button class="btn" id="btn-pdf" title="Download as a one-page PDF">PDF</button>
+    <button class="btn" id="btn-png" title="Download as PNG at 3x scale">PNG</button>
+  </div>
+  <div class="legendstrip" id="legendstrip"></div>
+  <div class="lb-chartwrap" id="chartwrap">
+    <svg id="axis" class="lb-axis" role="presentation"></svg>
+    <div class="lb-scroll" id="scroller">
+      <svg id="chart" role="img" aria-label="Leaderboard overview"></svg>
+    </div>
+    <div class="tooltip"></div>
+  </div>
+  <div class="chips" id="chips"></div>
+  <details class="datatable">
+    <summary>Data table</summary>
+    <div class="tblwrap" id="tblwrap"></div>
+  </details>
+
+<script>
+(function () {
+  "use strict";
+  const CONFIG = {"title": null, "metrics": [{"key": "elo", "label": "Elo", "axisLabel": "Elo \u2014 higher is better", "lowerBetter": false, "fromZero": false, "decimals": 0, "suffix": "", "ci": {"lo": "elo_lo", "hi": "elo_hi"}}, {"key": "imp", "label": "Improvability (%)", "axisLabel": "Improvability (%) \u2014 lower is better", "lowerBetter": true, "fromZero": true, "decimals": 1, "suffix": "%"}, {"key": "score", "label": "Score", "axisLabel": "Score \u2014 higher is better", "lowerBetter": false, "fromZero": true, "decimals": 3, "suffix": ""}, {"key": "rank", "label": "Average rank", "axisLabel": "Average rank \u2014 lower is better", "lowerBetter": true, "fromZero": true, "decimals": 2, "suffix": ""}, {"key": "hrank", "label": "Harmonic rank", "axisLabel": "Harmonic rank \u2014 lower is better", "lowerBetter": true, "fromZero": true, "decimals": 2, "suffix": ""}], "rankMetric": "elo"};
+  const POINTS = [{"method":"EXAONE-Tabular","variant":"Default","family":"Foundation Model","url":"https:\/\/github.com\/LGAI-Research\/EXAONE-Tabular","reference":false,"elo":1870.0,"imp":9.273,"score":0.836,"rank":6.0,"hrank":2.94,"elo_hi":2083.0,"elo_lo":1789.0,"imputed_pct":0.0,"imputed":false},{"method":"AutoGluon 1.5 (extreme, 4h)","variant":"","family":"Reference Pipeline","url":"https:\/\/arxiv.org\/abs\/2003.06505","reference":true,"elo":1741.0,"imp":13.316,"score":0.68,"rank":10.18,"hrank":6.3,"elo_hi":1904.0,"elo_lo":1683.0,"imputed_pct":0.0,"imputed":false},{"method":"RealTabPFN-2.5","variant":"Tuned","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.08667","reference":false,"elo":1732.0,"imp":13.476,"score":0.685,"rank":10.55,"hrank":5.2,"elo_hi":1928.0,"elo_lo":1656.0,"imputed_pct":0.0,"imputed":false},{"method":"RealTabPFN-2.5","variant":"Tuned + Ens.","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.08667","reference":false,"elo":1717.0,"imp":12.595,"score":0.67,"rank":11.21,"hrank":4.91,"elo_hi":1959.0,"elo_lo":1608.0,"imputed_pct":0.0,"imputed":false},{"method":"TabFM","variant":"Default","family":"Foundation Model","url":"https:\/\/github.com\/google-research\/tabfm","reference":false,"elo":1693.0,"imp":8.924,"score":0.815,"rank":12.3,"hrank":1.86,"elo_hi":2144.0,"elo_lo":1445.0,"imputed_pct":0.0,"imputed":false},{"method":"TabPFN-2.6","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.08667","reference":false,"elo":1653.0,"imp":15.801,"score":0.59,"rank":14.26,"hrank":8.9,"elo_hi":1867.0,"elo_lo":1554.0,"imputed_pct":0.0,"imputed":false},{"method":"RealTabPFN-2.5","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.08667","reference":false,"elo":1635.0,"imp":13.821,"score":0.572,"rank":15.21,"hrank":6.97,"elo_hi":1909.0,"elo_lo":1481.0,"imputed_pct":0.0,"imputed":false},{"method":"RealMLP","variant":"Tuned + Ens.","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.04491","reference":false,"elo":1597.0,"imp":16.303,"score":0.479,"rank":17.39,"hrank":9.76,"elo_hi":1790.0,"elo_lo":1479.0,"imputed_pct":0.0,"imputed":false},{"method":"TabPFN-3","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2605.13986","reference":false,"elo":1588.0,"imp":15.324,"score":0.509,"rank":17.9,"hrank":8.4,"elo_hi":1798.0,"elo_lo":1446.0,"imputed_pct":0.0,"imputed":false},{"method":"RealMLP","variant":"Tuned","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.04491","reference":false,"elo":1572.0,"imp":17.232,"score":0.455,"rank":18.89,"hrank":11.45,"elo_hi":1700.0,"elo_lo":1513.0,"imputed_pct":0.0,"imputed":false},{"method":"TabICLv2","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2602.11139","reference":false,"elo":1569.0,"imp":16.58,"score":0.536,"rank":19.08,"hrank":6.75,"elo_hi":1835.0,"elo_lo":1382.0,"imputed_pct":0.0,"imputed":false},{"method":"LimiX","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2509.03505","reference":false,"elo":1559.0,"imp":16.167,"score":0.461,"rank":19.69,"hrank":10.41,"elo_hi":1728.0,"elo_lo":1431.0,"imputed_pct":0.0,"imputed":false},{"method":"TabM","variant":"Tuned + Ens.","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2410.24210","reference":false,"elo":1531.0,"imp":19.838,"score":0.416,"rank":21.5,"hrank":12.55,"elo_hi":1665.0,"elo_lo":1450.0,"imputed_pct":0.0,"imputed":false},{"method":"AutoGluon 1.4 (best, 4h)","variant":"","family":"Reference Pipeline","url":"https:\/\/arxiv.org\/abs\/2003.06505","reference":true,"elo":1530.0,"imp":19.703,"score":0.317,"rank":21.63,"hrank":11.89,"elo_hi":1726.0,"elo_lo":1445.0,"imputed_pct":0.0,"imputed":false},{"method":"TabM","variant":"Tuned","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2410.24210","reference":false,"elo":1488.0,"imp":20.572,"score":0.363,"rank":24.44,"hrank":14.62,"elo_hi":1611.0,"elo_lo":1412.0,"imputed_pct":0.0,"imputed":false},{"method":"LightGBM","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/papers.nips.cc\/paper_files\/paper\/2017\/hash\/6449f44a102fde848669bdd9eb6b76fa-Abstract.html","reference":false,"elo":1477.0,"imp":20.644,"score":0.313,"rank":25.24,"hrank":19.92,"elo_hi":1630.0,"elo_lo":1390.0,"imputed_pct":0.0,"imputed":false},{"method":"CatBoost","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1706.09516","reference":false,"elo":1475.0,"imp":19.777,"score":0.302,"rank":25.37,"hrank":21.62,"elo_hi":1549.0,"elo_lo":1433.0,"imputed_pct":0.0,"imputed":false},{"method":"TabDPT","variant":"Tuned + Ens.","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2410.18164","reference":false,"elo":1472.0,"imp":22.528,"score":0.392,"rank":25.59,"hrank":12.92,"elo_hi":1662.0,"elo_lo":1309.0,"imputed_pct":0.0,"imputed":false},{"method":"LightGBM","variant":"Tuned","family":"Tree-based","url":"https:\/\/papers.nips.cc\/paper_files\/paper\/2017\/hash\/6449f44a102fde848669bdd9eb6b76fa-Abstract.html","reference":false,"elo":1468.0,"imp":20.849,"score":0.297,"rank":25.88,"hrank":20.98,"elo_hi":1599.0,"elo_lo":1394.0,"imputed_pct":0.0,"imputed":false},{"method":"BetaTabPFN","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2502.02527","reference":false,"elo":1456.0,"imp":21.553,"score":0.331,"rank":26.76,"hrank":19.64,"elo_hi":1592.0,"elo_lo":1355.0,"imputed_pct":0.0,"imputed":false},{"method":"CatBoost","variant":"Tuned","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1706.09516","reference":false,"elo":1448.0,"imp":20.482,"score":0.252,"rank":27.29,"hrank":22.84,"elo_hi":1510.0,"elo_lo":1415.0,"imputed_pct":0.0,"imputed":false},{"method":"xRFM","variant":"Tuned + Ens.","family":"Other","url":"https:\/\/arxiv.org\/abs\/2508.10053","reference":false,"elo":1444.0,"imp":21.933,"score":0.304,"rank":27.64,"hrank":17.05,"elo_hi":1570.0,"elo_lo":1300.0,"imputed_pct":0.0,"imputed":false},{"method":"TabDPT-Turbo","variant":"Default","family":"Foundation Model","url":"https:\/\/openreview.net\/pdf?id=Y00pwFyrHR","reference":false,"elo":1443.0,"imp":22.577,"score":0.307,"rank":27.7,"hrank":11.1,"elo_hi":1664.0,"elo_lo":1272.0,"imputed_pct":0.0,"imputed":false},{"method":"TabDPT","variant":"Tuned","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2410.18164","reference":false,"elo":1433.0,"imp":23.492,"score":0.338,"rank":28.39,"hrank":14.26,"elo_hi":1637.0,"elo_lo":1264.0,"imputed_pct":0.0,"imputed":false},{"method":"XGBoost","variant":"Tuned","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1603.02754","reference":false,"elo":1428.0,"imp":21.229,"score":0.218,"rank":28.79,"hrank":21.27,"elo_hi":1539.0,"elo_lo":1358.0,"imputed_pct":0.0,"imputed":false},{"method":"ModernNCA","variant":"Tuned","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.03257","reference":false,"elo":1424.0,"imp":21.052,"score":0.204,"rank":29.08,"hrank":13.94,"elo_hi":1511.0,"elo_lo":1363.0,"imputed_pct":0.0,"imputed":false},{"method":"ModernNCA","variant":"Tuned + Ens.","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.03257","reference":false,"elo":1423.0,"imp":20.948,"score":0.187,"rank":29.17,"hrank":21.19,"elo_hi":1558.0,"elo_lo":1329.0,"imputed_pct":0.0,"imputed":false},{"method":"TabM","variant":"Default","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2410.24210","reference":false,"elo":1419.0,"imp":22.386,"score":0.276,"rank":29.47,"hrank":18.77,"elo_hi":1571.0,"elo_lo":1310.0,"imputed_pct":0.0,"imputed":false},{"method":"XGBoost","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1603.02754","reference":false,"elo":1419.0,"imp":21.374,"score":0.212,"rank":29.47,"hrank":22.53,"elo_hi":1538.0,"elo_lo":1351.0,"imputed_pct":0.0,"imputed":false},{"method":"iLTM","variant":"Tuned + Ens.","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.15941","reference":false,"elo":1412.0,"imp":21.701,"score":0.165,"rank":29.93,"hrank":23.92,"elo_hi":1530.0,"elo_lo":1334.0,"imputed_pct":0.0,"imputed":false},{"method":"SAP-RPT-OSS","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2506.10707","reference":false,"elo":1388.0,"imp":21.409,"score":0.394,"rank":31.76,"hrank":7.25,"elo_hi":1678.0,"elo_lo":1147.0,"imputed_pct":0.0,"imputed":false},{"method":"ExtraTrees","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1007\/s10994-006-6226-1","reference":false,"elo":1362.0,"imp":25.234,"score":0.259,"rank":33.76,"hrank":15.08,"elo_hi":1571.0,"elo_lo":1177.0,"imputed_pct":0.0,"imputed":false},{"method":"EBM","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/www.cs.cornell.edu\/~yinlou\/papers\/lou-kdd13.pdf","reference":false,"elo":1362.0,"imp":23.493,"score":0.178,"rank":33.81,"hrank":28.92,"elo_hi":1437.0,"elo_lo":1277.0,"imputed_pct":0.0,"imputed":false},{"method":"CatBoost","variant":"Default","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1706.09516","reference":false,"elo":1356.0,"imp":22.878,"score":0.154,"rank":34.21,"hrank":29.16,"elo_hi":1440.0,"elo_lo":1288.0,"imputed_pct":0.0,"imputed":false},{"method":"TorchMLP","variant":"Tuned + Ens.","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","reference":false,"elo":1343.0,"imp":23.763,"score":0.131,"rank":35.26,"hrank":27.13,"elo_hi":1496.0,"elo_lo":1225.0,"imputed_pct":0.0,"imputed":false},{"method":"xRFM","variant":"Tuned","family":"Other","url":"https:\/\/arxiv.org\/abs\/2508.10053","reference":false,"elo":1339.0,"imp":24.174,"score":0.198,"rank":35.57,"hrank":18.36,"elo_hi":1447.0,"elo_lo":1227.0,"imputed_pct":0.0,"imputed":false},{"method":"FastaiMLP","variant":"Tuned + Ens.","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","reference":false,"elo":1338.0,"imp":24.34,"score":0.227,"rank":35.67,"hrank":14.0,"elo_hi":1561.0,"elo_lo":1159.0,"imputed_pct":0.0,"imputed":false},{"method":"RandomForest","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1023\/A:1010933404324","reference":false,"elo":1317.0,"imp":25.928,"score":0.24,"rank":37.24,"hrank":14.84,"elo_hi":1517.0,"elo_lo":1109.0,"imputed_pct":0.0,"imputed":false},{"method":"iLTM","variant":"Tuned","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.15941","reference":false,"elo":1317.0,"imp":23.049,"score":0.098,"rank":37.28,"hrank":32.24,"elo_hi":1409.0,"elo_lo":1219.0,"imputed_pct":0.0,"imputed":false},{"method":"EBM","variant":"Tuned","family":"Tree-based","url":"https:\/\/www.cs.cornell.edu\/~yinlou\/papers\/lou-kdd13.pdf","reference":false,"elo":1315.0,"imp":24.247,"score":0.123,"rank":37.39,"hrank":31.92,"elo_hi":1393.0,"elo_lo":1229.0,"imputed_pct":0.0,"imputed":false},{"method":"ExtraTrees","variant":"Tuned","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1007\/s10994-006-6226-1","reference":false,"elo":1314.0,"imp":26.663,"score":0.229,"rank":37.51,"hrank":12.92,"elo_hi":1517.0,"elo_lo":1109.0,"imputed_pct":0.0,"imputed":false},{"method":"TabDPT","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2410.18164","reference":false,"elo":1303.0,"imp":26.221,"score":0.189,"rank":38.32,"hrank":15.29,"elo_hi":1533.0,"elo_lo":1107.0,"imputed_pct":0.0,"imputed":false},{"method":"EBM","variant":"Default","family":"Tree-based","url":"https:\/\/www.cs.cornell.edu\/~yinlou\/papers\/lou-kdd13.pdf","reference":false,"elo":1302.0,"imp":25.536,"score":0.122,"rank":38.45,"hrank":28.85,"elo_hi":1442.0,"elo_lo":1179.0,"imputed_pct":0.0,"imputed":false},{"method":"TabSwift","variant":"Default","family":"Foundation Model","url":"https:\/\/github.com\/LAMDA-Tabular\/TabSwift","reference":false,"elo":1296.0,"imp":26.507,"score":0.138,"rank":38.9,"hrank":32.28,"elo_hi":1411.0,"elo_lo":1150.0,"imputed_pct":0.0,"imputed":false},{"method":"LightGBM","variant":"Default","family":"Tree-based","url":"https:\/\/papers.nips.cc\/paper_files\/paper\/2017\/hash\/6449f44a102fde848669bdd9eb6b76fa-Abstract.html","reference":false,"elo":1283.0,"imp":25.027,"score":0.159,"rank":39.87,"hrank":29.56,"elo_hi":1453.0,"elo_lo":1114.0,"imputed_pct":0.0,"imputed":false},{"method":"FastaiMLP","variant":"Tuned","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","reference":false,"elo":1278.0,"imp":25.64,"score":0.121,"rank":40.21,"hrank":23.31,"elo_hi":1472.0,"elo_lo":1113.0,"imputed_pct":0.0,"imputed":false},{"method":"TorchMLP","variant":"Tuned","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","reference":false,"elo":1273.0,"imp":26.124,"score":0.12,"rank":40.65,"hrank":28.8,"elo_hi":1397.0,"elo_lo":1122.0,"imputed_pct":0.0,"imputed":false},{"method":"RandomForest","variant":"Tuned","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1023\/A:1010933404324","reference":false,"elo":1264.0,"imp":27.301,"score":0.184,"rank":41.29,"hrank":11.79,"elo_hi":1464.0,"elo_lo":1037.0,"imputed_pct":0.0,"imputed":false},{"method":"ChimeraBoost","variant":"Tuned","family":"Tree-based","url":"https:\/\/github.com\/bbstats\/chimeraboost","reference":false,"elo":1261.0,"imp":25.511,"score":0.135,"rank":41.52,"hrank":32.48,"elo_hi":1412.0,"elo_lo":1078.0,"imputed_pct":0.0,"imputed":false},{"method":"XGBoost","variant":"Default","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1603.02754","reference":false,"elo":1252.0,"imp":24.771,"score":0.0,"rank":42.16,"hrank":40.37,"elo_hi":1284.0,"elo_lo":1216.0,"imputed_pct":0.0,"imputed":false},{"method":"ChimeraBoost","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/github.com\/bbstats\/chimeraboost","reference":false,"elo":1251.0,"imp":25.581,"score":0.124,"rank":42.28,"hrank":36.35,"elo_hi":1399.0,"elo_lo":1087.0,"imputed_pct":0.0,"imputed":false},{"method":"ModernNCA","variant":"Default","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.03257","reference":false,"elo":1223.0,"imp":28.879,"score":0.025,"rank":44.33,"hrank":36.15,"elo_hi":1329.0,"elo_lo":1098.0,"imputed_pct":0.0,"imputed":false},{"method":"RealMLP","variant":"Default","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.04491","reference":false,"elo":1211.0,"imp":27.272,"score":0.0,"rank":45.2,"hrank":41.55,"elo_hi":1273.0,"elo_lo":1133.0,"imputed_pct":0.0,"imputed":false},{"method":"ChimeraBoost","variant":"Default","family":"Tree-based","url":"https:\/\/github.com\/bbstats\/chimeraboost","reference":false,"elo":1171.0,"imp":28.443,"score":0.119,"rank":47.96,"hrank":37.08,"elo_hi":1353.0,"elo_lo":937.0,"imputed_pct":0.0,"imputed":false},{"method":"xRFM","variant":"Default","family":"Other","url":"https:\/\/arxiv.org\/abs\/2508.10053","reference":false,"elo":1163.0,"imp":28.84,"score":0.064,"rank":48.52,"hrank":42.14,"elo_hi":1258.0,"elo_lo":999.0,"imputed_pct":0.0,"imputed":false},{"method":"TorchMLP","variant":"Default","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","reference":false,"elo":1099.0,"imp":31.177,"score":0.0,"rank":52.68,"hrank":39.15,"elo_hi":1167.0,"elo_lo":966.0,"imputed_pct":0.0,"imputed":false},{"method":"KNN","variant":"Tuned + Ens.","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/neighbors.html","reference":false,"elo":1080.0,"imp":39.001,"score":0.07,"rank":53.81,"hrank":25.12,"elo_hi":1294.0,"elo_lo":759.0,"imputed_pct":0.0,"imputed":false},{"method":"OrionMSP","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.02818","reference":false,"elo":1042.0,"imp":34.504,"score":0.0,"rank":56.01,"hrank":52.42,"elo_hi":1117.0,"elo_lo":891.0,"imputed_pct":0.0,"imputed":false},{"method":"Linear","variant":"Tuned + Ens.","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/linear_model.html","reference":false,"elo":1042.0,"imp":40.799,"score":0.0,"rank":56.05,"hrank":52.45,"elo_hi":1151.0,"elo_lo":826.0,"imputed_pct":0.0,"imputed":false},{"method":"iLTM","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.15941","reference":false,"elo":1037.0,"imp":30.902,"score":0.0,"rank":56.31,"hrank":55.13,"elo_hi":1133.0,"elo_lo":889.0,"imputed_pct":0.0,"imputed":false},{"method":"TabSTAR","variant":"Tuned + Ens.","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2505.18125","reference":false,"elo":1036.0,"imp":32.743,"score":0.0,"rank":56.37,"hrank":50.22,"elo_hi":1182.0,"elo_lo":844.0,"imputed_pct":0.0,"imputed":false},{"method":"TabSTAR","variant":"Tuned","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2505.18125","reference":false,"elo":1029.0,"imp":32.877,"score":0.0,"rank":56.77,"hrank":52.32,"elo_hi":1159.0,"elo_lo":844.0,"imputed_pct":0.0,"imputed":false},{"method":"Linear","variant":"Tuned","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/linear_model.html","reference":false,"elo":1011.0,"imp":41.302,"score":0.0,"rank":57.74,"hrank":54.1,"elo_hi":1115.0,"elo_lo":779.0,"imputed_pct":0.0,"imputed":false},{"method":"RandomForest","variant":"Default","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1023\/A:1010933404324","reference":false,"elo":1000.0,"imp":39.73,"score":0.0,"rank":58.32,"hrank":53.73,"elo_hi":1120.0,"elo_lo":770.0,"imputed_pct":0.0,"imputed":false},{"method":"ExtraTrees","variant":"Default","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1007\/s10994-006-6226-1","reference":false,"elo":993.0,"imp":37.607,"score":0.0,"rank":58.67,"hrank":55.8,"elo_hi":1120.0,"elo_lo":770.0,"imputed_pct":0.0,"imputed":false},{"method":"FastaiMLP","variant":"Default","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","reference":false,"elo":989.0,"imp":34.441,"score":0.003,"rank":58.9,"hrank":55.63,"elo_hi":1141.0,"elo_lo":804.0,"imputed_pct":0.0,"imputed":false},{"method":"PerpetualBooster","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/perpetual-ml.com\/","reference":false,"elo":932.0,"imp":52.323,"score":0.0,"rank":61.64,"hrank":53.48,"elo_hi":1024.0,"elo_lo":708.0,"imputed_pct":0.0,"imputed":false},{"method":"TabFlex","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2506.05584","reference":false,"elo":918.0,"imp":39.19,"score":0.0,"rank":62.23,"hrank":61.77,"elo_hi":965.0,"elo_lo":816.0,"imputed_pct":0.0,"imputed":false},{"method":"KNN","variant":"Tuned","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/neighbors.html","reference":false,"elo":909.0,"imp":48.283,"score":0.057,"rank":62.61,"hrank":44.2,"elo_hi":1173.0,"elo_lo":508.0,"imputed_pct":0.0,"imputed":false},{"method":"PerpetualBooster","variant":"Tuned","family":"Tree-based","url":"https:\/\/perpetual-ml.com\/","reference":false,"elo":885.0,"imp":53.881,"score":0.0,"rank":63.63,"hrank":37.39,"elo_hi":982.0,"elo_lo":639.0,"imputed_pct":0.0,"imputed":false},{"method":"PerpetualBooster","variant":"Default","family":"Tree-based","url":"https:\/\/perpetual-ml.com\/","reference":false,"elo":873.0,"imp":57.752,"score":0.0,"rank":64.07,"hrank":31.19,"elo_hi":985.0,"elo_lo":595.0,"imputed_pct":0.0,"imputed":false},{"method":"TabSTAR","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2505.18125","reference":false,"elo":867.0,"imp":41.523,"score":0.0,"rank":64.33,"hrank":62.24,"elo_hi":997.0,"elo_lo":633.0,"imputed_pct":0.0,"imputed":false},{"method":"Linear","variant":"Default","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/linear_model.html","reference":false,"elo":799.0,"imp":47.877,"score":0.0,"rank":66.63,"hrank":65.89,"elo_hi":887.0,"elo_lo":543.0,"imputed_pct":0.0,"imputed":false},{"method":"KNN","variant":"Default","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/neighbors.html","reference":false,"elo":416.0,"imp":69.939,"score":0.0,"rank":73.09,"hrank":73.06,"elo_hi":466.0,"elo_lo":143.0,"imputed_pct":0.0,"imputed":false}];
+
+
+  const NS = "http://www.w3.org/2000/svg";
+  // Baseline and Other are one bucket, as in the site's own type legend: they
+  // already share a color, and each holds only a handful of methods.
+  const FAM_MERGED = "Baseline / Other";
+  const famOf = (family) => (family === "Baseline" || family === "Other" ? FAM_MERGED : family);
+  // Normalized up front so every later lookup — colors, chips, sorting — sees
+  // the merged family. Both templates declare POINTS above this block.
+  for (const p of POINTS) p.family = famOf(p.family);
+
+  const FAM_ORDER = ["Foundation Model", "Tree-based", "Neural Network", "Reference Pipeline", FAM_MERGED];
+  const FAM_VAR = {
+    "Foundation Model": "var(--fam-foundation)",
+    "Tree-based": "var(--fam-tree)",
+    "Neural Network": "var(--fam-nn)",
+    "Reference Pipeline": "var(--fam-reference)",
+    [FAM_MERGED]: "var(--fam-baseline)",
+  };
+  // The symbol the website shows for each family, so a family chip here reads the
+  // same as the Type column on the site. Baseline and Other are one bucket, so
+  // that chip carries both symbols.
+  const FAM_SYMBOL = {
+    "Foundation Model": "🧠⚡",
+    "Tree-based": "🌳",
+    "Neural Network": "🧠🔁",
+    "Reference Pipeline": "📊",
+    [FAM_MERGED]: "📏 ❓",
+  };
+  // Tuning-variant colours, matching the --var-* tokens the charts plot with.
+  const VARIANT_VAR = {
+    "Default": "var(--var-default)",
+    "Tuned": "var(--var-tuned)",
+    "Tuned + Ens.": "var(--var-tunedens)",
+  };
+
+  // A family chip's label: its symbol, its name and how many methods it holds.
+  function famChipLabel(family, count) {
+    const symbol = FAM_SYMBOL[family];
+    return '<span class="dot"></span>' + (symbol ? '<span class="sym">' + symbol + "</span> " : "") +
+      family + ' <span class="count">&times;' + count + "</span>";
+  }
+
+  // The same hues stepped for use as text (see the --fam-*-ink tokens).
+  const FAM_INK = {
+    "Foundation Model": "var(--fam-foundation-ink)",
+    "Tree-based": "var(--fam-tree-ink)",
+    "Neural Network": "var(--fam-nn-ink)",
+    "Reference Pipeline": "var(--fam-reference-ink)",
+    [FAM_MERGED]: "var(--fam-baseline-ink)",
+  };
+
+  // Create an SVG element with attributes, optionally appended to `parent`.
+  function el(name, attrs, parent) {
+    const node = document.createElementNS(NS, name);
+    for (const k in attrs) node.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(node);
+    return node;
+  }
+
+  // Plain, ungrouped numbers with a "." decimal separator. `toFixed` is
+  // locale-independent by definition, which is the point: `toLocaleString`
+  // would follow the *viewer's* browser locale and print 1234,5 for a German
+  // visitor, disagreeing with the figures and CSVs beside it.
+  function fmtNum(v, decimals) {
+    if (v == null || !isFinite(v)) return "—";
+    return v.toFixed(decimals);
+  }
+
+  function fmtMetric(metric, v) {
+    if (v == null || !isFinite(v)) return "—";
+    return fmtNum(v, metric.decimals) + (metric.suffix || "");
+  }
+
+  function fmtTime(v) {
+    if (v >= 100) return fmtNum(v, 0) + " s";
+    if (v >= 1) return fmtNum(v, 1) + " s";
+    if (v >= 0.1) return fmtNum(v, 2) + " s";
+    return fmtNum(v, 3) + " s";
+  }
+
+  // Smallest "nice" (1/2/2.5/5 x a power of ten) step that is at least `raw`.
+  function niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    for (const m of [1, 2, 2.5, 5, 10]) {
+      if (mag * m >= raw) return mag * m;
+    }
+    return mag * 10;
+  }
+
+  // ~`target` evenly spaced "nice" tick values covering [min, max]. Stepped by
+  // index rather than by accumulation so fractional steps do not drift.
+  function ticks(min, max, target) {
+    const step = niceStep((max - min) / target);
+    const first = Math.ceil(min / step);
+    const out = [];
+    for (let i = 0; first * step + i * step <= max + 1e-9; i++) out.push((first + i) * step);
+    return out.length ? out : [min];
+  }
+
+  // A hover tooltip anchored inside `box` (which must be position:relative).
+  function makeTooltip(box) {
+    const node = box.querySelector(".tooltip");
+    return {
+      show(html, ev) { node.innerHTML = html; node.style.display = "block"; this.move(ev); },
+      move(ev) {
+        const r = box.getBoundingClientRect();
+        let tx = ev.clientX - r.left + 14;
+        const ty = ev.clientY - r.top + 12;
+        if (tx > r.width - 270) tx = ev.clientX - r.left - 274;
+        node.style.left = tx + "px";
+        node.style.top = ty + "px";
+      },
+      hide() { node.style.display = "none"; },
+    };
+  }
+
+  // Paper view — white surface, legend + chart only — is the *default*: what a
+  // reader wants first is the figure, and it is the state worth exporting. The
+  // controls, chip list and data table are one click away behind "Edit view".
+  // `afterToggle` re-renders charts whose size is measured from the layout.
+  // `options.openInPaper` (default true) decides the state the page opens in. A
+  // chart opens as the figure; the leaderboard table opens with its controls,
+  // since there the interaction is the point rather than scaffolding around it.
+  function setUpPaperView(afterToggle, options) {
+    const opts = options || {};
+    const root = document.documentElement;
+    let hostTheme = null;   // the embedding page's choice, captured on entry
+    const btn = document.getElementById("btn-paper");
+    const embedded = window.parent !== window;
+
+    function setPaper(on) {
+      document.body.classList.toggle("paper", on);
+      if (on) {
+        hostTheme = root.getAttribute("data-theme");
+        root.setAttribute("data-theme", "light");
+      } else if (hostTheme) {
+        root.setAttribute("data-theme", hostTheme);
+      } else {
+        root.removeAttribute("data-theme");
+      }
+      btn.textContent = on ? "Edit view" : "Paper view";
+      document.getElementById("exportbar").hidden = !on || embedded;
+      if (afterToggle) requestAnimationFrame(afterToggle);
+      postHeight();
+    }
+    btn.addEventListener("click", () => setPaper(!document.body.classList.contains("paper")));
+    // Embedded, the host page owns these controls — they sit beside the panel's
+    // static-figure toggle and are driven from the outside. Standalone (the
+    // shareable single file) this page needs its own.
+    if (embedded) document.querySelector(".viewbar").hidden = true;
+    window.addEventListener("message", ev => {
+      const d = ev.data;
+      if (d && d.type === "tabarena-explorer-paper" && typeof d.on === "boolean") setPaper(d.on);
+    });
+    // Only standalone: embedded, the host owns the button and would not see the
+    // key press, so its label would fall out of step with the frame.
+    if (!embedded) {
+      document.addEventListener("keydown", ev => {
+        if (ev.key === "Escape" && !document.body.classList.contains("paper")) setPaper(true);
+      });
+    }
+    setPaper(opts.openInPaper !== false);   // for a chart, the figure is what opens
+  }
+
+  // --- Figure export ---------------------------------------------------------
+  // The chart is live SVG, so a file can be built from it directly. Three things
+  // a copy has to fix up: the colors are CSS custom properties (var(--x) means
+  // nothing outside this document), it has no background or font of its own, and
+  // the legend is HTML rather than part of the SVG.
+
+  // Rebuild the HTML legend as SVG, reusing its live layout: each item's glyph is
+  // cloned and its label re-emitted at the measured position. foreignObject would
+  // be far simpler, but Chrome refuses to rasterize it onto a canvas, which would
+  // break the PNG path.
+  // Rewrite every var(--x) in a clone's paint attributes; they resolve to nothing
+  // once the node leaves this document.
+  function resolveVars(root, resolve) {
+    for (const node of [root, ...root.querySelectorAll("*")]) {
+      for (const attr of ["fill", "stroke"]) {
+        const value = node.getAttribute(attr);
+        if (value && value.includes("var(")) node.setAttribute(attr, resolve(value));
+      }
+    }
+  }
+
+  function legendToSvg(container, resolve) {
+    const base = container.getBoundingClientRect();
+    const group = document.createElementNS(NS, "g");
+    let height = 0;
+    for (const item of container.querySelectorAll(".item")) {
+      const box = item.getBoundingClientRect();
+      if (!box.width) continue;
+      height = Math.max(height, box.bottom - base.top);
+      let textLeft = box.left - base.left;
+      const glyph = item.querySelector("svg");
+      if (glyph) {
+        const gbox = glyph.getBoundingClientRect();
+        const wrap = el("g", {
+          transform: `translate(${gbox.left - base.left} ${gbox.top - base.top})`,
+        }, group);
+        const glyphClone = glyph.cloneNode(true);
+        resolveVars(glyphClone, resolve);
+        wrap.appendChild(glyphClone);
+        textLeft = gbox.right - base.left + 5;
+      }
+      const label = item.textContent.trim();
+      if (!label) continue;
+      const colored = item.querySelector("[style*='color']");
+      const text = el("text", {
+        x: textLeft, y: box.top - base.top + box.height / 2 + 4, "font-size": 12.5,
+        fill: resolve(getComputedStyle(colored || item).color),
+      }, group);
+      text.textContent = label;
+    }
+    return { group, height: Math.ceil(height) };
+  }
+
+  // `parts` is a list of {svg, dx}, so a chart split across panes (the sticky
+  // y-axis beside the scrolling plot) still exports as one figure.
+  function buildExportSvg(parts, legendEl, pad = 10) {
+    const rootStyle = getComputedStyle(document.documentElement);
+    const resolve = value => String(value).replace(
+      /var\((--[\w-]+)\)/g, (_, name) => rootStyle.getPropertyValue(name).trim() || "none");
+    const paper = rootStyle.getPropertyValue("--paper").trim() || "#ffffff";
+
+    let chartW = 0, chartH = 0;
+    for (const part of parts) {
+      chartW = Math.max(chartW, part.dx + Number(part.svg.getAttribute("width")));
+      chartH = Math.max(chartH, Number(part.svg.getAttribute("height")));
+    }
+
+    const out = document.createElementNS(NS, "svg");
+    out.setAttribute("xmlns", NS);
+    out.setAttribute("font-family", 'system-ui, -apple-system, "Segoe UI", sans-serif');
+    let top = pad;
+    const later = [];   // built after the width is known
+    const legend = legendEl ? legendToSvg(legendEl, resolve) : null;
+    if (legend && legend.height) {
+      legend.group.setAttribute("transform", `translate(${pad} ${top})`);
+      later.push(() => out.appendChild(legend.group));
+      top += legend.height + 8;
+    }
+
+    const width = Math.max(chartW, legendEl ? legendEl.getBoundingClientRect().width : 0) + pad * 2;
+    const height = top + chartH + pad;
+    out.setAttribute("width", Math.ceil(width));
+    out.setAttribute("height", Math.ceil(height));
+    el("rect", { x: 0, y: 0, width: Math.ceil(width), height: Math.ceil(height), fill: paper }, out);
+    for (const build of later) build();
+
+    for (const part of parts) {
+      const group = el("g", { transform: `translate(${part.dx + pad} ${top})` }, out);
+      const clone = part.svg.cloneNode(true);
+      resolveVars(clone, resolve);
+      while (clone.firstChild) group.appendChild(clone.firstChild);
+    }
+    return out;
+  }
+
+  // Page title -> a safe file stem, e.g. "tabarena-leaderboard-explorer-all-tasks".
+  function slugify(text) {
+    return (text || "chart").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+  }
+
+  function downloadUrl(url, filename) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // Rasterize the export SVG into a canvas at `scale`, then hand it to `done`.
+  function rasterize(svg, scale, done, fail) {
+    const width = Number(svg.getAttribute("width")), height = Number(svg.getAttribute("height"));
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.drawImage(img, 0, 0);
+      done(canvas, width, height);
+    };
+    img.onerror = fail;
+    img.src = "data:image/svg+xml;charset=utf-8,"
+      + encodeURIComponent(new XMLSerializer().serializeToString(svg));
+  }
+
+  // A one-page PDF wrapping the rendered figure, written by hand: a library would
+  // cost this page its zero-dependency, single-file property. The image is stored
+  // losslessly (raw RGB + /FlateDecode via CompressionStream) and the page is sized
+  // in points to the figure's CSS size, so it prints at the size it appears here
+  // and the pixels land at 96*scale dpi.
+  async function buildPdf(canvas, cssWidth, cssHeight) {
+    const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+    const rgb = new Uint8Array((pixels.length / 4) * 3);
+    for (let i = 0, j = 0; i < pixels.length; i += 4, j += 3) {
+      rgb[j] = pixels[i];
+      rgb[j + 1] = pixels[i + 1];
+      rgb[j + 2] = pixels[i + 2];
+    }
+    const deflated = new Uint8Array(await new Response(
+      new Blob([rgb]).stream().pipeThrough(new CompressionStream("deflate"))).arrayBuffer());
+
+    const encoder = new TextEncoder();
+    const chunks = [];
+    const offsets = [];
+    let cursor = 0;
+    const put = data => {
+      const bytes = typeof data === "string" ? encoder.encode(data) : data;
+      chunks.push(bytes);
+      cursor += bytes.length;
+    };
+    const object = (id, body, stream) => {
+      offsets[id] = cursor;
+      put(`${id} 0 obj\n${body}\n`);
+      if (stream) {
+        put("stream\n");
+        put(stream);
+        put("\nendstream\n");
+      }
+      put("endobj\n");
+    };
+
+    const ptW = (cssWidth * 0.75).toFixed(2), ptH = (cssHeight * 0.75).toFixed(2);
+    const content = `q ${ptW} 0 0 ${ptH} 0 0 cm /Im0 Do Q`;
+    put("%PDF-1.4\n");
+    put(new Uint8Array([0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a]));   // binary marker
+    object(1, "<< /Type /Catalog /Pages 2 0 R >>");
+    object(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+    object(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${ptW} ${ptH}] `
+      + "/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>");
+    object(4, "<< /Type /XObject /Subtype /Image "
+      + `/Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB `
+      + `/BitsPerComponent 8 /Filter /FlateDecode /Length ${deflated.length} >>`, deflated);
+    object(5, `<< /Length ${content.length} >>`, content);
+
+    const xref = cursor;
+    let table = "xref\n0 6\n0000000000 65535 f \n";
+    for (let id = 1; id <= 5; id++) table += String(offsets[id]).padStart(10, "0") + " 00000 n \n";
+    put(table);
+    put(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return new Blob(chunks, { type: "application/pdf" });
+  }
+
+  // Wire up the export buttons; `getParts` is called per click so the file always
+  // matches what is on screen. Returns a `run(format)` the host page can drive.
+  function setUpExport(getParts, basename) {
+    const buttons = {
+      svg: document.getElementById("btn-svg"),
+      png: document.getElementById("btn-png"),
+      pdf: document.getElementById("btn-pdf"),
+    };
+    const figure = () => buildExportSvg(getParts(), document.getElementById("legendstrip"));
+
+    // A sandboxed frame has no modals, so a failure is reported on the button.
+    function complain(format) {
+      const button = buttons[format];
+      if (!button) return;
+      const label = button.textContent;
+      button.textContent = "failed";
+      setTimeout(() => { button.textContent = label; }, 2500);
+    }
+
+    function run(format) {
+      const svg = figure();
+      const name = basename();
+      if (format === "svg") {
+        downloadUrl("data:image/svg+xml;charset=utf-8,"
+          + encodeURIComponent(new XMLSerializer().serializeToString(svg)), name + ".svg");
+        return;
+      }
+      // 3x for a screen-resolution PNG; 2x for the PDF, whose page is sized in
+      // points so the pixels already land near 200 dpi at print size.
+      rasterize(svg, format === "pdf" ? 2 : 3, (canvas, cssWidth, cssHeight) => {
+        if (format === "png") {
+          canvas.toBlob(blob => downloadUrl(URL.createObjectURL(blob), name + ".png"), "image/png");
+        } else {
+          buildPdf(canvas, cssWidth, cssHeight)
+            .then(blob => downloadUrl(URL.createObjectURL(blob), name + ".pdf"))
+            .catch(() => complain("pdf"));
+        }
+      }, () => complain(format));
+    }
+
+    for (const format of Object.keys(buttons)) {
+      if (buttons[format]) buttons[format].addEventListener("click", () => run(format));
+    }
+    // Embedded, the buttons live in the host's panel header (see main.taExport).
+    window.addEventListener("message", ev => {
+      const d = ev.data;
+      if (d && d.type === "tabarena-explorer-export" && buttons[d.format] !== undefined) run(d.format);
+    });
+  }
+
+  // When embedded, report the content height so the host page can size the
+  // iframe to fit (avoids an inner scrollbar). Works from a sandboxed frame.
+  // Measure the body (viewport-independent) — documentElement.scrollHeight is
+  // clamped to at least the iframe's current viewport, which turns the
+  // resize round-trip into a grow-forever feedback loop. The change guard
+  // stops re-posting once the height settles.
+  let lastPostedHeight = 0;
+  function postHeight() {
+    if (window.parent === window) return;
+    const height = Math.ceil(document.body.offsetHeight);
+    if (Math.abs(height - lastPostedHeight) < 3) return;
+    lastPostedHeight = height;
+    window.parent.postMessage({ type: "tabarena-explorer-height", height: height }, "*");
+  }
+
+
+  // ---------- geometry ----------
+  const AXIS_W = 72;      // width of the sticky y-axis pane
+  const PLOT_H = 320;     // height of the plot area itself
+  const TOP = 14;         // headroom above the tallest bar
+  const LABEL_TOP = 18;   // axis line -> first label row
+  const LABEL_ROW = 19;   // vertical offset of the staggered second row
+  const LABEL_SIZE = 14;  // method names; the slot below scales with it
+  const TICK_SIZE = 12.5;
+  // Method names are set horizontally (rotated ones are markedly harder to
+  // read), staggered over two rows exactly like the static figure — so a slot
+  // has to be wide enough for half a name. Past ~24 methods the chart scrolls
+  // rather than squeezing every column into the viewport.
+  // No upper bound on the slot: with few methods selected a capped slot left
+  // the columns huddled on the left with dead space beside them, so the slots
+  // simply share out whatever width there is.
+  const MIN_SLOT = 66;
+  const BAR_FRAC = 0.88;  // share of the slot the widest bar takes
+  const MAX_BAR = 70;     // ...but never wider than this, however few columns
+
+  // Variant -> (color token, width relative to the widest bar). The bars are
+  // concentric, so the nesting itself encodes the tuning progression.
+  const VARIANT_STYLE = {
+    "Tuned + Ens.": { color: "var(--var-tunedens)", rel: 1 },
+    "Tuned": { color: "var(--var-tuned)", rel: 0.8 },
+    "Default": { color: "var(--var-default)", rel: 0.6 },
+  };
+  const VARIANT_ORDER = ["Default", "Tuned", "Tuned + Ens."];
+  // Dash patterns cycle so several reference lines stay distinguishable.
+  const REF_DASHES = ["8 5", "2 4", "12 4 3 4"];
+
+  const titleEl = document.getElementById("title");
+  if (CONFIG.title) titleEl.textContent = CONFIG.title; else titleEl.hidden = true;
+
+  const axisSvg = document.getElementById("axis");
+  const svg = document.getElementById("chart");
+  const scroller = document.getElementById("scroller");
+  const wrap = document.getElementById("chartwrap");
+  const yminRange = document.getElementById("ymin-range");
+  const yminVal = document.getElementById("ymin-val");
+  const tip = makeTooltip(wrap);
+
+  // ---------- data ----------
+  const METRICS = CONFIG.metrics;
+  const metricByKey = {};
+  for (const m of METRICS) metricByKey[m.key] = m;
+
+  // One entry per method (its variants grouped); reference pipelines are kept
+  // apart — they are drawn as threshold lines, not as columns.
+  const byMethod = new Map();
+  const refs = [];
+  for (const p of POINTS) {
+    if (p.reference) { refs.push(p); continue; }
+    let entry = byMethod.get(p.method);
+    if (!entry) {
+      entry = { method: p.method, family: p.family, url: p.url, points: [] };
+      byMethod.set(p.method, entry);
+    }
+    entry.points.push(p);
+  }
+  for (const e of byMethod.values()) {
+    e.points.sort((a, b) => VARIANT_ORDER.indexOf(a.variant) - VARIANT_ORDER.indexOf(b.variant));
+    e.imputed = e.points.some(p => p.imputed);
+    e.imputed_pct = Math.max(...e.points.map(p => p.imputed_pct || 0));
+  }
+
+  const state = {
+    metric: METRICS[0].key,
+    sort: "best",
+    yMin: null,   // null = the automatic axis floor; a number = zoomed in
+
+    methods: new Set(byMethod.keys()),
+    refs: new Set(refs.map(r => r.method)),
+    variants: new Set(VARIANT_ORDER),
+  };
+
+  function metric() { return metricByKey[state.metric]; }
+
+  // A method's best value under `m`, ignoring variants the reader switched off.
+  function bestOf(entry, m) {
+    const vals = entry.points
+      .filter(p => state.variants.has(p.variant) && p[m.key] != null)
+      .map(p => p[m.key]);
+    if (!vals.length) return null;
+    return m.lowerBetter ? Math.min(...vals) : Math.max(...vals);
+  }
+
+  function sortedMethods(entries, m) {
+    const arr = [...entries];
+    const cmp = {
+      best: (a, b) => rankVal(a, m) - rankVal(b, m),
+      worst: (a, b) => rankVal(b, m) - rankVal(a, m),
+      name: (a, b) => a.method.localeCompare(b.method),
+      family: (a, b) =>
+        FAM_ORDER.indexOf(a.family) - FAM_ORDER.indexOf(b.family) || rankVal(a, m) - rankVal(b, m),
+    }[state.sort];
+    return arr.sort(cmp);
+  }
+  // Sort key that puts "better" first for either metric direction, with
+  // value-less methods last.
+  function rankVal(entry, m) {
+    const v = bestOf(entry, m);
+    if (v == null) return Infinity;
+    return m.lowerBetter ? v : -v;
+  }
+
+  function visibleEntries() {
+    const m = metric();
+    return sortedMethods([...byMethod.values()].filter(e => state.methods.has(e.method) && bestOf(e, m) != null), m);
+  }
+  function visibleRefs() {
+    return refs.filter(r => state.refs.has(r.method) && r[state.metric] != null);
+  }
+
+  // Rendered width of each label, measured in the live document (font metrics
+  // are not knowable up front): it decides whether the names fit on one row or
+  // need the two-row stagger, and which ones have to be shortened.
+  function measureLabels(names) {
+    const probe = el("g", { visibility: "hidden" }, svg);
+    const widths = names.map(name => {
+      const t = el("text", { "font-size": LABEL_SIZE }, probe);
+      t.textContent = name;
+      return t.getComputedTextLength();
+    });
+    probe.remove();
+    return widths;
+  }
+
+  // Trim a name to `budget` px, ending in an ellipsis. The full name stays one
+  // hover (and one data-table row) away.
+  function fitLabel(node, name, width, budget) {
+    if (width <= budget) return;
+    let text = name;
+    while (text.length > 1 && node.getComputedTextLength() > budget) {
+      text = text.slice(0, -1);
+      node.textContent = text + "…";
+    }
+  }
+
+  // ---------- chart ----------
+  function render() {
+    const m = metric();
+    const entries = visibleEntries();
+    const shownRefs = visibleRefs();
+    svg.textContent = "";
+    axisSvg.textContent = "";
+    axisSvg.setAttribute("width", AXIS_W);
+
+    const avail = Math.max(240, scroller.clientWidth - 2);
+    if (!entries.length) {
+      axisSvg.setAttribute("height", 120);
+      svg.setAttribute("width", avail);
+      svg.setAttribute("height", 120);
+      const t = el("text", { x: avail / 2, y: 60, "text-anchor": "middle", "font-size": 13, fill: "var(--muted)" }, svg);
+      t.textContent = "No methods selected — use “All methods” to bring them back.";
+      buildLegend(m, shownRefs);
+      postHeight();
+      return;
+    }
+
+    const slot = Math.max(MIN_SLOT, avail / entries.length);
+    const barUnit = Math.min(MAX_BAR, slot * BAR_FRAC);
+    const plotW = Math.max(avail, slot * entries.length);
+    // Names go on one row when they fit side by side, otherwise on two
+    // staggered rows (each label then has two slots of room).
+    const labels = entries.map(e => e.method + (e.imputed ? " ‡" : ""));
+    const labelWidths = measureLabels(labels);
+    const widest = Math.max(...labelWidths);
+    const labelRows = widest <= slot - 6 ? 1 : 2;
+    const H = TOP + PLOT_H + LABEL_TOP + (labelRows - 1) * LABEL_ROW + 10;
+    svg.setAttribute("width", plotW);
+    svg.setAttribute("height", H);
+    axisSvg.setAttribute("height", H);
+
+    // -- y domain: from zero where the metric has one, else a floor below the
+    //    shortest bar (Elo has no meaningful zero, and starting at zero would
+    //    squash every difference into the top fifth of the chart). The floor
+    //    ignores the CI whiskers so one wide interval cannot deflate the scale.
+    const barVals = [];
+    const allVals = [];
+    for (const e of entries) {
+      for (const p of e.points) {
+        if (!state.variants.has(p.variant) || p[m.key] == null) continue;
+        barVals.push(p[m.key]);
+        allVals.push(p[m.key]);
+        if (m.ci && p[m.ci.hi] != null) allVals.push(p[m.ci.hi]);
+      }
+    }
+    for (const r of shownRefs) { barVals.push(r[state.metric]); allVals.push(r[state.metric]); }
+    const barMin = Math.min(...barVals), barMax = Math.max(...allVals);
+    const span = barMax - barMin || Math.abs(barMax) || 1;
+    let autoY0, y1;
+    if (m.fromZero) {
+      autoY0 = 0;
+      y1 = barMax * 1.06 || 1;
+    } else {
+      // Snap the floor down to a tick multiple so the axis reads in round
+      // numbers, and keep it just below the shortest bar: every bar stays
+      // visible (the static figure clips the ones below its fixed floor).
+      const step = niceStep(span / 6);
+      autoY0 = Math.floor((barMin - span * 0.05) / step) * step;
+      y1 = barMax + span * 0.04;
+    }
+    // The zoom slider raises the floor from there toward the top of the field,
+    // magnifying the differences between the leaders. Its bounds follow the
+    // metric's own scale, so they are refreshed on every render; the bars and
+    // whiskers that drop below the new floor are clipped away (see plot-clip).
+    const zoomMax = autoY0 + (y1 - autoY0) * 0.9;
+    yminRange.min = autoY0;
+    yminRange.max = zoomMax;
+    yminRange.step = (zoomMax - autoY0) / 200 || 1;
+    if (state.yMin != null) state.yMin = Math.min(state.yMin, zoomMax);
+    if (state.yMin != null && state.yMin <= autoY0) state.yMin = null;
+    const y0 = state.yMin == null ? autoY0 : state.yMin;
+    yminRange.value = y0;
+    yminVal.textContent = state.yMin == null ? "auto" : fmtNum(y0, m.decimals);
+    const Y = v => TOP + (1 - (v - y0) / (y1 - y0)) * PLOT_H;
+    const baseY = Y(y0);
+
+    // -- grid (solid hairlines) in the plot pane, tick labels in the axis pane
+    const tickVals = ticks(y0, y1, 6);
+    const grid = el("g", {}, svg);
+    const tickLabels = [];
+    for (const tv of tickVals) {
+      const gy = Y(tv);
+      el("line", { x1: 0, y1: gy, x2: plotW, y2: gy, stroke: "var(--line)", "stroke-width": 1 }, grid);
+      const t = el("text", {
+        x: AXIS_W - 10, y: gy + 4, "text-anchor": "end", "font-size": TICK_SIZE, fill: "var(--muted)",
+      }, axisSvg);
+      t.textContent = fmtNum(tv, m.decimals);
+      tickLabels.push({ y: gy, node: t });
+    }
+    el("line", { x1: 0, y1: baseY, x2: plotW, y2: baseY, stroke: "var(--muted)", "stroke-width": 1 }, grid);
+    el("line", { x1: AXIS_W - 1, y1: TOP, x2: AXIS_W - 1, y2: baseY, stroke: "var(--muted)", "stroke-width": 1 }, axisSvg);
+    el("text", {
+      x: 0, y: 0, "text-anchor": "middle", "font-size": LABEL_SIZE, "font-weight": 650,
+      fill: "var(--ink)", transform: `translate(15 ${TOP + PLOT_H / 2}) rotate(-90)`,
+    }, axisSvg).textContent = m.axisLabel;
+
+    // -- hover band behind the marks (highlights the whole column group)
+    const band = el("rect", {
+      x: 0, y: TOP, width: slot, height: PLOT_H + 6, fill: "var(--ink)", opacity: 0, "pointer-events": "none",
+    }, svg);
+
+    const defs = el("defs", {}, svg);
+    // -- imputed hatch, reused by every partially imputed bar. Crossed diagonals,
+    //    matching the "x" hatch matplotlib draws in the static figure; the
+    //    diagonals meet the tile corners exactly, so the grid tiles seamlessly.
+    const pat = el("pattern", {
+      id: "imp-hatch", width: 8, height: 8, patternUnits: "userSpaceOnUse",
+    }, defs);
+    el("path", {
+      d: "M0,0 L8,8 M8,0 L0,8", stroke: "var(--paper)", "stroke-width": 1.5,
+      opacity: 0.85, fill: "none",
+    }, pat);
+
+    // -- Everything data-bearing is clipped to the plot area. The axis floor is
+    //    set from the bar values (a couple of very wide intervals would
+    //    otherwise deflate the whole scale), so a long lower CI whisker can
+    //    reach past it and run into the method names below. Clip it there; the
+    //    exact interval stays in the tooltip and the data table.
+    const clip = el("clipPath", { id: "plot-clip" }, defs);
+    el("rect", { x: 0, y: 0, width: plotW, height: baseY }, clip);
+
+    // -- bars: one concentric group per method
+    const barsG = el("g", { "clip-path": "url(#plot-clip)" }, svg);
+    entries.forEach((entry, i) => {
+      const cx = i * slot + slot / 2;
+      // Widest bar first, narrowest last: the bars are concentric, so painting
+      // them by width guarantees each one stays visible. Ordering by height
+      // instead loses a variant outright whenever a narrower bar is the taller
+      // of the two (TabSTAR's tuned bar sat 1 Elo above tuned + ensembled, and
+      // the wider bar covered it completely).
+      const relOf = p => (VARIANT_STYLE[p.variant] || VARIANT_STYLE["Default"]).rel;
+      const drawn = entry.points
+        .filter(p => state.variants.has(p.variant) && p[m.key] != null)
+        .slice()
+        .sort((a, b) => relOf(b) - relOf(a));
+      for (const p of drawn) {
+        const style = VARIANT_STYLE[p.variant] || VARIANT_STYLE["Default"];
+        const w = barUnit * style.rel;
+        const top = Y(p[m.key]);
+        const rect = {
+          x: cx - w / 2, y: Math.min(top, baseY), width: w, height: Math.max(1, Math.abs(baseY - top)),
+        };
+        // 2px surface ring, not a border: it is what keeps a nested bar legible
+        // against the wider bar it sits inside.
+        el("rect", { ...rect, fill: style.color, stroke: "var(--paper)", "stroke-width": 1.5, rx: 2 }, barsG);
+        if (p.imputed) el("rect", { ...rect, fill: "url(#imp-hatch)", rx: 2 }, barsG);
+        if (m.ci && p[m.ci.lo] != null) {
+          const cap = Math.max(2.5, w * 0.34);
+          const whisk = el("g", {
+            stroke: `color-mix(in srgb, ${style.color} 55%, var(--ink))`, "stroke-width": 1.4, opacity: 0.9,
+          }, barsG);
+          el("line", { x1: cx, y1: Y(p[m.ci.lo]), x2: cx, y2: Y(p[m.ci.hi]) }, whisk);
+          el("line", { x1: cx - cap, y1: Y(p[m.ci.hi]), x2: cx + cap, y2: Y(p[m.ci.hi]) }, whisk);
+          el("line", { x1: cx - cap, y1: Y(p[m.ci.lo]), x2: cx + cap, y2: Y(p[m.ci.lo]) }, whisk);
+        }
+      }
+    });
+
+    // -- x axis: the method name, colored by model family (the legend below
+    //    names the colors).
+    const xg = el("g", {}, svg);
+    // Hairlines share one group that is painted before every name, so a name
+    // nudged sideways at the edge (see below) passes over a neighbouring
+    // column's hairline instead of being crossed out by it.
+    const xLines = el("g", {}, xg);
+    const xLabels = el("g", {}, xg);
+    entries.forEach((entry, i) => {
+      const cx = i * slot + slot / 2;
+      const row = labelRows === 1 ? 0 : i % 2;
+      const y = baseY + LABEL_TOP + row * LABEL_ROW;
+      // A hairline drops the staggered row back to its own column.
+      if (row) {
+        el("line", {
+          x1: cx, y1: baseY + 3, x2: cx, y2: y - 10,
+          stroke: "var(--line)", "stroke-width": 1,
+        }, xLines);
+      }
+      const t = el("text", {
+        x: cx, y, "font-size": LABEL_SIZE, "text-anchor": "middle", "font-weight": 650,
+        fill: FAM_INK[entry.family] || "var(--ink)",
+        // A halo in the surface color keeps the glyphs legible where a nudged
+        // name crosses a hairline, rather than the line running through them.
+        "paint-order": "stroke", stroke: "var(--paper)", "stroke-width": 3,
+      }, xLabels);
+      t.textContent = labels[i];
+      fitLabel(t, labels[i], labelWidths[i], slot * labelRows - 8);
+      // The outermost columns sit only half a slot from the edge, so a name
+      // wider than one slot would reach past the SVG viewport and be cut off
+      // there (a name may occupy two slots when the rows are staggered). Nudge
+      // it inwards by just enough to stay whole; every other label keeps its
+      // column centre, and the bar below still marks the column.
+      const half = t.getComputedTextLength() / 2;
+      t.setAttribute("x", Math.max(half + 1, Math.min(cx, plotW - half - 1)));
+    });
+
+    // -- reference pipelines as threshold lines. Their names live in the legend
+    //    (matched by dash pattern) rather than on the line, where they would
+    //    cover the tallest bars at every scroll position.
+    const refG = el("g", {}, svg);
+    const tagYs = [];
+    shownRefs.forEach((r, i) => {
+      const ry = Y(r[state.metric]);
+      if (ry < TOP || ry > baseY) return;
+      el("line", {
+        x1: 0, y1: ry, x2: plotW, y2: ry, stroke: "var(--fam-reference)", "stroke-width": 1.8,
+        "stroke-dasharray": REF_DASHES[i % REF_DASHES.length], opacity: 0.95,
+      }, refG);
+      // Sticky value tag in the axis pane, so the threshold stays readable at
+      // any scroll position. Two nearby thresholds would print on top of each
+      // other, so nudge each tag clear of the ones already placed; a tag wins
+      // over a tick label it would sit on.
+      let ty = ry;
+      while (tagYs.some(y => Math.abs(y - ty) < 12)) ty += 12;
+      tagYs.push(ty);
+      for (const t of tickLabels) {
+        if (Math.abs(t.y - ty) < 10) t.node.remove();
+      }
+      el("text", {
+        x: AXIS_W - 10, y: ty + 4, "text-anchor": "end", "font-size": 11, "font-weight": 650,
+        fill: "var(--fam-reference)",
+      }, axisSvg).textContent = fmtMetric(m, r[state.metric]);
+    });
+    buildLegend(m, shownRefs);
+
+    // -- hit targets: one full-height column per method (>= 34px wide)
+    const hits = el("g", {}, svg);
+    entries.forEach((entry, i) => {
+      const h = el("rect", {
+        x: i * slot, y: TOP, width: slot, height: PLOT_H + 6, fill: "transparent", cursor: "pointer",
+      }, hits);
+      h.addEventListener("mouseenter", ev => {
+        band.setAttribute("x", i * slot);
+        band.setAttribute("opacity", 0.06);
+        showTip(entry, ev);
+      });
+      h.addEventListener("mousemove", ev => tip.move(ev));
+      h.addEventListener("mouseleave", () => { band.setAttribute("opacity", 0); tip.hide(); });
+      h.addEventListener("click", () => toggleMethod(entry.method));
+    });
+
+    postHeight();
+  }
+
+  function showTip(entry, ev) {
+    const m = metric();
+    let html = `<div class="t-name">${entry.method}</div><div>${entry.family}</div>`;
+    for (const p of entry.points) {
+      if (!state.variants.has(p.variant) || p[m.key] == null) continue;
+      const ci = m.ci && p[m.ci.lo] != null
+        ? ` <span class="t-var">(${fmtNum(p[m.ci.lo], m.decimals)}–${fmtNum(p[m.ci.hi], m.decimals)})</span>`
+        : "";
+      html += `<div><span class="t-var">${p.variant}:</span> <b>${fmtMetric(m, p[m.key])}</b>${ci}</div>`;
+    }
+    if (entry.imputed) html += `<div class="t-imp">Imputed on ${fmtNum(entry.imputed_pct, 0)}% of datasets</div>`;
+    tip.show(html, ev);
+  }
+
+  // ---------- chips ----------
+  const chipsBox = document.getElementById("chips");
+  const chipByMethod = new Map();
+  const famChips = new Map();
+
+  function familyMembers(fam) {
+    const out = [...byMethod.values()].filter(e => e.family === fam).map(e => e.method);
+    for (const r of refs) if (r.family === fam) out.push(r.method);
+    return out;
+  }
+  function isOn(name) { return state.methods.has(name) || state.refs.has(name); }
+
+  function buildChips() {
+    const rankMetric = metricByKey[CONFIG.rankMetric] || METRICS[0];
+    const head = document.createElement("div");
+    head.className = "chips-head";
+    head.textContent = "Methods shown — click to remove, click a family to toggle the whole group";
+    chipsBox.appendChild(head);
+    for (const fam of FAM_ORDER) {
+      const members = familyMembers(fam);
+      if (!members.length) continue;
+      members.sort((a, b) => chipRank(a, rankMetric) - chipRank(b, rankMetric));
+      const row = document.createElement("div");
+      row.className = "chiprow";
+      const famBtn = document.createElement("button");
+      famBtn.className = "famchip";
+      famBtn.style.setProperty("--fam", FAM_VAR[fam]);
+      famBtn.innerHTML = famChipLabel(fam, members.length);
+      famBtn.title = `Toggle all ${members.length} ${fam} methods`;
+      famBtn.addEventListener("click", () => toggleFamily(fam));
+      row.appendChild(famBtn);
+      famChips.set(fam, famBtn);
+      const set = document.createElement("div");
+      set.className = "chipset";
+      for (const name of members) {
+        const entry = byMethod.get(name);
+        const b = document.createElement("button");
+        b.className = "chip";
+        b.style.setProperty("--fam", FAM_VAR[fam]);
+        b.appendChild(Object.assign(document.createElement("span"), { className: "dot" }));
+        b.appendChild(Object.assign(document.createElement("span"), { textContent: name }));
+        if (entry && entry.imputed) {
+          const mark = document.createElement("span");
+          mark.className = "imp-mark";
+          mark.textContent = "‡";
+          b.appendChild(mark);
+        }
+        b.title = name + (entry && entry.imputed ? " — partially imputed" : "");
+        b.addEventListener("click", () => toggleMethod(name));
+        set.appendChild(b);
+        chipByMethod.set(name, b);
+      }
+      row.appendChild(set);
+      chipsBox.appendChild(row);
+    }
+  }
+  function chipRank(name, m) {
+    const entry = byMethod.get(name);
+    if (entry) return rankVal(entry, m);
+    const r = refs.find(x => x.method === name);
+    const v = r ? r[m.key] : null;
+    return v == null ? Infinity : (m.lowerBetter ? v : -v);
+  }
+  function syncChips() {
+    for (const [name, b] of chipByMethod) b.setAttribute("aria-pressed", String(isOn(name)));
+    for (const [fam, b] of famChips) b.setAttribute("aria-pressed", String(familyMembers(fam).every(isOn)));
+  }
+
+  function toggleMethod(name) {
+    const set = byMethod.has(name) ? state.methods : state.refs;
+    if (set.has(name)) set.delete(name); else set.add(name);
+    syncChips();
+    render();
+  }
+  function toggleFamily(fam) {
+    const members = familyMembers(fam);
+    const allOn = members.every(isOn);
+    for (const name of members) {
+      const set = byMethod.has(name) ? state.methods : state.refs;
+      if (allOn) set.delete(name); else set.add(name);
+    }
+    syncChips();
+    render();
+  }
+  function setMethods(names) {
+    state.methods = new Set(names);
+    syncChips();
+    render();
+  }
+
+  document.getElementById("btn-all").addEventListener("click", () => {
+    state.refs = new Set(refs.map(r => r.method));
+    setMethods(byMethod.keys());
+  });
+  document.getElementById("btn-none").addEventListener("click", () => {
+    state.refs = new Set();
+    setMethods([]);
+  });
+  document.getElementById("btn-top").addEventListener("click", () => {
+    const m = metric();
+    // Rank explicitly rather than reusing the display sort: which 15 methods are
+    // kept must not depend on which end of the axis the best ones are drawn at
+    // (sorting "best on the right" would otherwise select the 15 worst).
+    const top = [...byMethod.values()]
+      .sort((a, b) => rankVal(a, m) - rankVal(b, m))
+      .slice(0, 15)
+      .map(e => e.method);
+    state.refs = new Set(refs.map(r => r.method));
+    setMethods(top);
+  });
+
+  // ---------- selectors ----------
+  yminRange.addEventListener("input", ev => {
+    state.yMin = Number(ev.target.value);
+    render();
+  });
+
+  const metricSelect = document.getElementById("metric-select");
+  for (const m of METRICS) {
+    metricSelect.appendChild(Object.assign(document.createElement("option"), { value: m.key, textContent: m.label }));
+  }
+  metricSelect.addEventListener("change", ev => {
+    state.metric = ev.target.value;
+    state.yMin = null;  // the previous floor means nothing on a new scale
+    buildTable();
+    render();
+  });
+
+  const sortSelect = document.getElementById("sort-select");
+  for (const [value, label] of [
+    ["best", "Best on the left"], ["worst", "Best on the right"],
+    ["family", "Model family"], ["name", "A–Z"],
+  ]) {
+    sortSelect.appendChild(Object.assign(document.createElement("option"), { value, textContent: label }));
+  }
+  sortSelect.value = state.sort;
+  sortSelect.addEventListener("change", ev => { state.sort = ev.target.value; render(); });
+
+  // Variant toggles: buttons rather than chips, since they filter the series
+  // rather than the rows. "Default" gets no button at all — every method has a
+  // default result, so it is the baseline of the chart rather than an option
+  // (switching it off would leave the default-only methods with no bar). Only
+  // the extras layered on top, tuning and ensembling, are toggleable; the legend
+  // still carries Default's color.
+  const ALWAYS_SHOWN = "Default";
+  const variantBtns = document.getElementById("variant-btns");
+  const variantBtnByKey = new Map();
+  for (const v of VARIANT_ORDER) {
+    if (v === ALWAYS_SHOWN || !POINTS.some(p => p.variant === v)) continue;
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = v === "Tuned + Ens." ? "Tuned + Ensembled" : v;
+    b.style.setProperty("--fam", VARIANT_STYLE[v].color);
+    b.title = `Show or hide the ${b.textContent.toLowerCase()} bars`;
+    b.addEventListener("click", () => {
+      if (state.variants.has(v)) state.variants.delete(v);
+      else state.variants.add(v);
+      syncVariantBtns();
+      render();
+    });
+    variantBtns.appendChild(b);
+    variantBtnByKey.set(v, b);
+  }
+  function syncVariantBtns() {
+    for (const [v, b] of variantBtnByKey) {
+      const on = state.variants.has(v);
+      b.setAttribute("aria-pressed", String(on));
+      b.style.opacity = on ? "1" : "0.45";
+      b.style.borderColor = on ? VARIANT_STYLE[v].color : "var(--line)";
+    }
+  }
+
+  // ---------- legend ----------
+  // Rebuilt on every render: it names the reference lines (each by its dash
+  // pattern and current value), which change with the metric and the selection.
+  function buildLegend(m, shownRefs) {
+    const parts = [];
+    for (const v of VARIANT_ORDER) {
+      if (!POINTS.some(p => p.variant === v)) continue;
+      const label = v === "Tuned + Ens." ? "Tuned + Ensembled" : v;
+      const off = state.variants.has(v) ? "" : ' style="opacity:0.4"';
+      parts.push(
+        `<span class="item"${off}><svg width="12" height="12" viewBox="0 0 12 12">` +
+        `<rect x="1" y="1" width="10" height="10" rx="2" fill="${VARIANT_STYLE[v].color}"/></svg> ${label}</span>`);
+    }
+    if (m.ci) {
+      parts.push('<span class="item"><svg width="12" height="14" viewBox="0 0 12 14">' +
+        '<path d="M6,2 V12 M2,2 H10 M2,12 H10" stroke="var(--muted)" stroke-width="1.4" fill="none"/></svg> 95% CI</span>');
+    }
+    shownRefs.forEach((r, i) => {
+      parts.push(`<span class="item"><svg width="26" height="8" viewBox="0 0 26 8">` +
+        `<line x1="0" y1="4" x2="26" y2="4" stroke="var(--fam-reference)" stroke-width="1.8" ` +
+        `stroke-dasharray="${REF_DASHES[i % REF_DASHES.length]}"/></svg> ${r.method} · ${fmtMetric(m, r[state.metric])}</span>`);
+    });
+    if (POINTS.some(p => p.imputed)) {
+      parts.push('<span class="item"><svg width="14" height="14" viewBox="0 0 14 14">' +
+        '<rect x="1" y="1" width="12" height="12" rx="2" fill="var(--pt-muted)"/>' +
+        '<path d="M1,1 L7,7 M7,1 L1,7 M7,7 L13,13 M13,7 L7,13 M1,7 L7,13 M7,7 L13,1" ' +
+        'stroke="var(--paper)" stroke-width="1.5" fill="none"/>' +
+        "</svg> &Dagger; partially imputed</span>");
+    }
+    // Model family, named rather than merely pointed at: without the colors
+    // spelled out, the swatch under each column decodes to nothing.
+    const families = FAM_ORDER.filter(f => POINTS.some(p => !p.reference && p.family === f));
+    if (families.length > 1) {
+      parts.push('<span class="legendbreak"></span><span class="item">Family:</span>');
+      for (const fam of families) {
+        parts.push(`<span class="item"><svg width="16" height="9" viewBox="0 0 16 9">` +
+          `<rect x="0" y="1" width="16" height="7" rx="2" fill="${FAM_VAR[fam]}"/></svg> ` +
+          `<span style="color:${FAM_INK[fam]}">${fam}</span></span>`);
+      }
+    }
+    document.getElementById("legendstrip").innerHTML = parts.join("");
+  }
+
+  // ---------- data table (the WCAG-clean twin of the chart) ----------
+  function buildTable() {
+    const m = metric();
+    const rows = [...POINTS].filter(p => p[m.key] != null).sort((a, b) =>
+      m.lowerBetter ? a[m.key] - b[m.key] : b[m.key] - a[m.key]);
+    let html = "<table><thead><tr><th>Method</th><th>Variant</th><th>Family</th>";
+    for (const x of METRICS) html += `<th>${x.label}</th>`;
+    html += "<th>Imputed</th></tr></thead><tbody>";
+    for (const p of rows) {
+      html += `<tr><td>${p.method}</td><td>${p.variant || "—"}</td><td>${p.family}</td>`;
+      for (const x of METRICS) html += `<td>${fmtMetric(x, p[x.key])}</td>`;
+      html += `<td>${p.imputed ? fmtNum(p.imputed_pct, 0) + "%" : "—"}</td></tr>`;
+    }
+    document.getElementById("tblwrap").innerHTML = html + "</tbody></table>";
+  }
+
+  // ---------- paper view ----------
+  setUpPaperView(render);
+  // The y-axis lives in its own pane, so it is offset back into place.
+  setUpExport(() => [{ svg: axisSvg, dx: 0 }, { svg: svg, dx: AXIS_W }], () => slugify(document.title));
+
+  // ---------- boot ----------
+  document.querySelector("details.datatable").addEventListener("toggle", postHeight);
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 120);
+  });
+
+  buildChips();
+  buildTable();
+  syncChips();
+  syncVariantBtns();
+  render();  // also builds the legend (it depends on the metric + selection)
+})();
+</script>
+</body>
+</html>

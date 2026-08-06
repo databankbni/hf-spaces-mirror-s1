@@ -1,0 +1,994 @@
+{
+    "info": {
+        "name": "Dynamic Pricing AI",
+        "_postman_id": "dynamic-pricing-ai-collection",
+        "description": "Complete API collection for the Dynamic Pricing AI project.\n\nBase URL: https://arghyadip07-dynamic-pricing-api.hf.space\n\nAll 38 endpoints are covered across 9 folders.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "https://arghyadip07-dynamic-pricing-api.hf.space",
+            "type": "string"
+        },
+        {
+            "key": "localUrl",
+            "value": "http://localhost:8000",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "🏥 Health & Status",
+            "item": [
+                {
+                    "name": "Health Check",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/health",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "health"
+                            ]
+                        },
+                        "description": "Returns API health status and model load state."
+                    }
+                },
+                {
+                    "name": "Home",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                ""
+                            ]
+                        },
+                        "description": "Root endpoint — confirms API is running."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "💰 ML Pricing",
+            "item": [
+                {
+                    "name": "Calculate Optimal Price",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"product_id\": 101,\n  \"current_price\": 1200.0,\n  \"competitor_price\": 1347.0,\n  \"inventory\": 500,\n  \"day_of_week\": 0,\n  \"unit_cost\": 610.0\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/calculate_optimal_price",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "calculate_optimal_price"
+                            ]
+                        },
+                        "description": "Finds the profit-maximising price using the XGBoost demand model.\nReturns: optimal_price, expected_demand, expected_profit, strategy"
+                    }
+                },
+                {
+                    "name": "Estimate Elasticity (Single Point)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"price\": 1200.0,\n  \"competitor_price\": 1347.0,\n  \"inventory\": 500,\n  \"day_of_week\": 0\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/estimate_elasticity",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "estimate_elasticity"
+                            ]
+                        },
+                        "description": "Estimates price elasticity of demand at a specific price point.\nReturns: elasticity value + interpretation (Elastic / Inelastic / Unit elastic)"
+                    }
+                },
+                {
+                    "name": "Estimate Elasticity (Price Range Curve)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"price\": 1200.0,\n  \"competitor_price\": 1347.0,\n  \"inventory\": 500,\n  \"day_of_week\": 0,\n  \"price_points\": 5,\n  \"min_price\": 610.0,\n  \"max_price\": 2000.0\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/estimate_elasticity_range",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "estimate_elasticity_range"
+                            ]
+                        },
+                        "description": "Computes a full elasticity curve across a price range.\nprice_points: 3-20 (default 5)"
+                    }
+                },
+                {
+                    "name": "Price Response Curve",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"competitor_price\": 1347.0,\n  \"inventory\": 500,\n  \"day_of_week\": 0,\n  \"unit_cost\": 610.0,\n  \"min_price\": 610.0,\n  \"max_price\": 2000.0,\n  \"price_points\": 20\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/price_response_curve",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "price_response_curve"
+                            ]
+                        },
+                        "description": "Returns demand and profit curve across a price range (20 price points by default)."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "🤖 Reinforcement Learning",
+            "item": [
+                {
+                    "name": "Get RL Price Recommendation",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"competitor_price\": 1347.0,\n  \"inventory\": 500,\n  \"day_of_week\": 0,\n  \"unit_cost\": 610.0\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/rl_pricing",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "rl_pricing"
+                            ]
+                        },
+                        "description": "Gets a price recommendation from the Q-learning RL policy.\nReturns: rl_price, expected_profit, strategy"
+                    }
+                },
+                {
+                    "name": "Train RL Agent",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"competitor_price\": 1347.0,\n  \"inventory\": 500,\n  \"day_of_week\": 0,\n  \"unit_cost\": 610.0,\n  \"num_episodes\": 5\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/rl_training",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "rl_training"
+                            ]
+                        },
+                        "description": "Trigger RL agent training on simulated market episodes.\nnum_episodes: 1-100\nReturns: episodes_completed, average_reward, max_reward, buffer_size"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "🧠 Autonomous Agent",
+            "item": [
+                {
+                    "name": "Start Agent",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/agent/start",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "agent",
+                                "start"
+                            ]
+                        },
+                        "description": "Starts the autonomous repricing loop (Perceive → Decide → Act → Learn)."
+                    }
+                },
+                {
+                    "name": "Stop Agent",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/agent/stop",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "agent",
+                                "stop"
+                            ]
+                        },
+                        "description": "Gracefully stops the autonomous agent loop."
+                    }
+                },
+                {
+                    "name": "Get Agent Status",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/agent/status",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "agent",
+                                "status"
+                            ]
+                        },
+                        "description": "Returns: running state, interval, cycles_completed, total_reward, average_reward, last_decision"
+                    }
+                },
+                {
+                    "name": "Get Agent History (last 50)",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/agent/history",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "agent",
+                                "history"
+                            ],
+                            "query": [
+                                {
+                                    "key": "limit",
+                                    "value": "50",
+                                    "description": "Number of records (1-500)"
+                                }
+                            ]
+                        },
+                        "description": "Returns the last N repricing decisions with full audit trail."
+                    }
+                },
+                {
+                    "name": "Set Agent Interval",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/agent/interval",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "agent",
+                                "interval"
+                            ],
+                            "query": [
+                                {
+                                    "key": "seconds",
+                                    "value": "300",
+                                    "description": "Interval in seconds"
+                                }
+                            ]
+                        },
+                        "description": "Dynamically changes how often the agent reprices."
+                    }
+                },
+                {
+                    "name": "Get RL Policy Info",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/agent/policy_info",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "agent",
+                                "policy_info"
+                            ]
+                        },
+                        "description": "Returns RL Q-table persistence metadata: size, last save time, file path."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "📊 Analytics & Monitoring",
+            "item": [
+                {
+                    "name": "Model Performance Summary",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/monitoring/performance",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "monitoring",
+                                "performance"
+                            ]
+                        },
+                        "description": "Returns RMSE, MAE, MAPE and prediction accuracy on full dataset."
+                    }
+                },
+                {
+                    "name": "Data Drift Report",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/monitoring/drift",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "monitoring",
+                                "drift"
+                            ],
+                            "query": [
+                                {
+                                    "key": "recent_fraction",
+                                    "value": "0.25",
+                                    "description": "Fraction of most recent data to compare"
+                                }
+                            ]
+                        },
+                        "description": "Compares recent data to historical baseline.\nReturns status: stable / watch / retrain_recommended"
+                    }
+                },
+                {
+                    "name": "API Error Rate Report",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/monitoring/error_rate",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "monitoring",
+                                "error_rate"
+                            ],
+                            "query": [
+                                {
+                                    "key": "window_seconds",
+                                    "value": "300"
+                                },
+                                {
+                                    "key": "bucket_seconds",
+                                    "value": "60"
+                                }
+                            ]
+                        },
+                        "description": "Returns error rate bucketed over configurable time windows."
+                    }
+                },
+                {
+                    "name": "Trigger Retrain Check",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/monitoring/retrain_check",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "monitoring",
+                                "retrain_check"
+                            ],
+                            "query": [
+                                {
+                                    "key": "recent_fraction",
+                                    "value": "0.25"
+                                },
+                                {
+                                    "key": "force",
+                                    "value": "false",
+                                    "description": "Set true to force retrain"
+                                }
+                            ]
+                        },
+                        "description": "Checks for data drift and retrains if drift > 20%. Respects 30-min cooldown unless force=true."
+                    }
+                },
+                {
+                    "name": "Full Analysis Report",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/analysis/report",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "analysis",
+                                "report"
+                            ],
+                            "query": [
+                                {
+                                    "key": "experiment",
+                                    "value": "model_vs_static_pricing"
+                                },
+                                {
+                                    "key": "recent_fraction",
+                                    "value": "0.25"
+                                }
+                            ]
+                        },
+                        "description": "Comprehensive report: performance + drift + A/B summary + what-if + causal effect."
+                    }
+                },
+                {
+                    "name": "What-If Scenario Analysis",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"scenarios\": [\n    {\n      \"name\": \"Base Market\",\n      \"competitor_price\": 1347.0,\n      \"inventory\": 500,\n      \"day_of_week\": 0,\n      \"unit_cost\": 610.0\n    },\n    {\n      \"name\": \"Competitor Price Drop\",\n      \"competitor_price\": 1100.0,\n      \"inventory\": 500,\n      \"day_of_week\": 0,\n      \"unit_cost\": 610.0\n    },\n    {\n      \"name\": \"Weekend Low Stock\",\n      \"competitor_price\": 1347.0,\n      \"inventory\": 50,\n      \"day_of_week\": 5,\n      \"unit_cost\": 610.0\n    }\n  ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/what_if/analyze",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "what_if",
+                                "analyze"
+                            ]
+                        },
+                        "description": "Compare multiple market scenarios to understand pricing impact."
+                    }
+                },
+                {
+                    "name": "Causal Effect Estimate",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"rows\": [\n    {\n      \"price_change\": -10,\n      \"profit\": 900,\n      \"inventory\": 700\n    },\n    {\n      \"price_change\": -5,\n      \"profit\": 980,\n      \"inventory\": 650\n    },\n    {\n      \"price_change\": 0,\n      \"profit\": 1040,\n      \"inventory\": 620\n    },\n    {\n      \"price_change\": 5,\n      \"profit\": 1120,\n      \"inventory\": 560\n    },\n    {\n      \"price_change\": 10,\n      \"profit\": 1080,\n      \"inventory\": 520\n    }\n  ],\n  \"treatment_column\": \"price_change\",\n  \"outcome_column\": \"profit\",\n  \"control_columns\": [\n    \"inventory\"\n  ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/causal_effect/estimate",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "causal_effect",
+                                "estimate"
+                            ]
+                        },
+                        "description": "OLS regression with controls to estimate causal effect of price changes on profit."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "🔬 Causal Analysis (DoWhy)",
+            "item": [
+                {
+                    "name": "Fit Causal Model",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/causal/fit",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "causal",
+                                "fit"
+                            ],
+                            "query": [
+                                {
+                                    "key": "n_samples",
+                                    "value": "2000",
+                                    "description": "200-5000 synthetic samples"
+                                },
+                                {
+                                    "key": "seed",
+                                    "value": "42"
+                                }
+                            ]
+                        },
+                        "description": "Fit the DoWhy causal model on synthetic pricing data.\nRuns 3 refutation tests: placebo / random_common_cause / data_subset.\nReturns: ATE and full refutation results. Takes ~20s."
+                    }
+                },
+                {
+                    "name": "Get Causal Summary",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/causal/summary",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "causal",
+                                "summary"
+                            ]
+                        },
+                        "description": "Return the full causal analysis summary including ATE and refutation results from the last fitted model."
+                    }
+                },
+                {
+                    "name": "Causal Uplift Estimate",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"features\": [\n    [\n      0.1,\n      1.2,\n      3.4\n    ],\n    [\n      0.3,\n      0.8,\n      2.1\n    ]\n  ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/causal_uplift/estimate",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "causal_uplift",
+                                "estimate"
+                            ]
+                        },
+                        "description": "Batch CATE estimation per row. Call /causal/fit first to train the model."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "🧪 A/B Testing",
+            "item": [
+                {
+                    "name": "Assign Subject to Experiment",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"experiment\": \"model_vs_static_pricing\",\n  \"subject_id\": \"product-101\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/ab_test/assign",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "ab_test",
+                                "assign"
+                            ]
+                        },
+                        "description": "Assigns a product/user to control or treatment group for an experiment."
+                    }
+                },
+                {
+                    "name": "Record A/B Outcome",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"experiment\": \"model_vs_static_pricing\",\n  \"subject_id\": \"product-101\",\n  \"outcome\": {\n    \"metric\": 1200.0,\n    \"revenue\": 1200.0\n  }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/ab_test/outcome",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "ab_test",
+                                "outcome"
+                            ]
+                        },
+                        "description": "Record an outcome for an assigned subject. Include 'metric' for statistical summaries."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "🔩 Experimental",
+            "item": [
+                {
+                    "name": "Multi-Product Optimize",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"products\": [\n    {\n      \"product_id\": 101,\n      \"current_price\": 1200.0,\n      \"unit_cost\": 610.0,\n      \"inventory\": 500,\n      \"competitor_price\": 1347.0\n    },\n    {\n      \"product_id\": 102,\n      \"current_price\": 800.0,\n      \"unit_cost\": 400.0,\n      \"inventory\": 200,\n      \"competitor_price\": 780.0\n    }\n  ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/multi_product_optimize",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "multi_product_optimize"
+                            ]
+                        },
+                        "description": "Submit multiple products and get per-product pricing recommendations in one call."
+                    }
+                },
+                {
+                    "name": "Inventory-Aware Optimize",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"product_id\": 101,\n  \"current_price\": 1200.0,\n  \"inventory\": 10,\n  \"unit_cost\": 610.0,\n  \"competitor_price\": 1347.0\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/inventory_optimize",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "inventory_optimize"
+                            ]
+                        },
+                        "description": "Inventory-weighted pricing: low stock → price up, excess stock → price down."
+                    }
+                },
+                {
+                    "name": "Ingest Competitor Signal",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"product_id\": 101,\n  \"competitor_price\": 1347.0,\n  \"source\": \"scraper-1\",\n  \"timestamp\": \"2026-07-16T00:00:00Z\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/competitor_signal",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "competitor_signal"
+                            ]
+                        },
+                        "description": "Post a competitor price update. Stored to SQLite DB."
+                    }
+                },
+                {
+                    "name": "Post Market Context",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"product_id\": 101,\n  \"inventory\": 500,\n  \"unit_cost\": 610.0\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/market_context",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "market_context"
+                            ]
+                        },
+                        "description": "Update shared market context used by the autonomous agent."
+                    }
+                },
+                {
+                    "name": "Validate on Real World Data",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/validation/real_world",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "validation",
+                                "real_world"
+                            ]
+                        },
+                        "description": "Runs model validation on real-world processed dataset."
+                    }
+                },
+                {
+                    "name": "Benchmark Pricing Strategies",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/benchmark/pricing_strategies",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "benchmark",
+                                "pricing_strategies"
+                            ],
+                            "query": [
+                                {
+                                    "key": "scenarios",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "seed",
+                                    "value": "42"
+                                }
+                            ]
+                        },
+                        "description": "Benchmarks ML Optimizer vs RL Policy vs Static pricing across N random scenarios."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "🗄️ Admin (DB Inspection)",
+            "item": [
+                {
+                    "name": "List Competitor Signals",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/competitor_signals",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "competitor_signals"
+                            ],
+                            "query": [
+                                {
+                                    "key": "product_id",
+                                    "value": "101"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "50"
+                                }
+                            ]
+                        },
+                        "description": "View recent persisted competitor price signals for a product."
+                    }
+                },
+                {
+                    "name": "A/B Experiment Summary",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/ab_summary",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "ab_summary"
+                            ],
+                            "query": [
+                                {
+                                    "key": "experiment",
+                                    "value": "model_vs_static_pricing"
+                                }
+                            ]
+                        },
+                        "description": "Returns group-level summary statistics for a given experiment."
+                    }
+                },
+                {
+                    "name": "A/B Recent Outcomes",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/ab_outcomes",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "ab_outcomes"
+                            ],
+                            "query": [
+                                {
+                                    "key": "experiment",
+                                    "value": "model_vs_static_pricing"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "200"
+                                }
+                            ]
+                        },
+                        "description": "Returns recent outcome records for a given experiment."
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mira Remote</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d0d;--surface:#161616;--surface2:#1e1e1e;--border:#252525;--border2:#333;
+  --accent:#b04832;--accent-dim:rgba(176,72,50,.15);
+  --green:#22c55e;--yellow:#eab308;--red:#ef4444;--blue:#60a5fa;
+  --text:#f0ece8;--muted:#6b6460;--fix:#fbbf24;
+  --mono:ui-monospace,'Cascadia Code','Fira Code',monospace;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  display:flex;flex-direction:column;min-height:100vh}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* Header */
+header{padding:10px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;background:var(--surface)}
+.logo{font-size:13px;font-weight:800;letter-spacing:.14em;color:var(--accent)}
+.badges{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+.badge{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 8px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--red);transition:background .4s}
+.dot.on{background:var(--green);box-shadow:0 0 6px rgba(34,197,94,.5)}
+.last-seen{font-size:11px;color:var(--muted)}
+.last-seen b{color:var(--text);font-family:var(--mono)}
+
+/* Layout */
+main{flex:1;display:grid;grid-template-columns:200px 1fr 260px;min-height:0}
+.col{display:flex;flex-direction:column;min-height:0}
+.actions{border-right:1px solid var(--border);padding:12px;gap:7px;overflow-y:auto}
+.sidebar{border-left:1px solid var(--border);padding:12px;gap:12px;overflow-y:auto}
+
+.sec{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+  margin-top:8px;font-weight:600}
+.sec:first-child{margin-top:0}
+.btn{width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text);cursor:pointer;font-size:13px;
+  text-align:left;display:flex;align-items:center;gap:8px;transition:border-color .15s,color .15s,transform .06s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn.primary:hover{opacity:.92;color:#fff}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn .ico{width:15px;text-align:center;flex-shrink:0;opacity:.85}
+
+/* Log */
+.log-bar{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;
+  align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.filters{display:flex;gap:4px;flex-wrap:wrap}
+.chip{font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--border);
+  background:var(--surface);color:var(--muted);cursor:pointer;user-select:none;transition:all .12s}
+.chip:hover{border-color:var(--border2)}
+.chip.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.log-tools{display:flex;align-items:center;gap:12px}
+.chk{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer}
+#logEl{flex:1;overflow-y:auto;padding:4px 0;font-family:var(--mono);font-size:11.5px;min-height:0}
+.ll{display:flex;gap:10px;padding:2px 12px;line-height:1.6}
+.ll:hover{background:rgba(255,255,255,.025)}
+.lts{color:var(--muted);min-width:56px;user-select:none;flex-shrink:0}
+.lt{flex:1;white-space:pre-wrap;word-break:break-word}
+.ll.error .lt{color:var(--red)}
+.ll.mira  .lt{color:#93c5fd}
+.ll.user  .lt{color:#86efac}
+.ll.warn  .lt{color:var(--yellow)}
+.ll.system .lt{color:var(--muted)}
+.fix-tag{font-size:10px;background:rgba(251,191,36,.14);color:var(--fix);
+  border-radius:4px;padding:1px 5px;margin-top:2px;display:inline-block}
+.log-empty{color:var(--muted);text-align:center;padding:40px 16px;font-size:12px}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px}
+.card-title{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+  margin-bottom:9px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+
+/* Face preview */
+.face-card{display:flex;flex-direction:column;align-items:center;gap:8px}
+#faceCanvas{background:#000;border-radius:10px;border:1px solid var(--border2);width:100%;max-width:200px;aspect-ratio:2/1;image-rendering:pixelated}
+.face-meta{display:flex;gap:8px;font-size:11px;color:var(--muted)}
+.face-meta b{color:var(--text);font-family:var(--mono)}
+
+/* Status grid */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.stat{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 9px}
+.stat-k{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.stat-v{font-size:14px;font-weight:600;font-family:var(--mono);margin-top:2px;display:flex;align-items:center;gap:5px}
+.stat-v.good{color:var(--green)}.stat-v.bad{color:var(--red)}.stat-v.unk{color:var(--muted)}
+.bar{height:4px;border-radius:2px;background:var(--border);margin-top:6px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--green);transition:width .4s}
+
+/* Conversation */
+.conv-label{font-size:10px;color:var(--muted);margin-bottom:4px}
+.conv-text{font-size:12px;line-height:1.5;background:var(--bg);border-radius:7px;
+  padding:7px 9px;min-height:32px;border:1px solid var(--border)}
+.conv-text.mira-t{border-color:rgba(176,72,50,.3)}
+
+/* Diagnose */
+.issue{margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.issue:last-child{border:none;margin:0;padding:0}
+.issue-msg{font-size:11px;color:var(--red);margin-bottom:3px;line-height:1.4}
+.issue-fix{font-size:11px;color:var(--fix);line-height:1.4}
+.no-issues{font-size:12px;color:var(--green);text-align:center;padding:8px 0}
+
+/* Roadmap */
+.rm{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:11.5px}
+.rm:last-child{border:none}
+.rm-badge{width:18px;height:18px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;font-size:10px;font-weight:700;margin-top:1px}
+.rm-badge.done{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.rm-badge.next{background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent)}
+.rm-badge.todo{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+.rm-body{flex:1}
+.rm-title{color:var(--text);font-weight:500}
+.rm-note{color:var(--muted);font-size:10.5px;margin-top:1px}
+
+/* WiFi form */
+.field{margin-bottom:6px}
+.field-label{font-size:10px;color:var(--muted);margin-bottom:3px;display:flex;justify-content:space-between}
+.input{width:100%;padding:7px 9px;background:var(--bg);border:1px solid var(--border);
+  border-radius:7px;color:var(--text);font-size:12px;outline:none;transition:border .15s}
+.input:focus{border-color:var(--accent)}
+.input::placeholder{color:var(--muted)}
+.form-status{font-size:11px;min-height:15px;margin-top:3px;transition:color .2s}
+.toggle-pass{cursor:pointer;user-select:none;font-size:10px;display:flex;align-items:center;gap:3px}
+
+/* Responsive */
+@media(max-width:860px){
+  main{grid-template-columns:1fr;grid-auto-rows:min-content}
+  .actions{border-right:none;border-bottom:1px solid var(--border);
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  .actions .sec{grid-column:1/-1}
+  .sidebar{border-left:none;border-top:1px solid var(--border)}
+  .log-panel{min-height:340px}
+  #logEl{max-height:50vh}
+}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">MIRA REMOTE</span>
+  <div class="badges">
+    <div class="badge"><span class="dot" id="dEsp"></span>ESP32</div>
+    <div class="badge"><span class="dot" id="dWifi"></span>WiFi</div>
+    <div class="badge"><span class="dot" id="dMira"></span>Server</div>
+    <div class="badge"><span class="dot" id="dAgent" title="Agent online = nhận lệnh được"></span>Agent</div>
+  </div>
+  <span class="last-seen">Cập nhật <b id="lastSeen">—</b></span>
+</header>
+
+<main>
+  <!-- Actions -->
+  <div class="col actions">
+    <div class="sec">Test thiết bị (không cần nút)</div>
+    <button class="btn primary" onclick="act('self-test')"><span class="ico">🧪</span>Self-Test (loa+mic+màn)</button>
+    <button class="btn" onclick="act('play-music')"><span class="ico">🎵</span>Phát nhạc</button>
+    <button class="btn" onclick="act('test-screen')"><span class="ico">📺</span>Test màn hình</button>
+    <button class="btn" onclick="act('test-mic')"><span class="ico">🎤</span>Đo mic</button>
+    <div class="sec">Firmware</div>
+    <button class="btn" id="btnUpload" onclick="act('upload')"><span class="ico">⬆</span>Build &amp; Upload</button>
+    <button class="btn" onclick="act('reset')"><span class="ico">↺</span>Reset ESP32</button>
+    <div class="sec">Server</div>
+    <button class="btn" onclick="act('test-mira')"><span class="ico">📡</span>Ping Mira</button>
+    <div class="sec">Log</div>
+    <button class="btn" onclick="act('clear-log')"><span class="ico">🗑</span>Xóa log</button>
+    <button class="btn" onclick="location.href='/api/log/download'"><span class="ico">⬇</span>Tải log</button>
+
+    <div class="sec">Cấu hình WiFi</div>
+    <div class="card" style="padding:10px">
+      <div class="field">
+        <div class="field-label">SSID</div>
+        <input class="input" id="wifiSsid" type="text" placeholder="Tên mạng WiFi" autocomplete="off">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Mật khẩu</span>
+          <label class="toggle-pass"><input type="checkbox" id="showPass"
+            onchange="wifiPass.type=this.checked?'text':'password'">hiện</label>
+        </div>
+        <input class="input" id="wifiPass" type="password" placeholder="Mật khẩu" autocomplete="off">
+      </div>
+      <button class="btn primary" style="margin-top:4px" onclick="setWifi()"><span class="ico">💾</span>Lưu &amp; Upload</button>
+      <div class="form-status" id="wifiStatus"></div>
+    </div>
+
+    <div class="sec">Claude API</div>
+    <button class="btn" onclick="copyUrl('/api/log/latest')"><span class="ico">📋</span>Copy log URL</button>
+    <button class="btn" onclick="copyUrl('/api/diagnose')"><span class="ico">🔍</span>Copy diagnose</button>
+  </div>
+
+  <!-- Log -->
+  <div class="col log-panel">
+    <div class="log-bar">
+      <div class="filters" id="filters">
+        <span class="chip on" data-f="all">Tất cả</span>
+        <span class="chip" data-f="error">Lỗi</span>
+        <span class="chip" data-f="warn">Cảnh báo</span>
+        <span class="chip" data-f="mira">Mira</span>
+        <span class="chip" data-f="user">Bạn</span>
+        <span class="chip" data-f="system">Hệ thống</span>
+      </div>
+      <div class="log-tools">
+        <span class="tnum" style="font-size:11px;color:var(--muted)"><b id="logCount">0</b> dòng</span>
+        <label class="chk"><input type="checkbox" id="chkScroll" checked> Auto-scroll</label>
+      </div>
+    </div>
+    <div id="logEl"><div class="log-empty">Chưa có log — chờ ESP32 gửi dữ liệu…</div></div>
+  </div>
+
+  <!-- Device sidebar -->
+  <div class="col sidebar">
+    <div class="card face-card">
+      <div class="card-title" style="width:100%">Mira đang <span id="faceStateLabel" style="color:var(--accent)">—</span></div>
+      <canvas id="faceCanvas" width="200" height="100"></canvas>
+      <div class="face-meta">cảm xúc: <b id="emotionLabel">neutral</b></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Phần cứng</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-k">Cổng</div><div class="stat-v unk" id="stPort">—</div></div>
+        <div class="stat"><div class="stat-k">Loa</div><div class="stat-v unk" id="stSpk">—</div></div>
+        <div class="stat"><div class="stat-k">OLED</div><div class="stat-v unk" id="stOled">—</div></div>
+        <div class="stat"><div class="stat-k">Mic (biên độ)</div><div class="stat-v unk" id="stMic">—</div>
+          <div class="bar"><i id="micBar" style="width:0%"></i></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Hội thoại</div>
+      <div class="conv-label">Bạn nói</div>
+      <div class="conv-text" id="lastUser" style="margin-bottom:8px">—</div>
+      <div class="conv-label">Mira trả lời</div>
+      <div class="conv-text mira-t" id="lastMira">—</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Chẩn đoán</div>
+      <div id="diagEl"><div class="no-issues">✓ Không có vấn đề</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Mục tiêu · Roadmap</div>
+      <div id="roadmap"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── DOM refs ──
+const $ = id => document.getElementById(id);
+const logEl = $('logEl'), chkSc = $('chkScroll');
+let logCount = 0, lastSeq = -1, activeFilter = 'all';
+
+// ── Roadmap (mục tiêu định hướng) ──
+const ROADMAP = [
+  {s:'done', t:'Mặt cảm xúc OLED', n:'6 emotion + 4 state + animation — xong'},
+  {s:'next', t:'Prompt offline',   n:'Câu chào/beep phát ngay không cần mạng'},
+  {s:'todo', t:'Định danh MAC/UUID', n:'Thay API key tĩnh bằng Device-Id chuẩn'},
+  {s:'todo', t:'WebSocket streaming', n:'Stream audio realtime — giảm độ trễ lớn'},
+  {s:'todo', t:'Opus codec',        n:'Nén audio ~10x (cần đổi partition)'},
+];
+$('roadmap').innerHTML = ROADMAP.map(r=>{
+  const sym = r.s==='done'?'✓':r.s==='next'?'▶':'○';
+  return `<div class="rm"><div class="rm-badge ${r.s}">${sym}</div>
+    <div class="rm-body"><div class="rm-title">${r.t}</div><div class="rm-note">${r.n}</div></div></div>`;
+}).join('');
+
+// ── Log rendering ──
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function addLog(d){
+  if(d.seq!=null){ if(d.seq<=lastSeq) return; lastSeq=d.seq; }
+  if(logCount===0) logEl.innerHTML='';
+  const row=document.createElement('div');
+  row.className='ll '+d.level; row.dataset.level=d.level;
+  const fix=d.fix?`<span class="fix-tag">→ FIX: ${esc(d.fix)}</span>`:'';
+  row.innerHTML=`<span class="lts">${esc(d.ts)}</span><span class="lt">${esc(d.text)}${fix}</span>`;
+  if(activeFilter!=='all' && d.level!==activeFilter) row.style.display='none';
+  logEl.appendChild(row);
+  logCount++; $('logCount').textContent=logCount;
+  if(chkSc.checked) logEl.scrollTop=logEl.scrollHeight;
+}
+
+// ── Filters ──
+$('filters').addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c) return;
+  activeFilter=c.dataset.f;
+  document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===c));
+  logEl.querySelectorAll('.ll').forEach(r=>{
+    r.style.display=(activeFilter==='all'||r.dataset.level===activeFilter)?'':'none';
+  });
+  if(chkSc.checked) logEl.scrollTop=logEl.scrollHeight;
+});
+
+// ── Load history then live-stream (dedupe theo seq) ──
+async function boot(){
+  try{
+    const h=await fetch('/api/log/latest?n=300').then(r=>r.json());
+    h.entries.forEach(addLog);
+    applyState(h.state);
+  }catch{}
+  const es=new EventSource('/api/stream');
+  es.onmessage=e=>addLog(JSON.parse(e.data));
+}
+
+// ── State polling ──
+function dot(id,on){ $(id).className='dot'+(on?' on':''); }
+function setStat(id,val,cls){ const el=$(id); el.textContent=val; el.className='stat-v '+cls; }
+
+function applyState(s){
+  if(!s) return;
+  dot('dEsp',s.esp32); dot('dWifi',s.wifi); dot('dMira',s.mira); dot('dAgent',!!s.last_seen);
+  $('lastSeen').textContent=s.last_seen||'—';
+  if(s.last_user) $('lastUser').textContent=s.last_user;
+  if(s.last_mira) $('lastMira').textContent=s.last_mira;
+  $('btnUpload').disabled=s.upload_running;
+
+  setStat('stPort', s.port||'—', s.port?'good':'unk');
+  setStat('stSpk',  s.speaker_ok==null?'—':(s.speaker_ok?'OK':'?'), s.speaker_ok?'good':'unk');
+  setStat('stOled', s.oled_ok?(s.oled_addr||'OK'):(s.oled_ok===false?'lỗi':'—'),
+          s.oled_ok?'good':(s.oled_ok===false?'bad':'unk'));
+  if(s.mic_amp==null){ setStat('stMic','—','unk'); $('micBar').style.width='0%'; }
+  else{
+    const alive=s.mic_amp>=80;
+    setStat('stMic', s.mic_amp, alive?'good':'bad');
+    $('micBar').style.width=Math.min(100,s.mic_amp/2000*100)+'%';
+    $('micBar').style.background=alive?'var(--green)':'var(--red)';
+  }
+  // Face
+  face.state=s.face_state||'IDLE';
+  face.emotion=s.emotion||'neutral';
+  const NM={IDLE:'chờ',LISTENING:'lắng nghe',THINKING:'suy nghĩ',SPEAKING:'nói'};
+  $('faceStateLabel').textContent=NM[face.state]||'chờ';
+  $('emotionLabel').textContent=face.emotion;
+}
+
+async function pollState(){
+  try{
+    applyState(await fetch('/api/state').then(r=>r.json()));
+    const diag=await fetch('/api/diagnose').then(r=>r.json());
+    const el=$('diagEl');
+    el.innerHTML = diag.issues.length
+      ? diag.issues.map(i=>`<div class="issue"><div class="issue-msg">⚠ ${esc(i.log)}</div><div class="issue-fix">→ ${esc(i.fix)}</div></div>`).join('')
+      : '<div class="no-issues">✓ Không có vấn đề</div>';
+  }catch{}
+}
+
+// ── Actions ──
+async function act(name){
+  if(name==='clear-log'){ logEl.innerHTML='<div class="log-empty">Đã xóa log</div>';
+    logCount=0; lastSeq=-1; $('logCount').textContent=0; }
+  await fetch('/api/action/'+name,{method:'POST'});
+}
+function copyUrl(path){
+  const url=location.origin+path;
+  navigator.clipboard.writeText(url).then(()=>{
+    const w=$('wifiStatus'); // reuse as toast
+    w.textContent='📋 Đã copy: '+path; w.style.color='var(--green)';
+    setTimeout(()=>w.textContent='',2500);
+  });
+}
+async function setWifi(){
+  const ssid=$('wifiSsid').value.trim(), pass=$('wifiPass').value, st=$('wifiStatus');
+  if(!ssid){ st.textContent='⚠ Nhập tên WiFi'; st.style.color='var(--yellow)'; return; }
+  st.textContent='Đang gửi…'; st.style.color='var(--muted)';
+  try{
+    const d=await fetch('/api/set-wifi',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ssid,password:pass})}).then(r=>r.json());
+    if(d.ok){ st.textContent='✓ Đã gửi — agent ghi config & upload…'; st.style.color='var(--green)'; }
+    else{ st.textContent='✗ '+(d.error||'lỗi'); st.style.color='var(--red)'; }
+  }catch(e){ st.textContent='✗ '+e.message; st.style.color='var(--red)'; }
+}
+
+// ── Face preview (canvas, mirror firmware face.cpp) ──
+const face={state:'IDLE',emotion:'neutral'};
+const fctx=$('faceCanvas').getContext('2d');
+const EL_X=64,ER_X=136,EY=44,ER=18,MX=100,MY=76;
+function drawEye(cx,cy,r,blink,emo,left){
+  fctx.strokeStyle=fctx.fillStyle='#e8b04a';
+  fctx.lineWidth=4;
+  if(blink){ line(cx-r,cy,cx+r,cy); return; }
+  if(emo==='happy'){ line(cx-r,cy+4,cx,cy-r+4); line(cx,cy-r+4,cx+r,cy+4); return; }
+  if(emo==='sad'){ disc(cx,cy,r); fctx.fillStyle='#000'; fctx.fillRect(cx-r-1,cy-r-1,2*r+2,r); fctx.fillStyle='#e8b04a';
+    line(cx-r,cy-2,cx+r,cy-6); return; }
+  if(emo==='curious'){ disc(cx,cy,left?r:r-6); return; }
+  if(emo==='playful'){ left?line(cx-r,cy,cx+r,cy):disc(cx,cy,r); return; }
+  if(emo==='caring'){ disc(cx,cy,r-3); line(cx-r,cy-r+3,cx+r,cy-r+3); return; }
+  disc(cx,cy,r);
+}
+function drawMouth(emo,speaking,t){
+  fctx.strokeStyle=fctx.fillStyle='#e8b04a'; fctx.lineWidth=4;
+  if(speaking){ const h=6+6*(0.5+0.5*Math.sin(t/120)); rbox(MX-15,MY-h/2,30,h,4); return; }
+  if(emo==='happy'||emo==='playful'){ line(MX-18,MY,MX-8,MY+8); line(MX-8,MY+8,MX+8,MY+8); line(MX+8,MY+8,MX+18,MY); return; }
+  if(emo==='sad'){ line(MX-18,MY+8,MX-8,MY); line(MX-8,MY,MX+8,MY); line(MX+8,MY,MX+18,MY+8); return; }
+  if(emo==='curious'){ circle(MX,MY+2,6); return; }
+  if(emo==='caring'){ line(MX-14,MY+1,MX,MY+6); line(MX,MY+6,MX+14,MY+1); return; }
+  line(MX-13,MY+3,MX+13,MY+3);
+}
+function line(a,b,c,d){fctx.beginPath();fctx.moveTo(a,b);fctx.lineTo(c,d);fctx.stroke()}
+function disc(x,y,r){fctx.beginPath();fctx.arc(x,y,r,0,7);fctx.fill()}
+function circle(x,y,r){fctx.beginPath();fctx.arc(x,y,r,0,7);fctx.stroke()}
+function rbox(x,y,w,h,r){fctx.beginPath();fctx.roundRect(x,y,w,h,r);fctx.fill()}
+function renderFace(t){
+  fctx.clearRect(0,0,200,100);
+  let r=ER,cy=EY,blink=false,speaking=face.state==='SPEAKING';
+  if(face.state==='IDLE') blink=(t%3200)<150;
+  else if(face.state==='LISTENING') r=ER+3;
+  else if(face.state==='THINKING'){ cy=EY-6;
+    fctx.fillStyle='#e8b04a';
+    for(let i=0;i<3;i++) if(((t/350|0)%4)>i){fctx.beginPath();fctx.arc(150+i*13,88,3,0,7);fctx.fill();}
+  }
+  drawEye(EL_X,cy,r,blink,face.emotion,true);
+  drawEye(ER_X,cy,r,blink,face.emotion,false);
+  drawMouth(face.emotion,speaking,t);
+  requestAnimationFrame(renderFace);
+}
+
+// ── Init ──
+boot();
+pollState(); setInterval(pollState,2000);
+requestAnimationFrame(renderFace);
+</script>
+</body>
+</html>

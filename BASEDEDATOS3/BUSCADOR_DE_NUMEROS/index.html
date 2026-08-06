@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Búsqueda Individual - Sistema de Gestión</title>
+
+  <!-- Bootstrap 5 CSS e Iconos -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  
+  <style>
+    :root {
+      --bg-void: #070a12;
+      --bg-surface: #0e1420;
+      --bg-card: #131a29;
+      --bg-elevated: #19233a;
+      --border-color: #232e46;
+      --border-strong: #303f5f;
+      --text-primary: #eef2f8;
+      --text-muted: #7d8aa3;
+      --th-bg: #1e2433;
+      --brand-text: #ffffff;
+      --shadow-color: rgba(0, 0, 0, 0.35);
+      --accent: #0284c7;
+      --accent-strong: #38bdf8;
+      --accent-glow: rgba(2, 132, 199, 0.25);
+      --accent-soft: rgba(2, 132, 199, 0.12);
+      --info: #38bdf8;
+      --success: #34d399;
+      --warning: #f59e0b;
+      --danger: #f87171;
+    }
+    html[data-bs-theme="light"] {
+      --bg-void: #f4f6f9;
+      --bg-surface: #ffffff;
+      --bg-card: #ffffff;
+      --bg-elevated: #e2e8f0;
+      --border-color: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text-primary: #212529;
+      --text-muted: #64748b;
+      --th-bg: #1e2433;
+      --brand-text: #ffffff;
+      --shadow-color: rgba(15, 23, 42, 0.08);
+      --accent: #0284c7;
+      --accent-strong: #0369a1;
+      --accent-glow: rgba(2, 132, 199, 0.15);
+      --accent-soft: rgba(2, 132, 199, 0.08);
+      
+      --nav-text-color: #cbd5e1;
+      --nav-active-color: #ffc107;
+    }
+    * { scrollbar-color: var(--border-strong) transparent; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      min-height: 100vh;
+      background-image: none; 
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+    ::selection { background: var(--accent-glow); color: inherit; }
+
+    /* Adaptación de componentes nativos de Bootstrap al tema */
+    .card {
+      background-color: var(--bg-surface) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-primary) !important;
+    }
+    .card-header, .card-footer {
+      background-color: var(--bg-surface) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-primary) !important;
+    }
+    .form-control, .form-select {
+      background-color: var(--bg-void) !important;
+      color: var(--text-primary) !important;
+      border-color: var(--border-color) !important;
+    }
+    .form-control::placeholder {
+      color: var(--text-muted) !important;
+    }
+    .form-control:focus, .form-select:focus {
+      background-color: var(--bg-void) !important;
+      color: var(--text-primary) !important;
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px var(--accent-glow) !important;
+    }
+
+    /* Navbar */
+    .navbar {
+      background-color: var(--th-bg) !important;
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.65rem 1.25rem;
+    }
+    .navbar-brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent-strong) 0%, var(--accent) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 1rem;
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+    .navbar-menu-pills .nav-link {
+      color: var(--nav-text-color, var(--text-muted));
+      border-radius: 8px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      transition: all 0.18s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1px solid transparent;
+    }
+    .navbar-menu-pills .nav-link.active {
+      background-color: transparent;
+      color: var(--nav-active-color, var(--accent-strong));
+      border-color: transparent;
+    }
+    .navbar-menu-pills .nav-link:hover:not(.active) {
+      color: #ffffff;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    .btn-theme-toggle {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-theme-toggle:hover { border-color: var(--accent); color: var(--accent-strong); }
+
+    /* KPIs */
+    .kpi-card {
+      background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-surface) 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.6rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--text-primary);
+    }
+    .kpi-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+    }
+
+    /* Tarjetas & UI Controls */
+    .card-custom {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      box-shadow: 0 4px 12px var(--shadow-color);
+      color: var(--text-primary);
+    }
+    .search-input-container {
+      background-color: var(--bg-void);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.2rem 0.5rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .search-input-container:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .toolbar-control {
+      background-color: var(--bg-void);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+    .toolbar-control:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); outline: none; }
+
+    /* Estilos de Tabla Adaptativos */
+    .table-container {
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      overflow: auto;
+      background-color: var(--bg-void);
+      max-height: 60vh;
+    }
+    .table-compacta {
+      margin-bottom: 0;
+      --bs-table-bg: transparent;
+      --bs-table-color: var(--text-primary);
+    }
+    .table-compacta th {
+      background-color: var(--th-bg) !important;
+      color: #ffffff !important;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+      padding: 0.75rem 0.4rem;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      white-space: nowrap;
+    }
+    .table-compacta td {
+      padding: 0.6rem 0.5rem;
+      vertical-align: middle;
+      font-size: 0.82rem;
+      border-bottom: 1px solid var(--border-color);
+      text-align: center;
+      white-space: nowrap;
+      background-color: var(--bg-surface) !important;
+      color: var(--text-primary) !important;
+    }
+    .table-compacta.density-compact td { padding: 0.35rem 0.4rem; font-size: 0.78rem; }
+    .table-compacta tbody tr:hover td { background-color: var(--bg-elevated) !important; cursor: pointer; }
+
+    /* Soporte Ocultar Columnas Dinámicas */
+    .table-compacta.col-hide-select th[data-col="select"], .table-compacta.col-hide-select td:nth-child(1) { display: none; }
+    .table-compacta.col-hide-index_code th[data-col="index_code"], .table-compacta.col-hide-index_code td:nth-child(2) { display: none; }
+    .table-compacta.col-hide-id_member th[data-col="id_member"], .table-compacta.col-hide-id_member td:nth-child(3) { display: none; }
+    .table-compacta.col-hide-nombres th[data-col="nombres"], .table-compacta.col-hide-nombres td:nth-child(4) { display: none; }
+
+    /* Encabezados con Filtro */
+    .th-header-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .btn-col-menu {
+      padding: 0; color: #ffffff; border: none; background: transparent;
+      font-size: 0.7rem; cursor: pointer; transition: color 0.15s ease;
+    }
+    .btn-col-menu:hover { color: var(--accent-strong); }
+    .filter-dropdown-menu {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      min-width: 200px;
+      padding: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    /* Vista de Tarjetas */
+    #card-view-wrapper { display: none; }
+    .result-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.85rem;
+      transition: all 0.15s ease;
+      height: 100%;
+      color: var(--text-primary);
+    }
+    .result-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 20px var(--shadow-color); }
+    .result-card .rc-row { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.78rem; padding: 0.25rem 0; border-bottom: 1px dashed var(--border-color); }
+    .result-card .rc-row:last-child { border-bottom: none; }
+
+    /* Toast Notification System */
+    .ln-toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--accent);
+      color: var(--text-primary);
+      padding: 0.65rem 1.2rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      box-shadow: 0 10px 25px var(--shadow-color);
+      z-index: 9999;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.25s ease;
+      pointer-events: none;
+    }
+    .ln-toast.is-visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+    /* Floating Scroll Top */
+    .btn-scroll-top {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.2s ease;
+      z-index: 900;
+    }
+    .btn-scroll-top.is-visible { opacity: 1; }
+    .btn-scroll-top:hover { background: var(--accent); color: #fff; }
+
+    /* Modales adaptados */
+    .modal-content {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+    }
+    .modal-header { border-bottom: 1px solid var(--border-color); }
+    .modal-footer { border-top: 1px solid var(--border-color); }
+    .nav-pills .nav-link.active {
+      background-color: var(--accent) !important;
+      color: #fff !important;
+    }
+    .nav-pills .nav-link {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .empty-state {
+      padding: 3rem 1rem;
+      color: var(--text-muted) !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar Global -->
+  <nav class="navbar navbar-expand-lg sticky-top">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="index.html">
+        <div class="navbar-brand-mark"><i class="bi bi-intersect"></i></div>
+        <div>
+          <div class="lh-1" style="color: var(--brand-text); font-size: 1.05rem;">Dashboard Números</div>
+          <small class="text-uppercase fw-bold" style="color: #cbd5e1; font-size: 0.6rem; letter-spacing: 0.1em;">Gestión & Cruces</small>
+        </div>
+      </a>
+
+      <button class="navbar-toggler border-0 text-light" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <i class="bi bi-list fs-3"></i>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav navbar-menu-pills ms-auto me-3 gap-1">
+          <li class="nav-item">
+            <a class="nav-link active" href="index.html"><i class="bi bi-search"></i> Búsqueda Individual</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="busqueda_masiva.html"><i class="bi bi-list-check"></i> Búsqueda Masiva</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="base_datos.html"><i class="bi bi-table"></i> Base de Datos</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="buscador_cruzado.html"><i class="bi bi-intersect"></i> Buscador Cruzado</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="cargar.html"><i class="bi bi-cloud-upload"></i> Cargar DATA MASTER</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="archivos.html"><i class="bi bi-folder2-open"></i> Gestión Archivos</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link link-external" href="https://basededatos3-buscador-libros-de-negocios.static.hf.space/index.html" target="_blank" rel="noopener">
+              <i class="bi bi-box-arrow-up-right"></i> Libros de Negocios
+            </a>
+          </li>
+        </ul>
+
+        <!-- Botón Cambio de Tema -->
+        <button class="btn-theme-toggle" id="btn-theme-toggle" title="Cambiar Tema (Claro/Oscuro)">
+          <i class="bi bi-sun-fill" id="theme-icon"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4 mt-3">
+    
+    <!-- Formulario de Búsqueda Individual -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body p-3">
+        <div class="row g-2 align-items-center">
+          <div class="col-md-auto">
+            <h6 class="fw-bold mb-0 me-2"><i class="bi bi-person-bounding-box me-2 text-primary"></i>Buscar por:</h6>
+          </div>
+          <div class="col-md-3">
+            <select class="form-select form-select-sm" id="selectCriterio">
+              <option value="index_code">INDEX</option>
+              <option value="nombre">Nombre</option>
+              <option value="numero">Número (Venta / Confirmado)</option>
+            </select>
+          </div>
+          <div class="col-md-5">
+            <input type="text" class="form-control form-control-sm" id="inputBuscar" placeholder="Ej: 8548420777...">
+          </div>
+          <div class="col-md-auto ms-auto d-flex gap-2">
+            <button class="btn btn-primary btn-sm px-4 fw-bold" id="btnBuscarIndividual">
+              <i class="bi bi-search me-1"></i> Buscar
+            </button>
+            <button class="btn btn-outline-secondary btn-sm px-3" id="btnLimpiarIndividual">
+              <i class="bi bi-eraser me-1"></i> Limpiar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Indicador de Carga -->
+    <div id="spinnerCarga" class="text-center my-4 py-3" style="display: none;">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted fw-semibold small">Consultando base de datos...</p>
+    </div>
+
+    <!-- Tabla de Resultados -->
+    <div class="card shadow-sm mb-4 overflow-hidden">
+      <div class="card-header d-flex justify-content-between align-items-center py-2 px-3" style="display: none !important;" id="seccionMetricasHeader">
+        <h6 class="mb-0 fw-bold small"><i class="bi bi-table me-2 text-info"></i> Resultados de Búsqueda</h6>
+        <div class="badge bg-body-tertiary text-body py-1 px-3 border rounded-pill shadow-sm">
+          Registros: <strong class="text-primary" id="metricFiltrados">0</strong> / <span id="metricEncontrados">0</span>
+        </div>
+      </div>
+
+      <div class="card-body p-0">
+        <div class="table-container">
+          <table class="table table-sm align-middle mb-0 table-compacta" id="tablaResultados">
+            <thead>
+              <tr id="headersRow">
+                <th data-col="archivo_id" style="width: 5%;"><div class="th-header-content"><span>ARCHIVO</span></div></th>
+                <th data-col="index_code" style="width: 8%;"><div class="th-header-content"><span>INDEX</span></div></th>
+                <th data-col="afiliados" style="width: 3%;"><div class="th-header-content"><span>A</span></div></th>
+                <th data-col="index_member" style="width: 7%;"><div class="th-header-content"><span>MEMBER</span></div></th>
+                <th data-col="nombre" style="width: 12%;"><div class="th-header-content"><span>NOMBRE</span></div></th>
+                <th data-col="dob" style="width: 7%;"><div class="th-header-content"><span>FECHA NAC.</span></div></th>
+                <th data-col="estado" style="width: 5%;"><div class="th-header-content"><span>ESTADO</span></div></th>
+                <th data-col="numero_venta" style="width: 8%;"><div class="th-header-content"><span>NUM. VENTA</span></div></th>
+                <th data-col="confirmado_1" style="width: 7%;"><div class="th-header-content"><span>NUM. 1</span></div></th>
+                <th data-col="confirmado_2" style="width: 7%;"><div class="th-header-content"><span>NUM. 2</span></div></th>
+                <th data-col="status" style="width: 6%;"><div class="th-header-content"><span>STATUS</span></div></th>
+                <th data-col="cia" style="width: 5%;"><div class="th-header-content"><span>CIA</span></div></th>
+                <th data-col="ultimo_hs" style="width: 6%;"><div class="th-header-content"><span>ULT. HS</span></div></th>
+                <th data-col="agente" style="width: 7%;"><div class="th-header-content"><span>ASESOR</span></div></th>
+                <th data-col="fecha_llamada" style="width: 7%;"><div class="th-header-content"><span>FECHA LLAM.</span></div></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr id="filaVacia">
+                <td colspan="15" class="empty-state">
+                  <i class="bi bi-search fs-2 d-block mb-2 text-muted"></i>
+                  <h6 class="fw-bold mb-1">No hay resultados activos</h6>
+                  <p class="small mb-0">Selecciona un criterio y realiza una búsqueda para visualizar los datos aquí.</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Paginación -->
+      <div class="card-footer py-2 px-3 border-top" id="seccionPaginacion" style="display: none;">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small">Mostrar:</span>
+            <select class="form-select form-select-sm w-auto" id="selectRegistrosPorPagina">
+              <option value="10">10</option>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <span class="text-muted small ms-2" id="infoPaginacion">Mostrando 0-0 de 0</span>
+          </div>
+          <nav>
+            <ul class="pagination pagination-sm mb-0" id="ulPaginacion"></ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase_client.js"></script>
+  <script src="js/search_tab.js"></script>
+
+  <!-- Lógica Toggle del Tema (Oscuro / Claro) -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const btnTheme = document.getElementById('btn-theme-toggle');
+      const themeIcon = document.getElementById('theme-icon');
+      const savedTheme = localStorage.getItem('app-theme') || 'dark';
+
+      aplicarTema(savedTheme);
+
+      btnTheme?.addEventListener('click', () => {
+        const nuevoTema = document.documentElement.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
+        aplicarTema(nuevoTema);
+      });
+
+      function aplicarTema(t) {
+        if (t === 'light') {
+          document.documentElement.setAttribute('data-bs-theme', 'light');
+          if (themeIcon) themeIcon.className = 'bi bi-sun-fill';
+        } else {
+          document.documentElement.removeAttribute('data-bs-theme');
+          if (themeIcon) themeIcon.className = 'bi bi-moon-stars-fill';
+        }
+        localStorage.setItem('app-theme', t);
+      }
+    });
+  </script>
+</body>
+</html>

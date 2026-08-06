@@ -1,0 +1,34 @@
+version: phase2_source_policy_v1
+phase: phase2_structured_sources
+principles:
+  - Phase 2 sources are risk_flag and confidence_adjustment only during validation.
+  - Phase 2 must not auto-increase stake.
+  - Phase 2 must not override AH/OU EV.
+  - Identity Lock remains mandatory.
+  - Raw API payloads and raw HTML must not enter model context.
+sources:
+  football_data_org:
+    enabled_if_secret: FOOTBALL_DATA_API_TOKEN
+    role: fixtures_standings_identity_support
+    decision_weight: shadow_risk_flag_only
+  open_meteo:
+    enabled_if_geo_registry: true
+    role: weather_ou_risk
+    decision_weight: shadow_risk_flag_only
+  the_odds_api:
+    enabled_if_secret: THE_ODDS_API_KEY
+    role: optional_event_odds_crosscheck_phase2b
+    decision_weight: shadow_risk_flag_only
+  titan007_jingcai_correct_score:
+    enabled: true
+    role: optional_correct_score_path_depth_check
+    decision_weight: shadow_depth_check_only
+    blocking: false
+    crow_or_crown: false
+    note: "Titan007 JingCai score market; not Crow/Crown bookmaker odds. Use only to reduce AH/OU depth mistakes when available."
+blocked:
+  - final_pick_migration
+  - stake_migration
+  - bankroll_migration
+  - raw_html_context
+  - raw_api_context

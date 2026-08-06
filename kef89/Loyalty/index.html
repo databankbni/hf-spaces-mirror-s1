@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Talk It Through — Regal Rewards Training</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#000000;
+    --paper:#ffffff;
+    --orange:#ff6900;
+    --surface:#141414;
+    --surface-2:#1e1e1e;
+    --line:#2c2c2c;
+    --muted:#a8a8a8;
+    --good:#3ddc84;
+    --bad:#ff5a5a;
+    --grad: linear-gradient(90deg,#fd0600 0%, #ff6900 55%, #fde606 100%);
+    --radius: 14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .display{font-family:'Bebas Neue',system-ui,sans-serif; letter-spacing:0.03em;}
+
+  /* ---------- Marquee header ---------- */
+  header.marquee{
+    position:relative;
+    padding:38px 20px 30px;
+    text-align:center;
+    background:
+      radial-gradient(ellipse at 50% -20%, rgba(255,105,0,0.25), transparent 60%),
+      var(--ink);
+    border-bottom:1px solid var(--line);
+    overflow:hidden;
+  }
+  header.marquee::before, header.marquee::after{
+    content:"";
+    position:absolute; top:14px; bottom:14px; width:14px;
+    background-image: radial-gradient(circle, var(--orange) 3px, transparent 3.5px);
+    background-size: 14px 22px;
+    opacity:.55;
+  }
+  header.marquee::before{ left:14px; }
+  header.marquee::after{ right:14px; }
+  .eyebrow{
+    text-transform:uppercase; letter-spacing:.22em; font-size:11px; font-weight:700;
+    color:var(--muted); margin:0 0 8px;
+  }
+  h1.title{
+    font-size: clamp(40px, 8vw, 72px);
+    line-height:0.95;
+    margin:0 0 6px;
+    background: var(--grad);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  p.subtitle{ color:var(--muted); font-size:15px; margin:0; max-width:520px; margin:0 auto;}
+
+  /* ---------- Ticket-stub tabs ---------- */
+  nav.tabs{
+    display:flex; justify-content:center; gap:0;
+    background:var(--ink);
+    padding:0 12px;
+    border-bottom:1px solid var(--line);
+    overflow-x:auto;
+  }
+  .tab-btn{
+    position:relative;
+    font-family:'Bebas Neue',sans-serif;
+    letter-spacing:.04em;
+    font-size:18px;
+    background:var(--surface);
+    color:var(--muted);
+    border:1px solid var(--line);
+    border-bottom:none;
+    padding:14px 26px 16px;
+    margin:10px 4px 0;
+    border-radius:10px 10px 0 0;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .tab-btn::after{
+    content:"";
+    position:absolute; left:50%; bottom:-8px; transform:translateX(-50%);
+    width:14px; height:14px; border-radius:50%;
+    background:var(--ink);
+    border:1px solid var(--line);
+    display:none;
+  }
+  .tab-btn.active{
+    background:var(--orange);
+    color:#1a0d00;
+    border-color:var(--orange);
+  }
+  .tab-btn.active::after{ display:block; border-color: var(--orange); }
+
+  main{ max-width:880px; margin:0 auto; padding:34px 18px 60px; }
+  .panel{ display:none; animation:fade .25s ease; }
+  .panel.active{ display:block; }
+  @keyframes fade{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+
+  .section-label{
+    font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:.02em;
+    color:var(--orange); margin:0 0 4px;
+  }
+  .section-desc{ color:var(--muted); font-size:14px; margin:0 0 20px; }
+
+  /* ---------- Chat ---------- */
+  .chat-window{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+    min-height:220px;
+    max-height:420px;
+    overflow-y:auto;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .msg{ max-width:82%; padding:11px 14px; border-radius:14px; line-height:1.45; font-size:14.5px; }
+  .msg.guest{ align-self:flex-start; background:var(--surface-2); border-bottom-left-radius:4px; }
+  .msg.you{ align-self:flex-end; background:var(--orange); color:#1a0d00; border-bottom-right-radius:4px; font-weight:500; }
+  .msg.you .tag, .msg.guest .tag{ display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; opacity:.65; margin-bottom:3px; }
+
+  .chip-row{ display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; margin:14px 0; }
+  @media(min-width:600px){ .chip-row{ grid-template-columns: repeat(3, 1fr); } }
+  .chip{
+    background:var(--surface-2); color:var(--paper); border:1px solid var(--line);
+    border-radius:12px; padding:10px 12px; font-size:12.5px; cursor:pointer;
+    text-align:center; line-height:1.35;
+  }
+  .chip:hover{ border-color:var(--orange); }
+
+  .input-row{ display:flex; gap:8px; margin-top:14px; }
+  .input-row input{
+    flex:1; background:var(--surface); border:1px solid var(--line); color:var(--paper);
+    border-radius:10px; padding:12px 14px; font-size:14.5px; font-family:inherit;
+  }
+  .input-row input:focus{ outline:2px solid var(--orange); border-color:var(--orange); }
+  button.primary{
+    background:var(--orange); color:#1a0d00; border:none; border-radius:10px;
+    padding:12px 20px; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  button.primary:hover{ filter:brightness(1.08); }
+  button.ghost{
+    background:transparent; border:1px solid var(--line); color:var(--paper);
+    border-radius:10px; padding:10px 16px; font-size:13px; cursor:pointer;
+  }
+
+  /* ---------- Quiz ---------- */
+  .quiz-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:22px; margin-top:26px;
+  }
+  .progress-track{ background:var(--surface-2); border-radius:999px; height:8px; overflow:hidden; margin-bottom:16px; }
+  .progress-fill{ background:var(--grad); height:100%; width:0%; transition:width .3s ease; }
+  .streak-note{ font-size:12.5px; color:var(--muted); margin-bottom:14px; }
+  .streak-note strong{ color:var(--orange); }
+  .quiz-q{ font-size:16px; font-weight:600; margin-bottom:14px; }
+  .quiz-opts{ display:flex; flex-direction:column; gap:9px; }
+  .quiz-opt{
+    text-align:left; background:var(--surface-2); border:1px solid var(--line); color:var(--paper);
+    padding:11px 14px; border-radius:9px; font-size:14px; cursor:pointer; font-family:inherit;
+  }
+  .quiz-opt:hover{ border-color:var(--orange); }
+  .quiz-opt.correct{ border-color:var(--good); background:rgba(61,220,132,0.12); }
+  .quiz-opt.incorrect{ border-color:var(--bad); background:rgba(255,90,90,0.12); }
+  .quiz-opt:disabled{ cursor:default; }
+  .quiz-explain{ margin-top:14px; padding:12px 14px; border-radius:9px; background:var(--surface-2); font-size:13.5px; line-height:1.5; display:none; }
+  .quiz-explain.show{ display:block; }
+  .quiz-complete{ text-align:center; padding:24px 10px; }
+  .quiz-complete .display{ font-size:38px; color:var(--good); }
+
+  /* ---------- Resource library ---------- */
+  .search-box{ margin-bottom:20px; }
+  .search-box input{
+    width:100%; background:var(--surface); border:1px solid var(--line); color:var(--paper);
+    border-radius:10px; padding:13px 16px; font-size:15px; font-family:inherit;
+  }
+  .search-box input:focus{ outline:2px solid var(--orange); border-color:var(--orange); }
+  .group-heading{
+    font-family:'Bebas Neue',sans-serif; font-size:20px; letter-spacing:.03em; color:var(--muted);
+    margin:26px 0 10px; padding-top:14px; border-top:1px solid var(--line);
+  }
+  .group-heading:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
+  .card-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:12px; }
+  .res-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px;
+  }
+  .res-card h3{ font-size:15px; margin:0 0 6px; color:var(--orange); }
+  .res-card p{ font-size:13px; color:var(--muted); margin:0; line-height:1.5; }
+  .no-results{ color:var(--muted); font-size:14px; padding:30px 0; text-align:center; }
+
+  /* ---------- Reference card ---------- */
+  .ref-card{
+    background:var(--paper); color:#141414; border-radius:var(--radius); padding:24px; margin-bottom:22px;
+  }
+  .ref-card h2{ font-family:'Bebas Neue',sans-serif; font-size:26px; margin:0 0 14px; color:var(--ink); letter-spacing:.02em; }
+  .tier-grid{ display:grid; grid-template-columns:1fr; gap:14px; }
+  @media(min-width:640px){ .tier-grid{ grid-template-columns:repeat(3,1fr); } }
+  .tier-block{ border:1px solid #e2e2e2; border-radius:10px; padding:14px; }
+  .tier-block.emph{ border:2px solid var(--orange); background:#fff6ee; }
+  .tier-block h4{ font-family:'Bebas Neue',sans-serif; font-size:19px; margin:0 0 8px; letter-spacing:.02em; }
+  .tier-block ul{ margin:0; padding-left:18px; font-size:12.5px; line-height:1.6; }
+  .tier-block .badge{ display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; background:var(--orange); color:#1a0d00; padding:2px 8px; border-radius:999px; margin-bottom:6px; }
+
+  .checklist{ display:flex; flex-direction:column; gap:2px; }
+  .check-row{
+    display:flex; align-items:center; gap:10px; padding:10px 4px; cursor:pointer;
+    border-bottom:1px solid #eee; user-select:none;
+  }
+  .check-row:last-child{ border-bottom:none; }
+  .box{ width:18px; height:18px; border:2px solid #999; border-radius:4px; flex-shrink:0; position:relative; }
+  .check-row.done .box{ background:var(--orange); border-color:var(--orange); }
+  .check-row.done .box::after{ content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; }
+  .check-row.done span.label{ text-decoration:line-through; color:#999; }
+  .check-row span.label{ font-size:14px; }
+
+  .print-row{ text-align:center; margin-top:24px; }
+
+  footer{ text-align:center; color:var(--muted); font-size:12px; padding:30px 0 10px; }
+
+  @media print{
+    header.marquee, nav.tabs, .print-row, footer{ display:none !important; }
+    body{ background:#fff; color:#000; }
+    main{ padding:0; max-width:100%; }
+    .panel{ display:none !important; }
+    #panel-ref{ display:block !important; }
+    .ref-card{ box-shadow:none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="marquee">
+  <p class="eyebrow">Regal Rewards &middot; Practice Tool 1 of 3</p>
+  <h1 class="title display">TALK IT THROUGH</h1>
+  <p class="subtitle">Practice real guest conversations, look up anything fast, and keep a printable cheat sheet in your pocket.</p>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="practice">Learn &amp; Practice</button>
+  <button class="tab-btn" data-tab="library">Resource Library</button>
+  <button class="tab-btn" data-tab="ref">Quick Reference</button>
+</nav>
+
+<main>
+
+  <!-- ================= PANEL 1: LEARN & PRACTICE ================= -->
+  <section id="panel-practice" class="panel active">
+    <p class="section-label display">Objection Practice</p>
+    <p class="section-desc">Type what a guest might say — or click one of the buttons below — and see how you'd respond.</p>
+
+    <div class="chat-window" id="chatWindow">
+      <div class="msg guest"><span class="tag">Guest</span>Hi there! Ask me anything, or click one of the buttons below.</div>
+    </div>
+
+    <div class="chip-row" id="chipRow"></div>
+
+    <div class="input-row">
+      <input id="chatInput" type="text" placeholder="Type a guest objection, e.g. &quot;I don't want another app&quot;" />
+      <button class="primary" id="sendBtn">Ask</button>
+    </div>
+
+    <div class="quiz-card">
+      <p class="section-label display" style="font-size:22px;">Know Your Tiers — Quick Quiz</p>
+      <div class="streak-note">Streak-gated: you need <strong>4 correct in a row</strong> to complete it. A miss resets the streak — no partial credit for guessing.</div>
+      <div class="progress-track"><div class="progress-fill" id="quizProgress"></div></div>
+      <div id="quizBody"></div>
+    </div>
+  </section>
+
+  <!-- ================= PANEL 2: RESOURCE LIBRARY ================= -->
+  <section id="panel-library" class="panel">
+    <p class="section-label display">Resource Library</p>
+    <p class="section-desc">Search by guest type, tier, or keyword — everything filters live as you type.</p>
+    <div class="search-box">
+      <input id="librarySearch" type="text" placeholder="Try &quot;budget&quot;, &quot;birthday&quot;, &quot;Unlimited&quot;..." />
+    </div>
+    <div id="libraryResults"></div>
+  </section>
+
+  <!-- ================= PANEL 3: QUICK REFERENCE ================= -->
+  <section id="panel-ref" class="panel">
+    <p class="section-label display">Quick Reference Card</p>
+    <p class="section-desc">The whole card is print-friendly — hit the button below to save it as a PDF or print a physical copy.</p>
+
+    <div class="ref-card">
+      <h2>The Three Tiers</h2>
+      <div class="tier-grid">
+        <div class="tier-block">
+          <h4>Rewards</h4>
+          <p style="font-size:11px;color:#777;margin:0 0 8px;">Free to join</p>
+          <ul>
+            <li>100 points per $1 spent</li>
+            <li>Birthday rewards</li>
+            <li>25% off Candy Monday</li>
+            <li>50% off Popcorn Tuesday</li>
+            <li>No commitment</li>
+          </ul>
+        </div>
+        <div class="tier-block emph">
+          <span class="badge">Target tier</span>
+          <h4>Rewards+</h4>
+          <ul>
+            <li>1 monthly 2D rollover ticket</li>
+            <li>4 discounted tickets/month</li>
+            <li>20% off concessions</li>
+            <li>Waived convenience fees</li>
+            <li>1, 6, or 12-month terms</li>
+          </ul>
+        </div>
+        <div class="tier-block">
+          <h4>Unlimited</h4>
+          <ul>
+            <li>Unlimited 2D movie tickets</li>
+            <li>200 points per $1 spent</li>
+            <li>10% off concessions</li>
+            <li>2x points on extras</li>
+            <li>3, 6, or 12-month terms</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <h2>Before Your Shift</h2>
+      <div class="checklist" id="checklist"></div>
+    </div>
+
+    <div class="print-row">
+      <button class="ghost" id="printBtn">🖨️ Print / Save as PDF</button>
+    </div>
+  </section>
+
+</main>
+
+<footer>Regal Rewards internal training &middot; practice tool, not guest-facing</footer>
+
+<script>
+/* ============================================================
+   DATA — pulled directly from the approved refusal/rebuttal
+   library and locked tier benefits. Nothing invented here.
+   ============================================================ */
+
+const OBJECTIONS = [
+  // --- Rewards: Time & Convenience ---
+  {kw:["time","rush","hurry","late","movie starting"], q:"I don't have time right now, I need to get to my movie.", a:"No worries at all, enjoy your movie!"},
+  {kw:["slow","line","wait"], q:"Is this going to slow down the line?", a:"Not at all — it's quick, and I can get you started in just a minute."},
+  {kw:["later","online","sign up later"], q:"Can I just sign up later, online?", a:"Of course — totally up to you."},
+  {kw:["manage","remember","another thing"], q:"I don't want another thing to manage or remember.", a:"Fair enough — it's free either way, so there's nothing to keep up with if you'd rather not."},
+  // --- Privacy & Trust ---
+  {kw:["email","texts","spam","messages"], q:"I don't want more emails or texts.", a:"Fair enough — the messages are just about deals and perks, and it's really about making sure you don't miss savings, not spam."},
+  {kw:["phone number","give out","personal info"], q:"I don't want to give out my email or phone number.", a:"Totally understand the hesitation — that's just used to send you deals and perks, nothing else."},
+  {kw:["trust","company","information"], q:"I don't trust giving my information to a company.", a:"That's a fair concern — it's just used to let you know about savings and rewards, nothing more."},
+  {kw:["catch","fine print","gotcha"], q:"Is there a catch? What's the fine print?", a:"No catch — it's free to join, no commitment, and you just start earning points on what you're already spending."},
+  {kw:["charged","automatically","auto charge"], q:"I don't want to be charged automatically.", a:"You won't be — joining is free, and there's nothing you're signed up to pay for."},
+  {kw:["bad experience","other program","before"], q:"I've had bad experiences with loyalty programs before.", a:"Sorry to hear that — this one's pretty simple: free to join, no commitment, and the benefits are things like discounts and birthday rewards."},
+  // --- Is it worth it ---
+  {kw:["don't come often","rarely visit","enough for it"], q:"I don't come here often enough for it to be worth it.", a:"That's alright — there's no minimum visits and no commitment, so it's there whenever you do come back."},
+  {kw:["just pay","don't need points"], q:"I'll just pay for my ticket, I don't need points.", a:"Totally your call — it's free either way, so the points are just a bonus if you ever want them."},
+  {kw:["forget to use","waste"], q:"What if I forget to use it — is it a waste?", a:"Not at all — since it's free, there's nothing to lose by having it, even if you don't use it every visit."},
+  {kw:["too many apps","already have","other apps"], q:"I already have too many rewards apps and programs.", a:"I hear that a lot — this one's free with no commitment, so there's no real downside to having it in your back pocket."},
+  {kw:["different theater","other theater program"], q:"I already belong to a different theater's rewards program.", a:"That's great — this one's free to join too, so there's no downside to having both."},
+  // --- One-time visitors ---
+  {kw:["just visiting","won't be back","one time"], q:"I'm just visiting, I won't be back.", a:"No problem — enjoy the movie! It's free if you ever do find yourself back this way."},
+  {kw:["not from around here","traveling","out of town"], q:"I'm not from around here, I won't be back to this theater.", a:"Totally understand — it's free to join, so it's there if your travels ever bring you back."},
+  {kw:["popcorn","concessions only","not seeing a movie"], q:"I'm just here for the popcorn, not seeing a movie.", a:"No worries — the rewards apply to concessions too, but only if you'd like to join."},
+  // --- Family & Group ---
+  {kw:["picking up","for someone else"], q:"I'm just picking up tickets for someone else.", a:"No problem at all — happy to just get you checked out."},
+  {kw:["kids go","not me","my kids"], q:"My kids are the ones who go, not me.", a:"Totally fine — it's free either way, so there's no downside to having it linked to your name for next time."},
+  // --- No Card / No App ---
+  {kw:["card","loyalty card","carry a card"], q:"No thanks, I don't want another loyalty card.", a:"Totally understand — there's no card to carry, actually. It's free to join, and you'll start earning right away."},
+  {kw:["app","download","need an app"], q:"Do I have to download an app?", a:"Not necessarily — I can help you get set up right now, whatever's easiest for you."},
+  // --- Other hesitations ---
+  {kw:["not sure","maybe not"], q:"I'm not sure, maybe not.", a:"No pressure at all — it's free if you ever change your mind."},
+  {kw:["what's this for","what is this"], q:"What's this for again?", a:"It's our rewards program — free to join, and you earn perks like discounts and birthday rewards just for coming to see a movie."},
+  {kw:["think about it","let me think"], q:"Let me think about it.", a:"Of course, take your time — happy to get you checked out for now."},
+  {kw:["scam","real thing"], q:"Is this a scam or something?", a:"Not at all — it's completely legit, free to join, and just a way to earn perks on visits you're already making."},
+  {kw:["tracked","tracking"], q:"I don't like being tracked.", a:"Totally fair — it's not about tracking, it's just used to send you deals and let you earn points on what you're already spending."},
+  {kw:["what's in it for you","why do you want"], q:"What's in it for you? Why do you want me to sign up?", a:"Honestly, it's just something we like being able to offer guests — free either way, no catch."},
+  {kw:["bombarded","too many notifications"], q:"I'm worried I'll get bombarded with notifications.", a:"Totally hear that — it's occasional deals and perks, not constant notifications."},
+  {kw:["just say no","can i say no"], q:"Can I just say no?", a:"Of course — no pressure at all, happy to just get you checked out."},
+  {kw:["why should i care","why care"], q:"Why should I care about this?", a:"Fair question — it's free, and it gets you real perks like discounts and birthday rewards just for coming to see a movie."},
+  {kw:["never signed up","never done this"], q:"I've never signed up for anything like this before.", a:"That's alright — it's simple: free to join, no commitment, and you start earning right away."},
+  {kw:["cost anything at all","cost anything"], q:"Does joining cost anything at all?", a:"Nope — completely free to join, no cost at all."},
+  // --- Rewards+ objections ---
+  {kw:["costs money","subscription","rewards plus cost"], q:"That sounds like it costs money — I don't want a subscription.", a:"It does have a monthly cost. If that works for your budget, it can add up to savings on tickets and concessions over time — but if not, Rewards is free with no commitment at all."},
+  {kw:["monthly payment","commit to monthly"], q:"I don't want to commit to a monthly payment.", a:"Totally understand. You do get to choose the length upfront — 1, 6, or 12 months. If a monthly commitment isn't right for you, free Rewards might be the better starting point."},
+  {kw:["come often enough","make that worth"], q:"I'm not sure I'd come often enough to make that worth it.", a:"That's worth thinking through — Rewards+ tends to make sense if you're visiting fairly regularly. If you're not sure, starting with free Rewards is a safe bet."},
+  {kw:["extra bill","every month"], q:"I don't want an extra bill every month.", a:"That's completely fair — it is a recurring cost. If that's not what you're looking for, Rewards is free and still gets you real perks."},
+  {kw:["spend right now","too expensive"], q:"That's more than I want to spend right now.", a:"No worries at all — this one's only worth it if it fits your budget. Free Rewards is always there whenever you're ready."},
+  {kw:["schedule changes","can't use it"], q:"What if my schedule changes and I can't use it?", a:"Good thing to consider — it works best if your visits stay fairly consistent. If your schedule's unpredictable, free Rewards might be the safer choice for now."},
+  {kw:["pay as i go"], q:"I'd rather just pay as I go.", a:"That's completely fine — Rewards is free and lets you earn as you go with no commitment."},
+  {kw:["price change","go up later"], q:"Does the price change or go up later?", a:"Pricing can vary by location — I can check the exact current rate here for you if you'd like."},
+  {kw:["recurring charge","card"], q:"I don't want another recurring charge on my card.", a:"Understandable — that's a real cost to weigh. If a recurring charge isn't what you want right now, free Rewards is a no-cost way to still get some value."},
+  {kw:["what exactly do i get","what do i get for"], q:"What exactly do I get for the monthly cost?", a:"You'd get a monthly rollover ticket, four discounted tickets a month, 20% off concessions, and waived convenience fees."},
+  {kw:["same as unlimited","difference from unlimited"], q:"Is this the same as Unlimited?", a:"No — Unlimited is our top tier with unlimited tickets. Rewards+ is more for regulars who visit a few times a month."},
+  {kw:["switch tiers","change my mind","downgrade"], q:"Can I switch tiers later if I change my mind?", a:"That's worth asking about for your specific situation — but the free Rewards tier is always there with zero commitment if that feels safer to start with."},
+  {kw:["right away","take time to kick in","kick in"], q:"Do I get anything right away, or does it take time to kick in?", a:"Right away — the monthly rollover ticket and discounts apply as soon as you join."},
+  // --- Unlimited objections ---
+  {kw:["lot to pay","unlimited cost"], q:"That's a lot to pay every month.", a:"It is a bigger monthly cost, and it really only pays off if you're seeing a lot of movies. If that's not your situation right now, Rewards+ or free Rewards might fit better."},
+  {kw:["don't watch that many","justify unlimited"], q:"I don't watch that many movies to justify unlimited.", a:"That's a smart way to think about it — Unlimited makes the most sense for frequent moviegoers. If that's not quite you, Rewards+ or free Rewards could be a better fit."},
+  {kw:["big commitment"], q:"That feels like a big commitment.", a:"It can be — you choose the length upfront, 3, 6, or 12 months, then it moves to month-to-month. If that feels like too much right now, there are lower-commitment options too."},
+  {kw:["can't afford"], q:"I can't really afford that right now.", a:"Totally understand — this one isn't the right fit for everyone. Rewards is free, so that's always an option regardless."},
+  {kw:["don't use it","few weeks"], q:"What happens if I don't use it for a few weeks?", a:"You'd still have the membership during that time, so it works best if your visits stay fairly steady. If that's not the case, a different tier might make more sense."},
+  {kw:["cheaper option"], q:"Is there a cheaper option?", a:"Yes — Rewards+ has a lower monthly cost, and Rewards is free with no commitment at all."},
+  {kw:["locked into a subscription"], q:"I don't want to be locked into a subscription like that.", a:"That's fair — you do choose the length upfront. If a longer commitment isn't for you, Rewards+ or free Rewards might be a better place to start."},
+  {kw:["really unlimited","no catch unlimited","no cap"], q:"Is Unlimited really unlimited, no catch?", a:"Yep — unlimited 2D movie tickets, no cap on visits."},
+  {kw:["only see a couple movies","lighter month"], q:"What if I only see a couple movies this month?", a:"That's worth thinking about — Unlimited pays off best when your visits stay pretty consistent. If this month's lighter, Rewards+ or free Rewards might make more sense."},
+];
+
+const CHIPS = [
+  "I already have too many apps",
+  "Is there a catch?",
+  "That's a lot to pay every month",
+  "Is Unlimited really unlimited?",
+  "I don't trust giving my info",
+  "Do I have to download an app?",
+];
+
+const FALLBACKS = [
+  "I don't have a scripted line for that exact one — try rephrasing, or check the Resource Library tab for the full list.",
+  "Hmm, that one's not in my practice set yet. Try one of the buttons below for a similar example.",
+];
+
+const QUIZ = [
+  {q:"Which tier is completely free to join, with no commitment?", opts:["Rewards","Rewards+","Unlimited","None of them"], correct:0, exp:"Rewards has no cost and no commitment to join — it's the foundation of the program."},
+  {q:"Which tier should team members emphasize as the target tier?", opts:["Rewards","Rewards+","Unlimited","All three equally"], correct:1, exp:"Rewards+ is the target tier. Rewards and Unlimited get equal, neutral treatment — no upsell, no downplay."},
+  {q:"A guest says they see 3–4 movies every month, like clockwork. Which tier genuinely fits best?", opts:["Rewards","Rewards+","Unlimited","Whichever is cheapest"], correct:2, exp:"At that frequency, Unlimited usually pays for itself — the honest answer is to affirm the fit, not default to caution."},
+  {q:"True or False: Rewards+ has zero commitment, just like Rewards.", opts:["True","False"], correct:1, exp:"False — Rewards+ requires choosing a 1-, 6-, or 12-month term upfront before it moves to month-to-month."},
+  {q:"Which benefit is unique to Rewards+ (not listed for Rewards or Unlimited)?", opts:["Birthday rewards","Waived convenience fees","Free to join","Earn points per $1"], correct:1, exp:"Waived convenience fees is a Rewards+-specific benefit."},
+  {q:"A guest on the free tier asks 'do I have to keep paying monthly?' What's the honest answer?", opts:["Yes, a small fee applies","No — Rewards is completely free, always","Only after 3 visits","Only if they use the app"], correct:1, exp:"Rewards is genuinely free forever — no monthly cost, ever."},
+  {q:"A guest says 'that's a lot to pay every month' about Unlimited. What's the right response?", opts:["Deny that it's expensive","Acknowledge the cost, and note it pays off for frequent visitors","Pressure them to sign up anyway","Immediately offer a discount"], correct:1, exp:"Acknowledging the real cost honestly, while noting when it pays off, respects the guest's concern instead of arguing past it."},
+  {q:"Which guest is most likely to ask 'what's cheap here that's actually filling?'", opts:["Special Occasion Visitor","Budget-Conscious Guest","Frequent Moviegoer","Casual Visitor"], correct:1, exp:"That's a classic Budget-Conscious cue — checking prices and asking about cost upfront."},
+  {q:"True or False: if a guest says they don't trust giving out their info, the best move is to brush past the concern.", opts:["True","False"], correct:1, exp:"False — the honest approach is a plain, direct answer about exactly what the info is used for."},
+  {q:"When a guest's own stated frequency genuinely supports Unlimited, what should you do?", opts:["Downplay it and suggest Rewards+ instead","Affirm the fit honestly, since their numbers support it","Avoid recommending anything","Only ever mention Rewards"], correct:1, exp:"If the guest's own numbers support a tier, the honest move is to say so — not hedge toward caution."},
+  {q:"A guest says: \"I don't want another loyalty card.\" What's true about Rewards?", opts:["There's no physical card required","You need a card mailed to you","Cards cost $5","You must show ID to join"], correct:0, exp:"Rewards has no card to carry — there's no physical card at all."},
+  {q:"Which of these is TRUE about the free Rewards tier?", opts:["No cost, no commitment","Requires a 6-month commitment","Costs $5 per month","Only available to regulars"], correct:0, exp:"Rewards is free to join with zero commitment — that's the whole point of the entry tier."},
+  {q:"A guest asks if their info will be shared with a lot of other companies. What's the accurate answer?", opts:["It's just used to send them deals and updates","Yes, it's shared widely","Only shared with select partners","We can't say"], correct:0, exp:"The info is used to send savings and updates — nothing more."},
+  {q:"A guest mentions they're celebrating an anniversary. Which category do they fall into?", opts:["Budget-Conscious Guest","Special Occasion Visitor","Frequent Moviegoer","Casual Visitor"], correct:1, exp:"An anniversary, birthday, or celebration is the classic Special Occasion Visitor cue."},
+  {q:"True or False: Unlimited members get 2x points on extra tickets and concessions.", opts:["True","False"], correct:0, exp:"True — 2x points on extra tickets & concessions is a real Unlimited benefit."},
+  {q:"A guest says they're just picking up tickets for someone else. What's the best move?", opts:["Push them to sign up anyway","Just get them checked out, no pressure","Insist they need an account","Ignore the comment"], correct:1, exp:"No pressure — just check them out. Not every interaction needs a pitch."},
+  {q:"Which tier includes a monthly rollover ticket?", opts:["Rewards","Rewards+","Unlimited","None of them"], correct:1, exp:"The monthly 2D rollover ticket is a Rewards+ benefit."},
+  {q:"A guest is recognized by staff and orders the same thing every visit — what category are they?", opts:["Casual Visitor","Frequent Moviegoer","Budget-Conscious Guest","Special Occasion Visitor"], correct:1, exp:"Being recognized and having a routine order is a classic Frequent Moviegoer cue."},
+  {q:"True or False: A guest can join Rewards without downloading an app.", opts:["True","False"], correct:0, exp:"True — joining doesn't require an app; it's whatever's easiest for the guest."},
+  {q:"A guest asks \"is there a cheaper option than Unlimited?\" What's accurate?", opts:["No, Unlimited is the only option","Yes — Rewards+ costs less, and Rewards is free","Rewards+ costs the same as Unlimited","There are no other tiers"], correct:1, exp:"Rewards+ has a lower monthly cost, and Rewards is free with no commitment at all."},
+  {q:"Which benefit is shared by ALL THREE tiers?", opts:["Waived convenience fees","Birthday rewards","Unlimited tickets","Monthly rollover ticket"], correct:1, exp:"Birthday rewards shows up across Rewards, Rewards+, and Unlimited."},
+  {q:"A guest says they only see a couple movies a year. Which tier fits best?", opts:["Unlimited","Rewards+","Rewards","They shouldn't join at all"], correct:2, exp:"Rewards fits an infrequent guest best — free, no commitment, no pressure to upgrade."},
+  {q:"True or False: Rewards+ members get 20% off concessions.", opts:["True","False"], correct:0, exp:"True — 20% off concessions is a Rewards+ benefit."},
+  {q:"A guest hesitates and says \"let me think about it.\" What's the right response?", opts:["Push harder for a decision","Take their time, no pressure, check them out for now","Tell them it's now or never","Ignore them"], correct:1, exp:"No pressure — let them think, and check them out for now."},
+];
+
+const CATEGORIES = [
+  {title:"Family / Group Visitors", desc:"Buying multiple tickets or a big combo, kids present, comments like \u201cwe're making this a whole outing.\u201d Resonates with: concession discounts and group value.", kw:"family group kids combo"},
+  {title:"Frequent Moviegoer", desc:"Mentions recent visits, recognized by staff, familiar with the counter and menu. Resonates with: fast point accumulation, ongoing discounts.", kw:"frequent regular repeat unlimited"},
+  {title:"Budget-Conscious Guest", desc:"Asks for the cheapest option, checks prices before ordering, asks about cost upfront. Resonates with: a free, no-commitment way to save.", kw:"budget cheap cost price money"},
+  {title:"Special Occasion Visitor", desc:"Mentions a birthday, anniversary, or celebration directly, dressed up, ordering something special. Resonates with: birthday perks, positive impression.", kw:"birthday anniversary celebration occasion"},
+  {title:"Occasional Blockbuster Visitor", desc:"Calls the film a \u201cmust-see,\u201d unfamiliar with the counter, here for a big release. Resonates with: earning something even from one visit.", kw:"blockbuster opening weekend occasional"},
+  {title:"Casual / Convenience Visitor", desc:"Comments like \u201cwe were in the area,\u201d little knowledge of what's playing, low-key energy. Resonates with: low-effort value, no commitment.", kw:"casual convenience low key spontaneous"},
+];
+
+const TIER_FACTS = [
+  {title:"Rewards — Overview", desc:"Free to join, no commitment. 100 points/$1, birthday rewards, 25% off Candy Monday, 50% off Popcorn Tuesday.", kw:"rewards free tier overview"},
+  {title:"Rewards+ — Overview", desc:"Our target tier. Monthly rollover ticket, 4 discounted tickets/month, 20% off concessions, waived convenience fees. 1/6/12-month terms.", kw:"rewards+ target overview"},
+  {title:"Unlimited — Overview", desc:"Unlimited 2D tickets, 200 points/$1, 10% off concessions, 2x points on extras. 3/6/12-month terms.", kw:"unlimited overview"},
+];
+
+/* ============================================================
+   CHAT MATCHING
+   ============================================================ */
+const chatWindow = document.getElementById('chatWindow');
+const chipRow = document.getElementById('chipRow');
+const chatInput = document.getElementById('chatInput');
+
+CHIPS.forEach(c=>{
+  const btn = document.createElement('button');
+  btn.className = 'chip';
+  btn.textContent = c;
+  btn.onclick = ()=>{ chatInput.value = c; sendMessage(); };
+  chipRow.appendChild(btn);
+});
+
+function scoreMatch(input, entry){
+  const normalize = s => s.toLowerCase().replace(/'s\b/g, '');
+  const inputWords = new Set((normalize(input).match(/[a-z']+/g) || []));
+  let score = 0;
+  entry.kw.forEach(k=>{
+    const words = normalize(k).split(/\s+/).filter(Boolean);
+    const allPresent = words.every(w => inputWords.has(w));
+    if(allPresent) score += words.length; // longer, more specific phrases outweigh generic short ones
+  });
+  return score;
+}
+
+function findBestMatch(input){
+  let best = null, bestScore = 0;
+  OBJECTIONS.forEach(entry=>{
+    const s = scoreMatch(input, entry);
+    if(s > bestScore){ bestScore = s; best = entry; }
+  });
+  return bestScore > 0 ? best : null;
+}
+
+function addMsg(text, who){
+  const div = document.createElement('div');
+  div.className = 'msg ' + (who==='you' ? 'you' : 'guest');
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.textContent = who==='you' ? 'You' : 'Guest';
+  div.appendChild(tag);
+  div.appendChild(document.createTextNode(text));
+  chatWindow.appendChild(div);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+function sendMessage(){
+  const val = chatInput.value.trim();
+  if(!val) return;
+  addMsg(val, 'guest');
+  const match = findBestMatch(val);
+  setTimeout(()=>{
+    if(match){
+      addMsg(match.a, 'you');
+    } else {
+      addMsg(FALLBACKS[Math.floor(Math.random()*FALLBACKS.length)], 'you');
+    }
+  }, 300);
+  chatInput.value = '';
+}
+document.getElementById('sendBtn').onclick = sendMessage;
+chatInput.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
+
+/* ============================================================
+   QUIZ — streak gated
+   ============================================================ */
+let quizIdx = 0, streak = 0, needed = 4;
+const quizBody = document.getElementById('quizBody');
+const quizProgress = document.getElementById('quizProgress');
+
+function shuffledQuizOrder(avoidFirst){
+  const arr = [...QUIZ.keys()];
+  for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+  // avoid the same question landing twice in a row across a reshuffle boundary
+  if(avoidFirst !== undefined && arr[0] === avoidFirst && arr.length > 1){
+    [arr[0], arr[1]] = [arr[1], arr[0]];
+  }
+  return arr;
+}
+let order = shuffledQuizOrder();
+let orderPos = 0;
+
+function renderQuiz(){
+  quizProgress.style.width = Math.min(100, (streak/needed)*100) + '%';
+  if(streak >= needed){
+    quizBody.innerHTML = '<div class="quiz-complete"><div class="display">STREAK COMPLETE 🎬</div><p style="color:var(--muted)">'+needed+' correct in a row — you know your tiers.</p><button class="ghost" id="restartQuiz">Try again</button></div>';
+    document.getElementById('restartQuiz').onclick = ()=>{
+      const lastSeen = order[orderPos-1];
+      streak=0; order=shuffledQuizOrder(lastSeen); orderPos=0; renderQuiz();
+    };
+    return;
+  }
+  if(orderPos >= order.length){
+    const lastSeen = order[order.length-1];
+    order = shuffledQuizOrder(lastSeen);
+    orderPos = 0;
+  }
+  const item = QUIZ[order[orderPos]];
+  quizBody.innerHTML = '';
+
+  const streakNote = document.createElement('div');
+  streakNote.className = 'streak-note';
+  streakNote.innerHTML = 'Current streak: <strong>' + streak + ' / ' + needed + '</strong>';
+  quizBody.appendChild(streakNote);
+
+  const qEl = document.createElement('div');
+  qEl.className = 'quiz-q';
+  qEl.textContent = item.q;
+  quizBody.appendChild(qEl);
+
+  const optsEl = document.createElement('div');
+  optsEl.className = 'quiz-opts';
+  item.opts.forEach((opt, i)=>{
+    const b = document.createElement('button');
+    b.className = 'quiz-opt';
+    b.textContent = opt;
+    b.onclick = ()=> answerQuiz(i, item, optsEl);
+    optsEl.appendChild(b);
+  });
+  quizBody.appendChild(optsEl);
+
+  const explainEl = document.createElement('div');
+  explainEl.className = 'quiz-explain';
+  explainEl.id = 'quizExplain';
+  quizBody.appendChild(explainEl);
+}
+
+function answerQuiz(i, item, optsEl){
+  [...optsEl.children].forEach((b,idx)=>{
+    b.disabled = true;
+    if(idx === item.correct) b.classList.add('correct');
+    else if(idx === i) b.classList.add('incorrect');
+  });
+  const correct = i === item.correct;
+  streak = correct ? streak + 1 : 0;
+  const explainEl = document.getElementById('quizExplain');
+  explainEl.textContent = (correct ? 'Correct — ' : 'Not quite — ') + item.exp;
+  explainEl.classList.add('show');
+
+  const nextBtn = document.createElement('button');
+  nextBtn.className = 'primary';
+  nextBtn.style.marginTop = '14px';
+  nextBtn.textContent = 'Next question';
+  nextBtn.onclick = ()=>{ orderPos++; renderQuiz(); };
+  quizBody.appendChild(nextBtn);
+
+  quizProgress.style.width = Math.min(100, (streak/needed)*100) + '%';
+}
+renderQuiz();
+
+/* ============================================================
+   RESOURCE LIBRARY — live filter
+   ============================================================ */
+const libraryResults = document.getElementById('libraryResults');
+const librarySearch = document.getElementById('librarySearch');
+
+function renderLibrary(filter){
+  const f = (filter||'').toLowerCase().trim();
+  libraryResults.innerHTML = '';
+  const groups = [
+    {label:'Guest Categories', items: CATEGORIES},
+    {label:'Tier Quick Facts', items: TIER_FACTS},
+  ];
+  let anyShown = false;
+  groups.forEach(group=>{
+    const matches = group.items.filter(item=>{
+      if(!f) return true;
+      return (item.title+' '+item.desc+' '+item.kw).toLowerCase().includes(f);
+    });
+    if(matches.length === 0) return;
+    anyShown = true;
+    const h = document.createElement('div');
+    h.className = 'group-heading display';
+    h.textContent = group.label;
+    libraryResults.appendChild(h);
+    const grid = document.createElement('div');
+    grid.className = 'card-grid';
+    matches.forEach(item=>{
+      const card = document.createElement('div');
+      card.className = 'res-card';
+      card.innerHTML = '<h3>'+item.title+'</h3><p>'+item.desc+'</p>';
+      grid.appendChild(card);
+    });
+    libraryResults.appendChild(grid);
+  });
+  if(!anyShown){
+    libraryResults.innerHTML = '<div class="no-results">No matches — try a different word.</div>';
+  }
+}
+librarySearch.addEventListener('input', ()=> renderLibrary(librarySearch.value));
+renderLibrary('');
+
+/* ============================================================
+   CHECKLIST — toggle only, no persistence
+   ============================================================ */
+const CHECK_ITEMS = [
+  "Know the three tiers by name: Rewards, Rewards+, Unlimited",
+  "Remember: Rewards+ is our target tier",
+  "Have 2–3 rebuttals ready for cost objections",
+  "Know today's guest mix — busy with families? regulars?",
+  "Rewards = free, no commitment, always the safe fallback",
+];
+const checklistEl = document.getElementById('checklist');
+CHECK_ITEMS.forEach(text=>{
+  const row = document.createElement('div');
+  row.className = 'check-row';
+  row.innerHTML = '<div class="box"></div><span class="label">'+text+'</span>';
+  row.onclick = ()=> row.classList.toggle('done');
+  checklistEl.appendChild(row);
+});
+
+/* ============================================================
+   TABS + PRINT
+   ============================================================ */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+  });
+});
+document.getElementById('printBtn').onclick = ()=> window.print();
+</script>
+</body>
+</html>

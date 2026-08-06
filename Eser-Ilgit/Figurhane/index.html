@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figürhane — Figüratif Dil Derlem Stüdyosu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink-bg:#1C1B19;
+    --panel:#242220;
+    --panel-2:#2C2A25;
+    --panel-3:#332F28;
+    --border:#3D3A31;
+    --parchment:#EDE6D6;
+    --muted:#9C9484;
+    --muted-2:#726B5D;
+    --gold:#C9A227;
+    --gold-dim:#8A7222;
+
+    --c-m:#D4A017;   /* metafor */
+    --c-l:#6B9E5C;   /* duz anlam */
+    --c-a:#C0392B;   /* anomali */
+    --c-t:#5B9BD5;   /* hedef/kaynak */
+    --c-deyim:#3FA796;
+    --c-metonimi:#8B7EC8;
+    --c-benzetme:#C2597A;
+    --c-serbest:#8A8578;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink-bg);
+    color:var(--parchment);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:14px;
+    line-height:1.5;
+  }
+  #app{display:flex; min-height:100vh;}
+  ::selection{background:var(--gold-dim); color:#fff;}
+
+  h1,h2,h3,.serif{font-family:'Fraunces', serif;}
+  .mono{font-family:'IBM Plex Mono', monospace;}
+
+  /* ---------- sidebar ---------- */
+  #sidebar{
+    width:230px; flex-shrink:0; background:var(--panel);
+    border-right:1px solid var(--border);
+    display:flex; flex-direction:column;
+    padding:20px 14px;
+  }
+  .brand{padding:0 6px 18px 6px; border-bottom:1px solid var(--border); margin-bottom:16px;}
+  .brand-mark{font-size:22px; font-weight:700; letter-spacing:0.3px; color:var(--parchment);}
+  .brand-sub{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:1.2px; margin-top:4px;}
+
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius:6px; cursor:pointer;
+    color:var(--muted); font-size:13px; font-weight:500;
+    margin-bottom:2px; border:1px solid transparent;
+  }
+  .nav-item:hover{background:var(--panel-2); color:var(--parchment);}
+  .nav-item.active{background:var(--panel-3); color:var(--gold); border-color:var(--border);}
+  .nav-icon{width:16px; text-align:center; opacity:0.9;}
+
+  .sidebar-section-label{
+    font-size:10px; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted-2);
+    margin:18px 6px 8px 6px;
+  }
+
+  .dataset-pick{
+    padding:8px 10px; border-radius:6px; cursor:pointer; margin-bottom:3px;
+    font-size:12.5px; color:var(--muted); border:1px solid transparent;
+    display:flex; justify-content:space-between; gap:6px;
+  }
+  .dataset-pick:hover{background:var(--panel-2);}
+  .dataset-pick.active{background:var(--panel-3); color:var(--parchment); border-color:var(--border);}
+  .dataset-pick .n{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .dataset-pick .cnt{color:var(--muted-2); font-family:'IBM Plex Mono',monospace; font-size:11px; flex-shrink:0;}
+
+  .sidebar-foot{margin-top:auto; padding-top:14px; border-top:1px solid var(--border);}
+  .ghost-btn{
+    width:100%; background:transparent; border:1px dashed var(--border); color:var(--muted);
+    padding:8px 10px; border-radius:6px; font-size:12px; cursor:pointer; font-family:inherit;
+  }
+  .ghost-btn:hover{color:var(--parchment); border-color:var(--muted-2);}
+
+  /* ---------- main ---------- */
+  #main{flex:1; padding:26px 34px; max-width:1180px;}
+  .page-head{display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px; gap:20px;}
+  .page-title{font-size:24px; font-weight:600; margin:0;}
+  .page-desc{color:var(--muted); font-size:13px; margin-top:4px; max-width:640px;}
+
+  .btn{
+    background:var(--gold); color:#1C1B19; border:none; padding:9px 16px; border-radius:6px;
+    font-weight:600; font-size:12.5px; cursor:pointer; font-family:'IBM Plex Sans',sans-serif;
+    letter-spacing:0.2px;
+  }
+  .btn:hover{background:#DDB43A;}
+  .btn.secondary{background:transparent; color:var(--parchment); border:1px solid var(--border);}
+  .btn.secondary:hover{border-color:var(--muted-2);}
+  .btn.danger{background:transparent; color:#E27C6E; border:1px solid #5b2f29;}
+  .btn.danger:hover{background:#3a201d;}
+  .btn:disabled{opacity:0.35; cursor:not-allowed;}
+  .btn.sm{padding:5px 10px; font-size:11.5px;}
+
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px;}
+  .empty{
+    border:1px dashed var(--border); border-radius:10px; padding:44px 20px; text-align:center; color:var(--muted);
+  }
+  .empty .serif{font-size:17px; color:var(--parchment); margin-bottom:8px; display:block;}
+
+  label.field-label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); margin-bottom:5px; margin-top:14px;}
+  input[type=text], input[type=email], input[type=number], textarea, select{
+    width:100%; background:var(--ink-bg); border:1px solid var(--border); color:var(--parchment);
+    padding:9px 10px; border-radius:6px; font-family:'IBM Plex Sans',sans-serif; font-size:13px;
+  }
+  textarea{font-family:'IBM Plex Mono',monospace; font-size:12.5px; resize:vertical;}
+  input:focus, textarea:focus, select:focus{outline:none; border-color:var(--gold-dim);}
+  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 16px;}
+  .req::after{content:" *"; color:var(--c-a);}
+
+  .toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
+    background:var(--panel-3); border:1px solid var(--gold-dim); color:var(--parchment);
+    padding:10px 18px; border-radius:8px; font-size:12.5px; z-index:999; box-shadow:0 6px 24px rgba(0,0,0,0.4);
+  }
+
+  /* dataset cards grid */
+  .ds-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; margin-top:18px;}
+  .ds-card{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; cursor:pointer;}
+  .ds-card:hover{border-color:var(--gold-dim);}
+  .ds-card h3{margin:0 0 6px 0; font-size:15px; font-weight:600;}
+  .ds-meta{font-size:11.5px; color:var(--muted); margin-bottom:10px;}
+  .ds-stat-row{display:flex; gap:14px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted-2); border-top:1px solid var(--border); padding-top:10px; margin-top:10px;}
+  .ds-stat-row b{color:var(--parchment); font-weight:600;}
+
+  /* index card for instances */
+  .idx-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px 18px; margin-bottom:14px;
+    position:relative;
+  }
+  .idx-card::before{
+    content:''; position:absolute; left:0; top:14px; bottom:14px; width:3px; background:var(--gold-dim); border-radius:2px;
+  }
+  .idx-tab{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--muted-2); margin-bottom:8px; display:flex; gap:10px; align-items:center;}
+  .idx-tab .num{color:var(--gold); font-weight:600;}
+
+  .tok-stream{font-size:16px; line-height:2.15; font-family:'IBM Plex Sans',sans-serif; padding:6px 2px;}
+  .tok{cursor:pointer; padding:1px 1px; border-radius:3px; transition:background 0.1s;}
+  .tok:hover{background:rgba(201,162,39,0.18);}
+  .tok.sel{background:rgba(201,162,39,0.35); box-shadow:0 0 0 1px var(--gold);}
+  .tok.punct{cursor:default;}
+  .tok.ai-pending{outline:1.5px dashed; outline-offset:2px;}
+
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
+  .chip{
+    display:flex; align-items:center; gap:7px; font-family:'IBM Plex Mono',monospace; font-size:11px;
+    padding:4px 8px 4px 10px; border-radius:20px; border:1px solid var(--border); background:var(--panel-2);
+  }
+  .chip .dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .chip .x{cursor:pointer; color:var(--muted); font-weight:700; padding:0 2px;}
+  .chip .x:hover{color:var(--c-a);}
+  .chip.pending{border-style:dashed; background:var(--panel-3);}
+  .chip .ai-badge{
+    font-family:'IBM Plex Sans',sans-serif; font-size:9px; font-weight:700; letter-spacing:0.4px;
+    background:var(--gold-dim); color:var(--ink-bg); padding:1px 5px; border-radius:8px;
+  }
+  .chip .ai-badge.dict{ background:var(--c-t); }
+  .chip .accept{cursor:pointer; color:var(--c-l); font-weight:700; padding:0 2px;}
+  .chip .accept:hover{color:#8bc97a;}
+  .chip .reject{cursor:pointer; color:var(--muted); font-weight:700; padding:0 2px;}
+  .chip .reject:hover{color:var(--c-a);}
+
+  .spinner{
+    display:inline-block; width:11px; height:11px; border-radius:50%;
+    border:2px solid var(--muted-2); border-top-color:var(--gold); animation:spin 0.7s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .toolbar{
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:16px; padding-top:14px; border-top:1px solid var(--border);
+  }
+  .tagbtn{
+    display:flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--border); color:var(--parchment);
+    padding:6px 11px; border-radius:6px; font-size:12px; cursor:pointer; font-family:'IBM Plex Sans',sans-serif;
+  }
+  .tagbtn:hover{border-color:var(--muted-2);}
+  .tagbtn .dot{width:9px; height:9px; border-radius:50%;}
+  .tagbtn:disabled{opacity:0.3; cursor:not-allowed;}
+  .free-label-input{width:120px; padding:6px 8px; font-size:12px;}
+
+  .instance-fields{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:10px;}
+  .instance-fields input{font-size:12px; padding:6px 8px;}
+  .instance-fields label{font-size:10px; color:var(--muted-2); text-transform:uppercase; letter-spacing:0.6px; display:block; margin-bottom:3px;}
+
+  .confirm-row{display:flex; gap:8px; align-items:center; font-size:12px; color:var(--muted);}
+
+  table.stats-tbl{width:100%; border-collapse:collapse; margin-top:10px;}
+  table.stats-tbl td, table.stats-tbl th{padding:8px 6px; border-bottom:1px solid var(--border); font-size:12.5px; text-align:left;}
+  table.stats-tbl th{color:var(--muted); font-weight:500; text-transform:uppercase; font-size:10.5px; letter-spacing:0.6px;}
+  .bar-wrap{background:var(--panel-2); border-radius:4px; height:8px; overflow:hidden; width:100%;}
+  .bar-fill{height:100%; border-radius:4px;}
+  .stat-cards{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:22px;}
+  .stat-card{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px;}
+  .stat-card .v{font-family:'Fraunces',serif; font-size:26px; font-weight:600; color:var(--gold);}
+  .stat-card .l{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; margin-top:2px;}
+
+  .legend{display:flex; flex-wrap:wrap; gap:12px; margin:14px 0 4px 0;}
+  .legend-item{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--muted);}
+  .legend-item .dot{width:9px; height:9px; border-radius:50%;}
+
+  .modal-bg{position:fixed; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:200;}
+  .modal{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:24px; width:560px; max-height:85vh; overflow:auto;}
+  .modal h2{margin-top:0;}
+  .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border);}
+
+  .export-block{margin-bottom:22px; padding-bottom:22px; border-bottom:1px solid var(--border);}
+  .export-block:last-child{border-bottom:none;}
+  pre.code-preview{
+    background:var(--ink-bg); border:1px solid var(--border); border-radius:8px; padding:12px;
+    font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); max-height:200px; overflow:auto; white-space:pre-wrap; word-break:break-word;
+  }
+  .roadmap-note{
+    background:var(--panel-2); border:1px solid var(--border); border-left:3px solid var(--gold-dim); border-radius:6px;
+    padding:12px 14px; font-size:12px; color:var(--muted); margin-top:18px;
+  }
+  .ai-bar{
+    display:flex; align-items:center; gap:12px; background:var(--panel-2); border:1px solid var(--border);
+    border-radius:8px; padding:10px 14px; margin-bottom:16px;
+  }
+  .ai-bar .lbl{font-size:12px; color:var(--muted); flex:1;}
+  .ai-progress-track{background:var(--panel-3); border-radius:4px; height:6px; width:140px; overflow:hidden;}
+  .ai-progress-fill{height:100%; background:var(--gold); border-radius:4px; transition:width 0.2s;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ===================== STATE ===================== */
+let state = { datasets: [], currentDatasetId: null, currentTab: 'datasets', currentInstanceId: null };
+let selection = { start: null, end: null };
+let toast = null;
+let confirmDelete = null; // {type:'dataset'|'instance', id}
+let modal = null; // 'new-dataset' | 'edit-dataset'
+let freeLabelDraft = 'deyim';
+let storageReady = false;
+let aiLoadingIds = new Set();
+let batchProgress = null; // {done, total}
+
+const AI_TYPE_TO_KEY = { metafor:'m', deyim:'deyim', metonimi:'metonimi', benzetme:'benzetme' };
+
+const TAG_DEFS = {
+  m:        { label:'Metafor',        color:'var(--c-m)',        csv:'m' },
+  l:        { label:'Düz Anlam',      color:'var(--c-l)',        csv:'l' },
+  a:        { label:'Anomali',        color:'var(--c-a)',        csv:'a' },
+  t:        { label:'Hedef/Kaynak',   color:'var(--c-t)',        csv:'t' },
+  deyim:    { label:'Deyim',          color:'var(--c-deyim)',    csv:'u', free:'deyim' },
+  metonimi: { label:'Metonimi',       color:'var(--c-metonimi)', csv:'u', free:'metonimi' },
+  benzetme: { label:'Benzetme',       color:'var(--c-benzetme)', csv:'u', free:'benzetme' },
+  serbest:  { label:'Serbest',        color:'var(--c-serbest)',  csv:'u', free:null }
+};
+
+const PUNCT_RE = /^[.,!?;:'"”’()\[\]{}…—\-]+$/u;
+const NO_SPACE_BEFORE_RE = /^[,.!?;:'"”’)\]\}…]+$/u;
+const NO_SPACE_AFTER_RE = /^[([{"“‘]+$/u;
+function needsSpaceBefore(tokens, idx){
+  if(idx===0) return false;
+  const cur = tokens[idx], prev = tokens[idx-1];
+  if(NO_SPACE_BEFORE_RE.test(cur)) return false;
+  if(NO_SPACE_AFTER_RE.test(prev)) return false;
+  return true;
+}
+
+/* ===================== STORAGE ===================== */
+async function loadState(){
+  try{
+    const r = await window.storage.get('figurhane-state');
+    if(r && r.value){ state = JSON.parse(r.value); }
+  }catch(e){ /* first run, no data yet */ }
+  (state.datasets||[]).forEach(ds=>{
+    if(!ds.aiStats) ds.aiStats = { suggested:0, accepted:0, rejected:0, dictSuggested:0 };
+    if(ds.aiStats.dictSuggested===undefined) ds.aiStats.dictSuggested = 0;
+    (ds.instances||[]).forEach(inst=>{
+      (inst.tags||[]).forEach(t=>{
+        if(!t.source) t.source = 'human';
+        if(!t.status) t.status = 'confirmed';
+      });
+    });
+  });
+  storageReady = true;
+  render();
+}
+let saveTimer = null;
+function persist(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    try{ await window.storage.set('figurhane-state', JSON.stringify(state), false); }
+    catch(e){ showToast('Kaydetme hatası: veriler tarayıcıda tutuluyor ama depoya yazılamadı.'); }
+  }, 250);
+}
+
+function showToast(msg){
+  toast = msg;
+  render();
+  setTimeout(()=>{ toast = null; render(); }, 2600);
+}
+
+/* ===================== HELPERS ===================== */
+function uid(){ return crypto.randomUUID ? crypto.randomUUID() : 'id-'+Math.random().toString(36).slice(2); }
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function tokenize(text){
+  text = (text||'').normalize('NFC');
+  const re = /[A-Za-zÇĞİIıÖŞÜçğıiöşüÂÎÛâîû0-9]+(?:['’][A-Za-zÇĞİIıÖŞÜçğıiöşüÂÎÛâîû0-9]+)?|[^\sA-Za-zÇĞİIıÖŞÜçğıiöşüÂÎÛâîû0-9]/gu;
+  return (text.match(re) || []);
+}
+function currentDataset(){ return state.datasets.find(d=>d.id===state.currentDatasetId) || null; }
+function currentInstance(){ const ds = currentDataset(); if(!ds) return null; return ds.instances.find(i=>i.id===state.currentInstanceId) || null; }
+
+function newDatasetObj(fields){
+  return Object.assign({
+    id: uid(), name:'', author:'', email:'', license:'', languages:'tr',
+    paperTitle:'', paperAuthors:'', year:'', reference:'', source:'', genre:'',
+    targetPos:'', sourcePos:'', annotNum:'', annotProfile:'', iaa:'', comments:'',
+    createdAt: Date.now(), instances: [], aiStats: { suggested:0, accepted:0, rejected:0, dictSuggested:0 }
+  }, fields);
+}
+
+/* ===================== ACTIONS: datasets ===================== */
+function openNewDatasetModal(){ modal = { type:'new-dataset', draft: newDatasetObj({}) }; render(); }
+function openEditDatasetModal(id){
+  const ds = state.datasets.find(d=>d.id===id);
+  modal = { type:'edit-dataset', draft: JSON.parse(JSON.stringify(ds)) };
+  render();
+}
+function closeModal(){ modal=null; render(); }
+function updateModalField(key, val){ if(modal){ modal.draft[key] = val; } }
+function saveModalDataset(){
+  const d = modal.draft;
+  if(!d.name || !d.name.trim()){ showToast('Veri seti adı zorunludur.'); return; }
+  if(modal.type==='new-dataset'){
+    state.datasets.push(d);
+    state.currentDatasetId = d.id;
+  } else {
+    const idx = state.datasets.findIndex(x=>x.id===d.id);
+    state.datasets[idx] = Object.assign(state.datasets[idx], d);
+  }
+  persist();
+  modal = null;
+  showToast('Veri seti kaydedildi.');
+  render();
+}
+function selectDataset(id){ state.currentDatasetId = id; state.currentInstanceId = null; state.currentTab='annotate'; render(); }
+function askDeleteDataset(id){ confirmDelete = {type:'dataset', id}; render(); }
+function doDeleteDataset(id){
+  state.datasets = state.datasets.filter(d=>d.id!==id);
+  if(state.currentDatasetId===id) state.currentDatasetId = state.datasets[0]?.id || null;
+  confirmDelete = null; persist(); render();
+}
+
+/* ===================== ACTIONS: instances ===================== */
+function addInstancesFromText(raw, splitLines){
+  const ds = currentDataset();
+  if(!ds) return;
+  let lines = splitLines ? raw.split('\n').map(s=>s.trim()).filter(Boolean) : [raw.trim()];
+  lines = lines.map(l=>l.normalize('NFC'));
+  lines.forEach(line=>{
+    ds.instances.push({
+      id: uid(), text: line, tokens: tokenize(line), tags: [],
+      sentIndex: ds.instances.length + 1, reference:'', pos:'', longContext:'', notes:''
+    });
+  });
+  persist(); render();
+}
+function selectInstance(id){ state.currentInstanceId = id; selection = {start:null,end:null}; render(); }
+function askDeleteInstance(id){ confirmDelete = {type:'instance', id}; render(); }
+function doDeleteInstance(id){
+  const ds = currentDataset();
+  ds.instances = ds.instances.filter(i=>i.id!==id);
+  if(state.currentInstanceId===id) state.currentInstanceId=null;
+  confirmDelete=null; persist(); render();
+}
+function updateInstanceField(id, key, val){
+  const ds = currentDataset(); const inst = ds.instances.find(i=>i.id===id);
+  inst[key] = val; persist();
+}
+
+/* ===================== ACTIONS: tagging ===================== */
+function onTokenClick(idx){
+  const inst = currentInstance(); if(!inst) return;
+  const tok = inst.tokens[idx];
+  if(PUNCT_RE.test(tok)){ /* still selectable, punctuation can be part of anomalous spans rarely; allow */ }
+  if(selection.start===null){
+    selection = {start:idx, end:idx};
+  } else if(selection.start!==null && selection.end!==null && selection.start===selection.end && selection.start===idx){
+    selection = {start:null, end:null}; // toggle off
+  } else {
+    selection.end = idx;
+    if(selection.end < selection.start){ const t=selection.start; selection.start=selection.end; selection.end=t; }
+  }
+  render();
+}
+function clearSelection(){ selection = {start:null,end:null}; render(); }
+function applyTag(key){
+  if(selection.start===null){ showToast('Önce metin üzerinde bir aralık seçin.'); return; }
+  const inst = currentInstance(); if(!inst) return;
+  const def = TAG_DEFS[key];
+  const tag = { id: uid(), start: selection.start, end: selection.end, typeKey: key, source:'human', status:'confirmed' };
+  if(def.free===null){ tag.freeLabel = (freeLabelDraft||'diğer').trim() || 'diğer'; }
+  inst.tags.push(tag);
+  selection = {start:null,end:null};
+  persist(); render();
+}
+function removeTag(instId, tagId){
+  const ds = currentDataset(); const inst = ds.instances.find(i=>i.id===instId);
+  inst.tags = inst.tags.filter(t=>t.id!==tagId);
+  persist(); render();
+}
+
+/* ===================== BİLİNEN İFADELER SÖZLÜĞÜ ===================== */
+// Derlemde daha önce onaylanmış etiketlerden bir "bilinen ifadeler" sözlüğü çıkarır.
+// Böylece aynı ifade (ya da farklı bir çekim eki almış hâli) başka bir örnekte
+// tekrar geçtiğinde hem yerel eşleştirmeyle hem de AI'ya bağlam vererek yakalanabilir.
+function buildKnownExpressionsDictionary(ds, excludeInstanceId){
+  const seen = new Set();
+  const dict = [];
+  ds.instances.forEach(inst=>{
+    if(inst.id===excludeInstanceId) return;
+    inst.tags.filter(t=>t.status!=='pending').forEach(t=>{
+      const def = TAG_DEFS[t.typeKey];
+      if(t.typeKey==='t' || t.typeKey==='l' || t.typeKey==='a') return; // hedef/düz anlam/anomali sözlüğe girmesin, sadece figüratif türler
+      const text = inst.tokens.slice(t.start, t.end+1).join(' ');
+      const label = def.free===null ? (t.freeLabel||'diğer') : def.label.toLowerCase();
+      const key = t.typeKey+'::'+text.toLowerCase();
+      if(seen.has(key)) return;
+      seen.add(key);
+      dict.push({ text, typeKey: t.typeKey, freeLabel: t.freeLabel, label });
+    });
+  });
+  return dict.slice(-60); // en fazla en güncel 60 kayıt (prompt boyutu için)
+}
+// Türkçe eklemeli yapı için kaba bir "kök" karşılaştırması: sözcüklerin baş kısmını
+// karşılaştırır (tam bir morfolojik analiz değildir, ama farklı çekim ekleriyle
+// gelen aynı kökü büyük ölçüde yakalar; kısa sözcüklerde tam eşleşme arar).
+function stemPrefix(word, len){
+  const w = (word||'').toLowerCase();
+  return w.slice(0, Math.min(len, w.length));
+}
+function tokensStemMatch(a, b){
+  const la = (a||'').toLowerCase(), lb = (b||'').toLowerCase();
+  if(la===lb) return true;
+  const minLen = Math.min(la.length, lb.length);
+  if(minLen<=3) return false; // çok kısa sözcüklerde yalnızca tam eşleşme kabul edilir
+  const cut = Math.min(minLen, Math.max(4, minLen-3));
+  return stemPrefix(la,cut)===stemPrefix(lb,cut);
+}
+function dictionaryMatchInstance(inst, dict){
+  const found = [];
+  dict.forEach(entry=>{
+    const entryToks = tokenize(entry.text);
+    if(entryToks.length===0) return;
+    for(let i=0; i<=inst.tokens.length-entryToks.length; i++){
+      let ok = true;
+      for(let j=0;j<entryToks.length;j++){ if(!tokensStemMatch(inst.tokens[i+j], entryToks[j])){ ok=false; break; } }
+      if(ok){
+        found.push({ start:i, end:i+entryToks.length-1, typeKey:entry.typeKey, freeLabel:entry.freeLabel });
+        break; // bu sözlük kaydı için ilk eşleşme yeterli
+      }
+    }
+  });
+  return found;
+}
+
+/* ===================== AI ETİKETLEME ===================== */
+function buildAiPrompt(sentence, dict){
+  let known = '';
+  if(dict && dict.length>0){
+    const list = dict.slice(-25).map(d=>`- "${d.text}" (${d.label})`).join('\n');
+    known = `\nBu derlemde daha önce insan tarafından şu ifadeler etiketlenmişti (tutarlılık için referans al; cümlede birebir aynı yazılmasa bile aynı kökten türeyen ya da farklı bir çekim eki almış hâllerini de tanı):\n${list}\n`;
+  }
+  return `Aşağıdaki Türkçe cümlede figüratif dil ifadelerini tespit et: metafor, deyim, metonimi, benzetme.
+${known}
+Sadece geçerli bir JSON dizisi döndür, başka hiçbir metin, açıklama ya da markdown kod bloğu ekleme.
+Her öğe şu alanları içersin:
+- "expression": cümledeki ifadeyi harfiyen (cümlede geçtiği şekliyle) ver
+- "type": "metafor" | "deyim" | "metonimi" | "benzetme"
+- "target": (yalnızca metafor/benzetme için, varsa) ifadenin işaret ettiği kavram ya da anlam, kısa bir öbek
+- "confidence": "yüksek" | "orta" | "düşük"
+Figüratif ifade yoksa boş dizi [] döndür. Fazla yorumlama yapma, sadece açık figüratif kullanımları işaretle.
+
+Cümle: "${sentence}"`;
+}
+async function callClaudeJson(promptText){
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: promptText }]
+    })
+  });
+  if(!response.ok) throw new Error('API isteği başarısız (' + response.status + ')');
+  const data = await response.json();
+  const textBlocks = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+  const cleaned = textBlocks.replace(/```json/g,'').replace(/```/g,'').trim();
+  let parsed;
+  try{ parsed = JSON.parse(cleaned); }
+  catch(e){ throw new Error('Model çıktısı JSON olarak ayrıştırılamadı.'); }
+  if(!Array.isArray(parsed)) throw new Error('Beklenmeyen model çıktı biçimi.');
+  return parsed;
+}
+function matchExpressionToTokens(tokens, expression){
+  if(!expression) return null;
+  const exprToks = tokenize(expression).map(t=>t.toLowerCase());
+  if(exprToks.length===0) return null;
+  const lowerToks = tokens.map(t=>t.toLowerCase());
+  for(let i=0; i<=lowerToks.length-exprToks.length; i++){
+    let match = true;
+    for(let j=0;j<exprToks.length;j++){ if(lowerToks[i+j]!==exprToks[j]){ match=false; break; } }
+    if(match) return { start:i, end:i+exprToks.length-1 };
+  }
+  return null;
+}
+function suggestionsOverlap(inst, start, end){
+  return inst.tags.some(t=> !(end<t.start || start>t.end));
+}
+async function aiSuggestForInstance(instId, opts){
+  opts = opts || {};
+  const ds = currentDataset(); if(!ds) return 0;
+  const inst = ds.instances.find(i=>i.id===instId); if(!inst) return 0;
+  aiLoadingIds.add(instId); render();
+  let added = 0, dictAdded = 0;
+  const dict = buildKnownExpressionsDictionary(ds, null);
+
+  // 1) Önce yerel sözlük eşleştirmesi (ücretsiz, anında) — derlemde daha önce
+  //    onaylanmış ifadelerin bu cümlede tekrar geçip geçmediğini kontrol eder.
+  dictionaryMatchInstance(inst, dict).forEach(m=>{
+    if(suggestionsOverlap(inst, m.start, m.end)) return;
+    const def = TAG_DEFS[m.typeKey];
+    const tag = { id: uid(), start:m.start, end:m.end, typeKey:m.typeKey, source:'dictionary', status:'pending', confidence:'sözlük eşleşmesi' };
+    if(def.free===null) tag.freeLabel = m.freeLabel || 'diğer';
+    inst.tags.push(tag);
+    dictAdded++;
+  });
+  added += dictAdded;
+  ds.aiStats.dictSuggested = (ds.aiStats.dictSuggested||0) + dictAdded;
+
+  // 2) Ardından, sözlükte olmayan yeni figüratif ifadeleri yakalamak için modele sor
+  //    (sözlük, tutarlılık ve çekim eki farklılıkları için modele bağlam olarak verilir).
+  try{
+    const items = await callClaudeJson(buildAiPrompt(inst.text, dict));
+    let aiAdded = 0;
+    items.forEach(item=>{
+      const key = AI_TYPE_TO_KEY[(item.type||'').toLowerCase().trim()];
+      if(!key) return;
+      const span = matchExpressionToTokens(inst.tokens, item.expression);
+      if(!span) return;
+      if(suggestionsOverlap(inst, span.start, span.end)) return;
+      const def = TAG_DEFS[key];
+      const tag = { id: uid(), start: span.start, end: span.end, typeKey: key, source:'ai', status:'pending', confidence: item.confidence||'' };
+      if(def.free===null) tag.freeLabel = key;
+      inst.tags.push(tag);
+      aiAdded++;
+      if(item.target){
+        const tSpan = matchExpressionToTokens(inst.tokens, item.target);
+        if(tSpan && !suggestionsOverlap(inst, tSpan.start, tSpan.end)){
+          inst.tags.push({ id: uid(), start:tSpan.start, end:tSpan.end, typeKey:'t', source:'ai', status:'pending', confidence:item.confidence||'' });
+          aiAdded++;
+        }
+      }
+    });
+    added += aiAdded;
+    ds.aiStats.suggested += aiAdded;
+    if(!opts.silent){
+      const parts = [];
+      if(dictAdded>0) parts.push(`${dictAdded} sözlük eşleşmesi`);
+      if(aiAdded>0) parts.push(`${aiAdded} yeni AI önerisi`);
+      showToast(parts.length>0 ? `${parts.join(', ')} eklendi, gözden geçirmeni bekliyor.` : 'Yeni bir figüratif ifade bulunamadı.');
+    }
+  }catch(e){
+    if(!opts.silent) showToast((dictAdded>0? `${dictAdded} sözlük eşleşmesi eklendi. ` : '') + 'AI önerisi alınamadı: ' + e.message);
+  }
+  aiLoadingIds.delete(instId);
+  persist(); render();
+  return added;
+}
+async function aiSuggestBatch(){
+  const ds = currentDataset(); if(!ds) return;
+  const targets = ds.instances.filter(i=>i.tags.length===0);
+  if(targets.length===0){ showToast('Tüm örnekler zaten en az bir etikete sahip.'); return; }
+  batchProgress = { done:0, total: targets.length };
+  render();
+  let totalAdded = 0;
+  for(const inst of targets){
+    const added = await aiSuggestForInstance(inst.id, { silent:true });
+    totalAdded += added;
+    batchProgress.done++;
+    render();
+  }
+  batchProgress = null;
+  showToast(`Toplu öneri tamamlandı: ${targets.length} örnek tarandı, ${totalAdded} öneri eklendi.`);
+  render();
+}
+function acceptAiTag(instId, tagId){
+  const ds = currentDataset(); const inst = ds.instances.find(i=>i.id===instId);
+  const tag = inst.tags.find(t=>t.id===tagId);
+  if(!tag) return;
+  tag.status = 'confirmed';
+  tag.source = tag.source==='dictionary' ? 'dictionary-confirmed' : 'ai-confirmed';
+  ds.aiStats.accepted++;
+  persist(); render();
+}
+function rejectAiTag(instId, tagId){
+  const ds = currentDataset(); const inst = ds.instances.find(i=>i.id===instId);
+  inst.tags = inst.tags.filter(t=>t.id!==tagId);
+  ds.aiStats.rejected++;
+  persist(); render();
+}
+
+/* ===================== SAMPLE DATA ===================== */
+function loadSampleData(){
+  const ds = newDatasetObj({
+    name:'Örnek: TUD Gazete Küçük Küme', author:'Kullanıcı', license:'CC-BY-4.0', languages:'tr',
+    source:'Türkçe Ulusal Derlemi (TUD)', genre:'Gazete', comments:'Figürhane içinde örnek olarak oluşturulmuştur.'
+  });
+  const samples = [
+    { text:'Ekonomideki kara bulutlar önümüzdeki aylarda dağılacak gibi görünmüyor.', tags:[
+      {startWord:'kara', endWord:'bulutlar', key:'m'} ] },
+    { text:'Ali her konuda çuvaldızı kendine batırmadan konuşmaz.', tags:[
+      {startWord:'çuvaldızı', endWord:'batırmadan', key:'deyim'} ] },
+    { text:'Bugün Ankara, Brüksel ile masaya oturdu.', tags:[
+      {startWord:'Ankara', endWord:'Ankara', key:'metonimi'} ] },
+    { text:'Zaman su gibi akıp gitti, kimse fark etmedi.', tags:[
+      {startWord:'su', endWord:'su', key:'benzetme'} ] }
+  ];
+  samples.forEach((s,i)=>{
+    const tokens = tokenize(s.text);
+    const inst = { id: uid(), text:s.text, tokens, tags:[], sentIndex:i+1, reference:'', pos:'', longContext:'', notes:'' };
+    s.tags.forEach(t=>{
+      const startIdx = tokens.findIndex(tk=>tk.toLowerCase()===t.startWord.toLowerCase());
+      let endIdx = startIdx;
+      for(let k=startIdx;k<tokens.length;k++){ if(tokens[k].toLowerCase()===t.endWord.toLowerCase()){ endIdx=k; break; } }
+      if(startIdx>=0){
+        const def = TAG_DEFS[t.key];
+        const tag = {id:uid(), start:startIdx, end:endIdx, typeKey:t.key, source:'human', status:'confirmed'};
+        if(def.free===null) tag.freeLabel = t.key;
+        inst.tags.push(tag);
+      }
+    });
+    ds.instances.push(inst);
+  });
+  state.datasets.push(ds);
+  state.currentDatasetId = ds.id;
+  state.currentTab = 'annotate';
+  persist(); showToast('Örnek veri seti eklendi.'); render();
+}
+
+/* ===================== EXPORT ===================== */
+function instanceToTaggedText(inst){
+  const n = inst.tokens.length;
+  const opens = Array.from({length:n}, ()=>[]);
+  const closes = Array.from({length:n}, ()=>[]);
+  inst.tags.filter(t=>t.status!=='pending').slice().sort((a,b)=> (b.end-b.start) - (a.end-a.start)).forEach(tag=>{
+    opens[tag.start].push(tag);
+    closes[tag.end].push(tag);
+  });
+  let out = '';
+  for(let i=0;i<n;i++){
+    if(needsSpaceBefore(inst.tokens, i)) out += ' ';
+    opens[i].slice().reverse().forEach(tag=>{
+      const def = TAG_DEFS[tag.typeKey];
+      out += def.free===null ? `<u type="${esc(tag.freeLabel||'diger')}">` :
+             (def.free ? `<u type="${esc(def.free)}">` : `<${def.csv}>`);
+    });
+    out += inst.tokens[i];
+    closes[i].forEach(tag=>{
+      const def = TAG_DEFS[tag.typeKey];
+      out += (def.free!==undefined) ? `</u>` : `</${def.csv}>`;
+    });
+  }
+  return out.trim();
+}
+function csvEscape(v){
+  const s = String(v==null?'':v);
+  if(/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+function buildDatasetCsv(ds){
+  const header = ['dataset','sent_index','tagged_text','reference','pos','long_context','notes','tag_types'];
+  const rows = [header.join(',')];
+  ds.instances.forEach(inst=>{
+    const taggedText = instanceToTaggedText(inst);
+    const types = [...new Set(inst.tags.filter(t=>t.status!=='pending').map(t=>TAG_DEFS[t.typeKey].free===null? (t.freeLabel||'diger') : (TAG_DEFS[t.typeKey].free||TAG_DEFS[t.typeKey].csv)))].join('|');
+    rows.push([ds.name, inst.sentIndex, taggedText, inst.reference, inst.pos, inst.longContext, inst.notes, types].map(csvEscape).join(','));
+  });
+  return rows.join('\n');
+}
+function buildDatasetMetaJson(ds){
+  return JSON.stringify({
+    Name: '', Email: ds.email, Dataset: ds.name, Author: ds.author, License: ds.license,
+    PaperTitle: ds.paperTitle, PaperAuthors: ds.paperAuthors, Year: ds.year, Reference: ds.reference,
+    Languages: ds.languages, Source: ds.source, Genre: ds.genre, TargetPOS: ds.targetPos, SourcePOS: ds.sourcePos,
+    AnnotatorNumber: ds.annotNum, AnnotatorProfile: ds.annotProfile, IAA: ds.iaa, Comments: ds.comments,
+    InstanceCount: ds.instances.length
+  }, null, 2);
+}
+function downloadFile(filename, content, mime){
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+function exportCsv(){
+  const ds = currentDataset(); if(!ds){ showToast('Önce bir veri seti seçin.'); return; }
+  if(ds.instances.length===0){ showToast('Bu veri setinde örnek yok.'); return; }
+  // UTF-8 BOM eklenir: Excel gibi programlar BOM olmadan UTF-8 CSV'yi yanlış kodlamayla
+  // (ör. Windows-1252) açıp Türkçe karakterleri (ç, ğ, ı, ö, ş, ü) bozabiliyor.
+  const csvWithBom = '\uFEFF' + buildDatasetCsv(ds);
+  downloadFile(`${slug(ds.name)}_tagged.csv`, csvWithBom, 'text/csv;charset=utf-8');
+}
+function exportMeta(){
+  const ds = currentDataset(); if(!ds){ showToast('Önce bir veri seti seçin.'); return; }
+  downloadFile(`${slug(ds.name)}_metadata.json`, buildDatasetMetaJson(ds), 'application/json;charset=utf-8');
+}
+function slug(s){ return (s||'veriseti').toLowerCase().replace(/[^a-z0-9çğıöşü]+/gi,'-').replace(/^-+|-+$/g,''); }
+
+/* ===================== STATS ===================== */
+function computeStats(ds){
+  const total = ds.instances.length;
+  let taggedInstances = 0, totalTags = 0, pendingTags = 0;
+  const dist = {};
+  Object.keys(TAG_DEFS).forEach(k=>dist[k]=0);
+  ds.instances.forEach(inst=>{
+    const confirmed = inst.tags.filter(t=>t.status!=='pending');
+    if(confirmed.length>0) taggedInstances++;
+    confirmed.forEach(t=>{ dist[t.typeKey] = (dist[t.typeKey]||0)+1; totalTags++; });
+    pendingTags += inst.tags.filter(t=>t.status==='pending').length;
+  });
+  const totalTokens = ds.instances.reduce((s,i)=>s+i.tokens.length,0);
+  const ai = ds.aiStats || { suggested:0, accepted:0, rejected:0 };
+  const reviewed = ai.accepted + ai.rejected;
+  const acceptRate = reviewed>0 ? ((ai.accepted/reviewed)*100).toFixed(1) : null;
+  return { total, taggedInstances, totalTags, pendingTags, dist, avgTokens: total? (totalTokens/total).toFixed(1) : 0, ai, acceptRate };
+}
+
+/* ===================== RENDER ===================== */
+function render(){
+  const app = document.getElementById('app');
+  if(!storageReady){ app.innerHTML = `<div style="padding:60px;color:var(--muted);font-family:'IBM Plex Sans'">Yükleniyor…</div>`; return; }
+  app.innerHTML = renderSidebar() + renderMain();
+  if(toast) document.body.insertAdjacentHTML('beforeend', `<div class="toast">${esc(toast)}</div>`);
+  if(modal) renderModalMount();
+}
+
+function renderSidebar(){
+  const tabs = [
+    {key:'datasets', label:'Veri Setleri', icon:'▤'},
+    {key:'annotate', label:'Etiketleme', icon:'✎'},
+    {key:'stats', label:'İstatistikler', icon:'▦'},
+    {key:'export', label:'Dışa Aktar', icon:'⇩'}
+  ];
+  let ds_list = state.datasets.map(d=>`
+    <div class="dataset-pick ${d.id===state.currentDatasetId?'active':''}" onclick="selectDataset('${d.id}')">
+      <span class="n">${esc(d.name)}</span>
+      <span class="cnt">${d.instances.length}</span>
+    </div>`).join('');
+  if(state.datasets.length===0) ds_list = `<div style="font-size:11.5px;color:var(--muted-2);padding:6px;">Henüz veri seti yok.</div>`;
+
+  return `
+  <div id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">Figürhane</div>
+      <div class="brand-sub">Figüratif Dil Derlem Stüdyosu</div>
+    </div>
+    <div>
+      ${tabs.map(t=>`<div class="nav-item ${state.currentTab===t.key?'active':''}" onclick="setTab('${t.key}')"><span class="nav-icon">${t.icon}</span>${t.label}</div>`).join('')}
+    </div>
+    <div class="sidebar-section-label">Veri Setleri</div>
+    <div style="max-height:260px;overflow:auto;">${ds_list}</div>
+    <div class="sidebar-foot">
+      <button class="ghost-btn" onclick="openNewDatasetModal()">+ Yeni Veri Seti</button>
+      ${state.datasets.length===0 ? `<button class="ghost-btn" style="margin-top:8px;" onclick="loadSampleData()">Örnek Veri Yükle</button>` : ''}
+    </div>
+  </div>`;
+}
+
+function setTab(t){ state.currentTab = t; render(); }
+
+function renderMain(){
+  let body = '';
+  if(state.currentTab==='datasets') body = renderDatasetsTab();
+  else if(state.currentTab==='annotate') body = renderAnnotateTab();
+  else if(state.currentTab==='stats') body = renderStatsTab();
+  else if(state.currentTab==='export') body = renderExportTab();
+  return `<div id="main">${body}</div>`;
+}
+
+function renderDatasetsTab(){
+  let grid;
+  if(state.datasets.length===0){
+    grid = `<div class="empty"><span class="serif">Henüz bir derlem yok</span>Türkçe figüratif dil örneklerini (metafor, deyim, metonimi, benzetme…) toplayıp etiketlemeye başlamak için bir veri seti oluştur.<br><br><button class="btn" onclick="openNewDatasetModal()">Yeni Veri Seti Oluştur</button></div>`;
+  } else {
+    grid = `<div class="ds-grid">` + state.datasets.map(d=>{
+      const s = computeStats(d);
+      return `
+      <div class="ds-card" onclick="selectDataset('${d.id}')">
+        <h3>${esc(d.name)}</h3>
+        <div class="ds-meta">${esc(d.author||'Yazar belirtilmedi')} · ${esc(d.languages||'—')} · ${esc(d.license||'lisans yok')}</div>
+        <div class="ds-stat-row">
+          <div><b>${s.total}</b> örnek</div>
+          <div><b>${s.totalTags}</b> etiket</div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:12px;" onclick="event.stopPropagation()">
+          <button class="btn sm secondary" onclick="openEditDatasetModal('${d.id}')">Düzenle</button>
+          <button class="btn sm danger" onclick="askDeleteDataset('${d.id}')">Sil</button>
+        </div>
+      </div>`;
+    }).join('') + `</div>`;
+  }
+
+  let confirmBox = '';
+  if(confirmDelete && confirmDelete.type==='dataset'){
+    const d = state.datasets.find(x=>x.id===confirmDelete.id);
+    confirmBox = `<div class="card" style="margin-top:16px;border-color:#5b2f29;">
+      <div class="confirm-row">"${esc(d?.name)}" veri setini kalıcı olarak silmek istediğine emin misin?
+      <button class="btn sm danger" onclick="doDeleteDataset('${confirmDelete.id}')">Evet, sil</button>
+      <button class="btn sm secondary" onclick="confirmDelete=null;render()">Vazgeç</button>
+      </div></div>`;
+  }
+
+  return `
+    <div class="page-head">
+      <div>
+        <h1 class="page-title serif">Veri Setleri</h1>
+        <div class="page-desc">Her veri seti; metaforlar, deyimler, metonimiler ve diğer figüratif ifadeler için ayrı bir derlem birimidir. MetaphorShare'e yüklenebilecek meta veri alanlarını (yazar, lisans, kaynak, IAA vb.) burada tanımlarsın.</div>
+      </div>
+      <button class="btn" onclick="openNewDatasetModal()">+ Yeni Veri Seti</button>
+    </div>
+    ${grid}
+    ${confirmBox}
+  `;
+}
+
+function renderAnnotateTab(){
+  const ds = currentDataset();
+  if(!ds){
+    return `<div class="empty"><span class="serif">Etiketlemeye başlamak için bir veri seti seç</span>Sol menüden bir veri seti seç ya da yeni bir tane oluştur.<br><br><button class="btn" onclick="openNewDatasetModal()">Yeni Veri Seti Oluştur</button></div>`;
+  }
+
+  const addBox = `
+    <div class="card" style="margin-bottom:20px;">
+      <label class="field-label">Yeni Örnek Ekle</label>
+      <textarea id="newInstanceText" rows="3" placeholder="Bir cümle yaz ya da her satıra bir cümle gelecek şekilde birden fazla cümle yapıştır…"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="splitLinesChk" checked style="width:auto;"> her satırı ayrı örnek olarak ekle
+        </label>
+        <button class="btn sm" onclick="submitNewInstance()">Ekle</button>
+      </div>
+    </div>`;
+
+  let cards;
+  if(ds.instances.length===0){
+    cards = `<div class="empty">Bu veri setinde henüz örnek yok. Yukarıdan bir cümle ekleyerek başla.</div>`;
+  } else {
+    cards = ds.instances.map(inst=>renderInstanceCard(inst)).join('');
+  }
+
+  let confirmBox = '';
+  if(confirmDelete && confirmDelete.type==='instance'){
+    confirmBox = `<div class="card" style="margin-bottom:16px;border-color:#5b2f29;">
+      <div class="confirm-row">Bu örneği silmek istediğine emin misin?
+      <button class="btn sm danger" onclick="doDeleteInstance('${confirmDelete.id}')">Evet, sil</button>
+      <button class="btn sm secondary" onclick="confirmDelete=null;render()">Vazgeç</button>
+      </div></div>`;
+  }
+
+  const untaggedCount = ds.instances.filter(i=>i.tags.length===0).length;
+  let aiBar;
+  if(batchProgress){
+    const pct = ((batchProgress.done/batchProgress.total)*100).toFixed(0);
+    aiBar = `<div class="ai-bar">
+      <span class="spinner"></span>
+      <div class="lbl">AI taranıyor: ${batchProgress.done}/${batchProgress.total} örnek</div>
+      <div class="ai-progress-track"><div class="ai-progress-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  } else {
+    aiBar = `<div class="ai-bar">
+      <div class="lbl">Etiketsiz ${untaggedCount} örnek var. Önce bu derlemde daha önce onaylanmış ifadeler yerel sözlükle anında eşleştirilir, ardından Claude sözlükte olmayan yeni metafor/deyim/metonimi/benzetme adaylarını önerir — hiçbiri onaylamadan derleme dahil edilmez.</div>
+      <button class="btn sm secondary" ${untaggedCount===0?'disabled':''} onclick="aiSuggestBatch()">Toplu Öner (Sözlük + AI)</button>
+    </div>`;
+  }
+
+  return `
+    <div class="page-head">
+      <div>
+        <h1 class="page-title serif">${esc(ds.name)}</h1>
+        <div class="page-desc">Etiketlemek istediğin sözcük ya da öbeği seçmek için tıkla, ardından aşağıdaki etiket düğmelerinden birini seç. Birden çok sözcük seçmek için başlangıç ve bitiş sözcüklerine sırayla tıkla. Kesikli çerçeveli sözcükler AI önerisidir ve onayını bekler.</div>
+      </div>
+    </div>
+    ${addBox}
+    ${aiBar}
+    ${confirmBox}
+    ${cards}
+  `;
+}
+
+function renderInstanceCard(inst){
+  const isOpen = state.currentInstanceId===inst.id;
+  const isLoading = aiLoadingIds.has(inst.id);
+  const tokensHtml = inst.tokens.map((tok,idx)=>{
+    const isPunct = PUNCT_RE.test(tok);
+    const covering = inst.tags.filter(t=>idx>=t.start && idx<=t.end);
+    const confirmedCov = covering.filter(t=>t.status!=='pending');
+    const pendingCov = covering.filter(t=>t.status==='pending');
+    let style = '';
+    if(confirmedCov.length>0){
+      const shadows = confirmedCov.map((t,i)=>`inset 0 -${3+i*3}px 0 ${TAG_DEFS[t.typeKey].color}`).join(',');
+      style = `box-shadow:${shadows}; background:rgba(255,255,255,0.03);`;
+    }
+    let pendingClass = '';
+    if(pendingCov.length>0){
+      pendingClass = 'ai-pending';
+      style += `outline-color:${TAG_DEFS[pendingCov[0].typeKey].color};`;
+    }
+    const selClass = (isOpen && selection.start!==null && idx>=selection.start && idx<=selection.end) ? 'sel' : '';
+    const spacer = needsSpaceBefore(inst.tokens, idx) ? ' ' : '';
+    return `${spacer}<span class="tok ${isPunct?'punct':''} ${selClass} ${pendingClass}" style="${style}" onclick="${isOpen? `onTokenClick(${idx})` : `selectInstance('${inst.id}')`}">${esc(tok)}</span>`;
+  }).join('');
+
+  const chips = inst.tags.map(t=>{
+    const def = TAG_DEFS[t.typeKey];
+    const text = inst.tokens.slice(t.start, t.end+1).join(' ');
+    const label = def.free===null ? (t.freeLabel||'diğer') : def.label;
+    const badgeLabel = (t.source==='dictionary'||t.source==='dictionary-confirmed') ? 'SÖZ' : 'AI';
+    const badgeTitle = badgeLabel==='SÖZ' ? 'Bu derlemde daha önce etiketlenmiş aynı/benzer ifade' : 'Claude tarafından önerildi';
+    if(t.status==='pending'){
+      return `<div class="chip pending"><span class="dot" style="background:${def.color}"></span><span class="ai-badge ${badgeLabel==='SÖZ'?'dict':''}" title="${badgeTitle}">${badgeLabel}</span>${esc(label)}: “${esc(text)}”
+        <span class="accept" title="Kabul et" onclick="acceptAiTag('${inst.id}','${t.id}')">✓</span>
+        <span class="reject" title="Reddet" onclick="rejectAiTag('${inst.id}','${t.id}')">✕</span></div>`;
+    }
+    const sourceMark = (t.source==='ai-confirmed'||t.source==='dictionary-confirmed') ? `<span class="ai-badge ${badgeLabel==='SÖZ'?'dict':''}" title="${badgeTitle}, onaylandı">${badgeLabel}</span>` : '';
+    return `<div class="chip"><span class="dot" style="background:${def.color}"></span>${sourceMark}${esc(label)}: “${esc(text)}”<span class="x" onclick="removeTag('${inst.id}','${t.id}')">×</span></div>`;
+  }).join('');
+
+  let toolbar = '';
+  let fields = '';
+  if(isOpen){
+    toolbar = `
+    <div class="toolbar">
+      ${Object.keys(TAG_DEFS).map(k=>{
+        const def = TAG_DEFS[k];
+        if(def.free===null){
+          return `<span class="tagbtn" onclick="applyTag('${k}')" style="padding-right:4px;">
+            <span class="dot" style="background:${def.color}"></span>${def.label}
+            <input class="free-label-input" type="text" value="${esc(freeLabelDraft)}" onclick="event.stopPropagation()" onchange="freeLabelDraft=this.value" placeholder="etiket adı">
+          </span>`;
+        }
+        return `<button class="tagbtn" onclick="applyTag('${k}')"><span class="dot" style="background:${def.color}"></span>${def.label}</button>`;
+      }).join('')}
+      <button class="btn sm secondary" onclick="clearSelection()">Seçimi Temizle</button>
+      <button class="btn sm secondary" ${isLoading?'disabled':''} onclick="aiSuggestForInstance('${inst.id}')">${isLoading?'<span class=\"spinner\"></span> Taranıyor…':'✦ Öner (Sözlük + AI)'}</button>
+      <button class="btn sm danger" style="margin-left:auto;" onclick="askDeleteInstance('${inst.id}')">Örneği Sil</button>
+    </div>`;
+    fields = `
+    <div class="instance-fields">
+      <div><label>Referans</label><input type="text" value="${esc(inst.reference)}" onchange="updateInstanceField('${inst.id}','reference',this.value)" placeholder="kaynak/dosya"></div>
+      <div><label>Sözcük Türü (PoS)</label><input type="text" value="${esc(inst.pos)}" onchange="updateInstanceField('${inst.id}','pos',this.value)" placeholder="ör. isim, fiil"></div>
+      <div><label>Not</label><input type="text" value="${esc(inst.notes)}" onchange="updateInstanceField('${inst.id}','notes',this.value)" placeholder="serbest not"></div>
+    </div>`;
+  }
+
+  return `
+  <div class="idx-card" onclick="${isOpen?'':`selectInstance('${inst.id}')`}">
+    <div class="idx-tab"><span class="num">#${inst.sentIndex}</span> ${inst.tags.filter(t=>t.status!=='pending').length} etiket${inst.tags.some(t=>t.status==='pending')? ` · ${inst.tags.filter(t=>t.status==='pending').length} AI önerisi bekliyor`:''} · ${inst.tokens.length} sözcük ${isOpen?'· <span style=\"color:var(--gold)\">etiketleniyor</span>':''}</div>
+    <div class="tok-stream">${tokensHtml}</div>
+    ${chips ? `<div class="chips">${chips}</div>` : ''}
+    ${toolbar}
+    ${fields}
+  </div>`;
+}
+
+function submitNewInstance(){
+  const ta = document.getElementById('newInstanceText');
+  const chk = document.getElementById('splitLinesChk');
+  if(!ta.value.trim()){ showToast('Metin boş olamaz.'); return; }
+  addInstancesFromText(ta.value, chk.checked);
+}
+
+function renderStatsTab(){
+  const ds = currentDataset();
+  if(!ds) return `<div class="empty"><span class="serif">İstatistikleri görmek için bir veri seti seç</span></div>`;
+  const s = computeStats(ds);
+  const maxDist = Math.max(1, ...Object.values(s.dist));
+  const rows = Object.keys(TAG_DEFS).map(k=>{
+    const def = TAG_DEFS[k];
+    const val = s.dist[k]||0;
+    const pct = s.totalTags? ((val/s.totalTags)*100).toFixed(1) : '0.0';
+    return `<tr>
+      <td><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${def.color};margin-right:8px;"></span>${def.label}</td>
+      <td class="mono">${val}</td>
+      <td class="mono">%${pct}</td>
+      <td><div class="bar-wrap"><div class="bar-fill" style="width:${(val/maxDist*100).toFixed(1)}%;background:${def.color}"></div></div></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="page-head">
+      <div>
+        <h1 class="page-title serif">İstatistikler</h1>
+        <div class="page-desc">${esc(ds.name)} veri setinin genel görünümü.</div>
+      </div>
+    </div>
+    <div class="stat-cards">
+      <div class="stat-card"><div class="v">${s.total}</div><div class="l">Örnek</div></div>
+      <div class="stat-card"><div class="v">${s.taggedInstances}</div><div class="l">Etiketli Örnek</div></div>
+      <div class="stat-card"><div class="v">${s.totalTags}</div><div class="l">Onaylı Etiket</div></div>
+      <div class="stat-card"><div class="v">${s.avgTokens}</div><div class="l">Ort. Sözcük/Örnek</div></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;" class="serif">Etiket Türü Dağılımı</h3>
+      <p style="color:var(--muted);font-size:12px;margin-top:-6px;">Yalnızca onaylanmış etiketler sayılır; henüz onaylanmamış AI önerileri dahil değildir.</p>
+      <table class="stats-tbl">
+        <thead><tr><th>Tür</th><th>Adet</th><th>Oran</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <h3 style="margin-top:0;" class="serif">AI Destekli Etiketleme</h3>
+      <div class="stat-cards" style="margin-bottom:0;">
+        <div class="stat-card"><div class="v">${s.ai.dictSuggested||0}</div><div class="l">Sözlük Eşleşmesi</div></div>
+        <div class="stat-card"><div class="v">${s.ai.suggested}</div><div class="l">AI Önerisi</div></div>
+        <div class="stat-card"><div class="v">${s.pendingTags}</div><div class="l">Onay Bekleyen</div></div>
+        <div class="stat-card"><div class="v">${s.acceptRate!==null? '%'+s.acceptRate : '—'}</div><div class="l">Kabul Oranı</div></div>
+      </div>
+      <p style="color:var(--muted);font-size:12px;margin-top:14px;margin-bottom:0;">Sözlük eşleşmesi, bu veri setinde daha önce onaylanmış bir ifadenin (ya da onun kök düzeyinde benzer bir çekimli hâlinin) başka bir örnekte tekrar bulunmasıdır — ücretsiz ve anında çalışır. AI önerisi ise sözlükte olmayan yeni figüratif ifadeler için modele sorularak elde edilir. Kabul oranı, incelenmiş önerilerin (kabul + red) ne kadarının kabul edildiğini gösterir; kesin bir IAA (etiketleyiciler arası uyum) ölçütü değildir.</p>
+    </div>
+  `;
+}
+
+function renderExportTab(){
+  const ds = currentDataset();
+  if(!ds) return `<div class="empty"><span class="serif">Dışa aktarmak için bir veri seti seç</span></div>`;
+  const preview = ds.instances.slice(0,3).map(i=>instanceToTaggedText(i)).join('\n');
+  return `
+    <div class="page-head">
+      <div>
+        <h1 class="page-title serif">Dışa Aktar</h1>
+        <div class="page-desc">${esc(ds.name)} — MetaphorShare'in kabul ettiği birleşik CSV biçimine uygun dışa aktarım. Zorunlu <span class="mono">tagged_text</span> sütunu; etiketler &lt;m&gt; metafor, &lt;l&gt; düz anlam, &lt;a&gt; anomali, &lt;t&gt; hedef/kaynak sözcük, deyim/metonimi/benzetme/serbest türleri ise &lt;u type="..."&gt; serbest etiketiyle kodlanır.</div>
+      </div>
+    </div>
+
+    <div class="export-block">
+      <h3 class="serif" style="margin-bottom:6px;">1 · Etiketli Metin (CSV)</h3>
+      <p style="color:var(--muted);font-size:12.5px;">tagged_text, dataset, sent_index, reference, pos, long_context, notes, tag_types sütunlarını içerir.</p>
+      <pre class="code-preview">${esc(preview)}${ds.instances.length>3? '\n… ('+(ds.instances.length-3)+' örnek daha)':''}</pre>
+      <button class="btn" style="margin-top:10px;" onclick="exportCsv()">CSV İndir</button>
+    </div>
+
+    <div class="export-block">
+      <h3 class="serif" style="margin-bottom:6px;">2 · Veri Seti Meta Verisi (JSON)</h3>
+      <p style="color:var(--muted);font-size:12.5px;">MetaphorShare yükleme formundaki alanlara karşılık gelir (yazar, lisans, kaynak, tür, IAA, vb.).</p>
+      <pre class="code-preview">${esc(buildDatasetMetaJson(ds))}</pre>
+      <button class="btn secondary" style="margin-top:10px;" onclick="exportMeta()">JSON İndir</button>
+    </div>
+
+    <div class="roadmap-note">
+      <b style="color:var(--parchment)">Not:</b> Öneriler (Etiketleme sekmesindeki "✦ Öner (Sözlük + AI)" ve "Toplu Öner") sen onaylayana kadar "beklemede" sayılır ve dışa aktarılan CSV/etiketli metne dahil edilmez — böylece derlemdeki her etiketin son sözü insan etiketleyicide kalır. İstatistikler sekmesinde sözlük eşleşmesi/AI önerisi dağılımını ve kabul oranını görebilirsin.
+    </div>
+  `;
+}
+
+/* ===================== MODAL ===================== */
+function renderModalMount(){
+  const d = modal.draft;
+  const title = modal.type==='new-dataset' ? 'Yeni Veri Seti' : 'Veri Setini Düzenle';
+  const html = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h2 class="serif">${title}</h2>
+
+      <label class="field-label req">Veri Seti Adı</label>
+      <input type="text" value="${esc(d.name)}" onchange="updateModalField('name',this.value)" placeholder="ör. TUD Gazete Metaforları">
+
+      <div class="form-grid">
+        <div><label class="field-label">Ana Yazar</label><input type="text" value="${esc(d.author)}" onchange="updateModalField('author',this.value)"></div>
+        <div><label class="field-label">E-posta</label><input type="text" value="${esc(d.email)}" onchange="updateModalField('email',this.value)"></div>
+        <div><label class="field-label">Lisans</label><input type="text" value="${esc(d.license)}" onchange="updateModalField('license',this.value)" placeholder="ör. CC-BY-4.0"></div>
+        <div><label class="field-label">Diller</label><input type="text" value="${esc(d.languages)}" onchange="updateModalField('languages',this.value)" placeholder="tr"></div>
+        <div><label class="field-label">Kaynak Derlem</label><input type="text" value="${esc(d.source)}" onchange="updateModalField('source',this.value)" placeholder="ör. TUD"></div>
+        <div><label class="field-label">Tür/Janr</label><input type="text" value="${esc(d.genre)}" onchange="updateModalField('genre',this.value)" placeholder="gazete, roman, sözlü…"></div>
+        <div><label class="field-label">Makale Başlığı</label><input type="text" value="${esc(d.paperTitle)}" onchange="updateModalField('paperTitle',this.value)"></div>
+        <div><label class="field-label">Makale Yazar(lar)ı</label><input type="text" value="${esc(d.paperAuthors)}" onchange="updateModalField('paperAuthors',this.value)"></div>
+        <div><label class="field-label">Yıl</label><input type="text" value="${esc(d.year)}" onchange="updateModalField('year',this.value)"></div>
+        <div><label class="field-label">Referans (BibTeX)</label><input type="text" value="${esc(d.reference)}" onchange="updateModalField('reference',this.value)"></div>
+        <div><label class="field-label">Hedef PoS</label><input type="text" value="${esc(d.targetPos)}" onchange="updateModalField('targetPos',this.value)"></div>
+        <div><label class="field-label">Kaynak PoS</label><input type="text" value="${esc(d.sourcePos)}" onchange="updateModalField('sourcePos',this.value)"></div>
+        <div><label class="field-label">Etiketleyici Sayısı</label><input type="text" value="${esc(d.annotNum)}" onchange="updateModalField('annotNum',this.value)"></div>
+        <div><label class="field-label">Etiketleyici Profili</label><input type="text" value="${esc(d.annotProfile)}" onchange="updateModalField('annotProfile',this.value)" placeholder="dilbilimci, gönüllü…"></div>
+        <div><label class="field-label">Etiketleyiciler Arası Uyum (IAA)</label><input type="text" value="${esc(d.iaa)}" onchange="updateModalField('iaa',this.value)"></div>
+      </div>
+      <label class="field-label">Açıklama / Notlar</label>
+      <textarea rows="2" onchange="updateModalField('comments',this.value)">${esc(d.comments)}</textarea>
+
+      <div class="modal-actions">
+        <button class="btn secondary" onclick="closeModal()">Vazgeç</button>
+        <button class="btn" onclick="saveModalDataset()">Kaydet</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+/* ===================== INIT ===================== */
+loadState();
+</script>
+</body>
+</html>

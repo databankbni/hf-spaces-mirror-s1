@@ -1,0 +1,110 @@
+name: Probe Sleeper picks API
+
+# Reports what Sleeper's `/lines/available` actually returns for team markets
+# — moneyline, spread, total — so the parser can be written against the real
+# payload instead of guessed at.
+#
+# This exists because the feed is public but undocumented and cannot be
+# reached from a dev sandbox: the only place that can see it is the running
+# Space. Guessing at an undocumented shape has already cost this project a
+# round of wrong numbers, so the shape gets confirmed before anything parses
+# it.
+#
+# Read-only. It calls the Space and prints; it never commits or uploads.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask the Space what the feed says
+        env:
+          HF_USERNAME: ${{ vars.HF_USERNAME }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          : "${HF_USERNAME:?set repository variable HF_USERNAME}"
+          : "${HF_SPACE:?set repository variable HF_SPACE}"
+          host="$(echo "${HF_USERNAME}-${HF_SPACE}" | tr '[:upper:]' '[:lower:]' | tr './' '--')"
+          base="https://${host}.hf.space"
+
+          echo "Waking ${base} ..."
+          for i in $(seq 1 10); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${base}/api/health" || true)"
+            echo "  attempt ${i}: health=${code}"
+            [ "${code}" = "200" ] && break
+            sleep 20
+          done
+
+          curl -s --max-time 90 "${base}/api/props-probe" -o /tmp/probe.json || {
+            echo "::warning::probe request failed"; exit 0; }
+
+          python3 - <<'PY'
+          import json
+          d = json.load(open("/tmp/probe.json"))
+          print(f"reachable={d.get('reachable')} lines={d.get('count')} "
+                f"parsed_player_props={d.get('parsed')} "
+                f"players_loaded={d.get('players_loaded')}")
+          if d.get("error"):
+              print(f"error: {d['error']}")
+
+          print(f"\nteam lines found: {d.get('team_count')}")
+          print("team vocabulary (subject_type/wager_type):")
+          for k, c in (d.get("team_vocabulary") or {}).items():
+              print(f"  {c:5d}  {k}")
+
+          print("\noverall vocabulary:")
+          for k, c in (d.get("vocabulary") or {}).items():
+              print(f"  {c:5d}  {k}")
+
+          print(f"\nteam sample keys: {d.get('team_sample_keys')}")
+          for s in (d.get("team_samples") or []):
+              print("\n--- team sample ---")
+              print(json.dumps(s, indent=2)[:3000])
+          PY
+
+          echo ""
+          echo "======= asking Sleeper's GraphQL API to describe itself ======="
+          curl -s --max-time 120 "${base}/api/team-lines-probe" -o /tmp/team.json || {
+            echo "::warning::discovery request failed"; exit 0; }
+
+          python3 - <<'PY2'
+          import json
+          d = json.load(open("/tmp/team.json"))
+
+          wanted = ("line", "pick", "market", "odds", "wager", "parlay",
+                    "contest", "board", "prop")
+          print("--- root queries that could serve markets ---")
+          for f in (d.get("root_query_list") or []):
+              if any(w in f.lower() for w in wanted):
+                  print(f"   {f}")
+
+          for key in ("root_queries", "line_type", "my_picks_init"):
+              r = d.get(key) or {}
+              print(f"\n=== {key} ===")
+              if r.get("error"):
+                  print(f"   error: {r['error']}")
+              if r.get("errors"):
+                  print(f"   graphql errors: {r['errors']}")
+              if key == "line_type":
+                  t = ((r.get("data") or {}).get("__type") or {})
+                  for f in (t.get("fields") or []):
+                      ty = f.get("type") or {}
+                      nm = ty.get("name") or ((ty.get("of_type") or {}).get("name"))
+                      print(f"   Line.{f['name']}: {nm}")
+              elif key == "my_picks_init":
+                  blob = (r.get("data") or {}).get("my_picks_init")
+                  if isinstance(blob, dict):
+                      print(f"   top-level keys: {sorted(blob)}")
+                      for k, v in blob.items():
+                          if isinstance(v, list):
+                              print(f"   {k}: list[{len(v)}]")
+                              if v and isinstance(v[0], dict):
+                                  print(f"      item keys: {sorted(v[0])}")
+                                  print(f"      first: {json.dumps(v[0])[:1200]}")
+                          else:
+                              print(f"   {k}: {json.dumps(v)[:300]}")
+                  else:
+                      print(f"   data: {json.dumps(r.get('data'))[:900]}")
+          PY2

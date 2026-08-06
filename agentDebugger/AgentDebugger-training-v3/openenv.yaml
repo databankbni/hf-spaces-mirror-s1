@@ -1,0 +1,102 @@
+name: AgentDebuggerEnv
+version: "1.0.0"
+description: >
+  An OpenEnv-compliant RL training environment where LLM agents learn to debug
+  Python code through structured multi-turn hypothesis-driven reasoning.
+  The agent forms hypotheses, tests them, and refines iteratively over up to 5 turns.
+  Trained via GRPO on Qwen2.5-Coder-7B-Instruct with curriculum learning across
+  3 bug difficulty tiers. Reward design follows Masud et al. (2026) execution-based
+  + process-based taxonomy and Ibrahim et al. (2024) potential-based shaping.
+domain: software_engineering
+tags:
+  - openenv
+  - debugging
+  - reinforcement-learning
+  - grpo
+  - curriculum-learning
+  - python
+  - code-reasoning
+  - hypothesis-driven
+  - agentic-reasoning
+  - code-repair
+  - software-engineering
+observation_type: structured
+action_type: structured
+reward_type: dense
+episode_termination: action_or_step_limit
+observation_space:
+  type: object
+  properties:
+    buggy_code:
+      type: string
+      description: The Python function containing the bug
+    error_message:
+      type: string
+      description: Error output or test failure description seen at episode start
+    test_results:
+      type: object
+      description: Results of running current test suite
+    turn_number:
+      type: integer
+      description: Current turn within episode (0-indexed, max 4)
+    history:
+      type: array
+      description: Previous turns with agent outputs and rewards
+action_space:
+  type: object
+  properties:
+    structured_response:
+      type: string
+      description: >
+        Agent response in required format:
+        OBSERVATION: [text]
+        HYPOTHESIS: [text]
+        CONFIDENCE: [low|medium|high]
+        ACTION: [inspect_lines|run_tests|propose_fix|request_context|give_up]
+        DETAIL: [text]
+reward_range: [-0.5, 1.0]
+max_episode_steps: 5
+inference_script: inference.py
+tasks:
+  - id: easy
+    name: Single Function Off-By-One Bug
+    difficulty: easy
+    max_attempts: 5
+    max_steps: 8
+    tests_total: 8
+    description: >
+      Binary search with an off-by-one termination condition.
+      Clear error message, 1-2 iterations expected.
+  - id: medium
+    name: Red Herring — Interdependent Function Bug
+    difficulty: medium
+    max_attempts: 7
+    max_steps: 15
+    tests_total: 10
+    description: >
+      Authentication module where error points to the wrong function.
+      Agent must trace data flow backwards from symptom to root cause.
+  - id: hard
+    name: Concurrency Race Condition
+    difficulty: hard
+    max_attempts: 10
+    max_steps: 25
+    tests_total: 8
+    description: >
+      Thread-safe counter with a race condition invisible to sequential tests.
+      Agent must design a concurrent test to surface the bug, then fix it.
+baseline:
+  model: meta-llama/Llama-3.1-70B-Instruct
+  script: inference.py
+  mean_score: 0.51
+  scores:
+    easy: 0.85
+    medium: 0.50
+    hard: 0.18
+author: "Shashaank (GitHub: @shasshaank, HF: @shashaank0707)"
+# Submission Integrity: SHA 5c507c313ff2c209d7b770af6f08cf6ed6ab1568 | Verified 2026-04-09
+license: MIT
+huggingface_space: shashaank0707/AgentDebugger-env
+api_base_url_env_var: API_BASE_URL
+model_name_env_var: MODEL_NAME
+hf_token_env_var: HF_TOKEN

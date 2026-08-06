@@ -1,0 +1,1 @@
+﻿SELECT id, group_id, status, packet_count, sub_chain_count, created_at, completed_at FROM chains WHERE id = 'dbdec92c-cc7d-423d-8d19-8c14cccb1e56' OR (group_id IN (SELECT id FROM groups WHERE project_id = '27b1b1c6-8766-412f-9184-dc1a7ba0a19a')) ORDER BY created_at DESC LIMIT 10

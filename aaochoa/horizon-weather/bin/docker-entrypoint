@@ -1,0 +1,22 @@
+#!/bin/bash -e
+
+# If running the rails server then create or migrate existing database
+case "$*" in
+  *server*|*thrust*)
+    echo "==> Preparing database (db:prepare)..."
+    ./bin/rails db:prepare
+    echo "==> Running migrations (db:migrate)..."
+    ./bin/rails db:migrate
+    
+    echo "==> Ensuring Solid Queue tables exist..."
+    DISABLE_DATABASE_ENVIRONMENT_CHECK=1 ./bin/rails runner "require 'rake'; Rails.application.load_tasks; defined?(SolidQueue) && (SolidQueue::Record.connection.table_exists?('solid_queue_jobs') || Rake::Task['db:schema:load:queue'].invoke)"
+    
+    echo "==> Ensuring Solid Cache tables exist..."
+    DISABLE_DATABASE_ENVIRONMENT_CHECK=1 ./bin/rails runner "require 'rake'; Rails.application.load_tasks; defined?(SolidCache) && (SolidCache::Record.connection.table_exists?('solid_cache_entries') || Rake::Task['db:schema:load:cache'].invoke)"
+    
+    echo "==> Ensuring Solid Cable tables exist..."
+    DISABLE_DATABASE_ENVIRONMENT_CHECK=1 ./bin/rails runner "require 'rake'; Rails.application.load_tasks; defined?(SolidCable) && (SolidCable::Record.connection.table_exists?('solid_cable_messages') || Rake::Task['db:schema:load:cable'].invoke)"
+    ;;
+esac
+
+exec "${@}"

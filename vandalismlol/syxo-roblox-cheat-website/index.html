@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SYXO — The Ultimate Roblox Enhancement</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: #a855f7;
+    --accent2: #06b6d4;
+    --bg: #05050a;
+    --surface: #0f0f17;
+    --surface2: #161622;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --glow: rgba(168, 85, 247, 0.6);
+  }
+ * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Rajdhani', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+ line-height: 1.5;
+  }
+  h1, h2, h3, .brand { font-family: 'Orbitron', sans-serif; }
+  /* Background grid + particles */
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(168,85,247,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(168,85,247,0.04) 1px, transparent 1px);
+    background-size: 50px 50px;
+    z-index: -2;
+    pointer-events: none;
+  }
+  .bg-vignette {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, transparent 0%, var(--bg) 90%);
+    z-index: -1;
+    pointer-events: none;
+  }
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.5;
+    z-index: -1;
+    pointer-events: none;
+    animation: floatOrb 20s ease-in-out infinite alternate;
+  }
+  .orb:nth-child(1) { width: 400px; height: 400px; background: #7c3aed; top: -100px; left: -100px; }
+  .orb:nth-child(2) { width: 300px; height: 300px; background: #0891b2; bottom: 10%; right: -50px; animation-delay: -5s; }
+  .orb:nth-child(3) { width: 250px; height: 250px; background: #a855f7; top: 40%; left: 40%; animation-delay: -10s; opacity: 0.25; }
+  @keyframes floatOrb {
+    0% { transform: translate(0,0); }
+    100% { transform: translate(40px,60px); }
+  }
+  
+  /* Navbar */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 1.2rem 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+    transition: background 0.3s, backdrop-filter 0.3s;
+  }
+  nav.scrolled {
+    background: rgba(5,5,10,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(168,85,247,0.15);
+  }
+  .brand {
+    font-size: 1.8rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .nav-links {
+    display: flex;
+    gap: 2.5rem;
+    list-style: none;
+  }
+  .nav-links a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.05rem;
+    position: relative;
+    transition: color 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.3s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-links a:hover::after { width: 100%; }
+  
+  /* Hero */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 8rem 5% 4rem;
+    position: relative;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid rgba(168,85,247,0.3);
+    padding: 0.4rem 1.2rem;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    background: rgba(168,85,247,0.08);
+    animation: fadeUp 0.8s ease-out both;
+  }
+  .hero h1 {
+    font-size: clamp(3rem, 8vw, 7rem);
+    line-height: 1.05;
+    background: linear-gradient(135deg, #fff 0%, #c084fc 40%, #22d3ee 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+    animation: fadeUp 0.8s ease-out 0.1s both;
+ text-transform: uppercase;
+    letter-spacing: 4px;
+  }
+  .hero p {
+    font-size: 1.3rem;
+    color: var(--text-dim);
+    max-width: 600px;
+    margin-bottom: 2.5rem;
+    font-weight: 400;
+    animation: fadeUp 0.8s ease-out 0.2s both;
+  }
+  .hero-cta {
+    display: flex;
+    gap: 1rem;
+    animation: fadeUp 0.8s ease-out 0.3s both;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.9rem 2.2rem;
+    border-radius: 8px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    color: white;
+    box-shadow: 0 0 25px rgba(168,85,247,0.35);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 40px rgba(168,85,247,0.5);
+  }
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(4px);
+  }
+  .btn-secondary:hover {
+    border-color: rgba(168,85,247,0.4);
+    background: rgba(168,85,247,0.08);
+    transform: translateY(-2px);
+  }
+  
+  /* Section base */
+  section { padding: 5rem 5%; }
+  .section-title {
+    font-size: 2.2rem;
+    text-align: center;
+    margin-bottom: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+ }
+  .section-sub {
+    text-align: center;
+    color: var(--text-dim);
+    margin-bottom: 3rem;
+    font-size: 1.1rem;
+  }
+  
+  /* Features */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .feature-card {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+  }
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .feature-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(168,85,247,0.25);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+  }
+  .feature-card:hover::before { opacity: 1; }
+  .feature-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    background: rgba(168,85,247,0.1);
+    border: 1px solid rgba(168,85,247,0.2);
+    margin-bottom: 1rem;
+    color: var(--accent);
+  }
+  .feature-card h3 {
+    font-size: 1.15rem;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .feature-card p {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  
+  /* Showcase / Stats */
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-label {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 0.2rem;
+  }
+  
+  /* Showcase image */
+  .showcase {
+    max-width: 1000px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .showcase-frame {
+    background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(6,182,212,0.15));
+    border: 1px solid rgba(168,85,247,0.2);
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: 0 0 60px rgba(168,85,247,0.15);
+  }
+  .showcase-inner {
+    background: var(--surface2);
+    border-radius: 12px;
+    height: 380px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .showcase-inner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(168,85,247,0.1), transparent 60%);
+  }
+  .placeholder-ui {
+    width: 85%;
+    height: 75%;
+    border: 1px dashed rgba(168,85,247,0.3);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 2px;
+    font-size: 1.1rem;
+    background: rgba(0,0,0,0.2);
+  }
+  
+  /* Divider */
+  .glow-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+    margin: 0 10%;
+    opacity: 0.4;
+  }
+  
+  /* FAQ */
+  .faq {
+    max-width: 800px;
+    margin: 0 auto;
+ }
+  .faq-item {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+  .faq-q {
+    padding: 1.2rem 1.5rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    font-size: 1.05rem;
+    transition: color 0.3s;
+ user-select: none;
+  }
+  .faq-q:hover { color: var(--accent); }
+  .faq-icon {
+    transition: transform 0.3s;
+    color: var(--accent);
+    font-size: 1.2rem;
+  }
+  .faq-item.active .faq-icon { transform: rotate(180deg); }
+  .faq-a {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease, padding 0.4s ease;
+    color: var(--text-dim);
+    padding: 0 1.5rem;
+  }
+  .faq-item.active .faq-a {
+    max-height: 300px;
+    padding: 0 1.5rem 1.2rem;
+  }
+  
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 3rem 5%;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+  footer .brand {
+    font-size: 1.4rem;
+    margin-bottom: 0.5rem;
+    display: inline-block;
+  }
+  .socials {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin: 1.2rem 0;
+ }
+  .socials a {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    text-decoration: none;
+    transition: all 0.3s;
+    font-size: 1.1rem;
+  }
+  .socials a:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-3px);
+    box-shadow: 0 0 15px rgba(168,85,247,0.25);
+  }
+  
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .reveal {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  /* Media */
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .hero h1 { letter-spacing: 2px; }
+    .stats { gap: 1.5rem; }
+ .showcase-inner { height: 220px; }
+  }
+</style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-vignette"></div>
+  <div class="orb"></div>
+  <div class="orb"></div>
+  <div class="orb"></div>
+  
+  <nav id="navbar">
+    <div class="brand">SYXO</div>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#showcase">Showcase</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="#download">Download</a></li>
+    </ul>
+  </nav>
+  
+  <header class="hero">
+    <div class="hero-badge">
+      <span>◆</span> Built for Roblox
+    </div>
+    <h1>SYXO</h1>
+    <p>The most advanced Roblox enhancement tool. Undetected, blazing fast, and beautifully designed to give you the ultimate edge.</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#download">⬇ Download Now</a>
+      <a class="btn btn-secondary" href="#features">Explore Features</a>
+    </div>
+    
+    <div class="stats" style="margin-top: 3.5rem;">
+      <div class="stat">
+        <div class="stat-value">100%</div>
+        <div class="stat-label">Undetected</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">0ms</div>
+        <div class="stat-label">Injection</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">50K+</div>
+        <div class="stat-label">Users</div>
+      </div>
+    </div>
+  </header>
+  
+  <section id="features">
+    <h2 class="section-title reveal">Features</h2>
+    <p class="section-sub reveal">Everything you need. Nothing you don't.</p>
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon">⚡</div>
+        <h3>Instant Injection</h3>
+        <p>Zero-latency execution with our optimized loader. Get in the game faster than ever before.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🛡️</div>
+        <h3>Undetected</h3>
+        <p>Advanced bypass methods keep you safe from Byfron and modern anti-cheat systems.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🎨</div>
+        <h3>Sleek UI</h3>
+        <p>Dark-mode first design with customizable themes, keybinds, and draggable modules.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">📜</div>
+        <h3>Script Hub</h3>
+        <p>Built-in script database with hundreds of verified, ready-to-run scripts for any game.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔧</div>
+        <h3>Auto-Updates</h3>
+        <p>Silent background patching ensures compatibility with the latest Roblox builds.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🌐</div>
+        <h3>Universal</h3>
+        <p>Works across every Roblox experience with game-specific optimizations included.</p>
+      </div>
+    </div>
+  </section>
+  
+  <div class="glow-line"></div>
+  
+  <section id="showcase">
+    <h2 class="section-title reveal">Interface Preview</h2>
+    <p class="section-sub reveal">Minimal. Powerful. Intuitive.</p>
+    <div class="showcase reveal">
+      <div class="showcase-frame">
+        <div class="showcase-inner">
+          <div class="placeholder-ui">SYXO UI PREVIEW</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <div class="glow-line"></div>
+  
+  <section id="faq">
+    <h2 class="section-title reveal">FAQ</h2>
+    <p class="section-sub reveal">Got questions? We got answers.</p>
+    <div class="faq reveal">
+      <div class="faq-item">
+        <div class="faq-q">
+          Is SYXO safe to use?
+          <span class="faq-icon">⌄</span>
+        </div>
+        <div class="faq-a">Yes. SYXO is built with security as the top priority. We implement multiple layers of obfuscation and use private methods to stay fully undetected.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">
+          How often is SYXO updated?
+          <span class="faq-icon">⌄</span>
+        </div>
+        <div class="faq-a">Our team pushes updates within hours of any Roblox engine changes. Auto-update ensures you never have to wait.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">
+          Does it work on all games?
+          <span class="faq-icon">⌄</span>
+        </div>
+        <div class="faq-a">SYXO is universal. While some experiences have extra protections, our tool is compatible with 99% of Roblox games out of the box.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">
+          Do I need to disable my antivirus?
+          <span class="faq-icon">⌄</span>
+        </div>
+        <div class="faq-a">Most cheats require an exclusion due to the nature of injection. We recommend adding SYXO to your AV whitelist to prevent false positives.</div>
+      </div>
+    </div>
+  </section>
+  
+  <section id="download" style="text-align: center; padding-bottom: 6rem;">
+    <h2 class="section-title reveal" style="font-size: 2.5rem;">Ready to Dominate?</h2>
+    <p class="section-sub reveal">Join 50,000+ users enhancing their Roblox experience.</p>
+    <div class="reveal" style="margin-top: 1.5rem;">
+      <a class="btn btn-primary" style="padding: 1rem 3rem; font-size: 1.2rem;">⬇ Download SYXO</a>
+    </div>
+    <p style="color: var(--text-dim); margin-top: 1.2rem; font-size: 0.9rem;">Windows 10/11 •64-bit Required</p>
+  </section>
+  
+  <footer>
+    <div class="brand">SYXO</div>
+    <p>Built by exploiters, for exploiters.</p>
+    <div class="socials">
+      <a href="#" title="Discord">D</a>
+      <a href="#" title="YouTube">Y</a>
+      <a href="#" title="GitHub">G</a>
+      <a href="#" title="Twitter">T</a>
+    </div>
+    <p style="opacity: 0.6;">©2026 SYXO. Not affiliated with Roblox Corporation.</p>
+  </footer>
+  
+  <script>
+    // Navbar scroll effect
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 40) navbar.classList.add('scrolled');
+      else navbar.classList.remove('scrolled');
+    });
+    
+    // FAQ accordion
+    document.querySelectorAll('.faq-q').forEach(q => {
+      q.addEventListener('click', () => {
+        const item = q.parentElement;
+        const active = item.classList.contains('active');
+        document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
+        if (!active) item.classList.add('active');
+      });
+    });
+    
+    // Scroll reveal    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add('visible');
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>
+<script data-huggingchat-badge="script">
+(function () {
+	try {
+		if (document.querySelector("[data-huggingchat-badge]:not(script)")) return;
+		var host = document.createElement("div");
+		host.setAttribute("data-huggingchat-badge", "");
+		var styles = [["all","initial"],["position","fixed"],["right","12px"],["bottom","12px"],["z-index","2147483647"],["display","block"],["visibility","visible"],["opacity","1"],["pointer-events","auto"],["width","auto"],["height","auto"],["margin","0"],["padding","0"],["max-width","none"],["max-height","none"],["transform","none"],["filter","none"],["clip-path","none"],["color-scheme","light"]];
+		for (var i = 0; i < styles.length; i++) {
+			host.style.setProperty(styles[i][0], styles[i][1], "important");
+		}
+		host.attachShadow({ mode: "closed" }).innerHTML = "<style>\n:host { all: initial; }\na {\n  display: flex;\n  align-items: center;\n  gap: 5px;\n  box-sizing: border-box;\n  height: 26px;\n  padding: 0 9px 0 7px;\n  border-radius: 999px;\n  border: 1px solid rgba(0, 0, 0, 0.07);\n  background: rgba(255, 255, 255, 0.92);\n  -webkit-backdrop-filter: saturate(180%) blur(8px);\n  backdrop-filter: saturate(180%) blur(8px);\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);\n  color: #111827;\n  font: 500 11px/1 ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  letter-spacing: 0.01em;\n  text-decoration: none;\n  white-space: nowrap;\n  opacity: 0.72;\n  transition: opacity 0.15s ease, transform 0.15s ease;\n}\na:hover, a:focus-visible { opacity: 1; transform: translateY(-1px); }\nsvg { width: 14px; height: 14px; flex: none; }\n@media print { a { display: none; } }\n<\/style><a href=\"https://huggingface.co/chat\" target=\"_blank\" rel=\"noopener noreferrer nofollow\"><svg viewBox=\"0 0 32 32\" fill=\"none\" aria-hidden=\"true\"><path d=\"M16.0006 25.9992C13.8266 25.999 11.7118 25.2901 9.97686 23.9799C8.2419 22.6698 6.98127 20.8298 6.38599 18.7388C5.79071 16.6478 5.89323 14.4198 6.678 12.3923C7.46278 10.3648 8.88705 8.64837 10.735 7.50308C12.5829 6.35779 14.7538 5.84606 16.9187 6.04544C19.0837 6.24481 21.1246 7.14442 22.7323 8.60795C24.34 10.0715 25.4268 12.0192 25.8281 14.1559C26.2293 16.2926 25.9232 18.5019 24.9561 20.449C24.7703 20.8042 24.7223 21.2155 24.8211 21.604L25.4211 23.8316C25.4803 24.0518 25.4805 24.2837 25.4216 24.5039C25.3627 24.7242 25.2468 24.925 25.0856 25.0862C24.9244 25.2474 24.7235 25.3633 24.5033 25.4222C24.283 25.4811 24.0512 25.4809 23.831 25.4217L21.6034 24.8217C21.2172 24.7248 20.809 24.7729 20.4558 24.9567C19.0683 25.6467 17.5457 26.0068 16.0006 26.0068V25.9992Z\" fill=\"currentColor\"/><path d=\"M9.62598 16.0013C9.62598 15.3799 10.1294 14.8765 10.7508 14.8765C11.3721 14.8765 11.8756 15.3799 11.8756 16.0013C11.8756 17.0953 12.3102 18.1448 13.0838 18.9184C13.8574 19.692 14.9069 20.1266 16.001 20.1267C17.095 20.1267 18.1445 19.692 18.9181 18.9184C19.6918 18.1448 20.1264 17.0953 20.1264 16.0013C20.1264 15.3799 20.6299 14.8765 21.2512 14.8765C21.8725 14.8765 22.3759 15.3799 22.3759 16.0013C22.3759 17.6921 21.7046 19.3137 20.509 20.5093C19.3134 21.7049 17.6918 22.3762 16.001 22.3762C14.3102 22.3762 12.6885 21.7049 11.4929 20.5093C10.2974 19.3137 9.62598 17.6921 9.62598 16.0013Z\" fill=\"#fff\"/><\/svg><span>Made with HuggingChat<\/span><\/a>";
+		function attach() {
+			var parent = document.body || document.documentElement;
+			if (parent && host.parentNode !== parent) parent.appendChild(host);
+		}
+		attach();
+		// Artifacts that rewrite document.body wholesale would drop the badge.
+		if (document.body && typeof MutationObserver === "function") {
+			new MutationObserver(attach).observe(document.body, { childList: true });
+		} else {
+			document.addEventListener("DOMContentLoaded", attach);
+		}
+	} catch (e) {}
+})();
+</script>

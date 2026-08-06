@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en" translate="no" class="notranslate">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="google" content="notranslate">
+  <title>English Quest - Already & Yet Challenge</title>
+
+  <!-- Ably SDK for Realtime Monitoring -->
+  <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* PREVENIR TRADUCCIÓN Y SELECCIÓN INVOLUNTARIA */
+    * {
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    [contenteditable="true"] {
+      -webkit-user-select: text !important;
+      -khtml-user-select: text !important;
+      -moz-user-select: text !important;
+      -ms-user-select: text !important;
+      user-select: text !important;
+    }
+
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      --card-bg: rgba(255, 255, 255, 0.96);
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --accent: #f59e0b;
+      --success: #10b981;
+      --danger: #ef4444;
+      --text: #1e293b;
+    }
+
+    body, html {
+      height: 100dvh;
+      width: 100vw;
+      overflow: hidden;
+      background: var(--bg-gradient);
+      color: var(--text);
+    }
+
+    /* ESTILOS ANTI-CAPTURA / IMPRESIÓN */
+    @media print {
+      body { display: none !important; }
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 12px;
+      position: relative;
+    }
+
+    /* MODAL NOMBRE / LOGIN */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .welcome-card {
+      background: white;
+      border-radius: 24px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .welcome-card h1 {
+      font-family: 'Fredoka', sans-serif;
+      color: var(--primary-dark);
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+    }
+
+    .welcome-card p {
+      color: #64748b;
+      font-size: 0.95rem;
+      margin-bottom: 20px;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    .name-input {
+      width: 100%;
+      padding: 14px 18px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-align: center;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .name-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+
+    .btn-start {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 0 var(--primary-dark);
+      transition: all 0.1s;
+    }
+
+    .btn-start:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 var(--primary-dark);
+    }
+
+    /* HEADER & STATS BAR */
+    header {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      flex-shrink: 0;
+    }
+
+    .stat-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: white;
+      font-weight: 700;
+      font-size: 0.95rem;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 6px 12px;
+      border-radius: 20px;
+    }
+
+    /* BARRA DE PROGRESO DE DIAPOSITIVAS */
+    .progress-container {
+      width: 100%;
+      height: 10px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 10px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 12.5%;
+      background: var(--accent);
+      border-radius: 10px;
+      transition: width 0.3s ease;
+    }
+
+    /* MAIN CONTENT AREA - SLIDE CARD */
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .slide-card {
+      background: var(--card-bg);
+      border-radius: 24px;
+      padding: 24px;
+      width: 100%;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+      border: 2px solid rgba(255,255,255,0.8);
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .slide-step {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 1rem;
+      color: #64748b;
+      font-weight: 700;
+    }
+
+    .task-instruction {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 14px;
+      background: rgba(99, 102, 241, 0.08);
+      padding: 10px 14px;
+      border-radius: 10px;
+    }
+
+    .prompt-box {
+      background: #f8fafc;
+      border: 2px dashed #cbd5e1;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 20px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1e293b;
+      line-height: 1.4;
+    }
+
+    /* CONTENEDOR DE LA ORACIÓN CON SPAN CONTENTEDITABLE */
+    .sentence-wrapper {
+      background: #f1f5f9;
+      padding: 16px;
+      border-radius: 16px;
+      margin-bottom: 16px;
+      font-size: 1.1rem;
+      line-height: 1.8;
+      font-weight: 700;
+      color: #334155;
+    }
+
+    /* SPAN CONTENTEDITABLE DINÁMICO (CRECE CON EL TEXTO) */
+    .sentence-input {
+      display: inline-block;
+      min-width: 60px;
+      padding: 4px 10px;
+      margin: 0 4px;
+      border-bottom: 3px solid var(--primary);
+      background: white;
+      border-radius: 6px 6px 0 0;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--primary-dark);
+      outline: none;
+      white-space: nowrap;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+      vertical-align: baseline;
+    }
+
+    .sentence-input:focus {
+      background: rgba(99, 102, 241, 0.1);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ESTADOS CORRECTO / INCORRECTO */
+    .sentence-input.correct {
+      background: rgba(16, 185, 129, 0.15) !important;
+      border-bottom-color: var(--success) !important;
+      color: #065f46 !important;
+    }
+
+    .sentence-input.incorrect {
+      background: rgba(239, 68, 68, 0.15) !important;
+      border-bottom-color: var(--danger) !important;
+      color: #991b1b !important;
+    }
+
+    /* FEEDBACK DE RESPUESTA */
+    .feedback-box {
+      display: none;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+
+    .feedback-box.correct-fb {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    .feedback-box.incorrect-fb {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    /* FOOTER & BUTTONS */
+    footer {
+      margin-top: 12px;
+      padding: 8px 0;
+      flex-shrink: 0;
+    }
+
+    .btn-check {
+      width: 100%;
+      padding: 16px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 16px;
+      font-size: 1.2rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 6px 0 var(--primary-dark);
+      transition: all 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn-check:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 var(--primary-dark);
+    }
+
+    .btn-next-mode {
+      background: var(--success) !important;
+      box-shadow: 0 6px 0 #059669 !important;
+    }
+
+    /* MODAL RESULTADOS */
+    .results-card {
+      background: white;
+      border-radius: 24px;
+      padding: 24px;
+      width: 100%;
+      max-width: 550px;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+    }
+
+    .results-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .results-score {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--primary);
+      font-family: 'Fredoka', sans-serif;
+    }
+
+    .review-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .review-item {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .review-item.good { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+    .review-item.bad { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+
+    /* PANEL DOCENTE (TEACHER MONITOR) */
+    .teacher-panel {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #0f172a;
+      color: #f8fafc;
+      z-index: 2000;
+      padding: 20px;
+      flex-direction: column;
+    }
+
+    .teacher-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #334155;
+    }
+
+    .teacher-grid {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      align-content: start;
+    }
+
+    .student-monitor-card {
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .student-monitor-header {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      color: #38bdf8;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+    }
+
+    .live-field {
+      font-size: 0.85rem;
+      margin: 6px 0;
+      color: #cbd5e1;
+    }
+
+    .live-val {
+      color: #f59e0b;
+      font-weight: bold;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body oncontextmenu="return false;">
+
+  <!-- SONIDO ACERTADO -->
+  <audio id="sound-success" src="https://res.cloudinary.com/dslu7arqa/video/upload/v1775511433/applepay_jptbaf.mp3" preload="auto"></audio>
+
+  <!-- MODAL DE INGRESO DE NOMBRE -->
+  <div class="modal-overlay" id="welcome-modal">
+    <div class="welcome-card">
+      <h1>🚀 English Quest</h1>
+      <p>Rewrite the sentences, adding <b>already</b> or <b>yet</b> in the correct place.</p>
+      <div class="input-group">
+        <input type="text" id="student-name-input" class="name-input" placeholder="Escribe tu nombre..." autocomplete="off">
+      </div>
+      <button class="btn-start" onclick="startApp()">COMENZAR RETO 🎯</button>
+    </div>
+  </div>
+
+  <!-- MODAL DE RESULTADOS -->
+  <div class="modal-overlay" id="results-modal" style="display: none;">
+    <div class="results-card">
+      <div class="results-header">
+        <h2>🎉 ¡Desafío Completado!</h2>
+        <div class="results-score" id="final-score">0 PTS</div>
+        <p id="final-accuracy">Precisión: 0%</p>
+      </div>
+      <h3>Resumen de tus respuestas:</h3>
+      <div class="review-list" id="review-list"></div>
+      <button class="btn-start" onclick="location.reload()">REPETIR RETO 🔄</button>
+    </div>
+  </div>
+
+  <!-- PANEL MONITOR PARA TEACHER -->
+  <div class="teacher-panel" id="teacher-panel">
+    <div class="teacher-header">
+      <h2>📡 Monitor de Estudiantes en Tiempo Real (TEACHER)</h2>
+      <button class="btn-start" style="width: auto; padding: 8px 16px;" onclick="location.reload()">Salir</button>
+    </div>
+    <div class="teacher-grid" id="teacher-grid">
+      <!-- Tarjetas de estudiantes en tiempo real -->
+    </div>
+  </div>
+
+  <!-- CONTENEDOR PRINCIPAL ESTUDIANTE -->
+  <div class="app-container">
+    
+    <!-- STATS BAR -->
+    <header>
+      <div class="stat-badge">⭐ <span id="score-display">0</span></div>
+      <div class="stat-badge">🔥 <span id="streak-display">0</span> Streak</div>
+      <div class="stat-badge">🎯 <span id="accuracy-display">100%</span></div>
+      <div class="stat-badge">🚀 Nivel 1</div>
+    </header>
+
+    <!-- BARRA DE PROGRESO DE DIAPOSITIVAS -->
+    <div class="progress-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <!-- CONTENT AREA (SLIDE CONTAINER) -->
+    <div class="content-area">
+      <div class="slide-card" id="slide-card">
+        <!-- Renderizado dinámico desde JavaScript por diapositiva -->
+      </div>
+    </div>
+
+    <!-- FOOTER CON BOTÓN CHECK / SIGUIENTE -->
+    <footer>
+      <button class="btn-check" id="btn-action" onclick="handleActionButton()">
+        <span>CHECK</span> 🎯
+      </button>
+    </footer>
+
+  </div>
+
+  <script>
+    // CONFIGURACIÓN Y RED
+    const DISCORD_WEBHOOK = "https://discordapp.com/api/webhooks/1469452628629913741/8cjv78gMP_1L7fqHF2jNMryW9o71dhNt3gNns5IkLjqGjmY0pvR59bNkeLqKR_-GyJnm";
+    const ABLY_KEY = "zLtaZw.ID53Wg:UJ3rOKwpfhda37lxinuF24kknvUjk7jub4NO79VC9no";
+    
+    let studentName = "";
+    let studentId = "std_" + Math.random().toString(36).substr(2, 9);
+    let points = 0;
+    let streak = 0;
+    let currentSlideIndex = 0;
+    let isCheckedCurrentSlide = false;
+    let isTeacher = false;
+    let ably, ablyChannel;
+
+    // BANCO DE SLIDES BASADO EN EL SCREENSHOT (REWRITE WITH ALREADY / YET)
+    const slidesData = [
+      {
+        id: 1,
+        prompt: "They haven't started preparing for the party.",
+        validAnswers: [
+          "they haven't started preparing for the party yet",
+          "they have not started preparing for the party yet"
+        ],
+        solutionText: "They haven't started preparing for the party yet."
+      },
+      {
+        id: 2,
+        prompt: "She has studied human biology.",
+        validAnswers: [
+          "she has already studied human biology",
+          "she's already studied human biology"
+        ],
+        solutionText: "She has already studied human biology."
+      },
+      {
+        id: 3,
+        prompt: "I haven't done my homework.",
+        validAnswers: [
+          "i haven't done my homework yet",
+          "i have not done my homework yet"
+        ],
+        solutionText: "I haven't done my homework yet."
+      },
+      {
+        id: 4,
+        prompt: "We have visited that art gallery.",
+        validAnswers: [
+          "we have already visited that art gallery",
+          "we've already visited that art gallery"
+        ],
+        solutionText: "We have already visited that art gallery."
+      },
+      {
+        id: 5,
+        prompt: "Have you called your grandmother?",
+        validAnswers: [
+          "have you called your grandmother yet",
+          "have you already called your grandmother"
+        ],
+        solutionText: "Have you called your grandmother yet?"
+      },
+      {
+        id: 6,
+        prompt: "Ren has seen the film.",
+        validAnswers: [
+          "ren has already seen the film",
+          "ren's already seen the film"
+        ],
+        solutionText: "Ren has already seen the film."
+      },
+      {
+        id: 7,
+        prompt: "The football match has started.",
+        validAnswers: [
+          "the football match has already started"
+        ],
+        solutionText: "The football match has already started."
+      },
+      {
+        id: 8,
+        prompt: "Has he been to the dentist about his tooth?",
+        validAnswers: [
+          "has he been to the dentist about his tooth yet",
+          "has he already been to the dentist about his tooth"
+        ],
+        solutionText: "Has he been to the dentist about his tooth yet?"
+      }
+    ];
+
+    // ALMACENAMIENTO DE RESULTADOS
+    const studentResults = {};
+
+    // INICIALIZACIÓN ABLY
+    try {
+      if (typeof Ably !== 'undefined') {
+        ably = new Ably.Realtime(ABLY_KEY);
+        ablyChannel = ably.channels.get('english-already-yet-session');
+      }
+    } catch (e) {
+      console.warn("Ably notification error:", e);
+    }
+
+    // NORMALIZADOR FLEXIBLE PARA EVALUACIÓN ('ve, 's, have, has, etc.)
+    function normalizeText(text) {
+      return text.toLowerCase()
+        .replace(/[’']/g, "'") // Normaliza apóstrofes
+        .replace(/[.?]/g, "")   // Ignora puntos o signos de interrogación finales
+        .replace(/\s+/g, " ")   // Colapsa espacios extra
+        .trim();
+    }
+
+    // BLOQUEOS DE SEGURIDAD (ANTI-INSPECT / SCREENSHOT)
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'F12' || 
+         (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+         (e.ctrlKey && (e.key === 'U' || e.key === 'S'))) {
+        e.preventDefault();
+        return false;
+      }
+    });
+
+    window.addEventListener('blur', () => {
+      document.body.style.filter = "blur(10px)";
+    });
+    window.addEventListener('focus', () => {
+      document.body.style.filter = "none";
+    });
+
+    // INICIAR APLICACIÓN
+    function startApp() {
+      const input = document.getElementById('student-name-input');
+      const val = input.value.trim();
+      
+      if (!val) {
+        alert("Por favor ingresa tu nombre para comenzar.");
+        return;
+      }
+
+      studentName = val;
+
+      if (studentName.toUpperCase() === "TEACHER") {
+        isTeacher = true;
+        document.getElementById('welcome-modal').style.display = 'none';
+        document.getElementById('teacher-panel').style.display = 'flex';
+        initTeacherMonitor();
+        return;
+      }
+
+      document.getElementById('welcome-modal').style.display = 'none';
+      renderSlide();
+      publishLiveUpdate("conectado");
+    }
+
+    // RENDERIZAR SLIDE ACTUAL
+    function renderSlide() {
+      isCheckedCurrentSlide = false;
+      const slide = slidesData[currentSlideIndex];
+      const card = document.getElementById('slide-card');
+      const progressBar = document.getElementById('progress-bar');
+      const btnAction = document.getElementById('btn-action');
+
+      // Actualizar barra de progreso
+      const pct = ((currentSlideIndex + 1) / slidesData.length) * 100;
+      progressBar.style.width = pct + "%";
+
+      // Reset botón
+      btnAction.className = "btn-check";
+      btnAction.innerHTML = "<span>CHECK</span> 🎯";
+
+      card.innerHTML = `
+        <div class="slide-header">
+          <span class="slide-step">Ejercicio ${currentSlideIndex + 1} de ${slidesData.length}</span>
+        </div>
+
+        <div class="task-instruction">
+          📌 Reescribe la oración agregando <b>already</b> o <b>yet</b> en el lugar correcto:
+        </div>
+
+        <div class="prompt-box">
+          ${slide.prompt}
+        </div>
+
+        <div class="sentence-wrapper">
+          <span class="sentence-input" contenteditable="true" id="sentence-input" oninput="onStudentInput()" placeholder=""></span>
+        </div>
+
+        <div class="feedback-box" id="feedback-box"></div>
+      `;
+    }
+
+    // ACCIÓN DEL BOTÓN PRINCIPAL (CHECK O SIGUIENTE)
+    function handleActionButton() {
+      if (!isCheckedCurrentSlide) {
+        checkCurrentSlide();
+      } else {
+        nextSlide();
+      }
+    }
+
+    // VALIDACIÓN DE LA DIAPOSITIVA ACTUAL
+    function checkCurrentSlide() {
+      const slide = slidesData[currentSlideIndex];
+      const fbBox = document.getElementById('feedback-box');
+      const sound = document.getElementById('sound-success');
+      const btnAction = document.getElementById('btn-action');
+
+      const sentEl = document.getElementById('sentence-input');
+      const userText = sentEl ? sentEl.innerText.trim() : "";
+      const normUser = normalizeText(userText);
+
+      const isCorrect = slide.validAnswers.map(v => normalizeText(v)).includes(normUser);
+
+      if (isCorrect) {
+        sentEl.classList.add('correct');
+      } else {
+        sentEl.classList.add('incorrect');
+      }
+
+      // GUARDAR RESULTADO
+      studentResults[slide.id] = {
+        slideId: slide.id,
+        prompt: slide.prompt,
+        userTyped: userText,
+        isCorrect: isCorrect,
+        solution: slide.solutionText
+      };
+
+      // EVALUAR SCORE Y FEEDBACK
+      isCheckedCurrentSlide = true;
+      fbBox.style.display = "block";
+
+      if (isCorrect) {
+        points += 100;
+        streak++;
+        if (sound) sound.play().catch(()=>{});
+
+        fbBox.className = "feedback-box correct-fb";
+        fbBox.innerHTML = `✅ ¡Excelente! Respuesta correcta (+100 PTS)`;
+      } else {
+        streak = 0;
+        fbBox.className = "feedback-box incorrect-fb";
+        fbBox.innerHTML = `❌ Respuesta incorrecta.<br><b>Solución:</b> ${slide.solutionText}`;
+      }
+
+      // ACTUALIZAR MARCADORES
+      document.getElementById('score-display').innerText = points;
+      document.getElementById('streak-display').innerText = streak;
+
+      // CAMBIAR BOTÓN A SIGUIENTE O FINALIZAR
+      btnAction.className = "btn-check btn-next-mode";
+      if (currentSlideIndex < slidesData.length - 1) {
+        btnAction.innerHTML = "<span>SIGUIENTE</span> ➔";
+      } else {
+        btnAction.innerHTML = "<span>VER RESULTADOS</span> 🚀";
+      }
+
+      publishLiveUpdate("comprobado");
+    }
+
+    // PASAR A LA SIGUIENTE DIAPOSITIVA
+    function nextSlide() {
+      if (currentSlideIndex < slidesData.length - 1) {
+        currentSlideIndex++;
+        renderSlide();
+      } else {
+        finishChallenge();
+      }
+    }
+
+    // FINALIZAR RETO Y MOSTRAR RESULTADOS
+    function finishChallenge() {
+      let correctCount = 0;
+      let total = slidesData.length;
+      let reviewHTML = "";
+
+      for (let id in studentResults) {
+        const res = studentResults[id];
+        if (res.isCorrect) {
+          correctCount++;
+          reviewHTML += `
+            <div class="review-item good">
+              <div>✅ <b>Ejercicio ${id}:</b> ${res.userTyped}</div>
+              <div style="font-size:0.75rem; color:#047857;">+100 PTS</div>
+            </div>`;
+        } else {
+          reviewHTML += `
+            <div class="review-item bad">
+              <div>❌ <b>Ejercicio ${id}:</b> ${res.userTyped || '<i>Sin respuesta</i>'}</div>
+              <div style="font-size:0.78rem; font-weight:700;">Solución: ${res.solution}</div>
+            </div>`;
+        }
+      }
+
+      const accuracy = Math.round((correctCount / total) * 100);
+      document.getElementById('accuracy-display').innerText = accuracy + "%";
+      document.getElementById('final-score').innerText = points + " PTS";
+      document.getElementById('final-accuracy').innerText = `Precisión: ${accuracy}% (${correctCount}/${total})`;
+      document.getElementById('review-list').innerHTML = reviewHTML;
+      document.getElementById('results-modal').style.display = 'flex';
+
+      sendToDiscord(accuracy, correctCount, total);
+      publishLiveUpdate("finalizado");
+    }
+
+    // TRANSMITIR EN TIEMPO REAL (ESTUDIANTE)
+    function onStudentInput() {
+      if (isTeacher) return;
+      publishLiveUpdate("escribiendo");
+    }
+
+    function publishLiveUpdate(status) {
+      if (!ablyChannel || !studentName) return;
+      
+      const currentVal = document.getElementById('sentence-input')?.innerText.trim() || "";
+
+      ablyChannel.publish('student-progress', {
+        studentId: studentId,
+        studentName: studentName,
+        status: status,
+        currentSlide: currentSlideIndex + 1,
+        currentTyped: currentVal,
+        score: points,
+        streak: streak,
+        time: new Date().toLocaleTimeString()
+      });
+    }
+
+    // MONITOR TEACHER EN TIEMPO REAL
+    const studentsData = {};
+
+    function initTeacherMonitor() {
+      if (!ablyChannel) return;
+      
+      ablyChannel.subscribe('student-progress', (msg) => {
+        const data = msg.data;
+        studentsData[data.studentId] = data;
+        renderTeacherView();
+      });
+    }
+
+    function renderTeacherView() {
+      const grid = document.getElementById('teacher-grid');
+      grid.innerHTML = "";
+
+      for (let id in studentsData) {
+        const s = studentsData[id];
+        const card = document.createElement('div');
+        card.className = 'student-monitor-card';
+
+        card.innerHTML = `
+          <div class="student-monitor-header">
+            <span>👤 ${s.studentName}</span>
+            <span>${s.status}</span>
+          </div>
+          <div><b>Diapositiva actual:</b> ${s.currentSlide || 1} / 8</div>
+          <div><b>Puntos:</b> ${s.score} | <b>Última act:</b> ${s.time}</div>
+          <hr style="border-color:#334155; margin:8px 0;">
+          <div class="live-field"><b>Texto escrito:</b> <span class="live-val">${s.currentTyped || "—"}</span></div>
+        `;
+        grid.appendChild(card);
+      }
+    }
+
+    // ENVÍO A DISCORD WEBHOOK
+    function sendToDiscord(accuracy, correctCount, total) {
+      const payload = {
+        embeds: [{
+          title: "✍️ Ejercicio Already / Yet - Present Perfect",
+          color: accuracy >= 80 ? 65280 : 16711680,
+          fields: [
+            { name: "👤 Estudiante", value: studentName, inline: true },
+            { name: "⭐ Puntuación", value: `${points} PTS`, inline: true },
+            { name: "🎯 Precisión", value: `${accuracy}% (${correctCount}/${total})`, inline: true },
+            { name: "📝 Desglose de Respuestas", value: "```json\n" + JSON.stringify(studentResults, null, 2) + "\n```" }
+          ],
+          timestamp: new Date()
+        }]
+      };
+
+      fetch(DISCORD_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(err => console.error("Error enviando a Discord:", err));
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+# Abhängigkeiten der Suchoberfläche (query.py).
+#
+# gradio steht hier bewusst NICHT drin: der Space hängt seine eigene Version
+# (aus sdk_version in der README) an den pip-Aufruf an - ein Pin hier führt zu
+# einem Versionskonflikt und der Build bricht ab.
+#
+# Die Skripte unter bücher/de/verarbeitet/ brauchen zusätzlich nltk und pandas.
+# Die laufen nur lokal beim Aufbereiten und gehören nicht in den Space.
+
+# Untergrenze ist wichtig: die Datenbank wurde mit 1.5.9 geschrieben, ältere
+# Versionen können das Format nicht öffnen. Nach oben gedeckelt, damit ein
+# Major-Sprung sie nicht unbemerkt unlesbar macht.
+chromadb>=1.5.9,<2
+
+# Gemini-SDK. Das alte google-generativeai ist eingestellt und wird nicht genutzt.
+# Bewusst weite Spanne: 2.16 verlangt pydantic>=2.12.5, gradio mit mcp-Extra
+# deckelt bei <=2.12.5 - die Schnittmenge wäre genau eine Version. Mit Spielraum
+# darf der Resolver zur Not eine ältere google-genai wählen. query.py braucht nur
+# Client, embed_content und generate_content; die gibt es in allen 2.x.
+google-genai>=2.0,<3
+
+# Lädt die Chroma-DB beim Start aus dem Dataset-Repo. Bewusst ohne enge
+# Untergrenze, damit die von gradio mitgebrachte Version passen darf -
+# snapshot_download gibt es in allen infrage kommenden Versionen.
+huggingface_hub>=0.28
+
+# Nur für die Kosinus-Ähnlichkeit in query.py.
+numpy>=1.24
+
+python-dotenv>=1.0

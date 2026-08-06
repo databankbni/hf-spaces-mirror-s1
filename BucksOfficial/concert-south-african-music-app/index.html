@@ -1,0 +1,2397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Concert - South African Music</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #60a5fa;
+            --primary-dark: #3b82f6;
+            --primary-light: #dbeafe;
+            --accent: #0ea5e9;
+            --bg: #ffffff;
+            --surface: #f8fafc;
+            --surface-2: #f1f5f9;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --border: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-lg: 0 10px 40px rgba(0,0,0,0.1);
+            --radius: 16px;
+            --radius-sm: 12px;
+            --radius-xs: 8px;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        [data-theme="ocean"] {
+            --primary: #0ea5e9;
+            --primary-dark: #0284c7;
+            --primary-light: #e0f2fe;
+            --accent: #06b6d4;
+        }
+
+        [data-theme="midnight"] {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #e0e7ff;
+            --accent: #8b5cf6;
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-2: #334155;
+            --text: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: #334155;
+        }
+
+        [data-theme="sunset"] {
+            --primary: #f97316;
+            --primary-dark: #ea580c;
+            --primary-light: #ffedd5;
+            --accent: #fb923c;
+        }
+
+        [data-theme="forest"] {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --primary-light: #d1fae5;
+            --accent: #34d399;
+        }
+
+        [data-theme="berry"] {
+            --primary: #ec4899;
+            --primary-dark: #db2777;
+            --primary-light: #fce7f3;
+            --accent: #f472b6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        #app {
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Splash Screen */
+        .splash-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, var(--bg) 0%, var(--primary-light) 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.6s ease, visibility 0.6s;
+        }
+
+        .splash-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .splash-logo {
+            width: 140px;
+            height: 140px;
+            border-radius: 32px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 20px 60px rgba(59, 130, 246, 0.3);
+            animation: splashPulse 2s ease infinite;
+        }
+
+        @keyframes splashPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .splash-logo i {
+            font-size: 60px;
+            color: white;
+        }
+
+        .splash-title {
+            margin-top: 24px;
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--text);
+        }
+
+        .splash-subtitle {
+            margin-top: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .splash-loader {
+            margin-top: 40px;
+            width: 120px;
+            height: 3px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .splash-loader-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            border-radius: 3px;
+            animation: loadBar 2s ease forwards;
+        }
+
+        @keyframes loadBar {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+
+        /* Auth Screens */
+        .auth-screen {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .auth-screen.active {
+            display: flex;
+        }
+
+        .auth-header {
+            padding: 40px 24px 20px;
+            text-align: center;
+        }
+
+        .auth-header .logo-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .auth-header .logo-icon i {
+            font-size: 36px;
+            color: white;
+        }
+
+        .auth-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .auth-header p {
+            margin-top: 8px;
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+
+        .auth-form {
+            padding: 0 24px 24px;
+            flex: 1;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            background: var(--surface);
+            color: var(--text);
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+
+        .form-group .input-icon {
+            position: relative;
+        }
+
+        .form-group .input-icon i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+
+        .form-group .input-icon input {
+            padding-left: 44px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px 20px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid var(--border);
+            color: var(--text);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--primary);
+        }
+
+        .auth-footer {
+            padding: 20px 24px;
+            text-align: center;
+        }
+
+        .auth-footer p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .auth-footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 24px 0;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .social-login {
+            display: flex;
+            gap: 12px;
+        }
+
+        .social-btn {
+            flex: 1;
+            padding: 12px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .social-btn i {
+            font-size: 20px;
+        }
+
+        .security-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--primary-light);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            color: var(--primary-dark);
+        }
+
+        /* Main App Layout */
+        .main-app {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-app.active {
+            display: flex;
+        }
+
+        /* Header */
+        .app-header {
+            padding: 12px 20px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .app-header .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .app-header .brand-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .app-header .brand-icon i {
+            color: white;
+            font-size: 16px;
+        }
+
+        .app-header .brand-text {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .app-header .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: none;
+            background: var(--surface);
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .icon-btn:hover {
+            background: var(--surface-2);
+        }
+
+        .icon-btn .badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            background: var(--danger);
+            border-radius: 50%;
+            border: 2px solid var(--bg);
+        }
+
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .content-area::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            display: flex;
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+            padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+            z-index: 10;
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 6px;
+            border: none;
+            background: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            font-size: 11px;
+        }
+
+        .nav-item i {
+            font-size: 20px;
+            transition: all 0.2s;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item.active i {
+            transform: translateY(-2px);
+        }
+
+        /* Page Sections */
+        .page {
+            display: none;
+            padding-bottom: 20px;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* Home Page */
+        .hero-banner {
+            position: relative;
+            height: 220px;
+            margin: 16px;
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .hero-banner img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .hero-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 20px;
+        }
+
+        .hero-overlay h2 {
+            color: white;
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .hero-overlay p {
+            color: rgba(255,255,255,0.8);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .hero-overlay .btn-small {
+            align-self: flex-start;
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            margin: 24px 0 12px;
+        }
+
+        .section-header h3 {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .section-header a {
+            font-size: 13px;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        /* Stories / Featured Artists */
+        .stories-row {
+            display: flex;
+            gap: 12px;
+            padding: 0 20px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .stories-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .story-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            min-width: 80px;
+            cursor: pointer;
+        }
+
+        .story-ring {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            padding: 3px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+        }
+
+        .story-ring img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--bg);
+        }
+
+        .story-item span {
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        /* Video Cards */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 0 20px;
+        }
+
+        .video-card {
+            background: var(--surface);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .video-card:active {
+            transform: scale(0.97);
+        }
+
+        .video-thumb {
+            position: relative;
+            aspect-ratio: 16/10;
+            overflow: hidden;
+        }
+
+        .video-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-play {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.3);
+        }
+
+        .video-play i {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-size: 14px;
+            padding-left: 3px;
+        }
+
+        .video-duration {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .video-info {
+            padding: 10px;
+        }
+
+        .video-info h4 {
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-info p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Concert Cards */
+        .concert-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 0 20px;
+        }
+
+        .concert-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .concert-card:active {
+            transform: scale(0.98);
+        }
+
+        .concert-image {
+            position: relative;
+            height: 180px;
+        }
+
+        .concert-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .concert-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            padding: 6px 12px;
+            background: var(--primary);
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .concert-date {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: var(--radius-xs);
+            text-align: center;
+            min-width: 50px;
+        }
+
+        .concert-date .day {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .concert-date .month {
+            font-size: 10px;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+
+        .concert-details {
+            padding: 16px;
+        }
+
+        .concert-details h3 {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .concert-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 8px;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .concert-meta i {
+            color: var(--primary);
+        }
+
+        .concert-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .ticket-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .ticket-price span {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .btn-ticket {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* About Page */
+        .about-hero {
+            text-align: center;
+            padding: 40px 24px;
+            background: linear-gradient(135deg, var(--primary-light), var(--bg));
+        }
+
+        .about-hero .logo-large {
+            width: 100px;
+            height: 100px;
+            border-radius: 28px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .about-hero .logo-large i {
+            font-size: 44px;
+            color: white;
+        }
+
+        .about-hero h2 {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .about-hero p {
+            margin-top: 8px;
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+
+        .mission-card {
+            margin: 20px;
+            padding: 24px;
+            background: var(--surface);
+            border-radius: var(--radius);
+            text-align: center;
+        }
+
+        .mission-card i {
+            font-size: 40px;
+            color: var(--primary);
+            margin-bottom: 16px;
+        }
+
+        .mission-card h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .mission-card p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            padding: 0 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            background: var(--surface);
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            text-align: center;
+        }
+
+        .stat-item .number {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-item .label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .partners-section {
+            padding: 0 20px;
+        }
+
+        .partner-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--surface);
+            border-radius: var(--radius-sm);
+            margin-bottom: 12px;
+        }
+
+        .partner-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .partner-info h4 {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .partner-info p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* Properties / Settings Page */
+        .settings-group {
+            margin: 20px;
+            background: var(--surface);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .settings-header {
+            padding: 16px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: var(--primary-light);
+        }
+
+        .settings-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+
+        .settings-item:active {
+            background: var(--surface-2);
+        }
+
+        .settings-item i:first-child {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .settings-item .settings-text {
+            flex: 1;
+        }
+
+        .settings-item .settings-text h4 {
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .settings-item .settings-text p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .settings-item i:last-child {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* Toggle Switch */
+        .toggle {
+            width: 48px;
+            height: 26px;
+            background: var(--border);
+            border-radius: 13px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+            flex-shrink: 0;
+        }
+
+        .toggle.active {
+            background: var(--primary);
+        }
+
+        .toggle::after {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .toggle.active::after {
+            transform: translateX(22px);
+        }
+
+        /* Color Theme Options */
+        .theme-options {
+            display: flex;
+            gap: 12px;
+            padding: 16px 20px;
+        }
+
+        .theme-option {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .theme-option.active {
+            border-color: var(--text);
+            transform: scale(1.1);
+        }
+
+        .theme-option[data-theme="default"] { background: linear-gradient(135deg, #60a5fa, #3b82f6); }
+        .theme-option[data-theme="ocean"] { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
+        .theme-option[data-theme="midnight"] { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+        .theme-option[data-theme="sunset"] { background: linear-gradient(135deg, #f97316, #ea580c); }
+        .theme-option[data-theme="forest"] { background: linear-gradient(135deg, #10b981, #059669); }
+        .theme-option[data-theme="berry"] { background: linear-gradient(135deg, #ec4899, #db2777); }
+
+        /* Security Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-sheet {
+            background: var(--bg);
+            width: 100%;
+            max-height: 85vh;
+            border-radius: var(--radius) var(--radius) 0 0;
+            overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.active .modal-sheet {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+            z-index: 1;
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .modal-header .close-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: var(--surface);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        /* Payment Modal */
+        .payment-option {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--surface);
+            border-radius: var(--radius-sm);
+            margin-bottom: 12px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .payment-option:hover, .payment-option.selected {
+            border-color: var(--primary);
+        }
+
+        .payment-option img {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            border-radius: 8px;
+            background: white;
+            padding: 4px;
+        }
+
+        .payment-option .payment-info {
+            flex: 1;
+        }
+
+        .payment-option .payment-info h4 {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .payment-option .payment-info p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--text);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 300;
+            opacity: 0;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Search Bar */
+        .search-bar {
+            padding: 12px 20px;
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+            z-index: 5;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            background: var(--surface);
+            color: var(--text);
+            font-family: inherit;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .search-bar i {
+            position: absolute;
+            left: 36px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        /* Category Pills */
+        .category-pills {
+            display: flex;
+            gap: 8px;
+            padding: 0 20px 12px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .category-pills::-webkit-scrollbar {
+            display: none;
+        }
+
+        .pill {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1.5px solid var(--border);
+            background: var(--bg);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .pill.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Artist Detail */
+        .artist-header {
+            position: relative;
+            height: 200px;
+        }
+
+        .artist-header img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .artist-header-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%);
+        }
+
+        .artist-profile {
+            display: flex;
+            align-items: flex-end;
+            gap: 16px;
+            padding: 0 20px;
+            margin-top: -40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .artist-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 4px solid var(--bg);
+            object-fit: cover;
+            background: var(--surface);
+        }
+
+        .artist-name-section {
+            flex: 1;
+            padding-bottom: 8px;
+        }
+
+        .artist-name-section h2 {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .artist-name-section p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .artist-actions {
+            display: flex;
+            gap: 12px;
+            padding: 20px;
+        }
+
+        .artist-actions button {
+            flex: 1;
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .btn-follow {
+            background: var(--primary);
+            color: white;
+            border: none;
+        }
+
+        .btn-message {
+            background: var(--surface);
+            color: var(--text);
+            border: 1.5px solid var(--border);
+        }
+
+        /* Loading Skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: var(--radius-xs);
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        /* Scrollbar styling for desktop */
+        @media (min-width: 768px) {
+            body {
+                display: flex;
+                justify-content: center;
+                background: #e2e8f0;
+            }
+            #app {
+                max-width: 430px;
+                box-shadow: 0 0 40px rgba(0,0,0,0.1);
+            }
+        }
+
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 60px 24px;
+        }
+
+        .empty-state i {
+            font-size: 64px;
+            color: var(--border);
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Splash Screen -->
+        <div class="splash-screen" id="splashScreen">
+            <div class="splash-logo">
+                <i class="fas fa-music"></i>
+            </div>
+            <div class="splash-title">Concert</div>
+            <div class="splash-subtitle">South African Music</div>
+            <div class="splash-loader">
+                <div class="splash-loader-bar"></div>
+            </div>
+        </div>
+
+        <!-- Auth Screens -->
+        <div class="auth-screen" id="loginScreen">
+            <div class="auth-header">
+                <div class="logo-icon">
+                    <i class="fas fa-music"></i>
+                </div>
+                <h1>Welcome Back</h1>
+                <p>Sign in to discover SA music & concerts</p>
+            </div>
+            <div class="auth-form">
+                <div class="form-group">
+                    <label>Email</label>
+                    <div class="input-icon">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" placeholder="you@example.com" id="loginEmail">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-icon">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" placeholder="Enter your password" id="loginPassword">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="handleLogin()">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+                <div class="divider">or continue with</div>
+                <div class="social-login">
+                    <button class="social-btn"><i class="fab fa-google" style="color:#ea4335;"></i></button>
+                    <button class="social-btn"><i class="fab fa-apple" style="color:#000;"></i></button>
+                    <button class="social-btn"><i class="fab fa-facebook" style="color:#1877f2;"></i></button>
+                </div>
+                <div class="security-badge">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>End-to-end encrypted & secure</span>
+                </div>
+            </div>
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="#" onclick="showRegister()">Sign Up</a></p>
+            </div>
+        </div>
+
+        <div class="auth-screen" id="registerScreen">
+            <div class="auth-header">
+                <div class="logo-icon">
+                    <i class="fas fa-music"></i>
+                </div>
+                <h1>Join Concert</h1>
+                <p>Your gateway to SA music & live events</p>
+            </div>
+            <div class="auth-form">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <div class="input-icon">
+                        <i class="fas fa-user"></i>
+                        <input type="text" placeholder="Your name">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <div class="input-icon">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" placeholder="you@example.com">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-icon">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" placeholder="Create password">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="handleRegister()">
+                    <i class="fas fa-user-plus"></i> Create Account
+                </button>
+                <div class="security-badge">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Protected by advanced security</span>
+                </div>
+            </div>
+            <div class="auth-footer">
+                <p>Already have an account? <a href="#" onclick="showLogin()">Sign In</a></p>
+            </div>
+        </div>
+
+        <!-- Main App -->
+        <div class="main-app" id="mainApp">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="brand">
+                    <div class="brand-icon">
+                        <i class="fas fa-music"></i>
+                    </div>
+                    <span class="brand-text">Concert</span>
+                </div>
+                <div class="header-actions">
+                    <button class="icon-btn" onclick="showSearch()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button class="icon-btn" onclick="showNotifications()">
+                        <i class="fas fa-bell"></i>
+                        <span class="badge"></span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <main class="content-area" id="contentArea">
+                <!-- HOME PAGE -->
+                <div class="page active" id="pageHome">
+                    <div class="hero-banner">
+                        <img src="https://mcp-tools-z-image-turbo.hf.space/--replicas/8rhb7/gradio_api/file=/tmp/gradio/16ef3eabc39b0211dacf179608612948797847e068cb59ceb2cb8cd7ee1a3815/image.webp" alt="Concert">
+                        <div class="hero-overlay">
+                            <h2>Major League Gardens 2024</h2>
+                            <p>Johannesburg • Dec 15 • Tickets Available</p>
+                            <button class="btn-small" onclick="goToConcerts()">Get Tickets</button>
+                        </div>
+                    </div>
+
+                    <div class="section-header">
+                        <h3>Featured Artists</h3>
+                        <a href="#">See All</a>
+                    </div>
+                    <div class="stories-row">
+                        <div class="story-item" onclick="showArtist('Kabza De Small')">
+                            <div class="story-ring">
+                                <img src="https://i.pravatar.cc/150?img=11" alt="Kabza">
+                            </div>
+                            <span>Kabza De Small</span>
+                        </div>
+                        <div class="story-item" onclick="showArtist('DJ Maphorisa')">
+                            <div class="story-ring">
+                                <img src="https://i.pravatar.cc/150?img=12" alt="Maphorisa">
+                            </div>
+                            <span>DJ Maphorisa</span>
+                        </div>
+                        <div class="story-item" onclick="showArtist('Tyla')">
+                            <div class="story-ring">
+                                <img src="https://i.pravatar.cc/150?img=5" alt="Tyla">
+                            </div>
+                            <span>Tyla</span>
+                        </div>
+                        <div class="story-item" onclick="showArtist('Blxckie')">
+                            <div class="story-ring">
+                                <img src="https://i.pravatar.cc/150?img=13" alt="Blxckie">
+                            </div>
+                            <span>Blxckie</span>
+                        </div>
+                        <div class="story-item" onclick="showArtist('DBN Gogo')">
+                            <div class="story-ring">
+                                <img src="https://i.pravatar.cc/150?img=9" alt="DBN Gogo">
+                            </div>
+                            <span>DBN Gogo</span>
+                        </div>
+                        <div class="story-item" onclick="showArtist('Murdah Bongz')">
+                            <div class="story-ring">
+                                <img src="https://i.pravatar.cc/150?img=14" alt="Murdah">
+                            </div>
+                            <span>Murdah Bongz</span>
+                        </div>
+                    </div>
+
+                    <div class="section-header">
+                        <h3>Latest Concert Videos</h3>
+                        <a href="#">See All</a>
+                    </div>
+                    <div class="video-grid">
+                        <div class="video-card" onclick="playVideo('Kabza De Small Live at Sun Arena')">
+                            <div class="video-thumb">
+                                <img src="https://mcp-tools-z-image-turbo.hf.space/--replicas/8rhb7/gradio_api/file=/tmp/gradio/89b742e24853a508c14a33dcfd381695d414c233f036327cd1c3493a0a4478de/image.webp" alt="Video">
+                                <div class="video-play"><i class="fas fa-play"></i></div>
+                                <span class="video-duration">12:34</span>
+                            </div>
+                            <div class="video-info">
+                                <h4>Kabza De Small Live at Sun Arena</h4>
+                                <p>2.3M views • 3 days ago</p>
+                            </div>
+                        </div>
+                        <div class="video-card" onclick="playVideo('Amapiano Live Mix 2024')">
+                            <div class="video-thumb">
+                                <img src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=250&fit=crop" alt="Video">
+                                <div class="video-play"><i class="fas fa-play"></i></div>
+                                <span class="video-duration">45:20</span>
+                            </div>
+                            <div class="video-info">
+                                <h4>Amapiano Live Mix 2024</h4>
+                                <p>1.8M views • 1 week ago</p>
+                            </div>
+                        </div>
+                        <div class="video-card" onclick="playVideo('Tyla Water Live Performance')">
+                            <div class="video-thumb">
+                                <img src="https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=400&h=250&fit=crop" alt="Video">
+                                <div class="video-play"><i class="fas fa-play"></i></div>
+                                <span class="video-duration">4:12</span>
+                            </div>
+                            <div class="video-info">
+                                <h4>Tyla "Water" Live Performance</h4>
+                                <p>5.1M views • 2 weeks ago</p>
+                            </div>
+                        </div>
+                        <div class="video-card" onclick="playVideo('Major League Gardens Highlights')">
+                            <div class="video-thumb">
+                                <img src="https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=400&h=250&fit=crop" alt="Video">
+                                <div class="video-play"><i class="fas fa-play"></i></div>
+                                <span class="video-duration">18:45</span>
+                            </div>
+                            <div class="video-info">
+                                <h4>Major League Gardens Highlights</h4>
+                                <p>890K views • 3 weeks ago</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-header">
+                        <h3>New Releases</h3>
+                        <a href="#">See All</a>
+                    </div>
+                    <div class="concert-list" style="padding-bottom: 20px;">
+                        <div class="concert-card" style="display:flex; gap:16px; padding:16px;">
+                            <img src="https://i.pravatar.cc/150?img=11" style="width:80px;height:80px;border-radius:12px;object-fit:cover;">
+                            <div style="flex:1;">
+                                <h4 style="font-size:15px;font-weight:600;">Asibe Happy</h4>
+                                <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Kabza De Small ft. Ami Faku</p>
+                                <button style="margin-top:8px;padding:6px 16px;background:var(--primary-light);color:var(--primary-dark);border:none;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;">
+                                    <i class="fas fa-play" style="margin-right:4px;"></i> Listen
+                                </button>
+                            </div>
+                        </div>
+                        <div class="concert-card" style="display:flex; gap:16px; padding:16px;">
+                            <img src="https://i.pravatar.cc/150?img=5" style="width:80px;height:80px;border-radius:12px;object-fit:cover;">
+                            <div style="flex:1;">
+                                <h4 style="font-size:15px;font-weight:600;">Water</h4>
+                                <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Tyla</p>
+                                <button style="margin-top:8px;padding:6px 16px;background:var(--primary-light);color:var(--primary-dark);border:none;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;">
+                                    <i class="fas fa-play" style="margin-right:4px;"></i> Listen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONCERT PAGE -->
+                <div class="page" id="pageConcert">
+                    <div class="search-bar" style="position:relative;">
+                        <i class="fas fa-search"></i>
+                        <input type="text" class="search-input" placeholder="Search concerts, artists, venues...">
+                    </div>
+                    <div class="category-pills">
+                        <button class="pill active">All</button>
+                        <button class="pill">Amapiano</button>
+                        <button class="pill">Hip Hop</button>
+                        <button class="pill">Gqom</button>
+                        <button class="pill">Afrobeat</button>
+                        <button class="pill">House</button>
+                        <button class="pill">R&B</button>
+                    </div>
+
+                    <div class="section-header">
+                        <h3>Upcoming Events</h3>
+                        <a href="#">Calendar</a>
+                    </div>
+                    <div class="concert-list">
+                        <div class="concert-card">
+                            <div class="concert-image">
+                                <img src="https://images.unsplash.com/photo-1540039155153-0786c27bcbf4?w=600&h=300&fit=crop" alt="Event">
+                                <span class="concert-badge">Featured</span>
+                                <div class="concert-date">
+                                    <div class="day">15</div>
+                                    <div class="month">DEC</div>
+                                </div>
+                            </div>
+                            <div class="concert-details">
+                                <h3>Major League Gardens 2024</h3>
+                                <div class="concert-meta">
+                                    <span><i class="fas fa-map-marker-alt"></i> FNB Stadium, JHB</span>
+                                </div>
+                                <div class="concert-meta" style="margin-top:4px;">
+                                    <span><i class="fas fa-clock"></i> 18:00 - 23:00</span>
+                                    <span><i class="fas fa-user"></i> 12.5K going</span>
+                                </div>
+                            </div>
+                            <div class="concert-footer">
+                                <div class="ticket-price">R350 <span> onwards</span></div>
+                                <button class="btn-ticket" onclick="openTicketModal('Major League Gardens 2024', 'R350')">Get Tickets</button>
+                            </div>
+                        </div>
+
+                        <div class="concert-card">
+                            <div class="concert-image">
+                                <img src="https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=600&h=300&fit=crop" alt="Event">
+                                <div class="concert-date">
+                                    <div class="day">22</div>
+                                    <div class="month">DEC</div>
+                                </div>
+                            </div>
+                            <div class="concert-details">
+                                <h3>Amapiano Fest: Summer Edition</h3>
+                                <div class="concert-meta">
+                                    <span><i class="fas fa-map-marker-alt"></i> Moses Mabhida, DBN</span>
+                                </div>
+                                <div class="concert-meta" style="margin-top:4px;">
+                                    <span><i class="fas fa-clock"></i> 16:00 - 00:00</span>
+                                    <span><i class="fas fa-user"></i> 8.2K going</span>
+                                </div>
+                            </div>
+                            <div class="concert-footer">
+                                <div class="ticket-price">R280 <span> onwards</span></div>
+                                <button class="btn-ticket" onclick="openTicketModal('Amapiano Fest: Summer Edition', 'R280')">Get Tickets</button>
+                            </div>
+                        </div>
+
+                        <div class="concert-card">
+                            <div class="concert-image">
+                                <img src="https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=600&h=300&fit=crop" alt="Event">
+                                <div class="concert-date">
+                                    <div class="day">05</div>
+                                    <div class="month">JAN</div>
+                                </div>
+                            </div>
+                            <div class="concert-details">
+                                <h3>Back to the City Festival</h3>
+                                <div class="concert-meta">
+                                    <span><i class="fas fa-map-marker-alt"></i> Mary Fitzgerald Sq, JHB</span>
+                                </div>
+                                <div class="concert-meta" style="margin-top:4px;">
+                                    <span><i class="fas fa-clock"></i> 10:00 - 22:00</span>
+                                    <span><i class="fas fa-user"></i> 15K going</span>
+                                </div>
+                            </div>
+                            <div class="concert-footer">
+                                <div class="ticket-price">R150 <span> onwards</span></div>
+                                <button class="btn-ticket" onclick="openTicketModal('Back to the City Festival', 'R150')">Get Tickets</button>
+                            </div>
+                        </div>
+
+                        <div class="concert-card">
+                            <div class="concert-image">
+                                <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&h=300&fit=crop" alt="Event">
+                                <div class="concert-date">
+                                    <div class="day">14</div>
+                                    <div class="month">FEB</div>
+                                </div>
+                            </div>
+                            <div class="concert-details">
+                                <h3>Cape Town Jazz Festival</h3>
+                                <div class="concert-meta">
+                                    <span><i class="fas fa-map-marker-alt"></i> CTICC, Cape Town</span>
+                                </div>
+                                <div class="concert-meta" style="margin-top:4px;">
+                                    <span><i class="fas fa-clock"></i> 17:00 - 23:00</span>
+                                    <span><i class="fas fa-user"></i> 5.4K going</span>
+                                </div>
+                            </div>
+                            <div class="concert-footer">
+                                <div class="ticket-price">R450 <span> onwards</span></div>
+                                <button class="btn-ticket" onclick="openTicketModal('Cape Town Jazz Festival', 'R450')">Get Tickets</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABOUT US PAGE -->
+                <div class="page" id="pageAbout">
+                    <div class="about-hero">
+                        <div class="logo-large">
+                            <i class="fas fa-music"></i>
+                        </div>
+                        <h2>Concert</h2>
+                        <p>Your trusted platform for South African music</p>
+                    </div>
+
+                    <div class="mission-card">
+                        <i class="fas fa-bullseye"></i>
+                        <h3>Our Mission</h3>
+                        <p>To create a trusted African ecosystem where users have easy access to African music and concerts, while artists receive protection and support for their creative work.</p>
+                    </div>
+
+                    <div class="stats-row">
+                        <div class="stat-item">
+                            <div class="number">50K+</div>
+                            <div class="label">Users</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="number">200+</div>
+                            <div class="label">Artists</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="number">1.2K</div>
+                            <div class="label">Events</div>
+                        </div>
+                    </div>
+
+                    <div class="section-header">
+                        <h3>Our Partners</h3>
+                    </div>
+                    <div class="partners-section">
+                        <div class="partner-card">
+                            <div class="partner-icon">
+                                <i class="fas fa-ticket-alt"></i>
+                            </div>
+                            <div class="partner-info">
+                                <h4>Computicket</h4>
+                                <p>Official ticketing partner for major events</p>
+                            </div>
+                        </div>
+                        <div class="partner-card">
+                            <div class="partner-icon">
+                                <i class="fas fa-broadcast-tower"></i>
+                            </div>
+                            <div class="partner-info">
+                                <h4>Trace</h4>
+                                <p>Media partner for artist promotion</p>
+                            </div>
+                        </div>
+                        <div class="partner-card">
+                            <div class="partner-icon">
+                                <i class="fas fa-landmark"></i>
+                            </div>
+                            <div class="partner-info">
+                                <h4>SAMPRA</h4>
+                                <p>Artist rights & royalty protection</p>
+                            </div>
+                        </div>
+                        <div class="partner-card">
+                            <div class="partner-icon">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <div class="partner-info">
+                                <h4>PayFast</h4>
+                                <p>Secure payment processing</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-header">
+                        <h3>Contact Us</h3>
+                    </div>
+                    <div class="partners-section" style="margin-bottom: 24px;">
+                        <div class="partner-card">
+                            <div class="partner-icon">
+                                <i class="fas fa-envelope"></i>
+                            </div>
+                            <div class="partner-info">
+                                <h4>hello@concert.co.za</h4>
+                                <p>General inquiries & support</p>
+                            </div>
+                        </div>
+                        <div class="partner-card">
+                            <div class="partner-icon">
+                                <i class="fas fa-phone"></i>
+                            </div>
+                            <div class="partner-info">
+                                <h4>+27 11 123 4567</h4>
+                                <p>Mon-Fri, 9AM - 5PM SAST</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PROPERTIES / SETTINGS PAGE -->
+                <div class="page" id="pageProperties">
+                    <div style="padding: 20px;">
+                        <h2 style="font-size: 24px; font-weight: 700;">Settings</h2>
+                        <p style="color: var(--text-secondary); margin-top: 4px;">Customize your experience</p>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-header">Appearance</div>
+                        <div class="settings-item" style="flex-wrap: wrap;">
+                            <i class="fas fa-palette"></i>
+                            <div class="settings-text" style="flex: 1 1 100%; margin-bottom: 12px;">
+                                <h4>Dashboard Theme</h4>
+                                <p>Choose your preferred color</p>
+                            </div>
+                            <div class="theme-options">
+                                <div class="theme-option active" data-theme="default" onclick="setTheme('default')" title="Default"></div>
+                                <div class="theme-option" data-theme="ocean" onclick="setTheme('ocean')" title="Ocean"></div>
+                                <div class="theme-option" data-theme="midnight" onclick="setTheme('midnight')" title="Midnight"></div>
+                                <div class="theme-option" data-theme="sunset" onclick="setTheme('sunset')" title="Sunset"></div>
+                                <div class="theme-option" data-theme="forest" onclick="setTheme('forest')" title="Forest"></div>
+                                <div class="theme-option" data-theme="berry" onclick="setTheme('berry')" title="Berry"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-header">Security</div>
+                        <div class="settings-item" onclick="showSecurityModal()">
+                            <i class="fas fa-lock"></i>
+                            <div class="settings-text">
+                                <h4>Account Protection</h4>
+                                <p>Two-factor authentication & login alerts</p>
+                            </div>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div class="settings-item" onclick="showPinModal()">
+                            <i class="fas fa-key"></i>
+                            <div class="settings-text">
+                                <h4>App PIN</h4>
+                                <p>Secure access with PIN code</p>
+                            </div>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div class="settings-item">
+                            <i class="fas fa-fingerprint"></i>
+                            <div class="settings-text">
+                                <h4>Biometric Login</h4>
+                                <p>Use Face ID or fingerprint</p>
+                            </div>
+                            <div class="toggle active" onclick="toggleThis(this)"></div>
+                        </div>
+                        <div class="settings-item">
+                            <i class="fas fa-shield-alt"></i>
+                            <div class="settings-text">
+                                <h4>Secure Payments</h4>
+                                <p>Encrypted transactions via PayFast</p>
+                            </div>
+                            <div class="toggle active" onclick="toggleThis(this)"></div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-header">Account</div>
+                        <div class="settings-item">
+                            <i class="fas fa-user"></i>
+                            <div class="settings-text">
+                                <h4>Profile Information</h4>
+                                <p>Edit your name, email, phone</p>
+                            </div>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div class="settings-item">
+                            <i class="fas fa-bell"></i>
+                            <div class="settings-text">
+                                <h4>Notifications</h4>
+                                <p>Concert alerts & artist updates</p>
+                            </div>
+                            <div class="toggle active" onclick="toggleThis(this)"></div>
+                        </div>
+                        <div class="settings-item">
+                            <i class="fas fa-moon"></i>
+                            <div class="settings-text">
+                                <h4>Dark Mode</h4>
+                                <p>Switch between light and dark</p>
+                            </div>
+                            <div class="toggle" onclick="toggleThis(this)"></div>
+                        </div>
+                        <div class="settings-item">
+                            <i class="fas fa-language"></i>
+                            <div class="settings-text">
+                                <h4>Language</h4>
+                                <p>English (South Africa)</p>
+                            </div>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-header">Support</div>
+                        <div class="settings-item">
+                            <i class="fas fa-question-circle"></i>
+                            <div class="settings-text">
+                                <h4>Help Center</h4>
+                                <p>FAQs and troubleshooting</p>
+                            </div>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div class="settings-item">
+                            <i class="fas fa-file-contract"></i>
+                            <div class="settings-text">
+                                <h4>Privacy Policy</h4>
+                                <p>How we protect your data</p>
+                            </div>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div class="settings-item" style="color: var(--danger);" onclick="handleLogout()">
+                            <i class="fas fa-sign-out-alt" style="background: #fee2e2; color: var(--danger);"></i>
+                            <div class="settings-text">
+                                <h4 style="color: var(--danger);">Log Out</h4>
+                                <p>Sign out of your account</p>
+                            </div>
+                            <i class="fas fa-chevron-right" style="color: var(--danger);"></i>
+                        </div>
+                    </div>
+                    <div style="height: 20px;"></div>
+                </div>
+            </main>
+
+            <!-- Bottom Navigation -->
+            <nav class="bottom-nav">
+                <button class="nav-item active" onclick="navigateTo('home')">
+                    <i class="fas fa-home"></i>
+                    <span>Home</span>
+                </button>
+                <button class="nav-item" onclick="navigateTo('concert')">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Concerts</span>
+                </button>
+                <button class="nav-item" onclick="navigateTo('about')">
+                    <i class="fas fa-info-circle"></i>
+                    <span>About</span>
+                </button>
+                <button class="nav-item" onclick="navigateTo('properties')">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- Ticket Purchase Modal -->
+        <div class="modal-overlay" id="ticketModal">
+            <div class="modal-sheet">
+                <div class="modal-header">
+                    <h3>Get Tickets</h3>
+                    <button class="close-btn" onclick="closeModal('ticketModal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="ticketEventInfo" style="margin-bottom: 20px; padding: 16px; background: var(--surface); border-radius: var(--radius-sm);">
+                        <h4 style="font-size: 18px; font-weight: 700;" id="ticketEventName">Event Name</h4>
+                        <p style="color: var(--text-secondary); margin-top: 4px;" id="ticketEventPrice">From R0</p>
+                    </div>
+
+                    <h4 style="font-size: 15px; font-weight: 600; margin-bottom: 12px;">Select Platform</h4>
+                    <div class="payment-option selected" onclick="selectPayment(this)">
+                        <div style="width:48px;height:48px;background:#e60000;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:12px;">
+                            CT
+                        </div>
+                        <div class="payment-info">
+                            <h4>Computicket</h4>
+                            <p>South Africa's leading ticketing</p>
+                        </div>
+                        <i class="fas fa-check-circle" style="color: var(--primary);"></i>
+                    </div>
+                    <div class="payment-option" onclick="selectPayment(this)">
+                        <div style="width:48px;height:48px;background:#ff6b00;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:12px;">
+                            WC
+                        </div>
+                        <div class="payment-info">
+                            <h4>Webtickets</h4>
+                            <p>Easy online booking</p>
+                        </div>
+                        <i class="fas fa-check-circle" style="color: var(--border);"></i>
+                    </div>
+                    <div class="payment-option" onclick="selectPayment(this)">
+                        <div style="width:48px;height:48px;background:#1a1a1a;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:12px;">
+                            PF
+                        </div>
+                        <div class="payment-info">
+                            <h4>PayFast</h4>
+                            <p>Secure online payments</p>
+                        </div>
+                        <i class="fas fa-check-circle" style="color: var(--border);"></i>
+                    </div>
+
+                    <div style="margin-top: 20px; padding: 16px; background: var(--primary-light); border-radius: var(--radius-sm);">
+                        <div style="display:flex;align-items:center;gap:8px;color:var(--primary-dark);font-size:13px;">
+                            <i class="fas fa-shield-alt"></i>
+                            <span><strong>Secure Checkout:</strong> Your payment is protected with 256-bit encryption</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" style="margin-top: 20px;" onclick="proceedToTicket()">
+                        <i class="fas fa-external-link-alt"></i> Continue to Platform
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Settings Modal -->
+        <div class="modal-overlay" id="securityModal">
+            <div class="modal-sheet">
+                <div class="modal-header">
+                    <h3>Security Settings</h3>
+                    <button class="close-btn" onclick="closeModal('securityModal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-item">
+                        <i class="fas fa-mobile-alt"></i>
+                        <div class="settings-text">
+                            <h4>Two-Factor Authentication</h4>
+                            <p>Add extra security to your account</p>
+                        </div>
+                        <div class="toggle" onclick="toggleThis(this)"></div>
+                    </div>
+                    <div class="settings-item">
+                        <i class="fas fa-envelope"></i>
+                        <div class="settings-text">
+                            <h4>Login Alerts</h4>
+                            <p>Get notified of new sign-ins</p>
+                        </div>
+                        <div class="toggle active" onclick="toggleThis(this)"></div>
+                    </div>
+                    <div class="settings-item">
+                        <i class="fas fa-history"></i>
+                        <div class="settings-text">
+                            <h4>Active Sessions</h4>
+                            <p>Manage devices logged in</p>
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                    <div class="settings-item">
+                        <i class="fas fa-key"></i>
+                        <div class="settings-text">
+                            <h4>Change Password</h4>
+                            <p>Last changed 3 months ago</p>
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                    <div style="margin-top: 16px; padding: 16px; background: var(--primary-light); border-radius: var(--radius-sm);">
+                        <div style="display:flex;align-items:center;gap:8px;color:var(--primary-dark);font-size:13px;">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Your account is protected with industry-standard encryption</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script>
+        // App State
+        let currentUser = null;
+        let currentTheme = 'default';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Show splash for 2.5s then show login
+            setTimeout(() => {
+                document.getElementById('splashScreen').classList.add('hidden');
+                document.getElementById('loginScreen').classList.add('active');
+            }, 2500);
+
+            // Load saved theme
+            const savedTheme = localStorage.getItem('concert-theme');
+            if (savedTheme) {
+                setTheme(savedTheme);
+            }
+        });
+
+        // Navigation
+        function navigateTo(page) {
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+            // Show selected page
+            document.getElementById('page' + page.charAt(0).toUpperCase() + page.slice(1)).classList.add('active');
+
+            // Scroll to top
+            document.getElementById('contentArea').scrollTop = 0;
+        }
+
+        function goToConcerts() {
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelectorAll('.nav-item')[1].classList.add('active');
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('pageConcert').classList.add('active');
+        }
+
+        // Auth
+        function showRegister() {
+            document.getElementById('loginScreen').classList.remove('active');
+            document.getElementById('registerScreen').classList.add('active');
+        }
+
+        function showLogin() {
+            document.getElementById('registerScreen').classList.remove('active');
+            document.getElementById('loginScreen').classList.add('active');
+        }
+
+        function handleLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showToast('Please fill in all fields');
+                return;
+            }
+
+            // Simulate login
+            currentUser = { email, name: 'Music Lover' };
+            document.getElementById('loginScreen').classList.remove('active');
+            document.getElementById('mainApp').classList.add('active');
+            showToast('Welcome back to Concert!');
+        }
+
+        function handleRegister() {
+            showToast('Account created successfully!');
+            setTimeout(() => {
+                document.getElementById('registerScreen').classList.remove('active');
+                document.getElementById('mainApp').classList.add('active');
+            }, 1000);
+        }
+
+        function handleLogout() {
+            if (confirm('Are you sure you want to log out?')) {
+                currentUser = null;
+                document.getElementById('mainApp').classList.remove('active');
+                document.getElementById('loginScreen').classList.add('active');
+                showToast('Logged out successfully');
+            }
+        }
+
+        // Theme System
+        function setTheme(theme) {
+            currentTheme = theme;
+            document.documentElement.setAttribute('data-theme', theme === 'default' ? '' : theme);
+
+            // Update active state
+            document.querySelectorAll('.theme-option').forEach(opt => {
+                opt.classList.toggle('active', opt.dataset.theme === theme);
+            });
+
+            // Save preference
+            try {
+                localStorage.setItem('concert-theme', theme);
+            } catch(e) {}
+        }
+
+        // Toggles
+        function toggleThis(el) {
+            el.classList.toggle('active');
+        }
+
+        // Modals
+        function openTicketModal(eventName, price) {
+            document.getElementById('ticketEventName').textContent = eventName;
+            document.getElementById('ticketEventPrice').textContent = 'From ' + price;
+            document.getElementById('ticketModal').classList.add('active');
+        }
+
+        function showSecurityModal() {
+            document.getElementById('securityModal').classList.add('active');
+        }
+
+        function showPinModal() {
+            showToast('PIN setup coming soon');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        // Close modal on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.classList.remove('active');
+                }
+            });
+        });
+
+        // Payment Selection
+        function selectPayment(el) {
+            document.querySelectorAll('.payment-option').forEach(opt => {
+                opt.classList.remove('selected');
+                opt.querySelector('.fa-check-circle').style.color = 'var(--border)';
+            });
+            el.classList.add('selected');
+            el.querySelector('.fa-check-circle').style.color = 'var(--primary)';
+        }
+
+        function proceedToTicket() {
+            showToast('Redirecting to Computicket...');
+            setTimeout(() => {
+                closeModal('ticketModal');
+                // In real app, would open external link
+                window.open('https://www.computicket.com', '_blank');
+            }, 1500);
+        }
+
+        // Utilities
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function showSearch() {
+            showToast('Search feature coming soon');
+        }
+
+        function showNotifications() {
+            showToast('No new notifications');
+        }
+
+        function showArtist(name) {
+            showToast('Viewing ' + name + "'s profile");
+        }
+
+        function playVideo(title) {
+            showToast('Playing: ' + title);
+        }
+
+        // Category pills
+        document.querySelectorAll('.pill').forEach(pill => {
+            pill.addEventListener('click', function() {
+                document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Simulate real-time updates
+        setInterval(() => {
+            const badge = document.querySelector('.icon-btn .badge');
+            if (badge && Math.random() > 0.7) {
+                badge.style.display = badge.style.display === 'none' ? 'block' : 'none';
+            }
+        }, 10000);
+    </script>
+</body>
+</html>
+<script data-huggingchat-badge="script">
+(function () {
+	try {
+		if (document.querySelector("[data-huggingchat-badge]:not(script)")) return;
+		var host = document.createElement("div");
+		host.setAttribute("data-huggingchat-badge", "");
+		var styles = [["all","initial"],["position","fixed"],["right","12px"],["bottom","12px"],["z-index","2147483647"],["display","block"],["visibility","visible"],["opacity","1"],["pointer-events","auto"],["width","auto"],["height","auto"],["margin","0"],["padding","0"],["max-width","none"],["max-height","none"],["transform","none"],["filter","none"],["clip-path","none"],["color-scheme","light"]];
+		for (var i = 0; i < styles.length; i++) {
+			host.style.setProperty(styles[i][0], styles[i][1], "important");
+		}
+		host.attachShadow({ mode: "closed" }).innerHTML = "<style>\n:host { all: initial; }\na {\n  display: flex;\n  align-items: center;\n  gap: 5px;\n  box-sizing: border-box;\n  height: 26px;\n  padding: 0 9px 0 7px;\n  border-radius: 999px;\n  border: 1px solid rgba(0, 0, 0, 0.07);\n  background: rgba(255, 255, 255, 0.92);\n  -webkit-backdrop-filter: saturate(180%) blur(8px);\n  backdrop-filter: saturate(180%) blur(8px);\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);\n  color: #111827;\n  font: 500 11px/1 ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  letter-spacing: 0.01em;\n  text-decoration: none;\n  white-space: nowrap;\n  opacity: 0.72;\n  transition: opacity 0.15s ease, transform 0.15s ease;\n}\na:hover, a:focus-visible { opacity: 1; transform: translateY(-1px); }\nsvg { width: 14px; height: 14px; flex: none; }\n@media print { a { display: none; } }\n<\/style><a href=\"https://huggingface.co/chat\" target=\"_blank\" rel=\"noopener noreferrer nofollow\"><svg viewBox=\"0 0 32 32\" fill=\"none\" aria-hidden=\"true\"><path d=\"M16.0006 25.9992C13.8266 25.999 11.7118 25.2901 9.97686 23.9799C8.2419 22.6698 6.98127 20.8298 6.38599 18.7388C5.79071 16.6478 5.89323 14.4198 6.678 12.3923C7.46278 10.3648 8.88705 8.64837 10.735 7.50308C12.5829 6.35779 14.7538 5.84606 16.9187 6.04544C19.0837 6.24481 21.1246 7.14442 22.7323 8.60795C24.34 10.0715 25.4268 12.0192 25.8281 14.1559C26.2293 16.2926 25.9232 18.5019 24.9561 20.449C24.7703 20.8042 24.7223 21.2155 24.8211 21.604L25.4211 23.8316C25.4803 24.0518 25.4805 24.2837 25.4216 24.5039C25.3627 24.7242 25.2468 24.925 25.0856 25.0862C24.9244 25.2474 24.7235 25.3633 24.5033 25.4222C24.283 25.4811 24.0512 25.4809 23.831 25.4217L21.6034 24.8217C21.2172 24.7248 20.809 24.7729 20.4558 24.9567C19.0683 25.6467 17.5457 26.0068 16.0006 26.0068V25.9992Z\" fill=\"currentColor\"/><path d=\"M9.62598 16.0013C9.62598 15.3799 10.1294 14.8765 10.7508 14.8765C11.3721 14.8765 11.8756 15.3799 11.8756 16.0013C11.8756 17.0953 12.3102 18.1448 13.0838 18.9184C13.8574 19.692 14.9069 20.1266 16.001 20.1267C17.095 20.1267 18.1445 19.692 18.9181 18.9184C19.6918 18.1448 20.1264 17.0953 20.1264 16.0013C20.1264 15.3799 20.6299 14.8765 21.2512 14.8765C21.8725 14.8765 22.3759 15.3799 22.3759 16.0013C22.3759 17.6921 21.7046 19.3137 20.509 20.5093C19.3134 21.7049 17.6918 22.3762 16.001 22.3762C14.3102 22.3762 12.6885 21.7049 11.4929 20.5093C10.2974 19.3137 9.62598 17.6921 9.62598 16.0013Z\" fill=\"#fff\"/><\/svg><span>Made with HuggingChat<\/span><\/a>";
+		function attach() {
+			var parent = document.body || document.documentElement;
+			if (parent && host.parentNode !== parent) parent.appendChild(host);
+		}
+		attach();
+		// Artifacts that rewrite document.body wholesale would drop the badge.
+		if (document.body && typeof MutationObserver === "function") {
+			new MutationObserver(attach).observe(document.body, { childList: true });
+		} else {
+			document.addEventListener("DOMContentLoaded", attach);
+		}
+	} catch (e) {}
+})();
+</script>

@@ -1,0 +1,131 @@
+t3_bugs = [
+    
+    {
+        "id": "t3_003", "difficulty": 3, "bug_type": "wrong_argument_order", "function_name": "process_user",
+        "buggy_code": "def format_name(first, last):\n    return f'{last}, {first}'\n\ndef process_user(first_name, last_name):\n    return format_name(last_name, first_name)",
+        "original_code": "def format_name(first, last):\n    return f'{last}, {first}'\n\ndef process_user(first_name, last_name):\n    return format_name(first_name, last_name)",
+        "initial_error": "AssertionError: expected 'Doe, John', got 'John, Doe'", "bug_location": {"function": "process_user", "line_start": 5},
+        "test_cases": [{"input": ["John", "Doe"], "expected_output": "Doe, John"}, {"input": ["Alice", "Smith"], "expected_output": "Smith, Alice"}, {"input": ["A", "B"], "expected_output": "B, A"}, {"input": ["X", "Y"], "expected_output": "Y, X"}]
+    },
+    {
+        "id": "t3_004", "difficulty": 3, "bug_type": "wrong_argument_order", "function_name": "calculate_total",
+        "buggy_code": "def apply_discount(price, discount):\n    return price - (price * discount)\n\ndef calculate_total(price, discount_rate):\n    return apply_discount(discount_rate, price)",
+        "original_code": "def apply_discount(price, discount):\n    return price - (price * discount)\n\ndef calculate_total(price, discount_rate):\n    return apply_discount(price, discount_rate)",
+        "initial_error": "AssertionError: expected 80.0, got -19.8", "bug_location": {"function": "calculate_total", "line_start": 5},
+        "test_cases": [{"input": [100, 0.2], "expected_output": 80.0}, {"input": [50, 0.1], "expected_output": 45.0}, {"input": [200, 0.5], "expected_output": 100.0}, {"input": [10, 0.0], "expected_output": 10.0}]
+    },
+    {
+        "id": "t3_005", "difficulty": 3, "bug_type": "wrong_argument_order", "function_name": "build_url",
+        "buggy_code": "def join_parts(domain, path):\n    return f'https://{domain}/{path}'\n\ndef build_url(domain, path):\n    return join_parts(path, domain)",
+        "original_code": "def join_parts(domain, path):\n    return f'https://{domain}/{path}'\n\ndef build_url(domain, path):\n    return join_parts(domain, path)",
+        "initial_error": "AssertionError: expected 'https://example.com/api', got 'https://api/example.com'", "bug_location": {"function": "build_url", "line_start": 5},
+        "test_cases": [{"input": ["example.com", "api"], "expected_output": "https://example.com/api"}, {"input": ["google.com", "search"], "expected_output": "https://google.com/search"}, {"input": ["a.com", "b"], "expected_output": "https://a.com/b"}, {"input": ["x.org", "y"], "expected_output": "https://x.org/y"}]
+    },
+    {
+        "id": "t3_006", "difficulty": 3, "bug_type": "wrong_argument_order", "function_name": "divide_numbers",
+        "buggy_code": "def safe_divide(num, den):\n    if den == 0:\n        return 0\n    return num / den\n\ndef divide_numbers(a, b):\n    return safe_divide(b, a)",
+        "original_code": "def safe_divide(num, den):\n    if den == 0:\n        return 0\n    return num / den\n\ndef divide_numbers(a, b):\n    return safe_divide(a, b)",
+        "initial_error": "AssertionError: expected 2.0, got 0.5", "bug_location": {"function": "divide_numbers", "line_start": 7},
+        "test_cases": [{"input": [10, 5], "expected_output": 2.0}, {"input": [5, 0], "expected_output": 0}, {"input": [100, 10], "expected_output": 10.0}, {"input": [0, 5], "expected_output": 0.0}]
+    },
+    {
+        "id": "t3_007", "difficulty": 3, "bug_type": "wrong_argument_order", "function_name": "create_rectangle",
+        "buggy_code": "def calc_area(w, h):\n    return w * h\n\ndef create_rectangle(width, height):\n    return {'w': width, 'h': height, 'area': calc_area(height, width)}",
+        "original_code": "def calc_area(w, h):\n    return w * h\n\ndef create_rectangle(width, height):\n    return {'w': width, 'h': height, 'area': calc_area(width, height)}",
+        "initial_error": "AssertionError: doesn't strictly fail math but conceptually wrong", "bug_location": {"function": "create_rectangle", "line_start": 5},
+        "test_cases": [{"input": [5, 10], "expected_output": {'w': 5, 'h': 10, 'area': 50}}, {"input": [2, 3], "expected_output": {'w': 2, 'h': 3, 'area': 6}}, {"input": [1, 1], "expected_output": {'w': 1, 'h': 1, 'area': 1}}, {"input": [0, 5], "expected_output": {'w': 0, 'h': 5, 'area': 0}}]
+    },
+    {
+        "id": "t3_008", "difficulty": 3, "bug_type": "wrong_argument_order", "function_name": "power_wrapper",
+        "buggy_code": "def compute_pow(base, exp):\n    return base ** exp\n\ndef power_wrapper(base, exp):\n    return compute_pow(exp, base)",
+        "original_code": "def compute_pow(base, exp):\n    return base ** exp\n\ndef power_wrapper(base, exp):\n    return compute_pow(base, exp)",
+        "initial_error": "AssertionError: expected 8, got 9", "bug_location": {"function": "power_wrapper", "line_start": 5},
+        "test_cases": [{"input": [2, 3], "expected_output": 8}, {"input": [3, 2], "expected_output": 9}, {"input": [5, 2], "expected_output": 25}, {"input": [2, 4], "expected_output": 16}]
+    },
+    
+    {
+        "id": "t3_009", "difficulty": 3, "bug_type": "state_not_reset", "function_name": "get_unique_items",
+        "buggy_code": "seen = set()\ndef filter_unique(items):\n    res = []\n    for item in items:\n        if item not in seen:\n            seen.add(item)\n            res.append(item)\n    return res\n\ndef get_unique_items(items):\n    return filter_unique(items)",
+        "original_code": "def filter_unique(items, seen):\n    res = []\n    for item in items:\n        if item not in seen:\n            seen.add(item)\n            res.append(item)\n    return res\n\ndef get_unique_items(items):\n    return filter_unique(items, set())",
+        "initial_error": "AssertionError: test fails on second call", "bug_location": {"function": "filter_unique", "line_start": 4},
+        "test_cases": [{"input": [[1, 2, 2, 3]], "expected_output": [1, 2, 3]}, {"input": [[1, 2, 2, 3]], "expected_output": [1, 2, 3]}, {"input": [[4, 4, 5]], "expected_output": [4, 5]}, {"input": [[4, 4, 5]], "expected_output": [4, 5]}]
+    },
+    {
+        "id": "t3_010", "difficulty": 3, "bug_type": "state_not_reset", "function_name": "accumulate_values",
+        "buggy_code": "total = 0\ndef add_to_total(val):\n    global total\n    total += val\n    return total\n\ndef accumulate_values(vals):\n    return [add_to_total(v) for v in vals]",
+        "original_code": "def accumulate_values(vals):\n    total = 0\n    res = []\n    for v in vals:\n        total += v\n        res.append(total)\n    return res",
+        "initial_error": "AssertionError: expected [1, 3], got [1, 3] then [4, 6] on next call", "bug_location": {"function": "add_to_total", "line_start": 4},
+        "test_cases": [{"input": [[1, 2]], "expected_output": [1, 3]}, {"input": [[1, 2]], "expected_output": [1, 3]}, {"input": [[5, 5]], "expected_output": [5, 10]}, {"input": [[5, 5]], "expected_output": [5, 10]}]
+    },
+    {
+        "id": "t3_011", "difficulty": 3, "bug_type": "state_not_reset", "function_name": "append_to_default",
+        "buggy_code": "def helper(val, lst=[]):\n    lst.append(val)\n    return lst\n\ndef append_to_default(val):\n    return helper(val)",
+        "original_code": "def helper(val, lst=None):\n    if lst is None:\n        lst = []\n    lst.append(val)\n    return lst\n\ndef append_to_default(val):\n    return helper(val)",
+        "initial_error": "AssertionError: expected [2], got [1, 2]", "bug_location": {"function": "helper", "line_start": 1},
+        "test_cases": [{"input": 1, "expected_output": [1]}, {"input": 2, "expected_output": [2]}, {"input": 3, "expected_output": [3]}, {"input": 4, "expected_output": [4]}]
+    },
+    {
+        "id": "t3_012", "difficulty": 3, "bug_type": "state_not_reset", "function_name": "count_calls",
+        "buggy_code": "calls = 0\ndef tracker():\n    global calls\n    calls += 1\n    return calls\n\ndef count_calls(n):\n    res = []\n    for _ in range(n):\n        res.append(tracker())\n    return res",
+        "original_code": "def count_calls(n):\n    calls = 0\n    res = []\n    for _ in range(n):\n        calls += 1\n        res.append(calls)\n    return res",
+        "initial_error": "AssertionError: expected [1, 2], got [3, 4] on second run", "bug_location": {"function": "tracker", "line_start": 4},
+        "test_cases": [{"input": 2, "expected_output": [1, 2]}, {"input": 2, "expected_output": [1, 2]}, {"input": 3, "expected_output": [1, 2, 3]}, {"input": 3, "expected_output": [1, 2, 3]}]
+    },
+    {
+        "id": "t3_013", "difficulty": 3, "bug_type": "state_not_reset", "function_name": "build_sentence",
+        "buggy_code": "words_cache = []\ndef add_word(w):\n    words_cache.append(w)\n    return ' '.join(words_cache)\n\ndef build_sentence(words):\n    res = ''\n    for w in words:\n        res = add_word(w)\n    return res",
+        "original_code": "def build_sentence(words):\n    words_cache = []\n    def add_word(w):\n        words_cache.append(w)\n        return ' '.join(words_cache)\n    res = ''\n    for w in words:\n        res = add_word(w)\n    return res",
+        "initial_error": "AssertionError: expected 'hello world', got '... hello world'", "bug_location": {"function": "add_word", "line_start": 3},
+        "test_cases": [{"input": [["hello", "world"]], "expected_output": "hello world"}, {"input": [["foo", "bar"]], "expected_output": "foo bar"}, {"input": [["a", "b", "c"]], "expected_output": "a b c"}, {"input": [["x"]], "expected_output": "x"}]
+    },
+    {
+        "id": "t3_014", "difficulty": 3, "bug_type": "state_not_reset", "function_name": "collect_errors",
+        "buggy_code": "errors = []\ndef log_error(err):\n    errors.append(err)\n    return errors\n\ndef collect_errors(err_list):\n    for e in err_list:\n        res = log_error(e)\n    return res if err_list else []",
+        "original_code": "def collect_errors(err_list):\n    errors = []\n    def log_error(err):\n        errors.append(err)\n        return errors\n    res = []\n    for e in err_list:\n        res = log_error(e)\n    return res",
+        "initial_error": "AssertionError: state leak between calls", "bug_location": {"function": "log_error", "line_start": 3},
+        "test_cases": [{"input": [["e1"]], "expected_output": ["e1"]}, {"input": [["e2"]], "expected_output": ["e2"]}, {"input": [["e3", "e4"]], "expected_output": ["e3", "e4"]}, {"input": [["e5"]], "expected_output": ["e5"]}]
+    },
+    
+    {
+        "id": "t3_015", "difficulty": 3, "bug_type": "missing_edge_case", "function_name": "process_data",
+        "buggy_code": "def get_first(lst):\n    return lst[0]\n\ndef process_data(data):\n    if not data:\n        return None\n    return [get_first(d) for d in data]",
+        "original_code": "def get_first(lst):\n    if not lst:\n        return None\n    return lst[0]\n\ndef process_data(data):\n    if not data:\n        return []\n    return [get_first(d) for d in data]",
+        "initial_error": "IndexError: list index out of range", "bug_location": {"function": "get_first", "line_start": 2},
+        "test_cases": [{"input": [[[1, 2], [3, 4]]], "expected_output": [1, 3]}, {"input": [[[1], []]], "expected_output": [1, None]}, {"input": [[[], [2]]], "expected_output": [None, 2]}, {"input": [[]], "expected_output": []}]
+    },
+    {
+        "id": "t3_016", "difficulty": 3, "bug_type": "missing_edge_case", "function_name": "average_scores",
+        "buggy_code": "def calc_avg(scores):\n    return sum(scores) / len(scores)\n\ndef average_scores(students):\n    return {k: calc_avg(v) for k, v in students.items()}",
+        "original_code": "def calc_avg(scores):\n    if not scores:\n        return 0\n    return sum(scores) / len(scores)\n\ndef average_scores(students):\n    return {k: calc_avg(v) for k, v in students.items()}",
+        "initial_error": "ZeroDivisionError: division by zero", "bug_location": {"function": "calc_avg", "line_start": 2},
+        "test_cases": [{"input": [{"Alice": [10, 20], "Bob": []}], "expected_output": {"Alice": 15.0, "Bob": 0}}, {"input": [{"A": [5]}], "expected_output": {"A": 5.0}}, {"input": [{}], "expected_output": {}}, {"input": [{"B": []}], "expected_output": {"B": 0}}]
+    },
+    {
+        "id": "t3_017", "difficulty": 3, "bug_type": "missing_edge_case", "function_name": "find_max_nested",
+        "buggy_code": "def find_max(lst):\n    return max(lst)\n\ndef find_max_nested(nested_lists):\n    return [find_max(l) for l in nested_lists]",
+        "original_code": "def find_max(lst):\n    if not lst:\n        return None\n    return max(lst)\n\ndef find_max_nested(nested_lists):\n    return [find_max(l) for l in nested_lists]",
+        "initial_error": "ValueError: max() arg is an empty sequence", "bug_location": {"function": "find_max", "line_start": 2},
+        "test_cases": [{"input": [[[1, 2], []]], "expected_output": [2, None]}, {"input": [[[1], [2, 3]]], "expected_output": [1, 3]}, {"input": [[[], []]], "expected_output": [None, None]}, {"input": [[]], "expected_output": []}]
+    },
+    {
+        "id": "t3_018", "difficulty": 3, "bug_type": "missing_edge_case", "function_name": "get_extensions",
+        "buggy_code": "def extract_ext(filename):\n    return filename.split('.')[1]\n\ndef get_extensions(files):\n    return [extract_ext(f) for f in files]",
+        "original_code": "def extract_ext(filename):\n    parts = filename.split('.')\n    if len(parts) < 2:\n        return ''\n    return parts[-1]\n\ndef get_extensions(files):\n    return [extract_ext(f) for f in files]",
+        "initial_error": "IndexError: list index out of range", "bug_location": {"function": "extract_ext", "line_start": 2},
+        "test_cases": [{"input": [["a.txt", "b"]], "expected_output": ["txt", ""]}, {"input": [["a.txt", "b.pdf"]], "expected_output": ["txt", "pdf"]}, {"input": [["noext"]], "expected_output": [""]}, {"input": [[]], "expected_output": []}]
+    },
+    {
+        "id": "t3_019", "difficulty": 3, "bug_type": "missing_edge_case", "function_name": "get_lengths",
+        "buggy_code": "def get_len(item):\n    return len(item)\n\ndef get_lengths(items):\n    return [get_len(i) for i in items]",
+        "original_code": "def get_len(item):\n    if item is None:\n        return 0\n    return len(item)\n\ndef get_lengths(items):\n    return [get_len(i) for i in items]",
+        "initial_error": "TypeError: object of type 'NoneType' has no len()", "bug_location": {"function": "get_len", "line_start": 2},
+        "test_cases": [{"input": [["abc", None]], "expected_output": [3, 0]}, {"input": [["a", "b"]], "expected_output": [1, 1]}, {"input": [[None, None]], "expected_output": [0, 0]}, {"input": [[]], "expected_output": []}]
+    },
+    {
+        "id": "t3_020", "difficulty": 3, "bug_type": "missing_edge_case", "function_name": "parse_integers",
+        "buggy_code": "def to_int(s):\n    return int(s)\n\ndef parse_integers(strings):\n    return [to_int(s) for s in strings]",
+        "original_code": "def to_int(s):\n    try:\n        return int(s)\n    except ValueError:\n        return 0\n\ndef parse_integers(strings):\n    return [to_int(s) for s in strings]",
+        "initial_error": "ValueError: invalid literal for int() with base 10", "bug_location": {"function": "to_int", "line_start": 2},
+        "test_cases": [{"input": [["1", "abc"]], "expected_output": [1, 0]}, {"input": [["1", "2"]], "expected_output": [1, 2]}, {"input": [["foo", "bar"]], "expected_output": [0, 0]}, {"input": [[]], "expected_output": []}]
+    }
+]

@@ -1,0 +1,235 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CompactMatchPacket",
+  "description": "单场比赛的紧凑结构化数据包，所有agent共享此包，避免重复加载",
+  "version": "v1.0",
+  "type": "object",
+  "required": [
+    "match_id",
+    "teams",
+    "market_snapshot",
+    "candidate_pool",
+    "kline_summary",
+    "fundamental_summary",
+    "risk_flags",
+    "loaded_rules",
+    "memory_cases"
+  ],
+  "properties": {
+    "match_id": {
+      "type": "string",
+      "description": "Titan007 match ID"
+    },
+    "teams": {
+      "type": "object",
+      "description": "队伍基本信息",
+      "properties": {
+        "home": { "type": "string" },
+        "away": { "type": "string" },
+        "league": { "type": "string" },
+        "kickoff_time": { "type": "string", "format": "date-time" },
+        "is_wc_match": { "type": "boolean" },
+        "is_knockout": { "type": "boolean" },
+        "is_neutral_ground": { "type": "boolean" },
+        "competition_type": { "type": "string", "enum": ["league", "cup", "wc_group", "wc_knockout", "friendly", "other"] }
+      },
+      "required": ["home", "away", "league"]
+    },
+    "market_snapshot": {
+      "type": "object",
+      "description": "皇冠盘口快照（紧凑版，无raw_rows）",
+      "properties": {
+        "inplay_pollution_risk": { "type": "boolean" },
+        "data_freshness": { "type": "string" },
+        "data_quality": { "type": "string", "enum": ["ok", "stale_plate", "missing"] },
+        "crow": {
+          "type": "object",
+          "properties": {
+            "ah": { "$ref": "#/definitions/market_data" },
+            "ou": { "$ref": "#/definitions/market_data" }
+          }
+        }
+      }
+    },
+    "candidate_pool": {
+      "type": "array",
+      "description": "候选盘口排名表（top 5）",
+      "items": { "$ref": "#/definitions/candidate" },
+      "maxItems": 5
+    },
+    "kline_summary": {
+      "type": "object",
+      "$ref": "#/definitions/kline_summary"
+    },
+    "fundamental_summary": {
+      "type": "object",
+      "description": "基本面摘要",
+      "properties": {
+        "home_form": { "type": "string" },
+        "away_form": { "type": "string" },
+        "h2h": { "type": "string" },
+        "injuries": { "type": "string" },
+        "key_narrative": { "type": "string" }
+      }
+    },
+    "risk_flags": {
+      "type": "array",
+      "description": "触发的风险标记",
+      "items": { "$ref": "#/definitions/risk_flag" }
+    },
+    "loaded_rules": {
+      "type": "array",
+      "description": "当前加载的规则（来自 rule_index 的压缩版）",
+      "items": { "$ref": "#/definitions/rule_ref" }
+    },
+    "memory_cases": {
+      "type": "array",
+      "description": "最相关的历史案例（top_k=3）",
+      "items": { "$ref": "#/definitions/case_ref" },
+      "maxItems": 3
+    },
+    "strong_review": {
+      "type": "object",
+      "$ref": "#/definitions/strong_review"
+    }
+  },
+  "definitions": {
+    "market_data": {
+      "type": "object",
+      "description": "单盘口紧凑数据（无raw_rows）",
+      "properties": {
+        "opening": {
+          "type": "object",
+          "properties": {
+            "line": { "type": ["number", "null"] },
+            "home_water": { "type": ["number", "null"] },
+            "away_water": { "type": ["number", "null"] }
+          }
+        },
+        "closing": {
+          "type": "object",
+          "properties": {
+            "line": { "type": ["number", "null"] },
+            "home_water": { "type": ["number", "null"] },
+            "away_water": { "type": ["number", "null"] }
+          }
+        },
+        "plate_history_detail": {
+          "type": "array",
+          "description": "各盘口最后有效水位（5项限制）",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "properties": {
+              "plate": { "type": "string" },
+              "home_water": { "type": "number" },
+              "away_water": { "type": "number" },
+              "data_quality": { "type": "string" }
+            }
+          }
+        },
+        "exact_adjacent": { "type": "array", "items": { "type": "string" } },
+        "data_quality_summary": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string", "enum": ["ok", "stale_plate", "missing"] },
+            "inplay_rows_excluded": { "type": "integer" },
+            "closing_source": { "type": "string" }
+          }
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "properties": {
+        "market": { "type": "string", "enum": ["AH", "OU"] },
+        "side": { "type": "string" },
+        "line": { "type": "number" },
+        "water": { "type": "number" },
+        "water_source": { "type": "string", "enum": ["exact_main", "exact_adjacent", "inherited_main", "stale_plate", "missing"] },
+        "rank_eligible": { "type": "boolean" },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "ev": { "type": "number" },
+        "settlement_path": { "$ref": "#/definitions/settlement_path" }
+      }
+    },
+    "settlement_path": {
+      "type": "object",
+      "properties": {
+        "full_win_p": { "type": "number" },
+        "half_win_p": { "type": "number" },
+        "push_p": { "type": "number" },
+        "half_loss_p": { "type": "number" },
+        "full_loss_p": { "type": "number" },
+        "expected_profit": { "type": "number" }
+      }
+    },
+    "kline_summary": {
+      "type": "object",
+      "properties": {
+        "source": { "type": "string" },
+        "ah": {
+          "type": "object",
+          "properties": {
+            "direction": { "type": "string", "enum": ["home_side", "away_side", "neutral"] },
+            "confidence": { "type": "integer", "minimum": 0, "maximum": 10 },
+            "water_reversal": { "type": "boolean" },
+            "value_window_closed": { "type": "boolean" },
+            "patterns": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "ou": {
+          "type": "object",
+          "properties": {
+            "direction": { "type": "string", "enum": ["home_side", "away_side", "neutral"] },
+            "confidence": { "type": "integer", "minimum": 0, "maximum": 10 },
+            "water_reversal": { "type": "boolean" },
+            "value_window_closed": { "type": "boolean" },
+            "patterns": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "risk_flag": {
+      "type": "object",
+      "properties": {
+        "rule_id": { "type": "string" },
+        "severity": { "type": "string", "enum": ["hard", "soft", "info"] },
+        "description": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "rule_ref": {
+      "type": "object",
+      "properties": {
+        "rule_id": { "type": "string" },
+        "trigger": { "type": "string", "maxLength": 100 },
+        "action": { "type": "string", "maxLength": 100 },
+        "severity": { "type": "string", "enum": ["hard", "soft", "info"] },
+        "loaded_full": { "type": "boolean" }
+      }
+    },
+    "case_ref": {
+      "type": "object",
+      "properties": {
+        "case_id": { "type": "string" },
+        "similarity_reason": { "type": "string", "maxLength": 150 },
+        "market_type": { "type": "string" },
+        "key_mistake_or_success": { "type": "string", "maxLength": 200 },
+        "rule_used": { "type": "string" },
+        "settlement_result": { "type": "string" }
+      }
+    },
+    "strong_review": {
+      "type": "object",
+      "properties": {
+        "review_required": { "type": "boolean" },
+        "review_status": { "type": "string", "enum": ["pass", "downgrade", "reject"] },
+        "original_stake_unit": { "type": "string" },
+        "reviewed_stake_unit": { "type": "string" },
+        "main_objection": { "type": "string", "maxLength": 300 },
+        "risk_flags": { "type": "array", "items": { "type": "string" } },
+        "final_verdict": { "type": "string", "maxLength": 200 }
+      }
+    }
+  }
+}

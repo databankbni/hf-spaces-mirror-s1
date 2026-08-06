@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  password_hash         String?
+  name                  String?
+  emailVerified         DateTime?
+  image                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  accounts              Account[]
+  sessions              Session[]
+  readingHistories      ReadingHistory[]
+  userLibraries         UserLibrary[]
+}
+
+model Book {
+  id                String    @id @default(cuid())
+  source_url        String    @unique
+  slug              String    @unique
+  title_vi          String
+  title_en          String?
+  author_vi         String?
+  description_vi    String?
+  status            String?
+  cover_url         String?
+  chapters_count    Int       @default(0)
+  views_count       Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  chapters          Chapter[]
+}
+
+model Chapter {
+  id                String    @id @default(cuid())
+  book_source_url   String
+  title             String
+  url               String    @unique
+  slug              String
+  chapter_no        Int
+  content           String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  book              Book      @relation(fields: [book_source_url], references: [source_url], onDelete: Cascade)
+
+  @@index([book_source_url])
+  @@index([chapter_no])
+}
+
+model ReadingHistory {
+  id                String    @id @default(cuid())
+  userEmail         String
+  book_url          String    // source_url from Book
+  chapter_slug      String
+  chapter_title     String
+  chapter_url       String?
+  updatedAt         DateTime  @updatedAt
+
+  user              User      @relation(fields: [userEmail], references: [email], onDelete: Cascade)
+
+  @@unique([userEmail, book_url])
+  @@index([userEmail])
+  @@index([book_url])
+}
+
+model UserLibrary {
+  id                String    @id @default(cuid())
+  userEmail         String
+  book_url          String    // source_url from Book
+  title_vi          String
+  cover_url         String?
+  createdAt         DateTime  @default(now())
+
+  user              User      @relation(fields: [userEmail], references: [email], onDelete: Cascade)
+
+  @@unique([userEmail, book_url])
+  @@index([userEmail])
+  @@index([book_url])
+}

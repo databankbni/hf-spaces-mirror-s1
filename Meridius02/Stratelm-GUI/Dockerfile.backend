@@ -1,0 +1,37 @@
+# ── Stratelm-GUI backend ─────────────────────────────────────────────────────
+# digital_twin's repo (currently https://github.com/MasRozak/FP-Internship-B --
+# see README.md if it moves again) is PRIVATE -- a plain `git clone` inside
+# this build has no credentials and will fail with "could not read Username
+# for 'https://github.com'". So this build instead expects the physics
+# package staged locally at digital_twin_pkg/ (via prepare_docker_context.ps1,
+# which copies it from a sibling ../Final_Project checkout). Your friend needs
+# BOTH repos cloned side by side, same as this repo's own README "Manual
+# setup" section -- run prepare_docker_context.ps1 once before
+# `docker compose up --build`.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM python:3.12-slim AS base
+
+WORKDIR /app
+
+# ── 1. Install the digital_twin physics package staged by prepare_docker_context.ps1 ──
+COPY digital_twin_pkg/ /tmp/physics/
+RUN pip install --no-cache-dir /tmp/physics
+
+# ── 2. Install backend requirements ──────────────────────────────────────────
+COPY Stratelm-GUI/backend/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# ── 3. Copy backend & mqtt source ─────────────────────────────────────────────
+COPY Stratelm-GUI/backend/ /app/backend/
+COPY mqtt/ /app/mqtt/
+
+# ── 4. Copy data files that digital_twin reads at runtime ─────────────────────
+# digital_twin.config resolves CSVs relative to the physics repo root.
+# We replicate the layout so os.chdir(PROJECT_ROOT) works inside Docker.
+RUN cp -r /tmp/physics/data/ /app/data/
+
+WORKDIR /app/backend
+
+EXPOSE 8000
+
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,42 @@
+PROF: Fala, Moisés! Bem-vindo ao primeiro episódio da sua preparação pra entrevista de Engenheiro de IA Sênior. Eu sou o professor Léo, e hoje a gente vai destrinchar um dos temas que mais reprova gente boa: async e event loop no Python. Comigo tá a Bia, que vai fazer as perguntas que todo mundo tem vontade de fazer, mas morre de vergonha.
+ALUNA: Oi, Moisés! E pode deixar, eu vou perguntar as coisas mais óbvias mesmo, porque é justamente nelas que a gente tropeça na hora da entrevista. Léo, começa do zero pra mim: o que é esse tal de async?
+PROF: Ótimo começo. E tem uma frase que eu quero que você grave, tatue, sonhe com ela: async é concorrência, não é paralelismo.
+ALUNA: Peraí. Concorrência e paralelismo não são a mesma coisa? Pra mim sempre foram sinônimos.
+PROF: E é aí que mora a pegadinha número um. Não são. Deixa eu te dar uma imagem que resolve isso pra sempre. Imagina uma cozinha com um cozinheiro só. Uma pessoa. Essa pessoa é a sua thread.
+ALUNA: Tá, um cozinheiro só.
+PROF: Isso. Paralelismo seria contratar cinco cozinheiros pra fazer cinco pratos ao mesmo tempo. Isso é ter vários núcleos de processador trabalhando de verdade em paralelo. Async não é isso. Async é um cozinheiro só, mas que nunca fica parado esperando.
+ALUNA: Como assim nunca fica parado?
+PROF: Pensa comigo. Ele coloca a água pra ferver pra fazer o macarrão. Quanto tempo a água leva pra ferver? Uns dez minutos. Um cozinheiro ruim ficaria dez minutos olhando a panela. Um cozinheiro esperto larga a panela fervendo e vai cortar a cebola de outro prato enquanto isso.
+ALUNA: Ah! Então a água fervendo é o tempo de espera.
+PROF: Exatamente. A água fervendo é o input output. É o seu código esperando o banco de dados responder, esperando a API da OpenAI devolver a resposta, esperando uma requisição de rede. Esse tempo de espera é o input output, ou I O, como a gente fala.
+ALUNA: E onde entra o tal do await nessa história?
+PROF: O await é o momento exato em que o cozinheiro fala assim: essa tarefa aqui vai ficar esperando, então eu largo ela e vou fazer outra coisa útil. Toda vez que você escreve await, você está dizendo pro Python: pode pausar isso aqui e ir cuidar de outra requisição enquanto essa espera.
+ALUNA: E o event loop, que é o nome que sempre aparece e ninguém explica?
+PROF: O event loop é o cérebro do cozinheiro decidindo o que fazer a seguir. É ele que fica olhando: essa tarefa ainda tá esperando a água ferver, então deixa ela quieta; essa outra aqui já pode continuar, então bora. O event loop é o gerente que fica alternando entre as tarefas, sempre pegando alguma que está pronta pra avançar.
+ALUNA: Beleza, entendi a imagem. Mas na entrevista, o que eu preciso realmente falar?
+PROF: Três verdades. Só três, mas você tem que saber defender cada uma. Verdade número um: async é concorrência numa thread só. Não é paralelismo, não cria threads novas, não usa vários núcleos. O ganho vem de não ficar parado no input output.
+ALUNA: Verdade um: uma thread só, ganho é não ficar parado. Anotado. E a dois?
+PROF: Verdade número dois: async só ajuda em trabalho input output bound. Ou seja, quando o gargalo é esperar algo externo: banco, LLM, rede, disco. Se o seu trabalho é cálculo pesado, o chamado CPU bound, o async não ajuda em nada. Pior: ele atrapalha.
+ALUNA: Por que atrapalha? Explica isso que eu não entendi.
+PROF: Porque um cálculo pesado não tem await no meio. Ele simplesmente ocupa o cozinheiro cem por cento do tempo, picando a mesma cebola por dois segundos sem parar. Enquanto ele faz esse cálculo, o event loop não consegue rodar mais ninguém. A cozinha inteira congela. Todas as outras requisições ficam paradas esperando aquele cálculo terminar.
+ALUNA: Ah, então numa API async, um cálculo pesado trava todo mundo.
+PROF: Trava todo mundo. E essa é uma das respostas que mais impressiona numa entrevista, porque mostra que você entende o mecanismo, não só a sintaxe. E aí vem a verdade número três, que é o erro mais comum de produção: se dentro de uma função async você chama uma biblioteca bloqueante, síncrona, você mata o event loop do mesmo jeito.
+ALUNA: Tipo o quê? Me dá exemplos concretos.
+PROF: Os clássicos: usar a biblioteca requests em vez de uma versão async pra fazer chamada HTTP. Usar time ponto sleep em vez de asyncio ponto sleep. Usar um driver de banco síncrono dentro de um endpoint async. Em todos esses casos, o cozinheiro congela esperando, de olho na panela, e larga todas as outras tarefas. Você escreveu async, mas na prática travou tudo.
+ALUNA: Nossa, então dá pra escrever async e mesmo assim estragar tudo.
+PROF: Exatamente. E é por isso que essa pergunta separa quem decorou de quem entendeu. Agora deixa eu te fazer o desafio, do jeitinho que o entrevistador faz. Presta atenção que são três cenários.
+ALUNA: Pode mandar, tô pronta.
+PROF: Cenário A. Você tem um endpoint async que chama a API da OpenAI, e cada chamada leva dois segundos. De repente, cem usuários batem no seu endpoint ao mesmo tempo. Com async bem feito, quanto tempo aproximado pra atender os cem? E por quê?
+ALUNA: Hmm. Se fosse um por um, seriam duzentos segundos. Mas com async... eu chuto que fica perto de dois segundos no total?
+PROF: Perfeito, Bia. Perto de dois segundos. Porque enquanto o primeiro usuário espera a OpenAI responder, o cozinheiro dispara a chamada do segundo, do terceiro, dos cem. Todas as esperas acontecem concorrentemente. Você não soma os tempos, você sobrepõe eles. Esse é o superpoder do async pra trabalho input output.
+ALUNA: Que lindo. Agora o cenário B.
+PROF: Cenário B. Alguém, sem querer, troca aquela chamada async da OpenAI por uma versão síncrona, bloqueante. O que acontece com os cem usuários agora?
+ALUNA: Pela verdade número três... o cozinheiro congela em cada chamada. Então volta a ser um de cada vez. Dois segundos vezes cem, duzentos segundos.
+PROF: Isso mesmo. Vira uma fila. O último usuário espera mais de três minutos. Mesmo código async na aparência, desempenho de código síncrono na prática. É exatamente o tipo de bug que derruba produção e que o entrevistador adora explorar.
+ALUNA: E o cenário C, que eu acho que é a pegadinha final?
+PROF: É a pegadinha final. Cenário C. Em vez de chamar a OpenAI, o endpoint agora faz um cálculo pesado em Python puro, que leva dois segundos. Tipo processar um monte de dados na mão. O async resolve? E se não, o que você usaria?
+ALUNA: Pela verdade número dois... cálculo pesado é CPU bound. Não tem espera, não tem await de verdade. Então o async não ajuda, ele trava a cozinha. O que eu usaria... eu não sei o nome certo.
+PROF: Você acertou o raciocínio, que é o mais importante. Async não resolve CPU bound. A solução é jogar esse trabalho pra fora do event loop: rodar num pool de threads ou, melhor ainda pra cálculo pesado de verdade, num pool de processos, o multiprocessing. No FastAPI, você usaria algo como run in threadpool, ou uma fila de tarefas em background com Celery, ou vários workers do uvicorn. A ideia é: tira o peso da cozinha principal.
+ALUNA: Agora fez sentido. Então recapitulando pra fixar: async é uma thread só que nunca fica parada; só ajuda quando o gargalo é espera de input output; e chamar código bloqueante dentro dele mata tudo.
+PROF: Isso, Bia. E o CPU bound pede processo ou thread separada, não async. Moisés, se você conseguir explicar esses três cenários em voz alta, com a analogia do cozinheiro, o módulo um está verde. No próximo episódio a gente pega tudo isso e coloca a mão no código, com FastAPI e Pydantic. Até lá, bons estudos!
+ALUNA: Falou, Moisés! Manda ver.

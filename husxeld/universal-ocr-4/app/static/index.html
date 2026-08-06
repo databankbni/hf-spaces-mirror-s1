@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OCR → MCQ Studio</title>
+    <style>
+      :root{color-scheme:light dark;--bg:#f6f2ea;--panel:rgba(255,255,255,.78);--strong:rgba(255,255,255,.94);--text:#101827;--muted:#667085;--line:rgba(16,24,39,.14);--accent:#0e9384;--blue:#2563eb;--bad:#dc2626;--ok:#16a34a;--warn:#f97316;--shadow:0 18px 60px rgba(16,24,39,.12);--r:22px}
+      [data-theme=dark]{--bg:#070b13;--panel:rgba(15,23,42,.76);--strong:rgba(15,23,42,.94);--text:#eef2ff;--muted:#a7b0c0;--line:rgba(238,242,255,.14);--shadow:0 24px 70px rgba(0,0,0,.48)}
+      *{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:radial-gradient(900px 500px at 8% 0%,rgba(14,147,132,.18),transparent),radial-gradient(800px 500px at 95% 12%,rgba(37,99,235,.16),transparent),radial-gradient(900px 540px at 50% 100%,rgba(249,115,22,.12),transparent),var(--bg)}
+      .wrap{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:28px 0 60px}.top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px}h1{margin:0;font-size:clamp(2rem,5vw,4.3rem);line-height:.94;letter-spacing:-.06em}.sub{margin:12px 0 0;color:var(--muted);line-height:1.55;max-width:820px}.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);backdrop-filter:blur(13px)}.pad{padding:20px}.stack{display:grid;gap:14px}.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px;align-items:start}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{display:flex;justify-content:space-between;gap:12px;align-items:center}.muted{color:var(--muted)}.small{font-size:.88rem}.tiny{font-size:.78rem}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:rgba(255,255,255,.46);border-radius:999px;padding:6px 10px;color:var(--muted);font-size:.82rem}[data-theme=dark] .pill{background:rgba(255,255,255,.06)}
+      label{display:block;font-size:.76rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}input,select,textarea{width:100%;border:1px solid var(--line);background:rgba(255,255,255,.55);color:var(--text);border-radius:16px;padding:12px 13px;outline:0;font:inherit}[data-theme=dark] input,[data-theme=dark] select,[data-theme=dark] textarea{background:rgba(255,255,255,.06)}input:focus,select:focus,textarea:focus{border-color:rgba(14,147,132,.8);box-shadow:0 0 0 4px rgba(14,147,132,.16)}
+      .btn{border:1px solid var(--line);background:rgba(255,255,255,.52);color:var(--text);border-radius:999px;padding:11px 16px;font-weight:900;cursor:pointer}.btn:hover{background:rgba(255,255,255,.72)}[data-theme=dark] .btn{background:rgba(255,255,255,.07)}[data-theme=dark] .btn:hover{background:rgba(255,255,255,.12)}.btn.primary{border:0;color:white;background:linear-gradient(135deg,var(--accent),var(--blue))}.btn.bad{border:0;color:white;background:var(--bad)}.btn:disabled{opacity:.55;cursor:not-allowed}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tab{border:1px solid var(--line);background:rgba(255,255,255,.42);border-radius:999px;padding:10px 14px;font-weight:900;color:var(--muted);cursor:pointer}.tab.active{background:var(--strong);color:var(--text);box-shadow:0 10px 26px rgba(16,24,39,.1)}.view{display:none}.view.active{display:block}.drop{border:1px dashed rgba(14,147,132,.55);border-radius:20px;padding:18px;background:rgba(14,147,132,.07);cursor:pointer}.drop.drag{background:rgba(14,147,132,.18);border-color:var(--accent)}.fieldgrid{display:grid;grid-template-columns:1fr 150px 130px;gap:10px}.bar{height:10px;width:100%;background:rgba(127,127,127,.16);border-radius:999px;overflow:hidden}.bar>div{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--blue));transition:width .25s ease}.dot{width:10px;height:10px;border-radius:999px;background:var(--muted);display:inline-block}.dot.processing{background:var(--warn);box-shadow:0 0 0 6px rgba(249,115,22,.14)}.dot.completed{background:var(--ok);box-shadow:0 0 0 6px rgba(22,163,74,.14)}.dot.failed{background:var(--bad);box-shadow:0 0 0 6px rgba(220,38,38,.14)}.hide{display:none!important}.error{color:var(--bad);font-weight:900}.ok{color:var(--ok);font-weight:900}.warn{color:var(--warn);font-weight:900}.item,.mcq{border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.36);padding:14px}[data-theme=dark] .item,[data-theme=dark] .mcq{background:rgba(255,255,255,.05)}pre{white-space:pre-wrap;overflow:auto;margin:0;line-height:1.55}.preview{max-height:150px;overflow:auto}.logbox{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:16px;background:rgba(0,0,0,.04);padding:10px}.logline{font-size:.78rem;line-height:1.45;color:var(--muted);border-bottom:1px solid rgba(127,127,127,.12);padding:5px 0}.logline:last-child{border-bottom:0}.logline strong{color:var(--text)}.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}@media(max-width:900px){.grid,.fieldgrid,.two{grid-template-columns:1fr}.top{flex-direction:column}}
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <div>
+          <div class="row" style="margin-bottom:12px"><span class="pill">📄 OCR</span><span class="pill">🧹 sanitized one-line Texts</span><span class="pill">🤖 MCQs</span><span class="pill">🤗 private Docker Space ready</span></div>
+          <h1>OCR → MCQ Studio</h1>
+          <p class="sub">Upload PDF/image, run OCR, store the original + OCR outputs, sanitize the whole PDF into plain one-line content, then generate exam MCQs using rotating AI API keys.</p>
+        </div>
+        <button id="themeBtn" class="btn" type="button">Theme</button>
+      </header>
+
+      <section class="card pad stack" style="margin-bottom:18px">
+        <div class="between">
+          <div class="tabs">
+            <button class="tab active" data-view="ocr" type="button">1. OCR Upload</button>
+            <button class="tab" data-view="uploaded" type="button">2. Uploaded</button>
+            <button class="tab" data-view="mcqs" type="button">3. MCQ Result</button>
+          </div>
+          <button id="healthBtn" class="btn" type="button">Check health</button>
+        </div>
+        <div class="fieldgrid">
+          <div><label>API base</label><input id="apiBase" class="mono" placeholder="http://127.0.0.1:4033" /></div>
+          <div><label>OCR engine</label><select id="engine"><option value="auto">auto</option><option value="olmocr-web">olmocr-web</option><option value="pdf-text">pdf-text</option></select></div>
+          <div><label>Raw OCR</label><select id="includeRaw"><option value="true">include</option><option value="false">skip</option></select></div>
+        </div>
+        <div class="row"><div style="width:150px"><label>Pages/chunk</label><input id="pagesPerChunk" type="number" min="1" max="10" value="6" /></div><div style="width:150px"><label>Concurrency</label><input id="concurrency" type="number" min="1" max="4" value="1" /></div><span id="healthOut" class="muted small"></span></div>
+      </section>
+
+      <section id="view-ocr" class="view active">
+        <div class="grid">
+          <main class="stack">
+            <section class="card pad stack">
+              <h2 style="margin:0">Start OCR</h2>
+              <div class="tabs"><button class="tab active" data-input="upload" type="button">Device upload</button><button class="tab" data-input="path" type="button">Server path</button></div>
+              <div id="input-upload" class="stack">
+                <input id="fileInput" type="file" accept=".pdf,image/*" class="hide" />
+                <div id="dropZone" class="drop"><strong>Drop PDF/image here, or click to choose</strong><div id="fileName" class="muted small" style="margin-top:8px">Supported: PDF, PNG, JPG, WEBP, BMP, TIFF, GIF.</div></div>
+                <div class="row"><button id="pickBtn" class="btn" type="button">Choose file</button><button id="uploadBtn" class="btn primary" type="button">Start OCR upload</button></div>
+              </div>
+              <div id="input-path" class="stack hide">
+                <div><label>Absolute server/container path</label><input id="pathInput" class="mono" placeholder="/teamspace/studios/this_studio/works/file.pdf" /></div>
+                <button id="pathBtn" class="btn primary" type="button">Start OCR from path</button>
+              </div>
+              <div id="formError" class="error small hide"></div>
+            </section>
+
+            <section class="card pad stack">
+              <div class="between"><h2 style="margin:0">Status</h2><div class="row"><button id="stopBtn" class="btn" type="button">Stop polling</button><button id="cancelBtn" class="btn bad" type="button">Cancel</button></div></div>
+              <div class="row"><span id="statusDot" class="dot"></span><strong id="statusTitle">Idle</strong><span id="jobBadge" class="pill hide">job <span id="jobId" class="mono"></span></span></div>
+              <div id="statusMessage" class="muted small">Pick a file or path to begin.</div><div class="bar"><div id="progressBar"></div></div><div id="warningBox" class="warn small hide"></div>
+            </section>
+          </main>
+          <aside class="card pad stack">
+            <h2 style="margin:0">Pipeline</h2>
+            <ol class="muted small" style="line-height:1.75;margin:0;padding-left:20px"><li>File is stored under the app storage root.</li><li>Images become PDF; PDFs can be split for olmOCR.</li><li>OCR result saves JSON, TXT, raw JSON, original file, normalized PDF.</li><li><span class="mono">content.txt</span> is sanitized one-line text only, ready for AI.</li><li>Uploaded tab can generate MCQs from completed OCR jobs.</li></ol>
+            <button id="goUploadedBtn" class="btn primary" type="button">Go to Uploaded</button>
+          </aside>
+        </div>
+      </section>
+
+      <section id="view-uploaded" class="view">
+        <div class="grid">
+          <main class="card pad stack">
+            <div class="between"><div><h2 style="margin:0">Uploaded files</h2><div class="muted small">Completed OCR jobs are eligible for MCQ generation.</div></div><button id="refreshUploadsBtn" class="btn" type="button">Refresh</button></div>
+            <div id="uploadsList" class="stack"></div><div id="uploadsEmpty" class="muted small">No uploads found yet.</div>
+          </main>
+          <aside class="card pad stack">
+            <h2 style="margin:0">Generate MCQs</h2>
+            <div><label>Selected OCR job</label><input id="mcqJob" class="mono" placeholder="job id" /></div>
+            <div class="two"><div><label>Number of MCQs</label><input id="mcqCount" type="number" min="1" max="100" value="30" /></div><div><label>Language</label><select id="mcqLanguage"><option value="hinglish">Hinglish</option><option value="hindi">Pure Hindi</option><option value="english">English</option></select></div></div>
+            <div><label>Subject/context</label><input id="mcqSubject" placeholder="e.g. Biology, History, Bihar Police" /></div>
+            <div><label>Exam target</label><input id="mcqExam" value="Bihar Police, SSC, Railway competitive exams" /></div>
+            <div class="two"><div><label>AI provider</label><select id="aiProvider"></select></div><div><label>AI model</label><select id="aiModel"></select></div></div>
+            <div class="two"><div><label>Difficulty mix</label><select id="difficultyMix"><option value="balanced">balanced</option><option value="easy">all easy</option><option value="medium">all medium</option><option value="hard">all hard</option></select></div><div><label>Temperature</label><input id="temperature" type="number" min="0" max="2" step="0.1" value="0.2" /></div></div>
+            <button id="generateMcqBtn" class="btn primary" type="button">Generate MCQs</button>
+            <div id="mcqError" class="error small hide"></div><div id="mcqStatus" class="muted small"></div>
+            <div id="mcqLogs" class="logbox hide"></div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="view-mcqs" class="view">
+        <div class="card pad stack">
+          <div class="between"><div><h2 style="margin:0">MCQ Result</h2><div id="mcqMeta" class="muted small">No MCQs generated yet.</div></div><div class="row"><button id="copyMcqBtn" class="btn" type="button">Copy JSON</button><button id="downloadMcqBtn" class="btn" type="button">Download JSON</button></div></div>
+          <div id="mcqList" class="stack"></div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const $=(id)=>document.getElementById(id);const state={file:null,jobId:null,timer:null,uploads:[],aiCatalog:null,mcq:null};
+      function base(){return ($('apiBase').value.trim()||location.origin).replace(/\/$/,'')}function url(p){return base()+p}function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));$('view-'+id).classList.add('active');document.querySelectorAll('[data-view]').forEach(t=>t.classList.toggle('active',t.dataset.view===id));if(id==='uploaded')refreshUploads();}
+      function err(el,msg){$(el).textContent=msg;$(el).classList.toggle('hide',!msg)}function ocrOpts(){return{engine:$('engine').value,pages_per_chunk:+$('pagesPerChunk').value||6,concurrency:+$('concurrency').value||1,include_raw:$('includeRaw').value==='true'}}
+      function setStatus(s,msg,p=0){const d=$('statusDot');d.className='dot';if(s)d.classList.add(s);$('statusTitle').textContent=s?s[0].toUpperCase()+s.slice(1):'Idle';$('statusMessage').textContent=msg||'';$('progressBar').style.width=Math.max(0,Math.min(100,p||0))+'%'}function setJob(id){state.jobId=id;$('jobId').textContent=id.slice(0,8);$('jobBadge').classList.remove('hide');$('mcqJob').value=id}
+      async function jsonFetch(p,opts){const r=await fetch(url(p),opts);const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(typeof data.detail==='string'?data.detail:(data.detail?.message||JSON.stringify(data)));return data}
+      async function health(){try{const h=await jsonFetch('/health');$('healthOut').innerHTML=`<span class=ok>OK</span> storage <span class=mono>${h.data_dir}</span> · AI <span class=mono>${h.default_ai_provider}/${h.default_ai_model}</span>`}catch(e){$('healthOut').innerHTML=`<span class=error>${e}</span>`}}
+      async function loadAiCatalog(){try{state.aiCatalog=await jsonFetch('/ai/catalog');renderAiSelectors()}catch(e){$('mcqStatus').textContent='AI catalog failed: '+e}}
+      function renderAiSelectors(){const prov=$('aiProvider'),model=$('aiModel');prov.innerHTML='';const providers=state.aiCatalog?.providers||[];for(const p of providers){const o=document.createElement('option');o.value=p.provider;o.textContent=`${p.label} (${p.key_count||0} keys)`;prov.appendChild(o)}prov.value=state.aiCatalog?.default_provider||providers[0]?.provider||'';function fill(){const p=providers.find(x=>x.provider===prov.value)||providers[0];model.innerHTML='';for(const m of (p?.models||[])){const o=document.createElement('option');o.value=m;o.textContent=m;model.appendChild(o)}model.value=p?.default_model||model.options[0]?.value||''}prov.onchange=fill;fill()}
+      function setupTabs(){document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>show(b.dataset.view));document.querySelectorAll('[data-input]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-input]').forEach(x=>x.classList.toggle('active',x===b));$('input-upload').classList.toggle('hide',b.dataset.input!=='upload');$('input-path').classList.toggle('hide',b.dataset.input!=='path')})}
+      function setupFile(){const input=$('fileInput'),dz=$('dropZone');function sel(f){state.file=f;$('fileName').textContent=f?`${f.name} · ${(f.size/1024/1024).toFixed(2)} MB`:'No file selected.'}dz.onclick=()=>input.click();$('pickBtn').onclick=()=>input.click();input.onchange=()=>sel(input.files[0]);['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag')}));['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag')}));dz.addEventListener('drop',e=>sel(e.dataTransfer.files[0]))}
+      async function startUpload(){err('formError','');if(!state.file)return err('formError','Choose a PDF or image first.');setStatus('processing','Uploading...',2);try{const f=new FormData(),o=ocrOpts();f.append('file',state.file);f.append('engine',o.engine);f.append('pages_per_chunk',o.pages_per_chunk);f.append('concurrency',o.concurrency);f.append('include_raw',o.include_raw);const data=await jsonFetch('/upload',{method:'POST',body:f});setJob(data.job_id);poll(data.job_id)}catch(e){err('formError',String(e));setStatus('failed',String(e),100)}}
+      async function startPath(){err('formError','');const path=$('pathInput').value.trim();if(!path)return err('formError','Enter absolute server path.');setStatus('processing','Submitting path...',2);try{const data=await jsonFetch('/upload-path',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,...ocrOpts()})});setJob(data.job_id);poll(data.job_id)}catch(e){err('formError',String(e));setStatus('failed',String(e),100)}}
+      function stopPoll(){if(state.timer)clearTimeout(state.timer);state.timer=null}async function poll(id){stopPoll();try{const data=await jsonFetch('/status/'+id);setJob(id);const p=data.progress||{};setStatus(data.status,p.message||data.error||data.status,p.percent||0);$('warningBox').textContent=(data.warnings||[]).join(' · ');$('warningBox').classList.toggle('hide',!(data.warnings||[]).length);if(data.status==='completed'){await refreshUploads();return}if(data.status==='failed')throw new Error(data.error||'failed');state.timer=setTimeout(()=>poll(id),3000)}catch(e){err('formError',String(e));setStatus('failed',String(e),100)}}
+      async function refreshUploads(){try{const data=await jsonFetch('/uploads');state.uploads=data.items||[];drawUploads()}catch(e){$('uploadsList').innerHTML=`<div class=error>${e}</div>`}}
+      function drawUploads(){const box=$('uploadsList');box.innerHTML='';$('uploadsEmpty').classList.toggle('hide',state.uploads.length>0);for(const it of state.uploads){const div=document.createElement('div');div.className='item stack';const completed=it.status==='completed';const gens=it.mcq_generations||[];const mcqHtml=gens.length?`<div class="stack"><strong class="small">Generated MCQs</strong>${gens.map(g=>`<div class="item" style="box-shadow:none;padding:10px"><div class="between"><div><strong>${esc(g.count||0)} MCQs</strong><div class="muted tiny mono">${esc(g.generation_id||'')}</div><div class="muted tiny">${esc(g.language||'')} · ${esc(g.provider||'')}/${esc(g.model||'')} · ${esc(g.created_at||'')}</div></div><div class="row"><button class="btn view-mcq" data-gen="${esc(g.generation_id||'')}" type="button">View</button><button class="btn download-mcq" data-gen="${esc(g.generation_id||'')}" type="button">Download</button></div></div></div>`).join('')}</div>`:'';div.innerHTML=`<div class=between><div><strong>${esc(it.file_name||'file')}</strong><div class="muted tiny mono">${esc(it.job_id)}</div></div><span class="pill">${esc(it.status)}${it.engine_used?' · '+esc(it.engine_used):''}</span></div><div class="row"><span class=pill>${it.total_pages||'?'} pages</span><span class=pill>${it.stats?.sanitized_characters||0} clean chars</span><span class=pill>${gens.length} MCQ sets</span></div><pre class="preview muted small">${esc(it.content_preview||'')}</pre><div class=row>${completed?`<button class="btn primary gen" type=button>Generate More MCQs</button><button class="btn content" type=button>Content TXT</button><button class="btn json" type=button>OCR JSON</button><button class="btn txt" type=button>OCR TXT</button>`:''}</div>${mcqHtml}`;box.appendChild(div);if(completed){div.querySelector('.gen').onclick=()=>{$('mcqJob').value=it.job_id;$('mcqSubject').value=it.file_name||'';window.scrollTo({top:0,behavior:'smooth'});};div.querySelector('.content').onclick=()=>open(url('/download/'+it.job_id+'/content'),'_blank');div.querySelector('.json').onclick=()=>open(url('/download/'+it.job_id+'/json'),'_blank');div.querySelector('.txt').onclick=()=>open(url('/download/'+it.job_id+'/text'),'_blank');div.querySelectorAll('.view-mcq').forEach(btn=>btn.onclick=()=>loadMcqGeneration(btn.dataset.gen));div.querySelectorAll('.download-mcq').forEach(btn=>btn.onclick=()=>open(url('/mcq/'+btn.dataset.gen+'/download'),'_blank'))}}}
+      async function loadMcqGeneration(id){try{if(!id)throw new Error('Missing MCQ generation id');$('mcqStatus').textContent='Loading saved MCQs...';const g=await jsonFetch('/mcq/'+id);state.mcq=g;drawMcqs(g);show('mcqs')}catch(e){err('mcqError',String(e));show('uploaded')}}
+      function appendMcqLog(ev){const box=$('mcqLogs');box.classList.remove('hide');const line=document.createElement('div');line.className='logline';const pct=ev.percent!=null?` <span class="pill">${ev.percent}%</span>`:'';const key=ev.key_mask?` <span class="pill">key ${esc(ev.key_mask)}</span>`:'';const model=ev.model?` <span class="pill">${esc(ev.provider||'AI')} / ${esc(ev.model)}</span>`:'';const chars=ev.stream_chars?` <span class="pill">${Number(ev.stream_chars).toLocaleString()} streamed chars</span>`:'';const preview=ev.preview?`<pre class="tiny muted" style="margin-top:5px">${esc(ev.preview)}</pre>`:'';line.innerHTML=`<strong>${esc(ev.stage||ev.type||'log')}</strong>${pct}${key}${model}${chars}<br>${esc(ev.message||messageForMcqEvent(ev))}${preview}`;box.appendChild(line);box.scrollTop=box.scrollHeight}
+      function messageForMcqEvent(ev){if(ev.type==='model_call')return `Calling model attempt ${ev.attempt}/${ev.total_attempts||'?'}...`;if(ev.type==='stream_progress')return `AI streamed ${ev.stream_chars||0} chars so far`;if(ev.type==='model_response')return `Model responded with ${ev.response_chars||0} chars`;if(ev.type==='model_retry')return `Retrying after ${ev.status_code||'network'}: ${ev.message||''}`;if(ev.type==='done')return 'MCQ generation completed';return ev.message||''}
+      function setMcqBusy(b){$('generateMcqBtn').disabled=b;$('generateMcqBtn').textContent=b?'Generating...':'Generate MCQs'}
+      async function generateMcqs(){err('mcqError','');$('mcqLogs').innerHTML='';$('mcqLogs').classList.remove('hide');$('mcqStatus').textContent='Starting MCQ stream...';setMcqBusy(true);try{const body={job_id:$('mcqJob').value.trim(),count:+$('mcqCount').value||30,language:$('mcqLanguage').value,provider:$('aiProvider').value||null,model:$('aiModel').value||null,subject:$('mcqSubject').value.trim()||null,exam:$('mcqExam').value.trim()||null,difficulty_mix:$('difficultyMix').value,temperature:+$('temperature').value||0.2};if(!body.job_id)throw new Error('Select an OCR job first.');const res=await fetch(url('/mcq/generate/stream'),{method:'POST',headers:{'Content-Type':'application/json','Accept':'text/event-stream'},body:JSON.stringify(body)});if(!res.ok){const t=await res.text();throw new Error(t||`HTTP ${res.status}`)}if(!res.body)throw new Error('Streaming is not supported in this browser.');const reader=res.body.getReader();const decoder=new TextDecoder();let buffer='';while(true){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const chunks=buffer.split('\n\n');buffer=chunks.pop()||'';for(const chunk of chunks){const data=chunk.split('\n').filter(l=>l.startsWith('data:')).map(l=>l.slice(5).trim()).join('\n');if(!data)continue;const ev=JSON.parse(data);if(ev.type==='ping')continue;appendMcqLog(ev);$('mcqStatus').textContent=ev.message||messageForMcqEvent(ev);if(ev.type==='error')throw new Error(ev.message||'MCQ generation failed');if(ev.type==='done'){state.mcq=ev.result;drawMcqs(state.mcq);$('mcqStatus').textContent='Done';show('mcqs');await refreshUploads();return}}}}catch(e){err('mcqError',String(e));$('mcqStatus').textContent='Failed'}finally{setMcqBusy(false)}}
+      function drawMcqs(g){$('mcqMeta').textContent=`${g.count} MCQs · ${g.language} · ${g.provider}/${g.model} · key ${g.key_mask||''}`;const box=$('mcqList');box.innerHTML='';for(const q of g.mcqs||[]){const div=document.createElement('div');div.className='mcq';div.innerHTML=`<div class=between><strong>Q${q.id}. ${q.difficulty}</strong><span class=pill>Answer ${q.correct_answer}</span></div><p>${esc(q.question)}</p><ol type=A><li>${esc(q.options.A)}</li><li>${esc(q.options.B)}</li><li>${esc(q.options.C)}</li><li>${esc(q.options.D)}</li></ol><p><strong>Explanation:</strong> ${esc(q.explanation)}</p>${q.source_quote?`<p class="muted tiny"><strong>Source:</strong> ${esc(q.source_quote)}</p>`:''}${q.correction_note?`<p class="muted tiny"><strong>Correction:</strong> ${esc(q.correction_note)}</p>`:''}`;box.appendChild(div)}$('downloadMcqBtn').onclick=()=>g.files?.download_url&&open(url(g.files.download_url),'_blank');$('copyMcqBtn').onclick=async()=>navigator.clipboard.writeText(JSON.stringify(g,null,2))}
+      function esc(s){return String(s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}
+      function init(){document.documentElement.dataset.theme=localStorage.getItem('ocr-theme')||'';$('themeBtn').onclick=()=>{const n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;localStorage.setItem('ocr-theme',n)};$('apiBase').value=location.origin;setupTabs();setupFile();$('healthBtn').onclick=health;$('uploadBtn').onclick=startUpload;$('pathBtn').onclick=startPath;$('stopBtn').onclick=stopPoll;$('cancelBtn').onclick=async()=>{if(state.jobId){await fetch(url('/cancel/'+state.jobId),{method:'POST'});poll(state.jobId)}};$('goUploadedBtn').onclick=()=>show('uploaded');$('refreshUploadsBtn').onclick=refreshUploads;$('generateMcqBtn').onclick=generateMcqs;health();loadAiCatalog();refreshUploads()}
+      init();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1 @@
+FROM githubyumao/mcsmanager-web:latest

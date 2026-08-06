@@ -1,0 +1,11 @@
+---
+title: Searxng Verifier
+emoji: 📈
+colorFrom: purple
+colorTo: blue
+sdk: docker
+app_port: 8080
+pinned: false
+---
+
+Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference

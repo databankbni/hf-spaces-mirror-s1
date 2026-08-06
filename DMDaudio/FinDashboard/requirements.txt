@@ -1,0 +1,25 @@
+# >=1.55: st.dialog (1.37, ui_chips), st.pills (1.40, sector browser),
+# key-based pills identity + popover state persistence (1.55).
+streamlit>=1.55
+# Native-lib upper bounds (2026-07-15): the deployed HF Space segfaulted (exit
+# 139, native SIGSEGV, no traceback) under render load after the UNPINNED build
+# pulled numpy 2.5.1 / pyarrow 25.0.0 on Python 3.13. The identical code is
+# rock-solid on the tested stack (numpy 2.2.x / pyarrow 24.x / pandas 3.0.x /
+# Python 3.12 — 672 tests green). Cap to that range; also pin python_version 3.12
+# in the mirror README so the Space rebuilds on the exact known-good environment.
+pandas>=2.0,<3.1
+numpy>=2.0,<2.3
+pyarrow>=16,<25
+pytest>=7.4
+plotly>=5.20
+openpyxl>=3.1
+huggingface_hub>=0.24
+# In-app "Ask Claude" chat (T4.1b). Pulls pydantic transitively, which the MCP
+# tool models (reused via mcp/tools.py) also need — the dashboard does NOT need
+# the `mcp` SDK itself (its FastMCP import is TYPE_CHECKING-guarded in tools.py).
+anthropic>=0.40
+# Login gate (roadmap T3.2): password-gated access on the deployed Space via a
+# signed 7-day cookie. lib/auth.require_login() imports this lazily and only
+# when AUTH_COOKIE_KEY + APP_PASSWORD are set, so it's a no-op locally/in tests.
+# Does not raise the streamlit floor (constraint #7) — sdk pin stays 1.55.
+streamlit-authenticator>=0.4.2

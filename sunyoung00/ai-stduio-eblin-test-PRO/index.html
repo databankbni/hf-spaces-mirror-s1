@@ -1,0 +1,2537 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <title>AI 모델 이미지 생성기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { blue: '#3B82F6', hover: '#2563EB' }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    @font-face {
+      font-family: 'Pretendard';
+      src: url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    }
+    * { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    body {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: #1a1a1a;
+      color: #f9fafb;
+      margin: 0;
+      overflow: hidden;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #1a1a1a; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+    .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+    .animate-slideUp { animation: slideUp 0.3s ease-out; }
+    .animate-slideRight { animation: slideRight 0.3s ease-out; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    /* AI 표기: Pretendard Light, 10pt, #3c3c3c, 우상단 12pt 여백 */
+    .ai-disclosure-overlay {
+      position: absolute;
+      top: 12pt;
+      right: 12pt;
+      z-index: 6;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 300;
+      font-size: 10pt;
+      line-height: 1.2;
+      color: #3c3c3c;
+      pointer-events: none;
+      user-select: none;
+      white-space: nowrap;
+    }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@19.1.0",
+      "react/": "https://esm.sh/react@19.1.0/",
+      "react-dom/": "https://esm.sh/react-dom@19.1.0/",
+      "lucide-react": "https://esm.sh/lucide-react@0.462.0?external=react"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- ui: shot-extras 갱신 시 이 주석 버전만 바꿔도 소스 보기로 캐시 여부 확인 가능 -->
+  <div id="root"></div>
+
+<script type="module">
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom/client';
+import {
+  Check, Download, X, Maximize2, RefreshCw, Sparkles,
+  Edit2, ImagePlus, Trash2, Upload,
+  MessageSquare, Camera, Crop, RotateCcw, Clock, Film
+} from 'lucide-react';
+
+// ═══════════════════════════════════════════════════════════
+// Constants
+// ═══════════════════════════════════════════════════════════
+
+const CATEGORIES = ['상의', '하의', '스커트', '원피스', '아우터'];
+const FITS = ['슬림', '표준', '오버'];
+const LENGTH_MAP = {
+  '상의': ['허리', '골반', '허벅지'],
+  '아우터': ['허리', '골반', '허벅지'],
+  '하의': ['허벅지', '무릎', '종아리', '발목', '신발'],
+  '스커트': ['허벅지', '무릎', '종아리', '발목', '신발'],
+  '원피스': ['허벅지', '무릎', '종아리', '발목', '신발'],
+};
+
+// ── Auto garment length calc ────────────────────────────────
+const BODY_RATIOS = { '신발':0.00, '발목':0.05, '종아리':0.17, '무릎':0.25, '허벅지':0.36, '골반':0.48, '허리':0.57 };
+const START_RATIOS = { '상의':0.82, '아우터':0.82, '원피스':0.82, '하의':0.57, '스커트':0.57 };
+function calcTotalLength(h, cat, len) {
+  const s = START_RATIOS[cat], e = BODY_RATIOS[len];
+  return (s != null && e != null && h) ? Math.round((s - e) * h * 10) / 10 : 0;
+}
+
+/** CSS pt와 동일하게 캔버스에 그리기 (96 DPI 기준) */
+const PT_TO_PX = 96 / 72;
+const AI_DISCLOSURE_TEXT = '가상인물포함';
+/** 화면 오버레이는 10pt 유지, 저장·일괄 다운로드(캔버스)만 고해상도에서 읽히도록 크게 */
+const AI_DISCLOSURE_EXPORT_FONT_PT = 28;
+/** 10pt 글자 기준 12pt 여백 비율을 28pt에 맞게 환산한 뒤, 캔버스 크기에 비례해 최소 여백 보장 */
+const AI_DISCLOSURE_EXPORT_MARGIN_PT = 12;
+function drawAiDisclosureOnCanvas(ctx, canvasWidth, canvasHeight) {
+  const fontSize = AI_DISCLOSURE_EXPORT_FONT_PT * PT_TO_PX;
+  const minSide = Math.min(canvasWidth, canvasHeight || canvasWidth);
+  const marginFromFontRatio =
+    AI_DISCLOSURE_EXPORT_MARGIN_PT * (AI_DISCLOSURE_EXPORT_FONT_PT / 10) * PT_TO_PX;
+  const marginFromImage = minSide * 0.028;
+  const marginFromFont = fontSize * 0.72;
+  const margin = Math.round(Math.max(marginFromFontRatio, marginFromImage, marginFromFont, 18));
+  ctx.save();
+  ctx.font = `300 ${fontSize}px Pretendard, -apple-system, BlinkMacSystemFont, sans-serif`;
+  ctx.fillStyle = '#3c3c3c';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  ctx.fillText(AI_DISCLOSURE_TEXT, canvasWidth - margin, margin);
+  ctx.restore();
+}
+
+const FRONT_CANDIDATE_COUNT = 3;
+
+// Step 1에서는 3/4 기준컷만 생성하고, Step 2에서 추가 샷을 생성함.
+const SHOT_FRONT = { id: 'three-quarter-base', label: '3/4컷' };
+const SHOT_EXTRAS = [
+  { id: 'upper-side', label: '상반신 측면' },
+  { id: 'upper-back', label: '상반신 후면' },
+  { id: 'lower-body', label: '하반신' },
+  { id: 'ghost-p1-front', label: '제품 1 앞면 고스트컷' },
+  { id: 'ghost-p1-back', label: '제품 1 뒷면 고스트컷' },
+  { id: 'ghost-p1-side', label: '제품 1 측면 고스트컷' },
+  { id: 'ghost-p2-front', label: '제품 2 앞면 고스트컷' },
+  { id: 'ghost-p2-back', label: '제품 2 뒷면 고스트컷' },
+  { id: 'ghost-p2-side', label: '제품 2 측면 고스트컷' },
+];
+/** 3/4 선택 후 레퍼런스로만 생성 (상반신 측면·후면·하반신) */
+const SHOT_REF_EXTRAS = SHOT_EXTRAS.filter(shot => !shot.id.startsWith('ghost-'));
+/** 제품 이미지만으로 바로 생성 */
+const SHOT_GHOST_EXTRAS = SHOT_EXTRAS.filter(shot => shot.id.startsWith('ghost-'));
+const DEFAULT_SELECTED_SHOT_IDS = SHOT_REF_EXTRAS.map(shot => shot.id);
+const VALID_SHOT_EXTRA_IDS = new Set(SHOT_EXTRAS.map(shot => shot.id));
+
+const GHOST_SHOT_LABELS = new Set([
+  '제품 1 앞면 고스트컷', '제품 1 뒷면 고스트컷', '제품 1 측면 고스트컷',
+  '제품 2 앞면 고스트컷', '제품 2 뒷면 고스트컷', '제품 2 측면 고스트컷',
+]);
+
+const GHOST_SHOT_TASKS = {
+  'ghost-p1-front': { label: '제품 1 앞면 고스트컷', slot: 0, needMsg: '제품 1 앞면 고스트컷을 만들려면 제품 1 앞면 이미지를 업로드해주세요.' },
+  'ghost-p1-back': { label: '제품 1 뒷면 고스트컷', slot: 1, needMsg: '제품 1 뒷면 고스트컷을 만들려면 제품 1 뒷면 이미지를 업로드해주세요.' },
+  'ghost-p1-side': { label: '제품 1 측면 고스트컷', slot: 0, needMsg: '제품 1 측면 고스트컷을 만들려면 제품 1 앞면 이미지를 업로드해주세요.' },
+  'ghost-p2-front': { label: '제품 2 앞면 고스트컷', slot: 2, needMsg: '제품 2 앞면 고스트컷을 만들려면 제품 2 앞면 이미지를 업로드해주세요.' },
+  'ghost-p2-back': { label: '제품 2 뒷면 고스트컷', slot: 3, needMsg: '제품 2 뒷면 고스트컷을 만들려면 제품 2 뒷면 이미지를 업로드해주세요.' },
+  'ghost-p2-side': { label: '제품 2 측면 고스트컷', slot: 2, needMsg: '제품 2 측면 고스트컷을 만들려면 제품 2 앞면 이미지를 업로드해주세요.' },
+};
+
+function ghostSlotForLabel(label) {
+  for (const id of Object.keys(GHOST_SHOT_TASKS)) {
+    if (GHOST_SHOT_TASKS[id].label === label) return GHOST_SHOT_TASKS[id].slot;
+  }
+  return null;
+}
+
+function designUrlsForGhostLabel(label, mainImages) {
+  const n = normalizeDesignImages(mainImages);
+  const pick = (idx) => (n[idx] ? [n[idx].url] : null);
+  if (label === '제품 1 앞면 고스트컷') return pick(0);
+  if (label === '제품 1 뒷면 고스트컷') return pick(1);
+  if (label === '제품 1 측면 고스트컷') return pick(0);
+  if (label === '제품 2 앞면 고스트컷') return pick(2);
+  if (label === '제품 2 뒷면 고스트컷') return pick(3);
+  if (label === '제품 2 측면 고스트컷') return pick(2);
+  return null;
+}
+
+const BG_PRESETS = [
+  { id: 'bg_white', label: '순백', emoji: '⬜', prompt: 'Change the background to a pure clean white studio background (#FFFFFF). Apply soft, even studio lighting on the model with minimal shadows. Remove all environmental reflections. Keep the model and outfit exactly the same.' },
+  { id: 'bg_cafe', label: '카페', emoji: '☕', prompt: 'Place the model naturally inside a warm, cozy modern cafe. CRITICAL LIGHTING INTEGRATION: Apply warm ambient cafe lighting (color temperature ~3000K) onto the model\'s skin and clothes. Add soft warm-toned shadows on the model\'s body consistent with overhead cafe pendant lights. Add subtle warm reflected light on the model\'s outfit from wooden surfaces. The model must look like they were actually photographed inside this cafe, not composited. Keep the model and outfit exactly the same.' },
+  { id: 'bg_street', label: '거리', emoji: '🏙️', prompt: 'Place the model naturally on an urban city street with modern architecture. CRITICAL LIGHTING INTEGRATION: Apply natural daylight with subtle directional shadows on the model consistent with the sun position in the scene. Add soft ambient occlusion where the model contacts the ground. Add very subtle environmental reflections on the model\'s shoes and any glossy materials. Color-grade the model to match the street scene\'s color palette. The model must look like they were actually photographed on this street. Keep the model and outfit exactly the same.' },
+  { id: 'bg_showroom', label: '쇼룸', emoji: '🏛️', prompt: 'Place the model naturally in a minimalist luxury fashion showroom with marble floors. CRITICAL LIGHTING INTEGRATION: Apply elegant directional accent lighting on the model from above, creating subtle highlight/shadow modeling on the face and clothes. Add a soft reflection of the model on the marble floor. Add very subtle warm fill light bouncing from the showroom walls. The model must look like they were actually photographed in this showroom. Keep the model and outfit exactly the same.' },
+  { id: 'bg_nature', label: '자연', emoji: '🌿', prompt: 'Place the model naturally in a lush green park or garden with trees. CRITICAL LIGHTING INTEGRATION: Apply dappled natural sunlight filtering through leaves onto the model, creating soft light-and-shadow patterns on their clothes and skin. Add a subtle green color cast from the surrounding foliage. Add soft ground shadow beneath the model\'s feet consistent with the sunlight direction. The model must look like they were actually photographed in this garden. Keep the model and outfit exactly the same.' },
+  { id: 'bg_beach', label: '해변', emoji: '🏖️', prompt: 'Place the model naturally on a beautiful sandy beach with ocean. CRITICAL LIGHTING INTEGRATION: Apply warm golden hour sunlight on the model with a soft directional warm highlight on one side and cool blue fill light from the ocean on the other. Add subtle warm reflections from the sand onto the model\'s lower body. Add a natural ground shadow on the sand. The model must look like they were actually photographed on this beach. Keep the model and outfit exactly the same.' },
+  { id: 'bg_studio', label: '스튜디오', emoji: '📸', prompt: 'Place the model in a professional photography studio with a soft gray gradient backdrop. CRITICAL LIGHTING INTEGRATION: Apply dramatic three-point studio lighting — key light from 45 degrees creating defined shadows, fill light softening the opposite side, and rim/hair light separating the model from the background. Add a subtle ground shadow. The model must look like they were actually photographed with professional studio lighting. Keep the model and outfit exactly the same.' },
+  { id: 'bg_night', label: '야경', emoji: '🌃', prompt: 'Place the model naturally in a nighttime city scene with neon lights and bokeh. CRITICAL LIGHTING INTEGRATION: Apply colored neon light spill onto the model — subtle blue/pink/orange rim lights on the edges of their body and hair from surrounding neon signs. Darken the shadow side of the model to match the nighttime ambient level. Add subtle colored reflections on any glossy/smooth fabric surfaces. Add a ground shadow lit by the surrounding neon. The model must look like they were actually photographed in this night scene, not pasted onto it. Keep the model and outfit exactly the same.' },
+];
+
+// 얼굴/헤어 축 — 체형과 무관 (체형은 BODY_TYPES에서 별도 선택)
+const MODEL_PRESETS = [
+  {
+    id: 'pure',
+    label: '청순',
+    blurb: '맑고 청순한 인상 · 긴 브라운 헤어',
+  },
+  {
+    id: 'neutral',
+    label: '뉴트럴',
+    blurb: '블루그레이 눈 · 체스트넛 생머리 · 클린 메이크업',
+  },
+];
+
+// 체형 축 — 얼굴 프리셋과 독립. 얼굴 2종 × 체형 2종 = 4조합
+const BODY_TYPES = [
+  {
+    id: 'slim',
+    label: '슬림',
+    blurb: '168cm · 밑가슴 67 / 75·63·88 (70AA) · 곧은 실루엣, 가슴 볼륨 최소',
+  },
+  {
+    id: 'volume',
+    label: '볼륨',
+    blurb: '165cm · 밑가슴 80 / 95·78·102 (85C) · 곡선 실루엣',
+  },
+];
+const DEFAULT_MODEL_PRESET = 'pure';
+const DEFAULT_BODY_TYPE = 'slim';
+
+// 체형 페어: 슬림 ↔ 볼륨
+const nextBodyType = (id) => (id === 'volume' ? 'slim' : 'volume');
+const bodyTypeLabel = (id) => {
+  if (id === 'slim_bust') return '슬림+볼륨컵'; // 예전 결과 호환
+  return (BODY_TYPES.find(b => b.id === id) || BODY_TYPES[0]).label;
+};
+const VIDEO_MOTION_PRESETS = [
+  { id: 'stretch', label: '스판', blurb: '상세페이지용 — 원단 신축·복원력(스판끼)을 보여주는 프리미엄 연출' },
+];
+const DEFAULT_VIDEO_MOTION = 'stretch';
+const DEFAULT_VIDEO_DURATION = 6;
+const DESIGN_IMAGE_SLOTS = [
+  { id: 'image-1-front', label: '이미지 1 앞면', shortLabel: '앞면', required: true },
+  { id: 'image-1-back', label: '이미지 1 뒷면 (옵션)', shortLabel: '뒷면 (옵션)', required: false },
+  { id: 'image-2-front', label: '이미지 2 앞면', shortLabel: '앞면', required: true },
+  { id: 'image-2-back', label: '이미지 2 뒷면 (옵션)', shortLabel: '뒷면 (옵션)', required: false },
+];
+const DESIGN_IMAGE_GROUPS = [
+  { id: 'product-1', label: '제품 1', slotIndexes: [0, 1] },
+  { id: 'product-2', label: '제품 2', slotIndexes: [2, 3] },
+];
+const MAX_DESIGN_IMAGES = DESIGN_IMAGE_SLOTS.length;
+const REQUIRED_DESIGN_SLOT_INDEXES = DESIGN_IMAGE_SLOTS
+  .map((slot, idx) => slot.required ? idx : null)
+  .filter(idx => idx !== null);
+
+function normalizeDesignImages(images = []) {
+  return Array.from({ length: MAX_DESIGN_IMAGES }, (_, idx) => images[idx] || null);
+}
+
+function getUploadedDesignImages(images = []) {
+  return normalizeDesignImages(images).filter(Boolean);
+}
+
+function countUploadedDesignImages(images = []) {
+  return getUploadedDesignImages(images).length;
+}
+
+function hasRequiredDesignImages(images = []) {
+  const normalized = normalizeDesignImages(images);
+  return REQUIRED_DESIGN_SLOT_INDEXES.every(idx => Boolean(normalized[idx]));
+}
+
+function buildDesignSlotImagesPayload(images = []) {
+  const normalized = normalizeDesignImages(images);
+  return normalized
+    .map((img, idx) => (
+      img && img.url
+        ? {
+            slot: idx,
+            label: DESIGN_IMAGE_SLOTS[idx]?.label || `slot-${idx}`,
+            image: img.url,
+            name: img.name || '',
+            filename: img.name || '',
+          }
+        : null
+    ))
+    .filter(Boolean);
+}
+
+function collectDesignImageFilenames(images = []) {
+  return normalizeDesignImages(images)
+    .filter(Boolean)
+    .map((img, idx) => img.name || `product_${idx}.png`);
+}
+
+// ═══════════════════════════════════════════════════════════
+// API Service
+// ═══════════════════════════════════════════════════════════
+
+async function generateModelImage(designImagesBase64, shotLabel = SHOT_FRONT.label, imageSize = '2K', referenceImage = null, customPrompt = '', ghostSourceSlot = null, designSlotImages = null, modelPreset = DEFAULT_MODEL_PRESET, bodyType = DEFAULT_BODY_TYPE, productImageFilenames = null) {
+  const res = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      promptMode: 'direct',
+      designImages: designImagesBase64,
+      shotLabel,
+      referenceImage: referenceImage || null,
+      modelPreset: modelPreset || DEFAULT_MODEL_PRESET,
+      bodyType: bodyType || DEFAULT_BODY_TYPE,
+      ...(customPrompt.trim() ? { customPrompt: customPrompt.trim() } : {}),
+      imageSize: imageSize || '2K',
+      ...(ghostSourceSlot != null && ghostSourceSlot !== '' ? { ghostSourceSlot } : {}),
+      ...(Array.isArray(designSlotImages) && designSlotImages.length ? { designSlotImages } : {}),
+      ...(Array.isArray(productImageFilenames) && productImageFilenames.length
+        ? { productImageFilenames, designImageFilenames: productImageFilenames }
+        : {}),
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data.imageUrl;
+}
+
+async function editGeneratedImage(currentImageBase64, editInstruction, referenceImages, imageSize = '2K', bodyType = null, productImageFilenames = null) {
+  const refs = Array.isArray(referenceImages) ? referenceImages : (referenceImages ? [referenceImages] : []);
+  const res = await fetch('/api/edit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      currentImage: currentImageBase64,
+      editInstruction,
+      referenceImages: refs.filter(r => r && r.startsWith && r.startsWith('data:')),
+      imageSize: imageSize || '2K',
+      ...(bodyType ? { bodyType } : {}),
+      ...(Array.isArray(productImageFilenames) && productImageFilenames.length
+        ? { productImageFilenames, designImageFilenames: productImageFilenames }
+        : {}),
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data.imageUrl;
+}
+
+async function generateProductMotionVideo(currentImageBase64, prompt = '', durationSeconds = DEFAULT_VIDEO_DURATION, motionStyle = DEFAULT_VIDEO_MOTION, productImageFilenames = null) {
+  const res = await fetch('/api/video', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      currentImage: currentImageBase64,
+      motionStyle: motionStyle || DEFAULT_VIDEO_MOTION,
+      ...(prompt.trim() ? { prompt: prompt.trim() } : {}),
+      durationSeconds: durationSeconds || DEFAULT_VIDEO_DURATION,
+      aspectRatio: '9:16',
+      resolution: '1080p',
+      ...(Array.isArray(productImageFilenames) && productImageFilenames.length
+        ? { productImageFilenames, designImageFilenames: productImageFilenames, filename: productImageFilenames[0] }
+        : {}),
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(typeof err.detail === 'string' ? err.detail : (err.detail || `HTTP ${res.status}`));
+  }
+  const data = await res.json();
+  return { videoUrl: data.videoUrl, motionStyle: data.motionStyle || motionStyle, durationSeconds: data.durationSeconds };
+}
+
+function downloadDataUrl(dataUrl, filename) {
+  const link = document.createElement('a');
+  link.href = dataUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// ═══════════════════════════════════════════════════════════
+// TagButton Component
+// ═══════════════════════════════════════════════════════════
+
+function TagButton({ label, isSelected, onClick, isSmall = false }) {
+  return React.createElement('button', {
+    onClick,
+    className: `font-bold rounded-md transition-all ${
+      isSelected
+        ? 'bg-[#3B82F6] text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+        : 'bg-[#2D2D2D] text-gray-400 hover:bg-[#3D3D3D] hover:text-gray-200'
+    } ${isSmall ? 'px-2 py-1 text-[10px]' : 'px-3 py-1.5 text-xs'}`,
+  }, label);
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// Sidebar Component
+// ═══════════════════════════════════════════════════════════
+
+function Sidebar({
+  designImages, onUpsertDesignImage, onRemoveDesignImage,
+  selectedShotIds, setSelectedShotIds,
+  selectedGhostIds, setSelectedGhostIds,
+  workflowStep, onGenerateFronts, onGenerateExtras, onGenerateGhosts, isGenerating, onReset,
+  outputImageSize, setOutputImageSize, customPrompt, setCustomPrompt,
+  modelPreset, setModelPreset,
+  bodyType, setBodyType,
+  productVideos, videoGeneratingSlots, videoPrompts, setVideoPrompt,
+  onGenerateProductVideo, onDownloadProductVideo
+}) {
+  const h = React.createElement;
+  const uploadedImageCount = countUploadedDesignImages(designImages);
+  const canGenerateFronts = hasRequiredDesignImages(designImages);
+  const canGenerateGhosts = selectedGhostIds.length > 0;
+  const uploadedSlots = DESIGN_IMAGE_SLOTS
+    .map((slot, slotIndex) => ({ slot, slotIndex, img: designImages[slotIndex] }))
+    .filter(({ img }) => !!img);
+
+  const handleFileUpload = async (slotIndex, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => resolve({
+        id: Math.random().toString(36).slice(2),
+        url: ev.target.result,
+        name: file.name || 'design-image',
+      });
+      reader.onerror = () => reject(new Error(`${file.name} 파일을 읽지 못했습니다.`));
+      reader.readAsDataURL(file);
+    });
+
+    try {
+      const newImage = await readFileAsDataUrl(file);
+      onUpsertDesignImage(slotIndex, newImage);
+    } catch (error) {
+      alert(error.message || '이미지 업로드에 실패했습니다.');
+    }
+    e.target.value = '';
+  };
+
+  return h('div', { className: 'w-full lg:w-[420px] bg-[#121212] border-r border-gray-800 h-full overflow-y-auto p-6 space-y-8 flex flex-col' },
+    h('div', { className: 'flex items-center justify-between' },
+      h('h1', { className: 'text-2xl font-bold text-white' }, 'AI 모델'),
+      h('button', {
+        onClick: onReset,
+        className: 'flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 border border-gray-800 rounded-md px-2 py-1 transition-colors'
+      }, h(RefreshCw, { size: 12 }), ' 초기화')
+    ),
+
+    h('section', { className: 'space-y-3' },
+      h('div', { className: 'rounded-2xl border border-gray-800 bg-[#171717] p-4 space-y-2' },
+        h('div', { className: 'flex items-center gap-2 text-sm font-semibold text-gray-200' },
+          h(Sparkles, { size: 16, className: 'text-[#3B82F6]' }),
+          h('span', null, '모델 이미지 생성')
+        ),
+        h('p', { className: 'text-xs leading-5 text-gray-400' },
+          '제품 1·2 앞면 2장은 필수입니다. 3/4 기준컷 → 상반신 측면·후면·하반신은 기준컷 선택 후 생성합니다. 고스트컷은 3/4 없이 제품 이미지만으로 바로 만들 수 있습니다.'
+        )
+      )
+    ),
+
+    h('section', { className: 'space-y-3' },
+      h('div', { className: 'flex items-center justify-between' },
+        h('h2', { className: 'text-lg font-bold text-gray-200' }, '이미지'),
+        h('span', { className: 'text-[11px] text-gray-500' }, `${uploadedImageCount} / ${MAX_DESIGN_IMAGES}장`)
+      ),
+      h('div', { className: 'space-y-2' },
+        h('div', { className: 'grid grid-cols-4 gap-2' },
+          ...DESIGN_IMAGE_GROUPS.map(group =>
+            h('p', { key: group.id, className: 'col-span-2 text-sm font-bold text-gray-200' }, group.label)
+          )
+        ),
+        h('div', { className: 'grid grid-cols-4 gap-2' },
+          ...DESIGN_IMAGE_SLOTS.map((slot, slotIndex) => {
+            const img = designImages[slotIndex];
+            return h('div', { key: slot.id, className: 'space-y-2' },
+              h('label', {
+                className: 'relative block aspect-[3/4] bg-[#1E1E1E] border border-dashed border-gray-700 rounded-xl transition-colors overflow-hidden cursor-pointer hover:bg-[#252525]'
+              },
+                h('input', {
+                  type: 'file',
+                  className: 'hidden',
+                  accept: 'image/*',
+                  onChange: (e) => handleFileUpload(slotIndex, e)
+                }),
+                img
+                  ? h(React.Fragment, null,
+                      h('img', { src: img.url, alt: img.name || slot.label, className: 'w-full h-full object-cover' }),
+                      h('div', { className: 'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-2' },
+                        h('p', { className: 'text-[9px] text-white font-medium truncate' }, img.name || slot.label)
+                      ),
+                      h('button', {
+                        type: 'button',
+                        onClick: (e) => { e.preventDefault(); e.stopPropagation(); onRemoveDesignImage(slotIndex); },
+                        className: 'absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-white hover:bg-red-500 transition-colors'
+                      }, h(X, { size: 10 }))
+                    )
+                  : h('div', { className: 'w-full h-full flex flex-col items-center justify-center gap-2 text-center px-2' },
+                      h(Upload, { size: 18, className: 'text-gray-500' })
+                    )
+              ),
+              h('p', { className: 'text-[11px] text-gray-400 text-center leading-4' }, slot.shortLabel)
+            );
+          })
+        )
+      ),
+      h('p', { className: 'text-[11px] leading-5 text-gray-500' },
+        '앞면 2장은 필수입니다. 뒷면 이미지는 선택 업로드이며, 함께 넣어주면 컬러, 실루엣, 레이스, 밴드, 봉제 디테일까지 더 안정적으로 반영됩니다.'
+      ),
+      uploadedSlots.length > 0
+        ? h('div', { className: 'rounded-2xl border-2 border-violet-500/40 bg-violet-500/5 p-4 space-y-3' },
+            h('div', { className: 'flex items-center gap-2' },
+              h(Film, { size: 16, className: 'text-violet-300' }),
+              h('p', { className: 'text-sm font-bold text-violet-100' }, '제품컷 스판 영상')
+            ),
+            h('p', { className: 'text-[11px] leading-5 text-violet-100/70' },
+              '업로드한 제품컷으로 상세페이지용 스판 영상(약 6초·1080p)을 만듭니다. 원단을 살살 늘렸다 놓아 스판끼·복원력을 보여줍니다.'
+            ),
+            ...uploadedSlots.map(({ slot, slotIndex, img }) => {
+              const isVideoBusy = videoGeneratingSlots.has(slotIndex);
+              const video = productVideos[slotIndex];
+              const promptValue = videoPrompts?.[slotIndex] || '';
+              return h('div', {
+                key: slot.id,
+                className: 'rounded-xl border border-violet-500/25 bg-[#121212] p-3 space-y-2'
+              },
+                h('p', { className: 'text-xs font-bold text-gray-200' }, slot.label),
+                h('textarea', {
+                  value: promptValue,
+                  onChange: (e) => setVideoPrompt(slotIndex, e.target.value),
+                  disabled: isVideoBusy,
+                  rows: 3,
+                  placeholder: '연출 프롬프트 (선택) — 예: 사이드 윙 원단을 좌우로 천천히 늘렸다 놓아 스판끼를 보여주세요. 레이스 디테일은 유지.',
+                  className: 'w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-[11px] leading-5 text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-violet-400/50 resize-y min-h-[72px]'
+                }),
+                video?.videoUrl
+                  ? h('video', {
+                      src: video.videoUrl,
+                      controls: true,
+                      loop: true,
+                      muted: true,
+                      playsInline: true,
+                      className: 'w-full rounded-lg border border-white/10 bg-black aspect-[3/4] object-cover'
+                    })
+                  : null,
+                h('div', { className: 'flex gap-2' },
+                  h('button', {
+                    type: 'button',
+                    onClick: () => onGenerateProductVideo(slotIndex),
+                    disabled: isVideoBusy || isGenerating,
+                    className: 'flex-1 py-2 rounded-lg text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-40 flex items-center justify-center gap-1.5'
+                  },
+                    h(Film, { size: 12, className: isVideoBusy ? 'animate-spin' : '' }),
+                    isVideoBusy ? '생성 중...' : (video?.videoUrl ? '다시 만들기' : '스판 영상 만들기')
+                  ),
+                  video?.videoUrl
+                    ? h('button', {
+                        type: 'button',
+                        onClick: () => onDownloadProductVideo(slotIndex),
+                        className: 'px-3 py-2 rounded-lg text-xs font-bold border border-white/15 bg-white/5 hover:bg-white/10 text-white'
+                      }, h(Download, { size: 12 }))
+                    : null
+                )
+              );
+            })
+          )
+        : null
+    ),
+
+    h('section', { className: 'space-y-5' },
+      h('h2', { className: 'text-lg font-bold text-gray-200' }, '샷타입'),
+      workflowStep === 'idle' || workflowStep === 'generating_fronts'
+        ? h(React.Fragment, null,
+            h('div', { className: 'rounded-2xl border border-gray-800 bg-[#171717] p-4 space-y-3' },
+              h('div', { className: 'flex items-center gap-1.5 text-xs text-gray-400 font-medium' },
+                h(MessageSquare, { size: 12, className: 'text-[#3B82F6]' }),
+                h('span', null, '모델 기준컷 (3/4)')
+              ),
+              h('div', { className: 'flex flex-wrap gap-2 pt-1' },
+                h(TagButton, {
+                  label: SHOT_FRONT.label,
+                  isSelected: true,
+                  onClick: () => {}
+                })
+              ),
+              h('p', { className: 'text-[11px] leading-5 text-gray-500 pt-1' },
+                '3/4 기준컷 3장을 만든 뒤, 한 장을 골라 상반신·하반신 샷에 씁니다.'
+              )
+            ),
+            h('div', { className: 'rounded-2xl border border-gray-800 bg-[#171717] p-4 space-y-3' },
+              h('div', { className: 'flex items-center gap-1.5 text-xs text-gray-400 font-medium' },
+                h(MessageSquare, { size: 12, className: 'text-[#60A5FA]' }),
+                h('span', null, '고스트컷 (제품만)')
+              ),
+              h('div', { className: 'flex flex-wrap gap-2 pt-1' },
+                ...SHOT_GHOST_EXTRAS.map(shot => h(TagButton, {
+                  key: shot.id,
+                  label: shot.label,
+                  isSelected: selectedGhostIds.includes(shot.id),
+                  onClick: () => setSelectedGhostIds(prev =>
+                    prev.includes(shot.id)
+                      ? prev.filter(id => id !== shot.id)
+                      : [...prev, shot.id]
+                  )
+                }))
+              ),
+              h('p', { className: 'text-[11px] leading-5 text-gray-500 pt-1' },
+                '인비저블 마네킹 상품 컷. 3/4 기준컷 없이 해당 제품 앞·뒷면 슬롯만으로 생성합니다.'
+              )
+            )
+          )
+        : h('div', { className: 'rounded-2xl border border-gray-800 bg-[#171717] p-4 space-y-2' },
+            h('div', { className: 'flex items-center gap-1.5 text-xs text-gray-400 font-medium' },
+              h(MessageSquare, { size: 12, className: 'text-[#3B82F6]' }),
+              h('span', null, '레퍼런스 샷 (기준컷 필요)')
+            ),
+            h('div', { className: 'flex flex-wrap gap-2 pt-1' },
+              ...SHOT_REF_EXTRAS.map(shot => h(TagButton, {
+                key: shot.id,
+                label: shot.label,
+                isSelected: selectedShotIds.includes(shot.id),
+                onClick: () => setSelectedShotIds(prev =>
+                  prev.includes(shot.id)
+                    ? prev.filter(id => id !== shot.id)
+                    : [...prev, shot.id]
+                )
+              }))
+            ),
+            h('p', { className: 'text-[11px] leading-5 text-gray-500 pt-1' },
+              '3/4 기준컷 1장을 선택한 뒤, 상반신 측면·후면·하반신을 한 번에 생성합니다.'
+            )
+          )
+    ),
+
+    h('section', { className: 'space-y-3' },
+      h('div', { className: 'flex items-center justify-between' },
+        h('h2', { className: 'text-lg font-bold text-gray-200' }, '모델'),
+        h('span', { className: 'text-[11px] text-gray-500' }, '얼굴 × 체형')
+      ),
+      h('div', { className: 'rounded-2xl border border-gray-800 bg-[#171717] p-4 space-y-4' },
+        h('div', { className: 'space-y-2' },
+          h('p', { className: 'text-[11px] font-semibold text-gray-400' }, '얼굴 · 헤어'),
+          h('div', { className: 'flex flex-wrap gap-2' },
+            ...MODEL_PRESETS.map(preset => h(TagButton, {
+              key: preset.id,
+              label: preset.label,
+              isSelected: modelPreset === preset.id,
+              onClick: () => setModelPreset(preset.id)
+            }))
+          ),
+          h('p', { className: 'text-[11px] leading-5 text-gray-500' },
+            (MODEL_PRESETS.find(p => p.id === modelPreset) || MODEL_PRESETS[0]).blurb
+          )
+        ),
+        h('div', { className: 'space-y-2 border-t border-gray-800 pt-3' },
+          h('p', { className: 'text-[11px] font-semibold text-gray-400' }, '체형'),
+          h('div', { className: 'flex flex-wrap gap-2' },
+            ...BODY_TYPES.map(bt => h(TagButton, {
+              key: bt.id,
+              label: bt.label,
+              isSelected: bodyType === bt.id,
+              onClick: () => setBodyType(bt.id)
+            }))
+          ),
+          h('p', { className: 'text-[11px] leading-5 text-gray-500' },
+            (BODY_TYPES.find(b => b.id === bodyType) || BODY_TYPES[0]).blurb
+          )
+        ),
+        h('p', { className: 'text-[11px] leading-5 text-gray-500' },
+          '3/4 기준컷·추가 샷·재생성에 공통 적용됩니다. (고스트컷 제외)'
+        )
+      )
+    ),
+
+    h('section', { className: 'space-y-3' },
+      h('div', { className: 'flex items-center justify-between' },
+        h('h2', { className: 'text-lg font-bold text-gray-200' }, '프롬프트'),
+        h('span', { className: 'text-[11px] text-gray-500' }, '선택 입력')
+      ),
+      h('div', { className: 'rounded-2xl border border-gray-800 bg-[#171717] p-4 space-y-3' },
+        h('textarea', {
+          value: customPrompt,
+          onChange: (e) => setCustomPrompt(e.target.value),
+          placeholder: '원하는 모델 무드, 체형, 피부톤, 포즈 느낌 등을 추가로 입력하세요. 비워두면 선택한 모델 기본 프롬프트만 사용합니다.',
+          rows: 5,
+          className: 'w-full resize-none rounded-xl border border-gray-700 bg-[#121212] px-3 py-3 text-sm leading-6 text-gray-100 placeholder:text-gray-500 focus:border-[#3B82F6] focus:outline-none'
+        }),
+        h('p', { className: 'text-[11px] leading-5 text-gray-500' },
+          '여기에 입력한 내용은 선택한 모델 기본 프롬프트 뒤에 추가 요청으로 붙으며, 기준컷 생성, 추가 샷 생성, 개별 재생성에 모두 공통 반영됩니다.'
+        )
+      )
+    ),
+
+    h('div', { className: 'mt-auto pt-4 space-y-2' },
+      h('label', { className: 'flex items-center justify-between gap-3 px-1 py-1.5 rounded-lg border border-gray-800 bg-[#1a1a1a] text-xs text-gray-400' },
+        h('span', { className: 'shrink-0' }, '출력 해상도'),
+        h('select', {
+          value: outputImageSize,
+          onChange: (e) => setOutputImageSize(e.target.value),
+          className: 'min-w-[7rem] rounded-md border border-gray-600 bg-[#121212] px-2 py-1 text-xs text-gray-200 focus:border-[#3B82F6] focus:outline-none'
+        },
+          h('option', { value: '1K' }, '1K'),
+          h('option', { value: '2K' }, '2K'),
+          h('option', { value: '4K' }, '4K')
+        )
+      ),
+      workflowStep === 'idle' || workflowStep === 'generating_fronts'
+        ? h('div', { className: 'space-y-2' },
+            h('button', {
+              onClick: () => onGenerateFronts(),
+              disabled: isGenerating || !canGenerateFronts,
+              className: 'w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg text-white bg-[#3B82F6] hover:bg-[#2563EB] disabled:bg-[#2D2D2D] disabled:text-gray-600 disabled:cursor-not-allowed'
+            },
+              isGenerating && workflowStep === 'generating_fronts'
+                ? h('div', { className: 'flex items-center gap-2' },
+                    h('div', { className: 'w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' }),
+                    h('span', { className: 'text-sm' }, '3/4 기준컷 생성 중...')
+                  )
+                : h('span', { className: 'text-sm' }, '3/4 기준컷 3장 생성 ✨')
+            ),
+            h('button', {
+              onClick: () => onGenerateGhosts(),
+              disabled: isGenerating || !canGenerateGhosts,
+              className: 'w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg text-white bg-violet-600 hover:bg-violet-700 disabled:bg-[#2D2D2D] disabled:text-gray-600 disabled:cursor-not-allowed'
+            },
+              isGenerating && workflowStep === 'generating_ghosts'
+                ? h('div', { className: 'flex items-center gap-2' },
+                    h('div', { className: 'w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' }),
+                    h('span', { className: 'text-sm' }, '고스트컷 생성 중...')
+                  )
+                : h('span', { className: 'text-sm' }, `고스트컷 생성 ✨${selectedGhostIds.length ? ` (${selectedGhostIds.length})` : ''}`)
+            )
+          )
+        : null,
+      workflowStep === 'selecting_front'
+        ? h(React.Fragment, null,
+            h('p', { className: 'text-center text-xs text-yellow-400 font-medium py-1' }, '오른쪽에서 3/4 기준컷 1장을 선택한 뒤 추가 샷을 생성하세요.'),
+            h('div', { className: 'rounded-2xl border border-violet-500/35 bg-violet-950/20 p-4 space-y-3 mb-2' },
+              h('div', { className: 'flex items-center gap-1.5 text-xs text-violet-200 font-medium' },
+                h(Sparkles, { size: 12, className: 'text-violet-300' }),
+                h('span', null, '고스트컷 (동시 생성 가능)')
+              ),
+              h('div', { className: 'flex flex-wrap gap-2 pt-1' },
+                ...SHOT_GHOST_EXTRAS.map(shot => h(TagButton, {
+                  key: shot.id,
+                  label: shot.label,
+                  isSelected: selectedGhostIds.includes(shot.id),
+                  isSmall: true,
+                  onClick: () => setSelectedGhostIds(prev =>
+                    prev.includes(shot.id)
+                      ? prev.filter(id => id !== shot.id)
+                      : [...prev, shot.id]
+                  )
+                }))
+              )
+            ),
+            h('button', {
+              onClick: () => onGenerateExtras(),
+              disabled: isGenerating || (selectedShotIds.length + selectedGhostIds.length) === 0,
+              className: 'w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-[#2D2D2D] disabled:text-gray-600 disabled:cursor-not-allowed'
+            },
+              isGenerating
+                ? h('div', { className: 'flex items-center gap-2' },
+                    h('div', { className: 'w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' }),
+                    h('span', { className: 'text-sm' }, '추가 샷 생성 중...')
+                  )
+                : h('span', { className: 'text-sm' }, `${selectedShotIds.length + selectedGhostIds.length}개 샷 생성 ✨`)
+            )
+          )
+        : null,
+      workflowStep === 'showing_results'
+        ? h(React.Fragment, null,
+            h('button', {
+              onClick: () => onGenerateFronts(),
+              disabled: isGenerating || !canGenerateFronts,
+              className: 'w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg text-white bg-[#3B82F6] hover:bg-[#2563EB] disabled:bg-[#2D2D2D] disabled:text-gray-600 disabled:cursor-not-allowed'
+            },
+              isGenerating && workflowStep === 'generating_fronts'
+                ? h('div', { className: 'flex items-center gap-2' },
+                    h('div', { className: 'w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' }),
+                    h('span', { className: 'text-sm' }, '3/4 기준컷 생성 중...')
+                  )
+                : h('span', { className: 'text-sm' }, '3/4 기준컷 다시 선택하기 ✨')
+            )
+          )
+        : null
+    )
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// CropTool Component
+// ═══════════════════════════════════════════════════════════
+
+function CropTool({ imageUrl, onCropDone, onCancel }) {
+  const h = React.createElement;
+  const imgRef = useRef(null);
+  const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [startPt, setStartPt] = useState(null);
+  const [crop, setCrop] = useState(null);
+  const [resizing, setResizing] = useState(null);
+
+  const getPos = useCallback((e) => {
+    const rect = imgRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: Math.max(0, Math.min(cx - rect.left, rect.width)), y: Math.max(0, Math.min(cy - rect.top, rect.height)) };
+  }, []);
+
+  const handleMouseDown = useCallback((e) => {
+    if (e.target.dataset?.handle) { setResizing(e.target.dataset.handle); e.preventDefault(); return; }
+    const pos = getPos(e);
+    if (!pos) return;
+    setDragging(true); setStartPt(pos); setCrop(null);
+  }, [getPos]);
+
+  const handleMouseMove = useCallback((e) => {
+    const pos = getPos(e);
+    if (!pos) return;
+    const rect = imgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const W = rect.width, H = rect.height;
+    if (resizing && crop) {
+      let { x, y, w, h: ch } = crop;
+      if (resizing.includes('e')) w = Math.max(20, pos.x - x);
+      if (resizing.includes('w')) { const dx = pos.x - x; x = pos.x; w = Math.max(20, w - dx); }
+      if (resizing.includes('s')) ch = Math.max(20, pos.y - y);
+      if (resizing.includes('n')) { const dy = pos.y - y; y = pos.y; ch = Math.max(20, ch - dy); }
+      setCrop({ x: Math.max(0, Math.min(x, W-20)), y: Math.max(0, Math.min(y, H-20)), w: Math.min(w, W-x), h: Math.min(ch, H-y) });
+      return;
+    }
+    if (dragging && startPt) {
+      const x = Math.min(startPt.x, pos.x), y = Math.min(startPt.y, pos.y);
+      setCrop({ x, y, w: Math.min(Math.abs(pos.x - startPt.x), W - x), h: Math.min(Math.abs(pos.y - startPt.y), H - y) });
+    }
+  }, [dragging, startPt, resizing, crop, getPos]);
+
+  const handleMouseUp = useCallback(() => { setDragging(false); setStartPt(null); setResizing(null); }, []);
+
+  useEffect(() => {
+    window.addEventListener('mouseup', handleMouseUp); window.addEventListener('touchend', handleMouseUp);
+    return () => { window.removeEventListener('mouseup', handleMouseUp); window.removeEventListener('touchend', handleMouseUp); };
+  }, [handleMouseUp]);
+
+  const doCrop = () => {
+    if (!crop || !imgRef.current) return;
+    const rect = imgRef.current.getBoundingClientRect();
+    const sx = Math.round(crop.x * imgSize.w / rect.width), sy = Math.round(crop.y * imgSize.h / rect.height);
+    const sw = Math.round(crop.w * imgSize.w / rect.width), sh = Math.round(crop.h * imgSize.h / rect.height);
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = sw; c.height = sh;
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#FFF'; ctx.fillRect(0,0,sw,sh);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      onCropDone(c.toDataURL('image/png'));
+    };
+    img.src = imageUrl;
+  };
+
+  const hPos = (p) => {
+    const b = { position:'absolute', width:'12px', height:'12px', background:'#3B82F6', border:'2px solid white', borderRadius:'2px', zIndex:10 };
+    const m = -6;
+    const map = { nw:{top:m,left:m,cursor:'nw-resize'}, n:{top:m,left:'50%',marginLeft:m,cursor:'n-resize'}, ne:{top:m,right:m,cursor:'ne-resize'}, e:{top:'50%',marginTop:m,right:m,cursor:'e-resize'}, se:{bottom:m,right:m,cursor:'se-resize'}, s:{bottom:m,left:'50%',marginLeft:m,cursor:'s-resize'}, sw:{bottom:m,left:m,cursor:'sw-resize'}, w:{top:'50%',marginTop:m,left:m,cursor:'w-resize'} };
+    return { ...b, ...map[p] };
+  };
+
+  const cropInfo = crop && imgRef.current ? `${Math.round(crop.w * imgSize.w / imgRef.current.getBoundingClientRect().width)} × ${Math.round(crop.h * imgSize.h / imgRef.current.getBoundingClientRect().height)}px` : null;
+
+  return h('div', { className: 'fixed inset-0 z-[70] bg-black/95 flex flex-col items-center justify-center animate-fadeIn', onClick: e => e.stopPropagation() },
+    h('div', { className: 'absolute top-0 left-0 right-0 h-14 bg-black/80 backdrop-blur-sm flex items-center justify-between px-6 z-20' },
+      h('div', { className: 'flex items-center gap-3' },
+        h(Crop, { size: 18, className: 'text-[#3B82F6]' }),
+        h('span', { className: 'text-white font-bold text-sm' }, '이미지 크롭'),
+        cropInfo ? h('span', { className: 'text-gray-400 text-xs ml-2' }, cropInfo) : null
+      ),
+      h('div', { className: 'flex items-center gap-2' },
+        h('button', { onClick: () => setCrop(null), className: 'px-3 py-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 rounded-lg transition-colors' }, '영역 초기화'),
+        h('button', { onClick: onCancel, className: 'px-4 py-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 rounded-lg transition-colors' }, '취소'),
+        h('button', { onClick: doCrop, disabled: !crop || crop.w < 10 || crop.h < 10, className: 'px-4 py-1.5 text-xs font-bold text-white bg-[#3B82F6] hover:bg-[#2563EB] disabled:bg-gray-700 disabled:text-gray-500 rounded-lg transition-colors flex items-center gap-1.5' },
+          h(Download, { size: 14 }), '크롭 저장')
+      )
+    ),
+    h('div', { className: 'relative mt-14 select-none', style: { cursor: crop ? 'default' : 'crosshair' }, onMouseDown: handleMouseDown, onMouseMove: handleMouseMove, onTouchStart: handleMouseDown, onTouchMove: handleMouseMove },
+      h('img', { ref: imgRef, src: imageUrl, onLoad: (e) => setImgSize({ w: e.target.naturalWidth, h: e.target.naturalHeight }), className: 'max-w-[85vw] max-h-[80vh] object-contain rounded-lg', style: { userSelect:'none', pointerEvents:'none' }, draggable: false }),
+      crop ? h('div', { className: 'absolute inset-0 pointer-events-none' },
+        h('div', { style: { position:'absolute', top:0, left:0, right:0, height:`${crop.y}px`, background:'rgba(0,0,0,0.6)' } }),
+        h('div', { style: { position:'absolute', top:`${crop.y+crop.h}px`, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.6)' } }),
+        h('div', { style: { position:'absolute', top:`${crop.y}px`, left:0, width:`${crop.x}px`, height:`${crop.h}px`, background:'rgba(0,0,0,0.6)' } }),
+        h('div', { style: { position:'absolute', top:`${crop.y}px`, left:`${crop.x+crop.w}px`, right:0, height:`${crop.h}px`, background:'rgba(0,0,0,0.6)' } })
+      ) : null,
+      crop ? h('div', { style: { position:'absolute', left:`${crop.x}px`, top:`${crop.y}px`, width:`${crop.w}px`, height:`${crop.h}px`, border:'2px solid #3B82F6', pointerEvents:'auto' } },
+        h('div', { style: { position:'absolute', left:'33.33%', top:0, bottom:0, width:'1px', background:'rgba(255,255,255,0.2)' } }),
+        h('div', { style: { position:'absolute', left:'66.66%', top:0, bottom:0, width:'1px', background:'rgba(255,255,255,0.2)' } }),
+        h('div', { style: { position:'absolute', top:'33.33%', left:0, right:0, height:'1px', background:'rgba(255,255,255,0.2)' } }),
+        h('div', { style: { position:'absolute', top:'66.66%', left:0, right:0, height:'1px', background:'rgba(255,255,255,0.2)' } }),
+        ...['nw','n','ne','e','se','s','sw','w'].map(p => h('div', { key: p, 'data-handle': p, style: hPos(p), onMouseDown: handleMouseDown, onTouchStart: handleMouseDown }))
+      ) : null
+    ),
+    !crop ? h('p', { className: 'absolute bottom-8 text-gray-500 text-xs' }, '드래그하여 크롭 영역을 선택하세요') : null
+  );
+}
+
+
+function App() {
+  const h = React.createElement;
+  const [mainImages, setMainImages] = useState(() => normalizeDesignImages([]));
+  const [selectedShotIds, setSelectedShotIds] = useState(DEFAULT_SELECTED_SHOT_IDS);
+  const [selectedGhostIds, setSelectedGhostIds] = useState([]);
+  const [results, setResults] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedResultId, setSelectedResultId] = useState(null);
+  const [previewResult, setPreviewResult] = useState(null);
+  const [frontCandidates, setFrontCandidates] = useState([]);
+  const [selectedFrontId, setSelectedFrontId] = useState(null);
+  const [frontPreviewCandidate, setFrontPreviewCandidate] = useState(null);
+  const [frontRefImage, setFrontRefImage] = useState(null);
+  const [workflowStep, setWorkflowStep] = useState('idle');
+  const [editPrompt, setEditPrompt] = useState('');
+  const [editRefImages, setEditRefImages] = useState([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [frontEditPrompt, setFrontEditPrompt] = useState('');
+  const [frontEditRefImages, setFrontEditRefImages] = useState([]);
+  const [isFrontEditing, setIsFrontEditing] = useState(false);
+  const [regeneratingIds, setRegeneratingIds] = useState(new Set());
+  const [productVideos, setProductVideos] = useState({});
+  const [videoGeneratingSlots, setVideoGeneratingSlots] = useState(new Set());
+  const [videoPrompts, setVideoPrompts] = useState({});
+  const [imageHistory, setImageHistory] = useState({});
+  const [frontImageHistory, setFrontImageHistory] = useState({});
+  const [showCropTool, setShowCropTool] = useState(false);
+  const [outputImageSize, setOutputImageSize] = useState('2K');
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [modelPreset, setModelPreset] = useState(DEFAULT_MODEL_PRESET);
+  const [bodyType, setBodyType] = useState(DEFAULT_BODY_TYPE);
+  const [pairingIds, setPairingIds] = useState(new Set());
+  const [genElapsed, setGenElapsed] = useState(0);
+  const [lastGenerationElapsedSec, setLastGenerationElapsedSec] = useState(0);
+  const [genCompletedCount, setGenCompletedCount] = useState(0);
+  const [genTotalCount, setGenTotalCount] = useState(0);
+  const [changingBg, setChangingBg] = useState(null);
+  const [showBatchFormat, setShowBatchFormat] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showGhostPanelInResults, setShowGhostPanelInResults] = useState(false);
+  const [savedSessions, setSavedSessions] = useState([]);
+  const genTimerRef = useRef(null);
+  const mainImagesRef = useRef([]);
+
+  useEffect(() => {
+    mainImagesRef.current = mainImages;
+  }, [mainImages]);
+
+  // 예전 빌드 id 정리 — 레퍼런스 샷만 selectedShotIds에 유지(고스트 id는 selectedGhostIds로 분리)
+  useEffect(() => {
+    setSelectedShotIds(prev => {
+      const refIds = new Set(SHOT_REF_EXTRAS.map(s => s.id));
+      const next = prev.filter(id => refIds.has(id));
+      if (next.length === prev.length && prev.every((id, i) => id === next[i])) return prev;
+      return next.length ? next : DEFAULT_SELECTED_SHOT_IDS;
+    });
+  }, []);
+
+  const formatElapsed = (sec) => {
+    const safe = Math.max(0, Number(sec) || 0);
+    const m = Math.floor(safe / 60);
+    const s = (safe % 60).toString().padStart(2, '0');
+    return `${m}분 ${s}초`;
+  };
+
+  /** Gemini 이미지 API 동시 다발 호출 시 빈 응답/실패가 잦아질 수 있어 샷 간 짧게 간격 둠 */
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const BETWEEN_SHOT_MS = 450;
+
+  const handleGenerateFronts = async () => {
+    const normalizedSourceImages = normalizeDesignImages(mainImagesRef.current);
+    const uploadedSourceImages = getUploadedDesignImages(normalizedSourceImages);
+    const designSlotImages = buildDesignSlotImagesPayload(normalizedSourceImages);
+    if (!hasRequiredDesignImages(normalizedSourceImages)) {
+      alert('이미지 1 앞면과 이미지 2 앞면을 업로드해주세요.');
+      return;
+    }
+
+    setIsGenerating(true);
+    setWorkflowStep('generating_fronts');
+    setFrontCandidates([]);
+    setSelectedFrontId(null);
+    setFrontPreviewCandidate(null);
+    setFrontRefImage(null);
+    setPreviewResult(null);
+    setGenCompletedCount(0);
+    setGenTotalCount(FRONT_CANDIDATE_COUNT);
+    const generationStartedAt = Date.now();
+
+    try {
+      const candidates = [];
+      for (let i = 0; i < FRONT_CANDIDATE_COUNT; i++) {
+        if (i > 0) await sleep(BETWEEN_SHOT_MS);
+        const imageUrl = await generateModelImage(
+          uploadedSourceImages.map(img => img.url),
+          SHOT_FRONT.label,
+          outputImageSize,
+          null,
+          customPrompt,
+          null,
+          designSlotImages,
+          modelPreset,
+          bodyType,
+          collectDesignImageFilenames(normalizedSourceImages)
+        );
+        setGenCompletedCount((prev) => prev + 1);
+        candidates.push({
+          id: Math.random().toString(36).slice(2),
+          imageUrl,
+        });
+      }
+      setFrontCandidates(candidates);
+      setWorkflowStep('selecting_front');
+    } catch (error) {
+      alert("이미지 생성에 실패했습니다: " + error.message);
+      setWorkflowStep('idle');
+    } finally {
+      setIsGenerating(false);
+      setGenCompletedCount(0);
+      setGenTotalCount(0);
+    }
+  };
+
+  const handleGenerateGhostsOnly = async () => {
+    if (selectedGhostIds.length === 0) {
+      alert('생성할 고스트컷을 한 개 이상 선택해주세요.');
+      return false;
+    }
+    const normalized = normalizeDesignImages(mainImagesRef.current);
+    const designSlotImages = buildDesignSlotImagesPayload(normalized);
+    const expandedTasks = [];
+    for (const id of selectedGhostIds) {
+      const g = GHOST_SHOT_TASKS[id];
+      if (!g) continue;
+      if (!normalized[g.slot]) {
+        alert(g.needMsg);
+        return false;
+      }
+      expandedTasks.push({ label: g.label, ref: null, urls: [normalized[g.slot].url], ghostSlot: g.slot });
+    }
+
+    if (expandedTasks.length === 0) {
+      alert('선택한 고스트컷에 맞는 이미지 슬롯이 없습니다.');
+      return false;
+    }
+
+    const appendToGallery = workflowStep === 'showing_results';
+
+    setIsGenerating(true);
+    setWorkflowStep('generating_ghosts');
+    setGenCompletedCount(0);
+    const generationStartedAt = Date.now();
+
+    try {
+      const timestamp = new Date().toLocaleString('ko-KR', { year:'2-digit', month:'2-digit', day:'2-digit', weekday:'short', hour:'2-digit', minute:'2-digit' });
+      const photoIdNew = Math.floor(Math.random() * 9999).toString().padStart(4, '0');
+      setGenTotalCount(expandedTasks.length);
+      const generatedImages = [];
+      for (let i = 0; i < expandedTasks.length; i++) {
+        if (i > 0) await sleep(BETWEEN_SHOT_MS);
+        const task = expandedTasks[i];
+        const imageUrl = await generateModelImage(
+          task.urls,
+          task.label,
+          outputImageSize,
+          task.ref,
+          customPrompt,
+          task.ghostSlot,
+          designSlotImages,
+          modelPreset,
+          bodyType,
+          collectDesignImageFilenames(normalized)
+        );
+        setGenCompletedCount((prev) => prev + 1);
+        generatedImages.push({
+          id: Math.random().toString(36).slice(2),
+          imageUrl,
+          isSelected: false,
+          label: task.label,
+          bodyType,
+          aiDisclosure: false,
+        });
+      }
+      const elapsedSec = Math.max(1, Math.round((Date.now() - generationStartedAt) / 1000));
+      const firstNewId = generatedImages[0]?.id;
+      setResults((prev) => {
+        const basePhotoId = prev[0]?.photoId;
+        const baseTs = prev[0]?.timestamp;
+        const withElapsed = generatedImages.map((result) => ({
+          ...result,
+          aiDisclosure: result.aiDisclosure ?? false,
+          photoId: appendToGallery && prev.length > 0 && basePhotoId ? basePhotoId : photoIdNew,
+          timestamp: appendToGallery && prev.length > 0 && baseTs ? baseTs : timestamp,
+          elapsedSec,
+        }));
+        if (appendToGallery && prev.length > 0) return [...prev, ...withElapsed];
+        return withElapsed;
+      });
+      if (!appendToGallery) setFrontRefImage(null);
+      if (firstNewId) setSelectedResultId(firstNewId);
+      setLastGenerationElapsedSec(elapsedSec);
+      setWorkflowStep('showing_results');
+      return true;
+    } catch (error) {
+      alert("고스트컷 생성에 실패했습니다: " + error.message);
+      setWorkflowStep(appendToGallery ? 'showing_results' : 'idle');
+      return false;
+    } finally {
+      setIsGenerating(false);
+      setGenCompletedCount(0);
+      setGenTotalCount(0);
+    }
+  };
+
+  const handleGenerateExtras = async () => {
+    if (selectedShotIds.length === 0 && selectedGhostIds.length === 0) {
+      alert('최소 한 개 이상의 샷타입(레퍼런스/고스트)을 선택해주세요.');
+      return;
+    }
+    const selectedFront = frontCandidates.find(candidate => candidate.id === selectedFrontId);
+    if (!selectedFront) {
+      alert('3/4 기준컷 1장을 먼저 선택해주세요.');
+      return;
+    }
+
+    const expandedTasks = [];
+    for (const id of selectedShotIds) {
+      const shot = SHOT_REF_EXTRAS.find(s => s.id === id);
+      if (shot) expandedTasks.push({ label: shot.label, ref: selectedFront.imageUrl, urls: null, ghostSlot: null });
+    }
+    const normalized = normalizeDesignImages(mainImagesRef.current);
+    for (const id of selectedGhostIds) {
+      const g = GHOST_SHOT_TASKS[id];
+      if (!g) continue;
+      if (!normalized[g.slot]) {
+        alert(g.needMsg);
+        return;
+      }
+      expandedTasks.push({ label: g.label, ref: null, urls: [normalized[g.slot].url], ghostSlot: g.slot });
+    }
+
+    setIsGenerating(true);
+    setWorkflowStep('generating_rest');
+    setGenCompletedCount(0);
+    const generationStartedAt = Date.now();
+
+    try {
+      const timestamp = new Date().toLocaleString('ko-KR', { year:'2-digit', month:'2-digit', day:'2-digit', weekday:'short', hour:'2-digit', minute:'2-digit' });
+      const photoId = Math.floor(Math.random() * 9999).toString().padStart(4, '0');
+      setGenTotalCount(expandedTasks.length);
+      const allDesignImages = normalizeDesignImages(mainImagesRef.current);
+      const allDesignUrls = getUploadedDesignImages(allDesignImages).map(img => img.url);
+      const designSlotImages = buildDesignSlotImagesPayload(allDesignImages);
+      const generatedImages = [];
+      for (let i = 0; i < expandedTasks.length; i++) {
+        if (i > 0) await sleep(BETWEEN_SHOT_MS);
+        const task = expandedTasks[i];
+        const urls = task.urls ?? allDesignUrls;
+        const imageUrl = await generateModelImage(
+          urls,
+          task.label,
+          outputImageSize,
+          task.ref,
+          customPrompt,
+          task.ghostSlot,
+          designSlotImages,
+          modelPreset,
+          bodyType,
+          collectDesignImageFilenames(allDesignImages)
+        );
+        setGenCompletedCount((prev) => prev + 1);
+        generatedImages.push({
+          id: Math.random().toString(36).slice(2),
+          imageUrl,
+          timestamp,
+          photoId,
+          isSelected: false,
+          label: task.label,
+          bodyType,
+          aiDisclosure: false,
+        });
+      }
+      const elapsedSec = Math.max(1, Math.round((Date.now() - generationStartedAt) / 1000));
+      const newResults = [
+        ...(selectedFront ? [{
+          id: selectedFront.id,
+          imageUrl: selectedFront.imageUrl,
+          timestamp,
+          photoId,
+          isSelected: false,
+          label: SHOT_FRONT.label,
+          bodyType,
+          elapsedSec,
+          aiDisclosure: false,
+        }] : []),
+        ...generatedImages.map(result => ({ ...result, elapsedSec, aiDisclosure: result.aiDisclosure ?? false }))
+      ];
+
+      setResults(newResults);
+      if (selectedFront) setFrontRefImage(selectedFront.imageUrl);
+      setSelectedResultId(newResults[0].id);
+      setLastGenerationElapsedSec(elapsedSec);
+      setWorkflowStep('showing_results');
+    } catch (error) {
+      alert("이미지 생성에 실패했습니다: " + error.message);
+      setWorkflowStep('selecting_front');
+    } finally {
+      setIsGenerating(false);
+      setGenCompletedCount(0);
+      setGenTotalCount(0);
+    }
+  };
+
+  // 체형 페어 생성: 현재 컷을 입력으로 넣고 체형만 변환 → 얼굴·포즈·배경·의상 고정
+  const handleGenerateBodyPair = async (result, e) => {
+    if (e) e.stopPropagation();
+    if (GHOST_SHOT_LABELS.has(result.label)) return;
+    const sourceBody = result.bodyType || bodyType;
+    const targetBody = nextBodyType(sourceBody);
+
+    setPairingIds(prev => new Set([...prev, result.id]));
+    try {
+      const pairedUrl = await editGeneratedImage(
+        result.imageUrl,
+        '',
+        [],
+        outputImageSize,
+        targetBody,
+        collectDesignImageFilenames(mainImagesRef.current)
+      );
+      const pairResult = {
+        id: Math.random().toString(36).slice(2),
+        imageUrl: pairedUrl,
+        label: result.label,
+        bodyType: targetBody,
+        pairOf: result.id,
+        timestamp: result.timestamp,
+        photoId: result.photoId,
+        isSelected: false,
+        aiDisclosure: result.aiDisclosure ?? false,
+      };
+      // 원본 카드 바로 뒤에 삽입해 나란히 비교되게 한다
+      setResults(prev => {
+        const idx = prev.findIndex(r => r.id === result.id);
+        if (idx < 0) return [...prev, pairResult];
+        return [...prev.slice(0, idx + 1), pairResult, ...prev.slice(idx + 1)];
+      });
+      setSelectedResultId(pairResult.id);
+    } catch (error) {
+      alert('체형 페어 생성에 실패했습니다: ' + error.message);
+    } finally {
+      setPairingIds(prev => {
+        const next = new Set(prev);
+        next.delete(result.id);
+        return next;
+      });
+    }
+  };
+
+  const handleRegenerateSingle = async (result, e) => {
+    if (e) e.stopPropagation();
+    const uploadedMainImages = getUploadedDesignImages(mainImages);
+    const designSlotImages = buildDesignSlotImagesPayload(mainImages);
+    if (uploadedMainImages.length === 0) return;
+
+    setRegeneratingIds(prev => new Set([...prev, result.id]));
+    try {
+      const isGhost = GHOST_SHOT_LABELS.has(result.label);
+      const ghostUrls = isGhost ? designUrlsForGhostLabel(result.label, mainImages) : null;
+      if (isGhost && (!ghostUrls || ghostUrls.length === 0)) {
+        alert('이 샷을 재생성하려면 해당 제품 앞/뒷면 이미지가 필요합니다.');
+        return;
+      }
+      const isFrontShot = result.label === SHOT_FRONT.label;
+      const designUrls = isGhost ? ghostUrls : uploadedMainImages.map(img => img.url);
+      const refImage = isGhost ? null : (isFrontShot ? null : frontRefImage);
+      const ghostSlot = isGhost ? ghostSlotForLabel(result.label) : null;
+      const newImageUrl = await generateModelImage(
+        designUrls,
+        result.label || SHOT_FRONT.label,
+        outputImageSize,
+        refImage,
+        customPrompt,
+        ghostSlot,
+        designSlotImages,
+        modelPreset,
+        result.bodyType || bodyType,
+        collectDesignImageFilenames(mainImages)
+      );
+      setResults(prev => prev.map(r => r.id === result.id ? { ...r, imageUrl: newImageUrl } : r));
+      if (isFrontShot) {
+        setFrontRefImage(newImageUrl);
+      }
+      if (previewResult?.id === result.id) setPreviewResult(prev => prev ? { ...prev, imageUrl: newImageUrl } : null);
+    } catch (error) {
+      alert("이미지 재생성에 실패했습니다: " + error.message);
+    } finally {
+      setRegeneratingIds(prev => {
+        const next = new Set(prev);
+        next.delete(result.id);
+        return next;
+      });
+    }
+  };
+
+  const setVideoPrompt = (slotIndex, value) => {
+    setVideoPrompts(prev => ({ ...prev, [slotIndex]: value }));
+  };
+
+  const handleGenerateProductVideo = async (slotIndex) => {
+    const normalized = normalizeDesignImages(mainImagesRef.current);
+    const img = normalized[slotIndex];
+    if (!img?.url) {
+      alert('먼저 해당 슬롯에 제품 이미지를 업로드해주세요.');
+      return;
+    }
+    const prompt = (videoPrompts[slotIndex] || '').trim();
+    setVideoGeneratingSlots(prev => new Set([...prev, slotIndex]));
+    try {
+      const { videoUrl, motionStyle, durationSeconds } = await generateProductMotionVideo(
+        img.url,
+        prompt,
+        DEFAULT_VIDEO_DURATION,
+        DEFAULT_VIDEO_MOTION,
+        img.name ? [img.name] : null
+      );
+      setProductVideos(prev => ({
+        ...prev,
+        [slotIndex]: { videoUrl, motionStyle, durationSeconds, prompt },
+      }));
+    } catch (error) {
+      alert('영상 생성에 실패했습니다: ' + (error.message || error));
+    } finally {
+      setVideoGeneratingSlots(prev => {
+        const next = new Set(prev);
+        next.delete(slotIndex);
+        return next;
+      });
+    }
+  };
+
+  const handleDownloadProductVideo = (slotIndex) => {
+    const video = productVideos[slotIndex];
+    if (!video?.videoUrl) return;
+    const slot = DESIGN_IMAGE_SLOTS[slotIndex];
+    const safeLabel = String(slot?.shortLabel || `slot${slotIndex}`).replace(/[\\/:*?"<>|]/g, '_');
+    const secs = video.durationSeconds || DEFAULT_VIDEO_DURATION;
+    downloadDataUrl(video.videoUrl, `product_${safeLabel}_span_${secs}s.mp4`);
+  };
+
+  const handleUpsertDesignImage = async (slotIndex, newImage) => {
+    if (!newImage) return;
+    const normalizedImages = normalizeDesignImages(mainImagesRef.current);
+    normalizedImages[slotIndex] = newImage;
+    setMainImages(normalizedImages);
+    setProductVideos(prev => {
+      const next = { ...prev };
+      delete next[slotIndex];
+      return next;
+    });
+    setFrontCandidates([]);
+    setSelectedFrontId(null);
+    setFrontPreviewCandidate(null);
+    setFrontRefImage(null);
+    setWorkflowStep('idle');
+    setResults([]);
+    setSelectedResultId(null);
+  };
+
+  const handleRemoveDesignImage = (slotIndex) => {
+    const nextImages = normalizeDesignImages(mainImagesRef.current);
+    nextImages[slotIndex] = null;
+    setMainImages(nextImages);
+    setProductVideos(prev => {
+      const next = { ...prev };
+      delete next[slotIndex];
+      return next;
+    });
+    setVideoPrompts(prev => {
+      const next = { ...prev };
+      delete next[slotIndex];
+      return next;
+    });
+    setFrontCandidates([]);
+    setSelectedFrontId(null);
+    setFrontPreviewCandidate(null);
+    setFrontRefImage(null);
+    setWorkflowStep('idle');
+    setResults([]);
+    setSelectedResultId(null);
+  };
+
+  const handleEditImage = async () => {
+    if (!previewResult || !editPrompt.trim()) return;
+    setIsEditing(true);
+    try {
+      const prevUrl = previewResult.imageUrl;
+      const updatedUrl = await editGeneratedImage(
+        previewResult.imageUrl,
+        editPrompt,
+        editRefImages,
+        outputImageSize,
+        null,
+        collectDesignImageFilenames(mainImagesRef.current)
+      );
+      setImageHistory(prev => ({
+        ...prev,
+        [previewResult.id]: [...(prev[previewResult.id] || []), prevUrl]
+      }));
+      setResults(prev => prev.map(r => r.id === previewResult.id ? { ...r, imageUrl: updatedUrl } : r));
+      setPreviewResult(prev => prev ? { ...prev, imageUrl: updatedUrl } : null);
+      setEditPrompt('');
+      setEditRefImages([]);
+    } catch (error) {
+      alert("이미지 수정에 실패했습니다: " + error.message);
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const handleBgChange = async (bgPreset) => {
+    if (!previewResult || isEditing || changingBg) return;
+    setChangingBg(bgPreset.id);
+    try {
+      const prevUrl = previewResult.imageUrl;
+      const updatedUrl = await editGeneratedImage(
+        previewResult.imageUrl,
+        bgPreset.prompt,
+        null,
+        outputImageSize,
+        null,
+        collectDesignImageFilenames(mainImagesRef.current)
+      );
+      setImageHistory(prev => ({
+        ...prev,
+        [previewResult.id]: [...(prev[previewResult.id] || []), prevUrl]
+      }));
+      setResults(prev => prev.map(r => r.id === previewResult.id ? { ...r, imageUrl: updatedUrl } : r));
+      setPreviewResult(prev => prev ? { ...prev, imageUrl: updatedUrl } : null);
+    } catch (error) {
+      alert("배경 변경에 실패했습니다: " + error.message);
+    } finally {
+      setChangingBg(null);
+    }
+  };
+
+  const handleUndoEdit = () => {
+    if (!previewResult) return;
+    const stack = imageHistory[previewResult.id];
+    if (!stack || stack.length === 0) return;
+    const prevUrl = stack[stack.length - 1];
+    setImageHistory(prev => ({
+      ...prev,
+      [previewResult.id]: stack.slice(0, -1)
+    }));
+    setResults(prev => prev.map(r => r.id === previewResult.id ? { ...r, imageUrl: prevUrl } : r));
+    setPreviewResult(prev => prev ? { ...prev, imageUrl: prevUrl } : null);
+  };
+
+  const handleRefFileUpload = (e) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => setEditRefImages(prev => [...prev, ev.target.result]);
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const handleRemoveRefImage = (idx) => setEditRefImages(prev => prev.filter((_, i) => i !== idx));
+
+  const getDataUrlExt = (dataUrl) => {
+    const m = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/i);
+    const mime = (m?.[1] || '').toLowerCase();
+    if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
+    if (mime.includes('webp')) return 'webp';
+    return 'png';
+  };
+
+  const handleDownload = async (imageUrl, photoId, withAiDisclosure = false) => {
+    const finishWithCanvas = (img) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      if (withAiDisclosure) drawAiDisclosureOnCanvas(ctx, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `ai-lookbook-${photoId}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (withAiDisclosure) {
+        finishWithCanvas(img);
+        return;
+      }
+      if (imageUrl.startsWith('data:')) {
+        const ext = getDataUrlExt(imageUrl);
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `ai-lookbook-${photoId}.${ext}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+      finishWithCanvas(img);
+    };
+    img.onerror = () => {
+      if (imageUrl.startsWith('data:') && !withAiDisclosure) {
+        const ext = getDataUrlExt(imageUrl);
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `ai-lookbook-${photoId}.${ext}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    };
+    img.src = imageUrl;
+  };
+
+  const handleCropDone = (croppedDataUrl) => {
+    setShowCropTool(false);
+    const link = document.createElement('a');
+    link.href = croppedDataUrl;
+    link.download = `ai-lookbook-crop-${previewResult?.photoId || 'img'}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleBatchDownload = async (format) => {
+    setShowBatchFormat(false);
+    const mimeMap = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+    const mime = mimeMap[format] || 'image/png';
+    const quality = format === 'png' ? undefined : 0.92;
+    const zip = new JSZip();
+    const currentPhotoId = results[0]?.photoId;
+    if (!currentPhotoId) return;
+    const currentResults = results.filter(r => r.photoId === currentPhotoId);
+
+    for (let i = 0; i < currentResults.length; i++) {
+      const result = currentResults[i];
+      if (!result.imageUrl) continue;
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = result.imageUrl;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (format === 'jpg') {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        ctx.drawImage(img, 0, 0);
+        if (result.aiDisclosure) drawAiDisclosureOnCanvas(ctx, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL(mime, quality);
+        const base64 = dataUrl.split(',')[1];
+        zip.file(`${result.label || 'shot'}-${i + 1}.${format}`, base64, { base64: true });
+      } catch (e) {
+        console.error('Batch download error:', e);
+      }
+    }
+
+    try {
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `ai-lookbook-${currentPhotoId}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } catch (e) {
+      console.error('Zip generation error:', e);
+    }
+  };
+
+  const handleReset = () => {
+    setMainImages(normalizeDesignImages([]));
+    setSelectedShotIds(DEFAULT_SELECTED_SHOT_IDS);
+    setSelectedGhostIds([]);
+    setFrontCandidates([]);
+    setSelectedFrontId(null);
+    setFrontPreviewCandidate(null);
+    setFrontRefImage(null);
+    setWorkflowStep('idle');
+    setResults([]);
+    setSelectedResultId(null);
+    setPreviewResult(null);
+    setEditPrompt('');
+    setEditRefImages([]);
+    setImageHistory({});
+    setShowCropTool(false);
+    setLastGenerationElapsedSec(0);
+    setCustomPrompt('');
+    setModelPreset(DEFAULT_MODEL_PRESET);
+    setBodyType(DEFAULT_BODY_TYPE);
+    setPairingIds(new Set());
+    setProductVideos({});
+    setVideoGeneratingSlots(new Set());
+    setVideoPrompts({});
+    setShowGhostPanelInResults(false);
+  };
+
+  const DB_NAME = 'ai-lookbook-db';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'sessions';
+  const MAX_HISTORY = 2;
+
+  const _openDB = () => new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'photoId' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  const _dbGetAll = async () => {
+    try {
+      const db = await _openDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result.sort((a, b) => (b.savedAt || '').localeCompare(a.savedAt || '')));
+        req.onerror = () => resolve([]);
+      });
+    } catch(e) {
+      return [];
+    }
+  };
+
+  const _dbPut = async (session) => {
+    try {
+      const db = await _openDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put(session);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+    } catch(e) {
+      return false;
+    }
+  };
+
+  const _dbDelete = async (photoId) => {
+    try {
+      const db = await _openDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.delete(photoId);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+    } catch(e) {
+      return false;
+    }
+  };
+
+  const _dbClear = async () => {
+    try {
+      const db = await _openDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.clear();
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+    } catch(e) {
+      return false;
+    }
+  };
+
+  const _compressForThumb = async (dataUrl, maxSize = 200) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.onerror = () => resolve('');
+      img.src = dataUrl;
+    });
+  };
+
+  const loadSessionList = async () => {
+    const list = await _dbGetAll();
+    setSavedSessions(list);
+  };
+
+  useEffect(() => {
+    loadSessionList();
+  }, []);
+
+  useEffect(() => {
+    if (!showBatchFormat) return;
+    const handler = (e) => {
+      if (!e.target.closest('[data-batch-dropdown]')) setShowBatchFormat(false);
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showBatchFormat]);
+
+  useEffect(() => {
+    if (isGenerating) {
+      setGenElapsed(0);
+      genTimerRef.current = setInterval(() => setGenElapsed(prev => prev + 1), 1000);
+    } else if (genTimerRef.current) {
+      clearInterval(genTimerRef.current);
+      genTimerRef.current = null;
+    }
+    return () => {
+      if (genTimerRef.current) clearInterval(genTimerRef.current);
+    };
+  }, [isGenerating]);
+
+  useEffect(() => {
+    if (results.length === 0) return;
+    const photoId = results[0]?.photoId;
+    if (!photoId) return;
+
+    (async () => {
+      const thumbUrl = results[0]?.imageUrl ? await _compressForThumb(results[0].imageUrl) : '';
+      await _dbPut({
+        photoId,
+        timestamp: results[0]?.timestamp || '',
+        savedAt: new Date().toISOString(),
+        count: results.length,
+        elapsed: results[0]?.elapsedSec ?? lastGenerationElapsedSec ?? genElapsed,
+        labels: results.map(r => r.label).filter(Boolean),
+        thumbUrl,
+        results: results.map(r => ({
+          id: r.id,
+          label: r.label,
+          photoId: r.photoId,
+          timestamp: r.timestamp,
+          imageUrl: r.imageUrl,
+          elapsedSec: r.elapsedSec,
+          bodyType: r.bodyType || DEFAULT_BODY_TYPE,
+          aiDisclosure: !!r.aiDisclosure,
+        })),
+      });
+
+      const allSessions = await _dbGetAll();
+      if (allSessions.length > MAX_HISTORY) {
+        const toDelete = allSessions.slice(MAX_HISTORY);
+        for (const s of toDelete) await _dbDelete(s.photoId);
+      }
+      loadSessionList();
+    })();
+  }, [results, genElapsed, lastGenerationElapsedSec]);
+
+  const loadSession = (session) => {
+    if (!session.results?.length) return;
+    setFrontCandidates([]);
+    setSelectedFrontId(null);
+    setResults(session.results.map((r) => ({ ...r, aiDisclosure: !!r.aiDisclosure })));
+    const frontResult = session.results.find(r => r.label === SHOT_FRONT.label);
+    setFrontRefImage(frontResult?.imageUrl || null);
+    setLastGenerationElapsedSec(session.elapsed || session.results[0]?.elapsedSec || 0);
+    setSelectedResultId(session.results[0]?.id || null);
+    setWorkflowStep('showing_results');
+    setShowHistory(false);
+  };
+
+  const deleteSession = async (photoId, e) => {
+    e.stopPropagation();
+    await _dbDelete(photoId);
+    await loadSessionList();
+  };
+
+  const clearAllHistory = async () => {
+    if (!confirm('모든 히스토리를 삭제하시겠습니까?')) return;
+    await _dbClear();
+    setSavedSessions([]);
+  };
+
+  const closePreview = () => {
+    setPreviewResult(null);
+    setEditPrompt('');
+    setEditRefImages([]);
+    setShowCropTool(false);
+  };
+
+  const closeFrontPreview = () => {
+    setFrontPreviewCandidate(null);
+    setFrontEditPrompt('');
+    setFrontEditRefImages([]);
+  };
+
+  const handleFrontRefFileUpload = (e) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => setFrontEditRefImages(prev => [...prev, ev.target.result]);
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const handleRemoveFrontRefImage = (idx) => setFrontEditRefImages(prev => prev.filter((_, i) => i !== idx));
+
+  const handleEditFrontCandidate = async () => {
+    if (!frontPreviewCandidate || !frontEditPrompt.trim() || isFrontEditing) return;
+    setIsFrontEditing(true);
+    try {
+      const prevUrl = frontPreviewCandidate.imageUrl;
+      const updatedUrl = await editGeneratedImage(
+        frontPreviewCandidate.imageUrl,
+        frontEditPrompt,
+        frontEditRefImages,
+        outputImageSize,
+        null,
+        collectDesignImageFilenames(mainImagesRef.current)
+      );
+      setFrontImageHistory(prev => ({
+        ...prev,
+        [frontPreviewCandidate.id]: [...(prev[frontPreviewCandidate.id] || []), prevUrl]
+      }));
+      setFrontCandidates(prev => prev.map(c => c.id === frontPreviewCandidate.id ? { ...c, imageUrl: updatedUrl } : c));
+      setFrontPreviewCandidate(prev => prev ? { ...prev, imageUrl: updatedUrl } : null);
+      setFrontEditPrompt('');
+      setFrontEditRefImages([]);
+    } catch (error) {
+      alert("기준컷 수정에 실패했습니다: " + error.message);
+    } finally {
+      setIsFrontEditing(false);
+    }
+  };
+
+  const handleUndoFrontEdit = () => {
+    if (!frontPreviewCandidate) return;
+    const stack = frontImageHistory[frontPreviewCandidate.id];
+    if (!stack || stack.length === 0) return;
+    const prevUrl = stack[stack.length - 1];
+    setFrontImageHistory(prev => ({
+      ...prev,
+      [frontPreviewCandidate.id]: stack.slice(0, -1)
+    }));
+    setFrontCandidates(prev => prev.map(c => c.id === frontPreviewCandidate.id ? { ...c, imageUrl: prevUrl } : c));
+    setFrontPreviewCandidate(prev => prev ? { ...prev, imageUrl: prevUrl } : null);
+  };
+
+  const selectedResult = selectedResultId ? results.find((r) => r.id === selectedResultId) : null;
+
+  const toggleAiDisclosureForSelected = () => {
+    if (!selectedResultId) return;
+    setResults((prev) =>
+      prev.map((r) => (r.id === selectedResultId ? { ...r, aiDisclosure: !r.aiDisclosure } : r))
+    );
+    setPreviewResult((prev) =>
+      prev && prev.id === selectedResultId ? { ...prev, aiDisclosure: !prev.aiDisclosure } : prev
+    );
+  };
+
+  return h('div', { className: 'flex flex-col lg:flex-row h-screen bg-[#1a1a1a] overflow-hidden' },
+
+    h('a', {
+      href: '/logs/stats',
+      target: '_blank',
+      rel: 'noopener',
+      className: 'fixed bottom-2 right-2 z-50 px-2.5 py-1.5 rounded bg-black/60 border border-white/10 text-[10px] text-white/60 hover:text-white hover:border-white/30'
+    }, '사용 통계'),
+    (results.length > 0 && !isGenerating && workflowStep === 'showing_results')
+      ? h('div', {
+          className: 'fixed top-4 right-4 z-40 px-3 py-2 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10 text-right'
+        },
+          h('p', { className: 'text-[10px] text-gray-400 font-medium' }, '생성 시간'),
+          h('p', { className: 'text-xs text-gray-100 font-bold whitespace-nowrap' }, results[0]?.timestamp || '-'),
+          h('p', { className: 'text-[10px] text-gray-400 mt-1 font-medium' }, `경과: ${formatElapsed(results[0]?.elapsedSec ?? lastGenerationElapsedSec)}`)
+        )
+      : null,
+
+    h(Sidebar, {
+      designImages: mainImages,
+      onUpsertDesignImage: handleUpsertDesignImage,
+      onRemoveDesignImage: handleRemoveDesignImage,
+      selectedShotIds,
+      setSelectedShotIds,
+      selectedGhostIds,
+      setSelectedGhostIds,
+      workflowStep,
+      onGenerateFronts: handleGenerateFronts,
+      onGenerateExtras: handleGenerateExtras,
+      onGenerateGhosts: handleGenerateGhostsOnly,
+      isGenerating,
+      onReset: handleReset,
+      outputImageSize,
+      setOutputImageSize,
+      customPrompt,
+      setCustomPrompt,
+      modelPreset,
+      setModelPreset,
+      bodyType,
+      setBodyType,
+      productVideos,
+      videoGeneratingSlots,
+      videoPrompts,
+      setVideoPrompt,
+      onGenerateProductVideo: handleGenerateProductVideo,
+      onDownloadProductVideo: handleDownloadProductVideo
+    }),
+
+    h('main', { className: 'flex-1 overflow-y-auto p-4 lg:p-10 flex flex-col gap-8' },
+      workflowStep === 'selecting_front' && frontCandidates.length > 0
+        ? h('div', { className: 'max-w-5xl mx-auto w-full space-y-6 pb-20 animate-slideUp' },
+            h('div', { className: 'text-center space-y-2' },
+              h('h2', { className: 'text-2xl font-bold text-white' }, '3/4 기준컷을 선택하세요'),
+              h('p', { className: 'text-sm text-gray-400' }, '마음에 드는 3/4 컷 1장을 고른 뒤, 왼쪽에서 추가 샷을 선택해 생성하세요.')
+            ),
+            h('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-6' },
+              ...frontCandidates.map((candidate, idx) =>
+                h('div', {
+                  key: candidate.id,
+                  className: 'group text-left'
+                },
+                  h('div', {
+                    onClick: () => setFrontPreviewCandidate(candidate),
+                    className: `relative aspect-[3/4] bg-[#252525] rounded-2xl overflow-hidden border-4 transition-all ${
+                      selectedFrontId === candidate.id
+                        ? 'border-[#3B82F6] shadow-[0_0_30px_rgba(59,130,246,0.25)]'
+                        : 'border-transparent hover:border-gray-700'
+                    } cursor-zoom-in`
+                  },
+                    h('img', { src: candidate.imageUrl, alt: `3/4 기준컷 후보 ${idx + 1}`, className: 'w-full h-full object-cover' }),
+                    selectedFrontId === candidate.id
+                      ? h('div', { className: 'absolute top-3 right-3 w-8 h-8 bg-[#3B82F6] rounded-full flex items-center justify-center shadow-lg' },
+                          h(Check, { size: 18, className: 'text-white' })
+                        )
+                      : null
+                  ),
+                  h('button', {
+                    type: 'button',
+                    onClick: () => setSelectedFrontId(candidate.id),
+                    className: 'mt-3 w-full bg-white rounded-lg py-2 px-3 text-center shadow-md hover:bg-gray-50 transition-colors'
+                  },
+                    h('span', { className: `block text-xs font-bold ${selectedFrontId === candidate.id ? 'text-[#2563EB]' : 'text-gray-800'}` }, `후보 ${idx + 1}`)
+                  )
+                )
+              )
+            ),
+            h('div', { className: 'flex justify-center pt-2' },
+              h('button', {
+                type: 'button',
+                onClick: () => handleGenerateFronts(),
+                disabled: isGenerating || !hasRequiredDesignImages(mainImages),
+                className: 'min-w-[180px] rounded-xl border border-[#3B82F6]/30 bg-[#3B82F6]/10 px-5 py-3 text-sm font-bold text-[#60A5FA] hover:bg-[#3B82F6]/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+              },
+                h(RefreshCw, { size: 16 }),
+                h('span', null, '후보 다시 생성')
+              )
+            )
+          )
+      : isGenerating
+        ? h('div', { className: 'h-full flex flex-col items-center justify-center text-center' },
+            h('div', { className: 'w-80 space-y-6' },
+              h('h3', { className: 'text-xl font-bold text-gray-100' }, workflowStep === 'generating_fronts' ? '3/4 기준컷 생성 중' : workflowStep === 'generating_ghosts' ? '고스트컷 생성 중' : '추가 샷 생성 중'),
+              h('div', { className: 'flex justify-center' },
+                h('div', { className: 'min-w-[88px] h-14 px-5 rounded-full border border-[#3B82F6]/40 bg-[#3B82F6]/10 flex items-center justify-center text-[#60A5FA] text-2xl font-bold tabular-nums' },
+                  `${Math.min(genCompletedCount, genTotalCount)}/${genTotalCount || 0}`
+                )
+              ),
+              h('div', { className: 'w-full max-w-[260px] mx-auto' },
+                h('div', { className: 'h-2 rounded-full bg-white/8 overflow-hidden border border-white/5' },
+                  h('div', {
+                    className: 'h-full rounded-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA] transition-all duration-300',
+                    style: { width: `${genTotalCount > 0 ? Math.max(6, Math.min(100, (genCompletedCount / genTotalCount) * 100)) : 6}%` }
+                  })
+                )
+              ),
+              h('p', { className: 'text-sm text-gray-400' }, workflowStep === 'generating_fronts' ? '3/4 기준컷 3장을 생성하고 있습니다...' : workflowStep === 'generating_ghosts' ? '선택한 고스트컷을 생성하고 있습니다...' : '선택한 3/4 기준컷을 바탕으로 상반신·하반신 샷을 생성하고 있습니다...'),
+              h('p', { className: 'text-xs text-gray-500 mt-1' }, `⏱ 경과 시간: ${Math.floor(genElapsed / 60)}분 ${(genElapsed % 60).toString().padStart(2, '0')}초`)
+            )
+          )
+        : results.length > 0
+          ? h('div', { className: 'max-w-5xl mx-auto w-full space-y-6 pb-20 animate-slideUp' },
+              h('div', { className: 'flex flex-col gap-3' },
+                h('div', { className: 'flex flex-wrap items-center justify-between gap-3' },
+                  h('div', null,
+                    h('h2', { className: 'text-xl font-bold text-gray-100' }, results[0].timestamp),
+                    h('span', { className: 'text-xs text-gray-500 font-medium' }, `촬영번호 : ${results[0].photoId}`)
+                  ),
+                  h('div', { className: 'flex flex-wrap items-center gap-2' },
+                    workflowStep === 'showing_results'
+                      ? h('button', {
+                          type: 'button',
+                          onClick: () => setShowGhostPanelInResults((v) => !v),
+                          className: `flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                            showGhostPanelInResults
+                              ? 'bg-violet-600/25 border-violet-400/50 text-violet-100'
+                              : 'bg-violet-600/10 hover:bg-violet-600/20 border-violet-500/35 text-violet-200'
+                          }`
+                        }, h(Sparkles, { size: 14 }), showGhostPanelInResults ? '고스트 패널 닫기' : '고스트컷 만들기')
+                      : null,
+                    workflowStep === 'showing_results' && selectedResultId
+                      ? h('div', { className: 'flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/5' },
+                          h('span', { className: 'text-xs text-gray-400 whitespace-nowrap' }, 'AI 표기'),
+                          h('button', {
+                            type: 'button',
+                            role: 'switch',
+                            'aria-checked': !!selectedResult?.aiDisclosure,
+                            onClick: (e) => {
+                              e.stopPropagation();
+                              toggleAiDisclosureForSelected();
+                            },
+                            title: '선택한 샷에만 우측 상단 문구(가상인물포함) 표시',
+                            className: `relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] overflow-hidden ${
+                              selectedResult?.aiDisclosure ? 'bg-[#3B82F6]' : 'bg-gray-600'
+                            }`
+                          },
+                            h('span', {
+                              className: `pointer-events-none absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                                selectedResult?.aiDisclosure ? 'translate-x-5' : 'translate-x-0'
+                              }`
+                            })
+                          )
+                        )
+                      : null,
+                    h('div', { className: 'relative', 'data-batch-dropdown': true },
+                      h('button', {
+                        onClick: () => setShowBatchFormat(!showBatchFormat),
+                        className: 'flex items-center gap-2 px-3 py-1.5 bg-[#3B82F6]/10 hover:bg-[#3B82F6]/20 border border-[#3B82F6]/30 rounded-lg text-xs text-[#3B82F6] hover:text-[#60A5FA] transition-all'
+                      }, h(Download, { size: 14 }), '일괄 다운로드'),
+                      showBatchFormat ? h('div', { className: 'absolute right-0 top-full mt-1 bg-[#1E1E1E] border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden min-w-[120px]' },
+                        ...['jpg', 'png', 'webp'].map(fmt =>
+                          h('button', {
+                            key: fmt,
+                            onClick: () => handleBatchDownload(fmt),
+                            className: 'w-full px-4 py-2.5 text-left text-xs text-gray-300 hover:bg-[#3B82F6]/20 hover:text-white transition-all flex items-center justify-between'
+                          },
+                            h('span', { className: 'font-medium uppercase' }, fmt),
+                            h('span', { className: 'text-gray-500 text-[10px]' }, fmt === 'jpg' ? '고호환성' : fmt === 'png' ? '무손실' : '경량')
+                          )
+                        )
+                      ) : null
+                    ),
+                    h('button', {
+                      onClick: () => { loadSessionList(); setShowHistory(true); },
+                      className: 'flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-gray-400 hover:text-white transition-all'
+                    }, h(Clock, { size: 14 }), '히스토리')
+                  )
+                ),
+                workflowStep === 'showing_results' && showGhostPanelInResults
+                  ? h('div', { className: 'rounded-xl border border-violet-500/35 bg-[#161616] p-4 space-y-3' },
+                      h('p', { className: 'text-xs text-gray-400 leading-relaxed' },
+                        '제품 슬롯에 올린 사진으로 고스트컷을 만듭니다. 생성하면 이 갤러리 맨 뒤에 이어 붙습니다. (왼쪽 사이드바에서도 동일하게 할 수 있습니다.)'
+                      ),
+                      h('div', { className: 'flex flex-wrap gap-2' },
+                        ...SHOT_GHOST_EXTRAS.map((shot) =>
+                          h(TagButton, {
+                            key: shot.id,
+                            label: shot.label,
+                            isSelected: selectedGhostIds.includes(shot.id),
+                            isSmall: true,
+                            onClick: () => setSelectedGhostIds((prev) =>
+                              prev.includes(shot.id)
+                                ? prev.filter((id) => id !== shot.id)
+                                : [...prev, shot.id]
+                            ),
+                          })
+                        )
+                      ),
+                      h('button', {
+                        type: 'button',
+                        onClick: async () => {
+                          const ok = await handleGenerateGhostsOnly();
+                          if (ok) setShowGhostPanelInResults(false);
+                        },
+                        disabled: isGenerating || selectedGhostIds.length === 0,
+                        className: 'w-full max-w-md py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-white bg-violet-600 hover:bg-violet-700 disabled:bg-[#2D2D2D] disabled:text-gray-600 disabled:cursor-not-allowed transition-colors'
+                      },
+                        isGenerating && workflowStep === 'generating_ghosts'
+                          ? h(React.Fragment, null,
+                              h('div', { className: 'w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' }),
+                              h('span', { className: 'text-sm' }, '고스트컷 생성 중...')
+                            )
+                          : h('span', { className: 'text-sm' }, `선택한 고스트컷 생성 ✨${selectedGhostIds.length ? ` (${selectedGhostIds.length})` : ''}`)
+                      )
+                    )
+                  : null
+              ),
+              h('div', { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' },
+                ...results.map(result => {
+                  const isThisBusy = regeneratingIds.has(result.id);
+                  const isPairing = pairingIds.has(result.id);
+                  const isGhostCard = GHOST_SHOT_LABELS.has(result.label);
+                  const cardBody = result.bodyType || DEFAULT_BODY_TYPE;
+                  return h('div', { key: result.id, className: 'flex flex-col gap-3 group' },
+                    h('div', {
+                      onClick: () => { setSelectedResultId(result.id); setPreviewResult(result); },
+                      className: `relative aspect-[3/4] bg-[#252525] rounded-xl overflow-hidden cursor-pointer transition-all border-4 ${
+                        selectedResultId === result.id
+                          ? 'border-[#3B82F6] shadow-[0_0_20px_rgba(59,130,246,0.2)]'
+                          : 'border-transparent hover:border-gray-700 shadow-sm'
+                      }`
+                    },
+                      h('img', { src: result.imageUrl, alt: 'Generated', className: 'w-full h-full object-cover' }),
+                      result.aiDisclosure ? h('span', { className: 'ai-disclosure-overlay' }, AI_DISCLOSURE_TEXT) : null,
+                      h('button', {
+                        onClick: (e) => handleRegenerateSingle(result, e),
+                        disabled: isThisBusy,
+                        className: 'absolute top-3 left-3 w-8 h-8 rounded-full border transition-all flex items-center justify-center bg-black/40 border-white/20 hover:bg-[#3B82F6] hover:border-[#3B82F6] text-white shadow-lg',
+                        title: '이 이미지 다시 생성'
+                      }, h(RefreshCw, { size: 14, className: isThisBusy ? 'animate-spin' : '' })),
+                      isGhostCard ? null : h('button', {
+                        onClick: (e) => handleGenerateBodyPair(result, e),
+                        disabled: isPairing || isThisBusy,
+                        className: 'absolute top-3 w-8 h-8 rounded-full border transition-all flex items-center justify-center bg-black/40 border-white/20 hover:bg-[#14B8A6] hover:border-[#14B8A6] text-white shadow-lg',
+                        style: { left: '3.25rem' },
+                        title: `${bodyTypeLabel(nextBodyType(cardBody))} 체형 페어 생성 (얼굴·포즈·배경 고정)`
+                      }, h(ImagePlus, { size: 14, className: isPairing ? 'animate-pulse' : '' })),
+                      h('div', { className: 'absolute top-3 right-3 p-2 bg-black/40 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity' },
+                        h(Maximize2, { size: 16 })
+                      ),
+                      (isThisBusy || isPairing)
+                        ? h('div', { className: 'absolute inset-0 bg-black/50 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3' },
+                            h('div', { className: `w-10 h-10 border-3 ${isPairing ? 'border-[#14B8A6]' : 'border-[#3B82F6]'} border-t-transparent rounded-full animate-spin` }),
+                            h('span', { className: 'text-xs font-bold text-white' },
+                              isPairing ? `${bodyTypeLabel(nextBodyType(cardBody))} 페어 생성 중...` : '재생성 중...')
+                          )
+                        : null
+                    ),
+                    h('div', { className: 'bg-white rounded-lg py-2 px-3 flex items-center justify-center gap-2 shadow-md' },
+                      h('span', { className: 'text-xs font-bold text-gray-800' }, result.label),
+                      isGhostCard ? null : h('span', {
+                        className: `text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          cardBody === 'volume'
+                            ? 'bg-[#8B5CF6]/15 text-[#7C3AED]'
+                            : 'bg-[#3B82F6]/15 text-[#2563EB]'
+                        }`
+                      }, bodyTypeLabel(cardBody))
+                    )
+                  );
+                })
+              )
+            )
+          : h('div', { className: 'h-full flex flex-col items-center justify-center text-center p-10 bg-[#121212] rounded-3xl border border-dashed border-gray-800' },
+              h('div', { className: 'w-20 h-20 bg-[#1e1e1e] text-[#3B82F6] rounded-full flex items-center justify-center mb-6 shadow-inner' },
+                h(Camera, { size: 40 })
+              ),
+              h('h3', { className: 'text-xl font-bold text-gray-100' }, '새로운 작업을 시작해보세요'),
+              h('p', { className: 'text-gray-500 mt-2 max-w-sm' },
+              '왼쪽에서 제품 1, 2의 앞면 2장을 먼저 업로드하고, 필요하면 각 뒷면 이미지를 추가한 뒤 3/4 기준컷 후보를 만들고 추가 샷을 생성해보세요.'
+              ),
+              h('button', {
+                onClick: () => { loadSessionList(); setShowHistory(true); },
+                className: 'mt-6 flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-gray-400 hover:text-white transition-all'
+              }, h(Clock, { size: 16 }), '이전 작업 불러오기')
+            )
+    ),
+
+    showHistory
+      ? h('div', {
+          className: 'fixed inset-0 z-[55] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-fadeIn',
+          onClick: () => setShowHistory(false)
+        },
+          h('div', {
+            className: 'bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden',
+            onClick: e => e.stopPropagation()
+          },
+            h('div', { className: 'flex items-center justify-between px-6 py-4 border-b border-white/10' },
+              h('div', { className: 'flex items-center gap-3' },
+                h(Clock, { size: 20, className: 'text-[#3B82F6]' }),
+                h('h3', { className: 'text-lg font-bold text-white' }, '작업 히스토리'),
+                h('span', { className: 'text-xs text-gray-500' }, `${savedSessions.length}개 세션`)
+              ),
+              h('div', { className: 'flex items-center gap-2' },
+                savedSessions.length > 0
+                  ? h('button', {
+                      onClick: clearAllHistory,
+                      className: 'text-xs text-red-400/60 hover:text-red-400 transition-colors px-2 py-1'
+                    }, '전체 삭제')
+                  : null,
+                h('button', { onClick: () => setShowHistory(false), className: 'p-1 text-white/40 hover:text-white transition-colors' },
+                  h(X, { size: 20 })
+                )
+              )
+            ),
+            h('div', { className: 'flex-1 overflow-y-auto p-4 space-y-2' },
+              savedSessions.length === 0
+                ? h('div', { className: 'text-center py-16' },
+                    h(Clock, { size: 40, className: 'text-gray-700 mx-auto mb-4' }),
+                    h('p', { className: 'text-gray-500 text-sm' }, '저장된 작업이 없습니다.'),
+                    h('p', { className: 'text-gray-600 text-xs mt-1' }, '이미지를 생성하면 자동으로 저장됩니다.')
+                  )
+                : savedSessions.map(session =>
+                    h('div', {
+                      key: session.photoId,
+                      onClick: () => loadSession(session),
+                      className: 'flex items-center gap-4 p-4 bg-white/5 hover:bg-white/10 rounded-xl cursor-pointer transition-all border border-transparent hover:border-white/10 group'
+                    },
+                      session.thumbUrl || session.results?.[0]?.imageUrl
+                        ? h('div', { className: 'w-16 h-20 bg-[#252525] rounded-lg overflow-hidden flex-shrink-0' },
+                            h('img', { src: session.thumbUrl || session.results[0].imageUrl, className: 'w-full h-full object-cover' })
+                          )
+                        : h('div', { className: 'w-16 h-20 bg-[#252525] rounded-lg flex items-center justify-center flex-shrink-0' },
+                            h(Camera, { size: 20, className: 'text-gray-600' })
+                          ),
+                      h('div', { className: 'flex-1 min-w-0' },
+                        h('div', { className: 'flex items-center gap-2' },
+                          h('span', { className: 'text-sm font-bold text-gray-200' }, session.timestamp || '시간 미상'),
+                          h('span', { className: 'text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded-full' }, `#${session.photoId}`)
+                        ),
+                        h('div', { className: 'flex items-center gap-1 mt-1.5 flex-wrap' },
+                          ...(session.labels || []).slice(0, 5).map((label, i) =>
+                            h('span', { key: i, className: 'text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded' }, label)
+                          )
+                        ),
+                        h('p', { className: 'text-[10px] text-gray-600 mt-1' },
+                          `${session.count}장` + (session.elapsed ? ` · ⏱ ${Math.floor(session.elapsed / 60)}분 ${(session.elapsed % 60).toString().padStart(2, '0')}초` : '')
+                        )
+                      ),
+                      h('button', {
+                        onClick: (e) => deleteSession(session.photoId, e),
+                        className: 'p-2 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0'
+                      }, h(Trash2, { size: 14 }))
+                    )
+                  )
+            )
+          )
+        )
+      : null,
+
+    frontPreviewCandidate
+      ? h('div', {
+          className: 'fixed inset-0 z-[58] bg-black/95 flex flex-col lg:flex-row items-stretch justify-center animate-fadeIn',
+          onClick: closeFrontPreview
+        },
+          h('div', { className: 'flex-1 flex items-center justify-center p-4 lg:p-10 relative' },
+            h('button', {
+              className: 'absolute top-6 right-6 z-10 p-2.5 rounded-full bg-black/35 text-white/70 hover:text-white hover:bg-black/55 transition-colors',
+              onClick: closeFrontPreview
+            }, h(X, { size: 28 })),
+            h('div', { className: 'relative max-w-full max-h-full', onClick: e => e.stopPropagation() },
+              h('img', {
+                src: frontPreviewCandidate.imageUrl,
+                alt: '3/4 기준컷 후보 미리보기',
+                className: 'max-w-full max-h-[86vh] object-contain rounded-xl shadow-2xl border border-white/10'
+              }),
+              isFrontEditing
+                ? h('div', { className: 'absolute inset-0 bg-black/40 backdrop-blur-[2px] rounded-xl flex flex-col items-center justify-center gap-4 text-white' },
+                    h('div', { className: 'w-12 h-12 border-4 border-[#3B82F6] border-t-transparent rounded-full animate-spin' }),
+                    h('span', { className: 'font-bold text-lg' }, '기준컷 수정 중...')
+                  )
+                : null
+            )
+          ),
+          h('div', {
+            className: 'w-full lg:w-[400px] bg-[#1a1a1a] border-l border-white/10 p-6 lg:p-8 flex flex-col gap-5 animate-slideRight overflow-y-auto',
+            onClick: e => e.stopPropagation()
+          },
+            h('div', { className: 'flex items-center justify-between' },
+              h('div', { className: 'flex items-center gap-2' },
+                h('div', { className: 'p-2 bg-[#3B82F6]/20 rounded-lg' }, h(Edit2, { size: 18, className: 'text-[#3B82F6]' })),
+                h('h3', { className: 'text-lg font-bold text-white' }, '기준컷 수정')
+              ),
+              h('button', { className: 'p-2 text-white/40 hover:text-white transition-colors', onClick: closeFrontPreview },
+                h(X, { size: 22 })
+              )
+            ),
+            h('div', { className: 'space-y-2' },
+              h('label', { className: 'text-sm font-medium text-gray-400' }, '참조 이미지 (선택사항, 여러 개 추가 가능)'),
+              h('div', { className: 'flex flex-wrap gap-3' },
+                ...frontEditRefImages.map((src, idx) =>
+                  h('div', { key: idx, className: 'relative w-24 h-24 rounded-lg overflow-hidden border border-white/10 flex-shrink-0' },
+                    h('img', { src, className: 'w-full h-full object-cover' }),
+                    h('button', {
+                      onClick: () => handleRemoveFrontRefImage(idx),
+                      className: 'absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white hover:bg-red-500 transition-colors'
+                    }, h(Trash2, { size: 12 }))
+                  )
+                ),
+                h('label', {
+                  className: 'w-24 h-24 bg-black/40 border border-dashed border-white/10 rounded-lg cursor-pointer hover:bg-white/5 transition-colors flex flex-col items-center justify-center gap-1 flex-shrink-0'
+                },
+                  h(Upload, { size: 16, className: 'text-gray-400' }),
+                  h('span', { className: 'text-[10px] text-gray-500 font-medium' }, '추가'),
+                  h('input', { type: 'file', accept: 'image/*', multiple: true, className: 'hidden', onChange: handleFrontRefFileUpload })
+                )
+              )
+            ),
+            h('div', { className: 'space-y-2' },
+              h('label', { className: 'text-sm font-medium text-gray-400' }, '수정 요청'),
+              h('textarea', {
+                value: frontEditPrompt,
+                onInput: (e) => setFrontEditPrompt(e.target.value),
+                placeholder: '예) 끈 두께를 더 얇게, 색상을 조금 더 진하게, 컵 윗라인을 더 V로...',
+                rows: 4,
+                className: 'w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/50'
+              })
+            ),
+            h('div', { className: 'flex items-center gap-2 pt-1' },
+              h('button', {
+                type: 'button',
+                onClick: handleUndoFrontEdit,
+                disabled: isFrontEditing || !(frontImageHistory[frontPreviewCandidate.id]?.length > 0),
+                className: 'flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+              }, '되돌리기'),
+              h('button', {
+                type: 'button',
+                onClick: () => {
+                  setSelectedFrontId(frontPreviewCandidate.id);
+                  closeFrontPreview();
+                },
+                disabled: isFrontEditing,
+                className: 'flex-1 px-4 py-2.5 rounded-xl border border-[#3B82F6]/30 bg-[#3B82F6]/10 hover:bg-[#3B82F6]/15 text-[#60A5FA] text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+              }, '이 후보 선택'),
+              h('button', {
+                type: 'button',
+                onClick: handleEditFrontCandidate,
+                disabled: isFrontEditing || !frontEditPrompt.trim(),
+                className: 'flex-1 px-4 py-2.5 rounded-xl bg-[#3B82F6] hover:bg-[#2563EB] text-white text-sm font-bold transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed'
+              }, '수정 적용')
+            ),
+            h('p', { className: 'text-[11px] text-gray-500 leading-relaxed' },
+              '참조 이미지는 “이렇게 바꿔줘”의 참고용입니다. 기준컷의 배경/톤은 최대한 유지되도록 편집됩니다.'
+            )
+          )
+        )
+      : null,
+
+    previewResult
+      ? h('div', {
+          className: 'fixed inset-0 z-[60] bg-black/95 flex flex-col lg:flex-row items-stretch justify-center animate-fadeIn',
+          onClick: closePreview
+        },
+          h('div', { className: 'flex-1 flex items-center justify-center p-4 lg:p-10 relative' },
+            h('button', {
+              className: 'absolute top-6 left-6 p-2 text-white/60 hover:text-white transition-colors lg:hidden',
+              onClick: closePreview
+            }, h(X, { size: 32 })),
+            h('div', { className: 'relative max-w-full max-h-full', onClick: e => e.stopPropagation() },
+              h('div', { className: 'relative inline-block max-w-full max-h-[85vh]' },
+                h('img', {
+                  src: previewResult.imageUrl,
+                  alt: 'Preview',
+                  className: 'max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-white/10'
+                }),
+                previewResult.aiDisclosure
+                  ? h('span', { className: 'ai-disclosure-overlay' }, AI_DISCLOSURE_TEXT)
+                  : null
+              ),
+              (isEditing || regeneratingIds.has(previewResult.id))
+                ? h('div', { className: 'absolute inset-0 bg-black/40 backdrop-blur-[2px] rounded-lg flex flex-col items-center justify-center gap-4 text-white' },
+                    h('div', { className: 'w-12 h-12 border-4 border-[#3B82F6] border-t-transparent rounded-full animate-spin' }),
+                    h('span', { className: 'font-bold text-lg' },
+                      isEditing ? 'AI 이미지 수정 중...' : 'AI 이미지 재생성 중...'
+                    )
+                  )
+                : null
+            )
+          ),
+          h('div', {
+            className: 'w-full lg:w-[400px] bg-[#1a1a1a] border-l border-white/10 p-8 flex flex-col gap-6 animate-slideRight overflow-y-auto',
+            onClick: e => e.stopPropagation()
+          },
+            h('div', { className: 'flex items-center justify-between' },
+              h('div', { className: 'flex items-center gap-2' },
+                h('div', { className: 'p-2 bg-[#3B82F6]/20 rounded-lg' }, h(Edit2, { size: 20, className: 'text-[#3B82F6]' })),
+                h('h3', { className: 'text-xl font-bold text-white' }, '이미지 편집')
+              ),
+              h('button', { className: 'p-2 text-white/40 hover:text-white transition-colors', onClick: closePreview },
+                h(X, { size: 24 })
+              )
+            ),
+            h('div', { className: 'space-y-3' },
+              h('label', { className: 'text-sm font-medium text-gray-400' }, '참조 이미지 (선택사항, 여러 개 추가 가능)'),
+              h('div', { className: 'flex flex-wrap gap-3' },
+                ...editRefImages.map((src, idx) =>
+                  h('div', { key: idx, className: 'relative w-24 h-24 rounded-lg overflow-hidden border border-white/10 flex-shrink-0' },
+                    h('img', { src, className: 'w-full h-full object-cover' }),
+                    h('button', {
+                      onClick: () => handleRemoveRefImage(idx),
+                      className: 'absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white hover:bg-red-500 transition-colors'
+                    }, h(Trash2, { size: 12 }))
+                  )
+                ),
+                h('label', {
+                  className: 'w-24 h-24 bg-black/40 border border-dashed border-white/10 rounded-lg cursor-pointer hover:bg-white/5 transition-colors flex flex-col items-center justify-center gap-1 flex-shrink-0'
+                },
+                  h('input', { type: 'file', className: 'hidden', accept: 'image/*', multiple: true, onChange: handleRefFileUpload }),
+                  h(ImagePlus, { size: 20, className: 'text-gray-500' }),
+                  h('span', { className: 'text-[10px] text-gray-500' }, '추가')
+                )
+              )
+            ),
+            h('div', { className: 'space-y-2' },
+              h('label', { className: 'text-sm font-medium text-gray-400' }, '배경 변경'),
+              h('div', { className: 'grid grid-cols-4 gap-1.5' },
+                ...BG_PRESETS.map(bg =>
+                  h('button', {
+                    key: bg.id,
+                    onClick: () => handleBgChange(bg),
+                    disabled: isEditing || !!changingBg,
+                    className: `flex flex-col items-center gap-1 py-2 px-1 rounded-lg border transition-all text-center ${
+                      changingBg === bg.id
+                        ? 'bg-[#3B82F6]/20 border-[#3B82F6] text-[#3B82F6]'
+                        : 'bg-white/5 border-transparent hover:bg-white/10 hover:border-white/10 text-gray-400 hover:text-white'
+                    } disabled:opacity-40`
+                  },
+                    changingBg === bg.id
+                      ? h(RefreshCw, { size: 14, className: 'animate-spin' })
+                      : h('span', { className: 'text-base leading-none' }, bg.emoji),
+                    h('span', { className: 'text-[10px] font-medium leading-none' }, bg.label)
+                  )
+                )
+              ),
+              changingBg
+                ? h('p', { className: 'text-[10px] text-[#3B82F6] animate-pulse' }, '배경을 변경하고 있습니다...')
+                : null
+            ),
+            h('div', { className: 'space-y-3' },
+              h('label', { className: 'text-sm font-medium text-gray-400' }, '수정 지시어 입력'),
+              h('textarea', {
+                value: editPrompt,
+                onChange: (e) => setEditPrompt(e.target.value),
+                placeholder: '예: 피부톤을 더 자연스럽게, 조명을 조금 더 부드럽게...',
+                className: 'w-full h-32 bg-black/40 border border-white/10 rounded-xl p-4 text-white text-sm focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6] outline-none resize-none placeholder:text-gray-600 transition-all'
+              }),
+              h('p', { className: 'text-[10px] text-gray-600 leading-relaxed' },
+                '* 업로드한 참조 이미지와 수정 지시어를 함께 사용해 현재 이미지를 편집합니다.'
+              )
+            ),
+            h('div', { className: 'space-y-3 pt-4' },
+              h('button', {
+                onClick: handleEditImage,
+                disabled: isEditing || !editPrompt.trim(),
+                className: 'w-full py-4 bg-[#3B82F6] hover:bg-[#2563EB] disabled:bg-gray-800 disabled:text-gray-500 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all shadow-lg'
+              },
+                isEditing
+                  ? h(RefreshCw, { size: 20, className: 'animate-spin' })
+                  : h(React.Fragment, null, h(Sparkles, { size: 18 }), h('span', null, '수정 요청하기'))
+              ),
+              (imageHistory[previewResult.id]?.length > 0)
+                ? h('button', {
+                    onClick: handleUndoEdit,
+                    disabled: isEditing,
+                    className: 'w-full py-3 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 rounded-xl font-bold text-amber-400 flex items-center justify-center gap-2 transition-all text-sm'
+                  },
+                    h(RotateCcw, { size: 16 }),
+                    h('span', null, `이전 이미지로 되돌리기 (${imageHistory[previewResult.id].length}단계)`)
+                  )
+                : null,
+              h('button', {
+                onClick: () => handleRegenerateSingle(previewResult),
+                disabled: regeneratingIds.has(previewResult.id) || isEditing,
+                className: `w-full py-4 border rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
+                  regeneratingIds.has(previewResult.id)
+                    ? 'bg-[#3B82F6]/20 border-[#3B82F6] text-[#3B82F6]'
+                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
+                }`
+              },
+                h(RefreshCw, { size: 18, className: regeneratingIds.has(previewResult.id) ? 'animate-spin' : '' }),
+                h('span', null, regeneratingIds.has(previewResult.id) ? '이미지 생성 중...' : '기존 설정으로 재생성')
+              )
+            ),
+            h('div', { className: 'mt-auto pt-6 border-t border-white/5 flex flex-col gap-3' },
+              h('div', { className: 'flex gap-3' },
+                h('button', {
+                  onClick: () => handleDownload(previewResult.imageUrl, previewResult.photoId, !!previewResult.aiDisclosure),
+                  className: 'flex-1 flex flex-col items-center justify-center gap-2 p-4 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-white/60 hover:text-white'
+                },
+                  h(Download, { size: 20 }),
+                  h('span', { className: 'text-[10px] font-bold' }, '원본 저장')
+                ),
+                h('button', {
+                  onClick: () => setShowCropTool(true),
+                  className: 'flex-1 flex flex-col items-center justify-center gap-2 p-4 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-white/60 hover:text-white'
+                },
+                  h(Crop, { size: 20 }),
+                  h('span', { className: 'text-[10px] font-bold' }, '크롭 저장')
+                )
+              )
+            ),
+            showCropTool
+              ? h(CropTool, { imageUrl: previewResult.imageUrl, onCropDone: handleCropDone, onCancel: () => setShowCropTool(false) })
+              : null
+          )
+        )
+      : null
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
+  </script>
+</body>
+</html>

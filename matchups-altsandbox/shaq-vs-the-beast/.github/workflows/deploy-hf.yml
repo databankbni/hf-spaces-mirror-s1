@@ -1,0 +1,84 @@
+name: Deploy to Hugging Face Spaces
+
+# Deploys to a Hugging Face Docker Space via `huggingface-cli upload`, which
+# stores binary files (data/thebeast.db) through Xet automatically — the
+# recommended path (https://huggingface.co/blog/migrating-the-hub-to-xet). HF
+# reads the README frontmatter (sdk: docker, app_port: 8080) and builds the
+# Dockerfile, which serves the FastAPI API + SvelteKit SPA with the bundled DB.
+#
+# One-time setup (Settings → Secrets and variables → Actions):
+#   - Secret    HF_TOKEN     a write token from huggingface.co/settings/tokens
+#   - Variable  HF_USERNAME  your Hugging Face username/org
+#   - Variable  HF_SPACE     the Space name (e.g. thebeast)
+# Until HF_TOKEN is set, this workflow no-ops so it never fails the build.
+
+on:
+  push:
+    branches: [main]
+    # Editing CI config doesn't change what the Space serves, so it shouldn't
+    # kick off a rebuild — rebuilds are disruptive while one is already running.
+    paths-ignore:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check configuration
+        id: cfg
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "HF_TOKEN not set — skipping deploy (configure it to enable)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.cfg.outputs.ready == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: steps.cfg.outputs.ready == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install huggingface_hub (with Xet support)
+        if: steps.cfg.outputs.ready == 'true'
+        run: pip install --upgrade "huggingface_hub[cli,hf_xet]"
+
+      - name: Deploy to Space
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ vars.HF_USERNAME }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          : "${HF_USERNAME:?set repository variable HF_USERNAME}"
+          : "${HF_SPACE:?set repository variable HF_SPACE}"
+          # Upload directly to the existing Space via upload_folder, which does
+          # NOT call create_repo. HF now gates POST /api/repos/create behind PRO
+          # (402 Payment Required), and both an explicit create_repo and the
+          # `hf upload` CLI (which create-checks internally) trip it — aborting
+          # the deploy even though the Space already exists and runs. upload_folder
+          # skips creation and just pushes files to the existing Space, which HF
+          # then rebuilds.
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          api.upload_folder(
+              repo_id=f"{os.environ['HF_USERNAME']}/{os.environ['HF_SPACE']}",
+              repo_type="space",
+              folder_path=".",
+              commit_message=f"Deploy {os.environ.get('GITHUB_SHA', '')}",
+              ignore_patterns=[
+                  ".git/*", "local_data/*", "web/node_modules/*",
+                  "web/build/*", "web/.svelte-kit/*", "**/__pycache__/*",
+              ],
+          )
+          PY

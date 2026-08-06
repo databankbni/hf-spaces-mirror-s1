@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentDebuggerEnv Benchmark Leaderboard</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-primary: #8b5cf6;
+            --accent-secondary: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15) 0%, transparent 50%);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #a78bfa, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+            letter-spacing: 0.05em;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .model-name {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .score-bar-container {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            height: 8px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .score-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-secondary), var(--accent-primary));
+            border-radius: 8px;
+        }
+
+        .score-value {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .tier-score {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .cta-container {
+            text-align: center;
+            margin-top: 3rem;
+        }
+
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+            color: white;
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .info-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .info-card h3 {
+            margin-top: 0;
+            color: #a78bfa;
+        }
+
+        .info-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AgentDebuggerEnv</h1>
+            <p class="subtitle">Ranking LLMs on Hypothesis-Driven Debugging</p>
+        </header>
+
+        <div class="glass-panel">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Model</th>
+                        <th>Tier 1 (Easy)</th>
+                        <th>Tier 2 (Med)</th>
+                        <th>Tier 3 (Hard)</th>
+                        <th>Mean Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>🥇 1</td>
+                        <td>
+                            <div class="model-name">
+                                GPT-4o
+                            </div>
+                        </td>
+                        <td class="tier-score">89.0%</td>
+                        <td class="tier-score">71.0%</td>
+                        <td class="tier-score">38.0%</td>
+                        <td>
+                            <div class="score-value">0.742</div>
+                            <div class="score-bar-container">
+                                <div class="score-bar" style="width: 74.2%"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2);">
+                        <td>🥈 2</td>
+                        <td>
+                            <div class="model-name" style="color: #a78bfa;">
+                                AgentDebugger-Qwen2.5-3B-GRPO
+                                <span class="badge" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))">Trained</span>
+                            </div>
+                        </td>
+                        <td class="tier-score" style="color: var(--success); font-weight: bold;">100.0%</td>
+                        <td class="tier-score" style="color: var(--success); font-weight: bold;">77.4%</td>
+                        <td class="tier-score" style="color: var(--warning); font-weight: bold;">38.1%</td>
+                        <td>
+                            <div class="score-value" style="color: #a78bfa;">0.718</div>
+                            <div class="score-bar-container">
+                                <div class="score-bar" style="width: 71.8%; background: linear-gradient(90deg, var(--accent-primary), #ec4899);"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>🥉 3</td>
+                        <td>
+                            <div class="model-name">
+                                Llama-3.1-70B-Instruct
+                                <span class="badge" style="background: var(--text-secondary)">Baseline</span>
+                            </div>
+                        </td>
+                        <td class="tier-score">21.0%</td>
+                        <td class="tier-score">21.5%</td>
+                        <td class="tier-score">21.5%</td>
+                        <td>
+                            <div class="score-value">0.210</div>
+                            <div class="score-bar-container">
+                                <div class="score-bar" style="width: 21.0%; background: var(--text-secondary);"></div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h3>🧪 The Benchmark</h3>
+                <p>Models are evaluated on 90 hand-validated Python bugs across 3 difficulty tiers. They must formulate a specific hypothesis before proposing a fix. Blind guessing is heavily penalized by the grading environment.</p>
+            </div>
+            <div class="info-card">
+                <h3>⚖️ The Grading</h3>
+                <p>A hybrid deterministic/semantic grader evaluates the quality of the hypothesis (via Llama-3.1-70B), format compliance, bug localization, and execution correctness inside a secure sandbox.</p>
+            </div>
+        </div>
+
+        <div class="cta-container">
+            <a href="https://github.com/shasshaank/meta_hackthon" class="btn" target="_blank">View GitHub Repository</a>
+        </div>
+    </div>
+</body>
+</html>

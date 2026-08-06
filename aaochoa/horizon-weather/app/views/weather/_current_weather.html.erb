@@ -1,0 +1,52 @@
+<!-- Hero Forecast Card -->
+<div class="relative overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 backdrop-blur-md p-6 shadow-lg dark:shadow-xl flex flex-col gap-6 transition-colors duration-300">
+  <!-- Background glow -->
+  <div class="absolute -right-12 -bottom-12 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+  <!-- Top Row: Temp & Icon -->
+  <div class="flex justify-between items-start w-full relative z-10">
+    <div class="text-left">
+      <p class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Current Weather</p>
+      <h2 class="text-5xl font-black text-slate-900 dark:text-white mt-1.5">
+        <span data-unit-type="temp" data-unit-suffix="true" data-metric-value="<%= metric_temp(current["temperature_2m"]) %>"><%= format_temp(current["temperature_2m"]) %></span>
+      </h2>
+      <p class="text-lg font-bold text-cyan-600 dark:text-cyan-400 mt-1"><%= current_info[:description] %></p>
+    </div>
+    
+    <!-- Weather GIF / Icon slot -->
+    <div class="flex-shrink-0 relative w-24 h-24"
+         data-controller="weather-gif"
+         data-weather-gif-query-value="<%= current_info[:gif_query] %>"
+         data-weather-gif-api-key-value="<%= ENV.fetch("TENOR_API_KEY", "") %>">
+      <!-- Lucide icon: shown by default, hidden when GIF loads -->
+      <i data-weather-gif-target="icon"
+         data-lucide="<%= current_info[:icon] %>"
+         class="w-24 h-24 text-cyan-500 dark:text-cyan-400 stroke-[1.2]"></i>
+      <!-- GIF: hidden until successfully loaded, then fades in -->
+      <img data-weather-gif-target="gif"
+           src=""
+           alt=""
+           class="hidden absolute inset-0 w-24 h-24 object-cover rounded-2xl shadow-md transition-opacity duration-500" />
+    </div>
+  </div>
+  
+  <!-- Bottom Row: Grid Stats -->
+  <div class="grid grid-cols-2 gap-4 text-xs relative z-10 border-t border-slate-100 dark:border-slate-800/60 pt-4">
+    <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+      <i data-lucide="thermometer" class="w-4 h-4 text-cyan-500 dark:text-cyan-400 shrink-0"></i>
+      <span>Feels like <strong data-unit-type="temp" data-unit-suffix="true" data-metric-value="<%= metric_temp(current["apparent_temperature"]) %>"><%= format_temp(current["apparent_temperature"]) %></strong></span>
+    </div>
+    <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+      <i data-lucide="droplets" class="w-4 h-4 text-cyan-500 dark:text-cyan-400 shrink-0"></i>
+      <span>Humidity <strong><%= current["relative_humidity_2m"] %>%</strong></span>
+    </div>
+    <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+      <i data-lucide="wind" class="w-4 h-4 text-cyan-500 dark:text-cyan-400 shrink-0"></i>
+      <span>Wind <strong data-unit-type="wind" data-metric-value="<%= metric_wind(current["wind_speed_10m"]) %>"><%= format_wind(current["wind_speed_10m"]) %></strong></span>
+    </div>
+    <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+      <i data-lucide="cloud-rain" class="w-4 h-4 text-cyan-500 dark:text-cyan-400 shrink-0"></i>
+      <span>Precip. <strong data-unit-type="precip" data-metric-value="<%= metric_precip(current["precipitation"]) %>"><%= format_precip(current["precipitation"]) %></strong></span>
+    </div>
+  </div>
+</div>

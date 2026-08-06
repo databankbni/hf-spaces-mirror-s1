@@ -1,0 +1,107 @@
+name: Refresh best bets
+
+# Warms the slate's simulations every three hours.
+#
+# /api/best-bets now re-prices on every request — prices move, lineups get
+# confirmed and live games change by the inning, so a cached ranking goes wrong
+# quietly. What makes that affordable is the shared simulation cache: the
+# expensive half is the Monte Carlo, and once it's warm a rebuild costs an odds
+# fetch and some arithmetic.
+#
+# So this job's purpose is to pay for those simulations before a visitor does.
+# The Space has no scheduler of its own and sleeps when idle, so the cadence is
+# driven from here. It only *calls* the running app — it never uploads or
+# commits anything, so it cannot trigger a rebuild.
+#
+# Times are UTC. The 10:00/13:00 runs land before a typical MLB slate so a
+# baseline is ready early; the later ones re-warm after lineups are confirmed,
+# which both invalidates the old sims and is when projections are most
+# accurate.
+
+on:
+  schedule:
+    - cron: '0 1,4,7,10,13,16,19,22 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: Slate date (YYYY-MM-DD); blank means today
+        type: string
+        required: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rebuild the best-bets cache
+        env:
+          HF_USERNAME: ${{ vars.HF_USERNAME }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+          SLATE_DATE: ${{ inputs.date }}
+        run: |
+          : "${HF_USERNAME:?set repository variable HF_USERNAME}"
+          : "${HF_SPACE:?set repository variable HF_SPACE}"
+          # Space subdomains lowercase the owner/name and replace / and . with -.
+          host="$(echo "${HF_USERNAME}-${HF_SPACE}" | tr '[:upper:]' '[:lower:]' | tr './' '--')"
+          base="https://${host}.hf.space"
+          url="${base}/api/best-bets?refresh=true"
+          if [ -n "${SLATE_DATE}" ]; then url="${url}&date=${SLATE_DATE}"; fi
+
+          echo "Waking ${base} ..."
+          # A sleeping Space needs a moment to boot before it will answer.
+          for i in $(seq 1 10); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${base}/api/health" || true)"
+            echo "  attempt ${i}: health=${code}"
+            [ "${code}" = "200" ] && break
+            sleep 20
+          done
+
+          # The props feed is undocumented and can't be reached from a dev
+          # sandbox, so log what it actually answers with each run — that's how
+          # a parser drift shows up before it silently costs us every prop.
+          echo "Props feed:"
+          curl -s --max-time 60 "${base}/api/props-probe" -o /tmp/props.json || true
+          python3 - <<'PY' || true
+          import json
+          d = json.load(open("/tmp/props.json"))
+          print(f"  reachable={d.get('reachable')} lines={d.get('count')} "
+                f"parsed={d.get('parsed')} players={d.get('players_loaded')}")
+          if d.get("error"):
+              print(f"  error: {d['error']}")
+          if d.get("sample_keys"):
+              print(f"  keys: {d['sample_keys']}")
+          if d.get("option_keys"):
+              print(f"  option keys: {d['option_keys']}")
+          # Printed only while nothing parses — that's when the real shape is
+          # what we need to see; a healthy run stays quiet.
+          if not d.get("parsed"):
+              for k, c in (d.get("vocabulary") or {}).items():
+                  print(f"    {c:5d}  {k}")
+              print(json.dumps(d.get("sample"), indent=2)[:2500])
+          PY
+
+          echo "Warming simulations + pricing: ${url}"
+          # Pricing a slate runs one simulation per game, so allow real time.
+          if ! curl -s --max-time 600 "${url}" -o /tmp/best-bets.json; then
+            echo "::warning::best-bets refresh did not complete"
+            exit 0
+          fi
+
+          python3 - <<'PY'
+          import json
+          try:
+              with open("/tmp/best-bets.json") as fh:
+                  d = json.load(fh)
+          except Exception as e:
+              print(f"::warning::unexpected response ({e})")
+              raise SystemExit(0)
+          bets = d.get("bets") or []
+          print(f"date={d.get('date')} "
+                f"priced={d.get('games_priced')}/{d.get('games_considered')} "
+                f"live={d.get('live_games', 0)} plays={len(bets)}")
+          print(f"  by family: {d.get('counts')}")
+          for b in bets[:5]:
+              print(f"  {b['selection']:16s} {b['price']:+5d} "
+                    f"edge {b['edge'] * 100:5.1f}%  hit {b['model_probability'] * 100:5.1f}%")
+          for note in d.get("notes") or []:
+              print(f"  note: {note}")
+          PY

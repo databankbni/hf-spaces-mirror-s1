@@ -1,0 +1,36 @@
+language: es
+
+pipeline:
+  - name: WhitespaceTokenizer
+  - name: RegexFeaturizer
+  - name: LexicalSyntacticFeaturizer
+  - name: CountVectorsFeaturizer
+  - name: CountVectorsFeaturizer
+    analyzer: char_wb
+    min_ngram: 1
+    max_ngram: 4
+  - name: RegexEntityExtractor
+  - name: DIETClassifier
+    epochs: 100
+    constrain_resources: true
+    model_confidence: softmax
+    ranking_length: 0
+  - name: FallbackClassifier
+    threshold: 0.4
+    ambiguity_threshold: 0.1
+  - name: EntitySynonymMapper
+
+policies:
+  - name: RulePolicy
+    core_fallback_threshold: 0.3
+    core_fallback_action_name: "action_default_fallback"
+    enable_fallback_prediction: true
+    restrict_rules: false
+  - name: MemoizationPolicy
+    max_history: 3
+  - name: TEDPolicy
+    epochs: 100
+    constrain_resources: true
+    max_history: 5
+
+assistant_id: 20251006-191236-raw-energy

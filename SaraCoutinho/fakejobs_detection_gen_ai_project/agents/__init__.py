@@ -1,0 +1,1 @@
+"""Agentes da aplicação VagaCheck."""

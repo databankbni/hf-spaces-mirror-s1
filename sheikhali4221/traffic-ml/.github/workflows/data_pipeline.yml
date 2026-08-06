@@ -1,0 +1,33 @@
+name: Real-Time Traffic Ingestion Pipeline
+
+on:
+  schedule:
+    # Yeh command GitHub ko batati hai ke script har ghante (hourly) chalana hai
+    - cron: '0 * * * *'
+  workflow_dispatch: # Is se tum GitHub website se manually bhi run kar sakoge
+
+jobs:
+  run-ingestion:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run Data Ingestion Script
+      env:
+        # Yahan GitHub tumhare 3 alag secrets ko inject karega
+        WEATHER_API_KEY: ${{ secrets.WEATHER_API_KEY }}
+        TRAFFIC_API_KEY: ${{ secrets.TRAFFIC_API_KEY }}
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: python ingest_data.py

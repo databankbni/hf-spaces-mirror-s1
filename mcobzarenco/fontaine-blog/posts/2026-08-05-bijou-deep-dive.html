@@ -1,0 +1,557 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>2026-08-05 — Bijou code deep-dive: ranked findings - Fontaine — Bijou research log</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-e96d0476.css">
+        <link rel="stylesheet" href="../css/chrome-d279d366.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-a689b4f6.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-c1b19a61.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Fontaine — Bijou research log</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/mcobzarenco/flow-matching/tree/fontaine" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="bijou-code-deep-dive--ranked-findings"><a class="header" href="#bijou-code-deep-dive--ranked-findings">Bijou code deep-dive — ranked findings</a></h1>
+<p><em>2026-08-05, work session ~18:50Z→. Owner ask (16:17Z): a deep review
+of the bijou codebase. Deliverable: this ranked list.</em></p>
+<h2 id="scope-and-method"><a class="header" href="#scope-and-method">Scope and method</a></h2>
+<p>The review covers all 57 Python files (~22.3k lines) of <code>bijou/</code>,
+split into six subsystems, each read line-by-line by a dedicated
+reviewer, findings then cross-checked against the code by me before
+ranking:</p>
+<ol>
+<li><strong>Training loop + model assembly</strong> — <code>train.py</code>, <code>model.py</code>, <code>nn.py</code></li>
+<li><strong>Data pipeline</strong> — <code>data.py</code>, <code>loading.py</code>, <code>aux_text.py</code>,
+<code>annotations.py</code></li>
+<li><strong>Decoders + FAST tokenizer</strong> — <code>decoders/*</code>, <code>fast/*</code></li>
+<li><strong>Eval instrument</strong> — <code>eval/*</code></li>
+<li><strong>Gemma-4 trunk</strong> — <code>gemma4/*</code>, <code>encoders/*</code></li>
+<li><strong>Rollout + judge</strong> — <code>rollout*.py</code>, <code>interface.py</code>, <code>judge/*</code></li>
+</ol>
+<p>Ranking criteria, in order: (P0) silent-wrongness risks — anything
+that could corrupt a loss, a metric, or a paired comparison without
+announcing itself; (P1) measurement-integrity risks; (P2) performance
+on the 1×H100 boxes; (P3) structural headroom for the north star
+(few-shot rig transfer) and hygiene. Style nits were out of scope.
+<code>docs/architecture.md</code> was used as the intended-design reference —
+a finding has to disagree with the code, not just with the doc.</p>
+<p>Verification status is marked per finding: <strong>[verified]</strong> = I
+reproduced the claim against the code myself this session;
+<strong>[reviewer]</strong> = reported with file:line evidence by the subsystem
+reviewer and consistent with everything I checked, not independently
+re-derived. One reviewer finding was refuted on verification and is
+recorded at the bottom — the base rate for that is why the marks
+exist.</p>
+<h2 id="headline"><a class="header" href="#headline">Headline</a></h2>
+<p><strong>No P0 (silent-wrongness-in-current-numbers) finding survived
+verification.</strong> The measurement core held up under adversarial
+reading: pooling math is exactly as documented (valid-element
+weighted), the holdout split is a pure function of its flags, the
+FAST round-trip is inverse-exact with conservative clipping, the Heun
+solver is a correct explicit trapezoid matching the π0 convention,
+the trunk is bitwise-parity-anchored against HF (eager/H100), and the
+seeding chains make training and eval draws pure functions of their
+flags. The current box batch and draws chain are not invalidated by
+anything below.</p>
+<p>What the review did find is a layer of <strong>contract gaps at the
+instrument’s edges</strong> — places where the fail-loud philosophy has
+quiet holes that don’t corrupt today’s numbers but will corrupt
+<em>some future</em> number silently when a precondition shifts (corpus
+composition, a resume, a conditioned flow run, the first rig
+deployment). Ranked by leverage:</p>
+<h2 id="tier-1--measurement-integrity-fix-before-they-bite"><a class="header" href="#tier-1--measurement-integrity-fix-before-they-bite">Tier 1 — measurement integrity (fix before they bite)</a></h2>
+<p><strong>1. Flow-policy eval noise is keyed to the corpus-relative concat
+index — sealed plans pin frame identity but NOT noise identity.</strong>
+[verified] <code>bijou/eval/policies.py:288-295</code> seeds each frame’s draw as
+<code>sample_noise(seed + index)</code> where <code>index</code> is the global concatenated
+index recomputed from the <em>current</em> corpus (<code>eval/plan.py:301</code>).
+Adding/removing/growing any dataset in the eval data dir shifts the
+offsets of everything after it: the plan still resolves, the same
+frames score — but every flow draw changes. Across-noise-draw std is
+~5.9°, orders of magnitude above the 1e-4 anchor bands, and
+state-copy stays bitwise-identical, making the drift look like model
+change. Flow anchors are therefore only valid at frozen corpus
+composition. Fix: seed from the stable <code>(seed, repo_id, episode, frame)</code> triple — a one-time, versioned instrument break that needs a
+posted amendment with re-banked flow anchors.</p>
+<p><strong>2. Resume semantics: three quiet traps around <code>--resume</code>.</strong>
+[verified] (a) Nothing restores the data-stream position: resume sets
+<code>epoch = 0</code> with the same-seed shuffle (<code>train.py:2451-2467</code>), so a
+same-<code>--seed</code> resume replays exactly the batches and τ/ε draws
+already trained — the team’s “fresh seed on resume” convention is
+real but unenforced by code. (b) Live-backbone resume is not the
+“lossless continuation” the comment claims: fp32 masters round-trip
+through the bf16 <code>backbone.safetensors</code> snapshot
+(<code>loading.py:816-833</code>), and <code>optimizer.pt</code> holds Adam <em>moments</em>, not
+master weights — every resume boundary snaps the backbone to the
+bf16 grid, discarding exactly the sub-bf16-resolution updates that
+are the stated reason fp32 masters exist (<code>train.py:1975-1979</code>).
+(c) A changed <code>--backbone-*-lr</code> on resume is silently ignored
+(optimizer state restores all groups; the advisory note checks group
+0 only, <code>train.py:2307-2319</code>). All three land directly on idea #3
+(longer-training extension runs).</p>
+<p><strong>3. The Q3 conditioning-collapse tripwire cannot fire for flow
+decoders.</strong> [verified] The pre-registered alarm (“mean |Δprediction|
+≈ 0 means the label is ignored”) compares the outcome-overridden
+decode against the scalar pass’s predictions, but passes the
+<em>advanced</em> generator (<code>train.py:818-823</code>) — fresh noise. For a flow
+decoder mean|Δ| has a floor at the sampling variance even if the
+model is completely conditioning-blind, which is precisely the state
+the tripwire was registered to catch. Exact for ar_backbone (greedy).
+Fix: reuse the scalar pass’s noise per item.</p>
+<p><strong>4. <code>--aux-prompt-hash</code> pins training but not measurement.</strong>
+[verified] The pin reaches the train-side <code>select_datasets</code>
+(<code>train.py:1765</code>) but neither the in-run probe selection
+(<code>train.py:2360</code>) nor offline eval (<code>eval/cli.py:421</code>) — a pinned run
+whose stamp mismatches trains a dataset as unjudged (kinds render
+<code>unknown</code>, no labels) while probe/eval render full tags and
+conditioning for the same dataset. Train and instrument disagree on
+the prompt distribution, silently. Fix: one kwarg at two call sites.</p>
+<p><strong>5. The eval report artifact does not pin scoring semantics.</strong>
+[verified] The JSON records data/split/filters/seed/plan but omits
+<code>--sample-steps</code>, <code>--sample-method</code>, <code>--generate</code>, <code>--exclude</code>,
+<code>--condition-override</code>, batch size, and world size
+(<code>eval/cli.py:1004-1041</code>); <code>--condition-override</code> appears in <strong>no</strong>
+artifact and doesn’t rename the policy (unlike <code>_drawsN</code>), so a Q3
+counterfactual JSON is indistinguishable from a deployment read.
+Sharding docs say exact reproduction needs (seed, world_size,
+batch_size); two of three are unrecorded. An eval is not reproducible
+— for condition-override, not even interpretable — from its report
+alone.</p>
+<p><strong>6. Three silent holes in the fail-loud instrument.</strong> [reviewer;
+bounds-check hole verified] (a) <code>resolve_plan</code> never bounds-checks
+<code>frame_index</code> (<code>eval/plan.py:289-301</code>): a truncated/re-encoded
+episode maps planned frames into the <em>next</em> episode (or dataset) and
+scores them without error. (b) The leakage checker’s same-repo-id
+branch maps episodes identically with no count/content check
+(<code>eval/leakage.py:191-196</code>): a filtered-and-renumbered corpus keeping
+its repo id gets a false PASS while radioactive panel content trains.
+(c) <code>metrics.py</code>’s <code>max(divisor, 1)</code> guards turn an
+impossible-today zero-valid frame into a perfect 0.0 score rather
+than a NaN — combined with (a), mis-addressed frames could <em>lower</em>
+MAE. Each fix is an assert.</p>
+<p><strong>7. Trunk parity has a blind spot exactly where production lives.</strong>
+[reviewer] <code>verify_parity.py</code> compares against HF only at batch-1,
+unpadded, full-depth, single-image; the production encode is
+left-padded batches, logical positions, 15-layer truncation with
+sliced PLE, <code>kv_stop_layer</code>, state-token splice, multi-camera. Those
+equivalences are pinned by self-consistency tests only — a joint
+semantic divergence from HF’s padded-multimodal conventions would be
+invisible. Window-boundary crossing is behind an off-by-default flag,
+and the bitwise-on-eager anchor is printed but not enforced
+(tolerance 2.0 on ±30 softcapped logits gates). No known divergence;
+this is the largest open <em>coverage</em> hole given how much rests on the
+parity claim. One padded, batched, 2-camera HF comparison closes most
+of it.</p>
+<h2 id="tier-2--the-rig-path-north-star-surface"><a class="header" href="#tier-2--the-rig-path-north-star-surface">Tier 2 — the rig path (north star surface)</a></h2>
+<p><strong>8. The hardware rollout path has no absolute safety clamp.</strong>
+[verified default; lerobot branch per reviewer] <code>--max-relative-target</code>
+defaults to <code>None</code> (<code>rollout.py:184-190</code>) and is the <em>only</em> limiter:
+bijou sends raw predicted positions, and the vendored lerobot degrees
+branch un-normalizes with no min/max against calibration
+(<code>motors_bus.py:900-903</code>). A wrong <code>--stats-repo-id</code> or one bad chunk
+commands arbitrary servo ticks at full speed on a default invocation.
+Also un-cross-checked: the degrees convention itself (no
+first-observation sanity gate against the stats). Before the first
+physical run: refuse to start without a clamp + assert the first
+observation lies within the stats envelope.</p>
+<p><strong>9. Rollout camera kinds diverge from training when judged kinds ≠
+operator names.</strong> [reviewer] Training orders and tags cameras by
+<em>judge-voted</em> kind from <code>meta/camera_kinds.json</code>; rollout derives
+kind from the operator’s <code>--camera</code> name (<code>rollout.py:239-256</code>). The
+judge evidence code itself documents the wild case (a fixed overhead
+cam named “front” voted kind “top”): such a rig fine-tunes with tag
+<code>top</code> but rolls out with tag <code>front</code> — silent conditioning skew on
+exactly the few-shot-transfer surface. Fix: read the rig dataset’s
+own <code>camera_kinds.json</code> at rollout (or <code>--camera-kind name=kind</code>).</p>
+<p><strong>10. Community text is an unhardened injection surface that reaches
+training prompts.</strong> [reviewer] Episode task strings interpolate
+verbatim into judge prompts with no untrusted-data framing
+(<code>judge/claude.py:81-84</code>), and judge <em>outputs</em> feed back as training
+inputs (suggested-instruction augmentation, subgoal conditioning). A
+hostile task string can tilt curation and seed prompt text. Images
+got anonymization for exactly this reason; text deserves the same.</p>
+<h2 id="tier-3--performance-both-known-levers-now-concretized"><a class="header" href="#tier-3--performance-both-known-levers-now-concretized">Tier 3 — performance (both known levers, now concretized)</a></h2>
+<p><strong>11. Idea #2 (prefix compile/bucketing) blocker map.</strong> [reviewer]
+Concrete compile blockers on the 79% path: data-dependent
+<code>pooled[valid_mask]</code> (vision.py:606), host-syncing <code>bool(...all())</code> /
+<code>int(...sum())</code> + <code>masked_scatter</code> (masks.py:132, model.py:196-204),
+Python KVCache <code>torch.cat</code> mutation, dense additive <code>[B,1,S,S]</code>
+masks. And a standing tax: <strong>no prefix attention ever takes the flash
+path</strong> — sliding layers always carry an additive mask, global layers’
+head_dim 512 exceeds the fused-kernel cap. Bucketing is a
+prerequisite for compile (variable P). Also: with <code>retain_cache=False</code>
+all 15 prefix layers still write K/V that only {4,9,14} consume, and
+frozen-run probe evals re-encode a bit-identical prefix every eval
+(~79% of probe cost is recomputing a constant — cacheable).</p>
+<p><strong>12. Idea #8 (262k-vocab CE) concretized.</strong> [reviewer]
+<code>ar_backbone_losses</code> materializes a fresh <code>[B·S, 262144]</code> fp32 logits
+copy (~1 GiB at B10) on top of <code>_patched_logits</code>’ two full-vocab
+tensors (<code>ar_backbone.py:743-748</code>); a chunked/fused linear-CE
+(logsumexp against <code>lm_head.weight</code> + the 1026-row patch; the softcap
+is elementwise and fuses) never materializes logits — the single
+biggest VRAM lever on the ar_backbone arm. Decode-side, every
+action-phase step computes all 262k logit columns to argmax over
+≤1026 (grammar mask + monotone softcap ⇒ block-columns-only is
+exact).</p>
+<h2 id="tier-4--smaller-integrityhygiene-items-queue-fodder"><a class="header" href="#tier-4--smaller-integrityhygiene-items-queue-fodder">Tier 4 — smaller integrity/hygiene items (queue fodder)</a></h2>
+<ul>
+<li><strong>Normalization stats (and FAST q01/q99) are fitted on the whole
+dataset including held-out episodes</strong> (<code>data.py:717-731</code>) —
+symmetric and small, but “held-out” claims should be worded
+accordingly (2-episode datasets: 50% of the stats data is holdout).
+[reviewer]</li>
+<li><strong>Cross-repo duplicate content is never fingerprinted</strong>
+(<code>data.py:663-670</code> dedups exact repo ids only): community forks
+double-weight content and can place near-twins of holdout episodes
+in train. Cheap census (episode count + stats hash) before trusting
+±0.05° holdout deltas. [reviewer]</li>
+<li><strong>Action-dim anchor is the first-discovered dataset</strong>, even one
+later dropped by filters (<code>data.py:636-645</code>) — ordering-dependent;
+a majority-dims assert closes it. [reviewer]</li>
+<li><strong><code>--dump-predictions</code> npz rows carry no stable frame identity</strong>
+(concat <code>index</code> + <code>repo_id</code> only, no episode/frame columns,
+<code>eval/cli.py:780-791</code>) — paired A/B across npzs is only valid at
+byte-identical selection, and misalignment is undetectable beyond
+repo_id spot checks. Relevant to the queued flow-vs-AR per-frame
+analysis (mitigated there: same-day, same-corpus, state-copy
+summaries bitwise-equal across the two reports). [reviewer]</li>
+<li><strong>Eval-side unfetchable-frame substitution silently swaps scored
+frames</strong> (loud on stderr, uncounted in the report). [reviewer]</li>
+<li><strong>Batched ar_backbone aux decode is batch-composition-dependent</strong>
+(value-phase lockstep feeds batch-max terminators into row caches;
+code-documented as accepted; B=1 rollout unaffected)
+(<code>ar_backbone.py:487-556</code>); constrained-candidate forcing goes
+off-manifold the moment a candidate set has unequal token lengths
+(<code>:510-525</code>). [reviewer]</li>
+<li><strong>Judge pipeline biases</strong>: permanent model-agnostic failure-skip
+excludes long/dense episodes from curation (3.4% truncation class,
+<code>sweep.py:228-261</code>); default materialization mixes judge models
+per-episode by <code>judged_at</code> (<code>materialize.py:99-115</code> — make
+<code>--model</code> required). [reviewer]</li>
+<li><strong>In-run probe MAE is world-size-dependent</strong> (frame→rank→generator
+pairing, <code>train.py:527-528</code>) — 1-GPU vs 4-GPU probe curves carry an
+unbudgeted delta; registered caveat, not a fix. [reviewer]</li>
+<li><strong>No deterministic-mode toggle exists</strong>: seeds pin draws and order,
+not kernel atomics — identical-seed replication drifts by design;
+worth knowing when a band is missed. [reviewer]</li>
+<li>Assorted: EVENT-negative supervision keyed to <code>annotation.progress</code>
+presence (deserves an assert); aux render caps vs decode budgets
+agree by convention only; FAST <code>decode</code> strips mid-sequence BOA
+silently; <code>fit_report</code> recon MAE excludes clip cost; audio/video
+placeholder ids embed silently as garbage rows; decoder param group
+gets blanket weight decay (norm scales included) unlike backbone
+groups; <code>_to_pil</code> floors instead of rounds. [reviewer]</li>
+</ul>
+<h2 id="refuted-on-verification"><a class="header" href="#refuted-on-verification">Refuted on verification</a></h2>
+<p>The decoders reviewer’s top claim — right-padded prefixes evict real
+context from sliding-window layers in batched ar_backbone decode —
+is <strong>false as stated</strong>: the collator left-pads
+(<code>encoders/gemma4.py:170</code>, <code>padding_side = "left"</code>), which is the
+load-bearing, test-gated design decision (2026-08-01) that makes the
+physical-index window math correct; with left padding the suffix is
+physically adjacent to each row’s real prefix and no real token is
+evicted. The adjacent true concern (batch-composition dependence of
+aux decodes) is the Tier-4 item above.</p>
+<h2 id="what-was-checked-and-holds-up"><a class="header" href="#what-was-checked-and-holds-up">What was checked and holds up</a></h2>
+<p>Load-bearing verifications across the six reviews, kept here as the
+positive result they are:</p>
+<ul>
+<li><strong>Pooling math</strong>: headline chunk_mae = Σ|err| over valid (step,
+motor) elements ÷ (Σ n_valid × dims), exactly as documented;
+per-dataset slices re-pool exactly; fixed accumulation order via
+index-sorted merge — consistent with observed bitwise
+reproducibility at fixed config.</li>
+<li><strong>Split determinism</strong>: holdout is a pure function of (split_seed,
+repo_id, count, fraction), sha512-seeded, machine-independent;
+train/eval/leakage recompute identical sets from flags.</li>
+<li><strong><code>--sample-draws</code></strong>: flow-only, N independent CPU-seeded draws,
+draw 0 byte-identical to the single-draw path, mean taken in raw
+degrees (affine-commutes), <code>_drawsN</code> name suffix — the running
+ensembling chain’s semantics are sound.</li>
+<li><strong>Heun solver + flow objective</strong>: correct explicit trapezoid on the
+exact-endpoint grid; τ convention, interpolant, and velocity target
+match π0/lerobot exactly; loss/predict normalization identical.</li>
+<li><strong>AR CE paths</strong>: shift/masking/PAD-IGNORE alignment correct in both
+decoders; suffix causality holds (no future leakage); aux loss is a
+true position-weighted mean across ranks.</li>
+<li><strong>FAST round-trip</strong>: orthonormal DCT-II with exact inverse;
+fit-clip equals encode-clip; grammar-constrained decode provably
+terminates; train and eval quantiles come from the same attached
+stats.</li>
+<li><strong>Trunk</strong>: strict+assign weight loading (nothing can silently stay
+at init); PLE truncation slicing consistent; sliding-window/cache
+arithmetic hand-checked consistent end-to-end; 12B/MoE swaps fail
+loudly at config parse.</li>
+<li><strong>Rollout preprocessing parity</strong>: rollout builds
+StatsAttachedDataset-shaped items through the <em>same</em> collator stack
+as training — no reimplementation seam (remaining deltas:
+camera-kind finding above; live frames skip AV1 recompression).</li>
+<li><strong>Judge integrity</strong>: idempotent keyed sidecars, no double-count
+path, full provenance (model + prompt hash + evidence params);
+malformed verdicts are retryable failures, never clamped scores.</li>
+<li><strong>Seeding chains</strong>: loader/worker/collator RNGs are pure functions
+of (seed, rank, worker); eval consumes no training RNG (changing
+<code>--eval-every</code> cannot perturb a paired run); grad-clip covers
+exactly the optimized set, post-allreduce.</li>
+</ul>
+<h2 id="consequences-for-the-queue"><a class="header" href="#consequences-for-the-queue">Consequences for the queue</a></h2>
+<p>Proposed new work items, in leverage order (none started — this
+session was the review):</p>
+<ol>
+<li><strong>Instrument-hardening pass</strong> (CPU, small diffs, oracle-gated):
+prompt-hash kwarg to probe/eval selection; <code>resolve_plan</code> bounds
+assert; <code>score_frame</code> n_valid assert; report JSON gains
+sample_steps/method/generate/exclude/condition_override/batch/world
+fields; npz gains episode/frame columns. All additive; only the
+report-schema change touches comparability (additive keys, no
+break).</li>
+<li><strong>Flow-noise stable-triple seeding</strong> — a versioned instrument
+break: pre-register as sealed_v3-style amendment, re-bank flow
+anchors once, gain corpus-composition-invariant flow reads. Do at
+a natural anchor boundary (e.g. after the current box batch
+reads).</li>
+<li><strong>Q3 noise fix</strong> (reuse scalar-pass noise) — before the first
+conditioned flow run.</li>
+<li><strong>Resume hardening</strong> — enforce fresh-seed-or-warn + honest
+bf16-snap warning on live-backbone resume; required before idea
+#3 (longer training) launches.</li>
+<li><strong>Rig-rollout safety gate</strong> (clamp mandatory + first-obs stats
+envelope assert + rollout reads <code>camera_kinds.json</code>) — required
+before the first physical run; feeds the north-star benchmark
+(idea #16).</li>
+<li><strong>Parity extension</strong> — one padded/batched/2-camera HF comparison
+<ul>
+<li><code>--require-bitwise</code> eager gate; cheap, closes finding 7.</li>
+</ul>
+</li>
+<li><strong>Duplicate-content census</strong> (CPU fingerprint sweep over
+curated_v0) — before trusting fine holdout deltas.</li>
+</ol>
+<p>The compile-blocker map (finding 11) folds into idea #2’s
+implementation notes; the chunked-CE design (finding 12) folds into
+idea #8.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../posts/2026-08-05-sealed-plan-v2.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../posts/2026-08-05-trunk-survey.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../posts/2026-08-05-sealed-plan-v2.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../posts/2026-08-05-trunk-survey.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-09f2665d.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

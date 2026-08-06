@@ -1,0 +1,1162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TabArena leaderboard table — no imputation | Classification | Small</title>
+<style>
+  :root {
+        --fam-foundation: #b07cf0;
+    --fam-nn: #5aa9e6;
+    --fam-tree: #5cb85c;
+    --fam-reference: #f0a35a;
+    --fam-baseline: #9e9e9e;
+    --fam-other: #9e9e9e;
+    --paper: #ffffff;
+    --card: #ffffff;
+    --ink: #14161a;
+    --muted: #6d6c65;
+    --line: #e4e3db;
+    --accent: #2a78d6;
+    --chip-bg: #f2f1ec;
+    --pt-muted: #b9b8b1;
+    /* The same family hues as *text*. The mark colors are tuned for fills and
+    drop below readable contrast as small labels on the light surface, so
+    light mode darkens them; dark mode reuses the mark colors as-is. */
+    --fam-foundation-ink: #7d3fc2;
+    --fam-nn-ink: #1c6fa8;
+    --fam-tree-ink: #2f7d32;
+    --fam-reference-ink: #a4600f;
+    --fam-baseline-ink: #5f5f5f;
+    --fam-other-ink: #5f5f5f;
+    /* Tuning-variant series (default / tuned / tuned + ensembled). Light mode
+    is the paper view's surface, so it uses the *static figures' own* seaborn
+    pastels — figures exported from here drop straight into a paper beside
+    them. The cost is colorblind separation: green vs. orange is 4.0 deutan
+    ΔE, well inside the band that needs secondary encoding, which here is the
+    fixed concentric bar widths plus the legend and the data table. Dark mode
+    (the website) keeps the stepped, better-separated version below. */
+    --var-default: #a1c9f4;
+    --var-tuned: #ffb482;
+    --var-tunedens: #8de5a1;
+    --optimal: #228b22;
+    --tooltip-bg: #14161a;
+    --tooltip-ink: #fbfbf9;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #131316;
+      --card: #1b1b1f;
+      --ink: #f0efea;
+      --muted: #9b9a92;
+      --line: #2e2e33;
+      --accent: #3987e5;
+      --chip-bg: #232327;
+      --pt-muted: #55555c;
+      --fam-foundation-ink: var(--fam-foundation);
+      --fam-nn-ink: var(--fam-nn);
+      --fam-tree-ink: var(--fam-tree);
+      --fam-reference-ink: var(--fam-reference);
+      --fam-baseline-ink: var(--fam-baseline);
+      --fam-other-ink: var(--fam-other);
+      --var-default: #4386d5;
+      --var-tuned: #c05f38;
+      --var-tunedens: #289972;
+      --optimal: #2ea043;
+      --tooltip-bg: #f0efea;
+      --tooltip-ink: #14161a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #131316;
+    --card: #1b1b1f;
+    --ink: #f0efea;
+    --muted: #9b9a92;
+    --line: #2e2e33;
+    --accent: #3987e5;
+    --chip-bg: #232327;
+    --pt-muted: #55555c;
+    --fam-foundation-ink: var(--fam-foundation);
+    --fam-nn-ink: var(--fam-nn);
+    --fam-tree-ink: var(--fam-tree);
+    --fam-reference-ink: var(--fam-reference);
+    --fam-baseline-ink: var(--fam-baseline);
+    --fam-other-ink: var(--fam-other);
+    --var-default: #4386d5;
+    --var-tuned: #c05f38;
+    --var-tunedens: #289972;
+    --optimal: #2ea043;
+    --tooltip-bg: #f0efea;
+    --tooltip-ink: #14161a;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --paper: #ffffff;
+    --card: #ffffff;
+    --ink: #14161a;
+    --muted: #6d6c65;
+    --line: #e4e3db;
+    --accent: #2a78d6;
+    --chip-bg: #f2f1ec;
+    --pt-muted: #b9b8b1;
+    /* The same family hues as *text*. The mark colors are tuned for fills and
+    drop below readable contrast as small labels on the light surface, so
+    light mode darkens them; dark mode reuses the mark colors as-is. */
+    --fam-foundation-ink: #7d3fc2;
+    --fam-nn-ink: #1c6fa8;
+    --fam-tree-ink: #2f7d32;
+    --fam-reference-ink: #a4600f;
+    --fam-baseline-ink: #5f5f5f;
+    --fam-other-ink: #5f5f5f;
+    /* Tuning-variant series (default / tuned / tuned + ensembled). Light mode
+    is the paper view's surface, so it uses the *static figures' own* seaborn
+    pastels — figures exported from here drop straight into a paper beside
+    them. The cost is colorblind separation: green vs. orange is 4.0 deutan
+    ΔE, well inside the band that needs secondary encoding, which here is the
+    fixed concentric bar widths plus the legend and the data table. Dark mode
+    (the website) keeps the stepped, better-separated version below. */
+    --var-default: #a1c9f4;
+    --var-tuned: #ffb482;
+    --var-tunedens: #8de5a1;
+    --optimal: #228b22;
+    --tooltip-bg: #14161a;
+    --tooltip-ink: #fbfbf9;
+    color-scheme: light;
+  }
+  html, body { margin: 0; background: var(--paper); }
+  /* The colour emoji fonts are named *before* the generic `sans-serif`. A generic
+     family matches every character through the browser's own fallback chain, so
+     anything listed after it is unreachable — and that fallback resolves emoji to
+     a monochrome font on Linux, which flattens the family symbols on the chips.
+     Latin glyphs are unaffected: the emoji fonts carry none. */
+  body {
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI",
+      "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    line-height: 1.5;
+    padding: 10px 12px 14px;
+  }
+  /* The [hidden] attribute must beat author display rules (e.g. the
+     inline-flex on .metricpick), else hidden controls render empty. */
+  [hidden] { display: none !important; }
+
+  .explorer-title { font-size: 15px; font-weight: 650; margin: 0 0 8px; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 10px; }
+  .controls .hint { font-size: 12.5px; color: var(--muted); }
+  .btnrow { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn {
+    font: 600 12.5px/1 system-ui, sans-serif; color: var(--ink);
+    background: var(--chip-bg); border: 1px solid var(--line); border-radius: 7px;
+    padding: 6px 11px; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn:focus-visible, .chip:focus-visible, .famchip:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .metricpick { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .metricpick select {
+    font: 600 12.5px/1.2 system-ui, sans-serif; color: var(--ink);
+    background: var(--chip-bg); border: 1px solid var(--line); border-radius: 7px;
+    padding: 5px 7px; cursor: pointer;
+  }
+
+  .chips { display: flex; flex-direction: column; gap: 9px; }
+  /* One block per family: the family toggle on top, its chips wrapping below. */
+  .chiprow { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+  .famchip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font: 650 10.5px/1.3 system-ui, sans-serif; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted); background: var(--chip-bg); border: 1px dashed var(--line);
+    border-radius: 999px; padding: 5px 10px; cursor: pointer;
+  }
+  .famchip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fam); flex: none; }
+  .famchip .count { font-weight: 500; letter-spacing: 0; opacity: 0.75; }
+  /* The family symbol sits at text size, not the chip's small-caps size. */
+  .famchip .sym { font-size: 1.05em; letter-spacing: 0; }
+  .famchip:hover { border-color: var(--fam); color: var(--ink); }
+  .famchip[aria-pressed="true"] {
+    border: 1px solid var(--fam);
+    background: color-mix(in srgb, var(--fam) 13%, transparent);
+    color: var(--ink);
+  }
+  /* A toggle button that carries its own colour: off is faded with a neutral
+     border, on takes the colour as border and tint. Opt-in via `.toggle` so the
+     older explorers, which fade their variant buttons with inline styles, are
+     unaffected. */
+  .btn.toggle[aria-pressed] { opacity: 0.5; }
+  .btn.toggle[aria-pressed="true"] {
+    opacity: 1;
+    border-color: var(--fam);
+    background: color-mix(in srgb, var(--fam) 18%, var(--chip-bg));
+  }
+  .btn.toggle .swatch {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--fam); margin-right: 6px; vertical-align: middle;
+  }
+  .btn.toggle[aria-pressed="false"] .swatch { background: var(--pt-muted); }
+  .grouplabel { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+
+  .chipset { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font: 500 12.5px/1 system-ui, sans-serif; color: var(--ink);
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 10px 5px 8px; cursor: pointer;
+  }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pt-muted); flex: none; }
+  .chip .imp-mark { color: var(--muted); font-weight: 700; margin-left: -2px; }
+  .chip[aria-pressed="true"] { border-color: var(--fam); background: color-mix(in srgb, var(--fam) 13%, transparent); font-weight: 650; }
+  .chip[aria-pressed="true"] .dot { background: var(--fam); }
+  .chip:hover { border-color: var(--muted); }
+
+  .legendstrip {
+    display: flex; flex-wrap: wrap; gap: 5px 16px; align-items: center;
+    font-size: 12.5px; color: var(--muted); padding: 2px 2px 8px;
+  }
+  .legendstrip .item { display: inline-flex; align-items: center; gap: 6px; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; display: none;
+    background: var(--tooltip-bg); color: var(--tooltip-ink);
+    border-radius: 8px; padding: 8px 11px; font-size: 12px; line-height: 1.45;
+    max-width: 260px; z-index: 5; font-variant-numeric: tabular-nums;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  }
+  .tooltip .t-name { font-weight: 700; font-size: 12.5px; }
+  .tooltip .t-var { opacity: 0.75; }
+  .tooltip .t-imp { opacity: 0.85; font-style: italic; }
+
+  details.datatable { margin-top: 8px; font-size: 12.5px; }
+  details.datatable summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+  details.datatable .tblwrap { overflow-x: auto; margin-top: 8px; }
+  details.datatable table { border-collapse: collapse; font-variant-numeric: tabular-nums; min-width: 560px; }
+  details.datatable th, details.datatable td {
+    text-align: left; padding: 3px 12px 3px 0; border-bottom: 1px solid var(--line);
+  }
+  details.datatable th { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+
+  svg text {
+    font-family: system-ui, -apple-system, "Segoe UI",
+      "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .chip, .btn, .famchip { transition: border-color 120ms ease, background-color 120ms ease; }
+  }
+
+  /* --- Paper view -----------------------------------------------------------
+     A figure-ready state for slides and papers: white surface, and only the
+     things needed to read the plot — the caption, the legend and the chart.
+     The controls, the chip list and the data table are interactive scaffolding,
+     not part of the figure. Entered via the "Paper view" button (which stamps
+     data-theme="light" on the root, see the scopes above). */
+  /* One toggle, in the same place in both states and never hidden — an exit
+     tucked into a corner of the figure was easy to miss. */
+  .viewbar { display: flex; align-items: center; gap: 10px; margin: 0 0 9px; }
+  body.paper .controls,
+  body.paper .chips,
+  body.paper .sidebox,
+  body.paper details.datatable { display: none !important; }
+  body.paper { padding: 14px 18px 18px; }
+  /* Export controls, revealed with the paper view. */
+  .exportbar { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+  .exportbar .hint { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+
+
+  /* --- The table ------------------------------------------------------------
+     A scroll box with a sticky header, so the column names stay put through 80
+     rows. Numbers are tabular so digits line up down a column. */
+  .lbt-scroll {
+    overflow: auto; max-height: 720px; margin-top: 4px;
+    border: 1px solid var(--line); border-radius: 10px;
+    scrollbar-width: thin; scrollbar-color: var(--pt-muted) transparent;
+  }
+  .lbt-scroll::-webkit-scrollbar { width: 11px; height: 11px; }
+  .lbt-scroll::-webkit-scrollbar-thumb {
+    background: var(--pt-muted); border-radius: 8px;
+    border: 3px solid transparent; background-clip: content-box;
+  }
+  table.lbt { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  table.lbt th, table.lbt td { padding: 5px 9px; text-align: center; border: 1px solid var(--line); }
+  table.lbt thead th {
+    position: sticky; top: 0; z-index: 3; background: var(--card); font-size: 12px;
+    font-weight: 650; white-space: nowrap; cursor: pointer; user-select: none;
+    box-shadow: inset 0 -1px 0 var(--line);
+  }
+  /* The header is both the sort control and the definition, so it gets the
+     pointer of the former and the dotted underline of the latter. */
+  table.lbt thead th .lbl { text-decoration: underline; text-decoration-style: dotted;
+    text-decoration-color: var(--muted); text-underline-offset: 3px; }
+  table.lbt thead th:hover { color: var(--accent); }
+  table.lbt thead th::after { content: "\2195"; font-size: 0.72em; opacity: 0.3; margin-left: 5px; }
+  table.lbt thead th[aria-sort="ascending"]::after { content: "\25B2"; opacity: 0.85; }
+  table.lbt thead th[aria-sort="descending"]::after { content: "\25BC"; opacity: 0.85; }
+  table.lbt td.name { text-align: left; white-space: nowrap; }
+  table.lbt td.pos { color: var(--muted); font-variant-numeric: tabular-nums; }
+  table.lbt td.type { white-space: nowrap; width: 1%; }
+  table.lbt td.num { font-weight: 600; }
+  table.lbt td.na { color: var(--pt-muted); }
+  table.lbt tbody tr:hover td { filter: brightness(1.12); }
+  .ci { opacity: 0.5; font-weight: 400; font-size: 0.82em; }
+  .pill { padding: 1px 7px; border-radius: 999px; font-size: 0.95em; white-space: nowrap; }
+  .verified { font-size: 0.85em; }
+  .link-icon { font-size: 0.78em; opacity: 0.65; margin-left: 2px; }
+  /* Grey rather than a dimmed inherit: dimming leaves the tag tinted with the
+     family colour, which the model name already carries, and made this table
+     disagree with the cross-subset table on the app page. */
+  .variant-tag { color: var(--muted); font-weight: 400; font-size: 0.9em; }
+  td.name .imp-mark { color: var(--muted); font-weight: 700; margin-left: 3px; }
+  td.name a { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+  td.name a:hover { text-decoration-style: solid; }
+
+  .lbt-search {
+    font: 500 12.5px/1 system-ui, sans-serif; color: var(--ink);
+    background: var(--chip-bg); border: 1px solid var(--line); border-radius: 7px;
+    padding: 6px 9px; width: 12em;
+  }
+  .lbt-cap { font-size: 12.5px; color: var(--muted); margin: 7px 0 0; }
+  .lbt-empty { padding: 34px 0; text-align: center; color: var(--muted); font-size: 13px; }
+  .chips-head { flex: 1 1 100%; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+  /* The model selector sits above the table it filters. Families pack side by
+     side rather than stacking: one row each would leave the small ones (Baseline,
+     Other) wasting a line. */
+  .chips { margin: 2px 0 10px; flex-direction: row; flex-wrap: wrap; gap: 12px 28px; align-items: flex-start; }
+  .chiprow { flex: 0 1 auto; min-width: 0; }
+
+  /* The data export, in the same green the website's figure-export controls use,
+     so "this downloads something" reads the same across the site. */
+  .btn.export {
+    color: #063; background: #7ee0b8; border-color: #7ee0b8; font-weight: 700;
+  }
+  .btn.export:hover { background: #a6efcd; border-color: #a6efcd; }
+  /* Paper view keeps the table: here the table *is* the figure. */
+  body.paper .lbt-scroll { max-height: none; }
+</style>
+</head>
+<body>
+  <div class="viewbar">
+    <button class="btn" id="btn-paper" title="White background, table only — for slides and papers">Paper view</button>
+  </div>
+  <p class="explorer-title" id="title"></p>
+  <div class="controls">
+    <span class="grouplabel">Variants</span>
+    <div class="btnrow" id="variant-btns"></div>
+    <button class="btn" id="btn-imputed" title="Models whose score is partly imputed, marked &#8225;"></button>
+    <input class="lbt-search" id="search" type="search" placeholder="Search model or family" aria-label="Search">
+    <span class="grouplabel">Columns</span>
+    <div class="btnrow" id="col-btns"></div>
+    <button class="btn export" id="btn-csv" title="Download the rows and columns shown, in the current sort order">Download CSV</button>
+  </div>
+  <!-- The shared paper-view helper reveals this bar; a table has no figure to
+       export as SVG/PNG/PDF, and its CSV button belongs beside the filters that
+       shape the export, so it stays empty here. -->
+  <div class="exportbar" id="exportbar" hidden></div>
+  <!-- The model selector belongs above the table it filters. It doubles as the
+       family key, which is why there is no separate legend strip. -->
+  <div class="chips" id="chips"></div>
+  <div class="lbt-scroll" id="tblwrap"></div>
+  <p class="lbt-cap" id="caption"></p>
+
+<script>
+(function () {
+  "use strict";
+  const CONFIG = {"title": null, "columns": [{"key": "position", "label": "#", "always": true, "hint": "Position in this subset's published ranking."}, {"key": "family", "label": "Type", "always": true, "hint": "Model family \u2014 see the key above the table."}, {"key": "model", "label": "Model", "always": true, "hint": "The model, its tuning variant in brackets, \u2714\ufe0f when the implementation was verified, and \u2021 when some results are imputed."}, {"key": "elo", "label": "Elo", "decimals": 0, "heatmap": true, "hint": "Pairwise win-rate rating; a 400-point gap is about a 91% win rate. Higher is better."}, {"key": "score", "label": "Score", "decimals": 3, "heatmap": true, "hint": "Error rescaled per dataset to 1 (best) \u2026 0 (median), then averaged. Higher is better."}, {"key": "rank", "label": "Rank", "decimals": 2, "lowerBetter": true, "heatmap": true, "hint": "Mean rank across datasets. Lower is better."}, {"key": "hrank", "label": "Harmonic rank", "short": "H. rank", "decimals": 2, "lowerBetter": true, "heatmap": true, "hint": "Harmonic mean of per-dataset ranks; rewards being excellent somewhere. Lower is better."}, {"key": "imp", "label": "Improvability (%)", "short": "Improv.", "decimals": 2, "lowerBetter": true, "heatmap": true, "hint": "How much lower the best model's error is than this one's, per dataset. Lower is better."}, {"key": "train_time", "label": "Train time (s/1K)", "short": "Train s", "decimals": 2, "lowerBetter": true, "heatmap": true, "logScale": true, "hint": "Median seconds to fit per 1000 rows. Lower is better; shaded on a log scale."}, {"key": "predict_time", "label": "Predict time (s/1K)", "short": "Predict s", "decimals": 3, "lowerBetter": true, "heatmap": true, "logScale": true, "hint": "Median seconds to predict per 1000 rows. Lower is better; shaded on a log scale."}, {"key": "imputed_pct", "label": "Imputed (%)", "short": "Imputed", "decimals": 1, "lowerBetter": true, "heatmap": true, "hint": "Share of datasets whose score was imputed because the model could not run on them."}, {"key": "hardware", "label": "Hardware", "text": true, "hint": "The hardware the reported runtimes were measured on."}], "rankKey": "elo", "variants": ["Default", "Tuned", "Tuned + Ens."]};
+  const POINTS = [{"position":0,"method":"TabFM","variant":"Default","family":"Foundation Model","url":"https:\/\/github.com\/google-research\/tabfm","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1715.0,"score":0.867,"rank":8.24,"hrank":1.78,"imp":5.638,"train_time":38.57,"predict_time":6.317,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+170\/-142","imputed":false},{"position":1,"method":"EXAONE-Tabular","variant":"Default","family":"Foundation Model","url":"https:\/\/github.com\/LGAI-Research\/EXAONE-Tabular","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1713.0,"score":0.771,"rank":8.32,"hrank":3.59,"imp":10.831,"train_time":5.54,"predict_time":0.485,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+97\/-68","imputed":false},{"position":2,"method":"AutoGluon 1.5 (extreme, 4h)","variant":"","family":"Reference Pipeline","url":"https:\/\/arxiv.org\/abs\/2003.06505","family_symbol":"\ud83d\udcca","verified":true,"elo":1615.0,"score":0.606,"rank":12.3,"hrank":5.43,"imp":11.089,"train_time":363.16,"predict_time":6.598,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+95\/-81","imputed":false},{"position":3,"method":"TabPFN-3","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2605.13986","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1612.0,"score":0.638,"rank":12.46,"hrank":5.39,"imp":13.324,"train_time":7.17,"predict_time":0.407,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+101\/-78","imputed":false},{"position":4,"method":"RealTabPFN-2.5","variant":"Tuned + Ens.","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.08667","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1580.0,"score":0.564,"rank":14.1,"hrank":6.71,"imp":13.724,"train_time":2289.39,"predict_time":8.114,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+91\/-75","imputed":false},{"position":5,"method":"TabPFN-2.6","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.08667","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1575.0,"score":0.574,"rank":14.35,"hrank":7.88,"imp":14.481,"train_time":6.26,"predict_time":0.539,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+83\/-67","imputed":false},{"position":6,"method":"RealTabPFN-2.5","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.08667","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1565.0,"score":0.555,"rank":14.86,"hrank":8.84,"imp":14.403,"train_time":6.08,"predict_time":0.762,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+76\/-70","imputed":false},{"position":7,"method":"RealTabPFN-2.5","variant":"Tuned","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.08667","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1563.0,"score":0.549,"rank":14.99,"hrank":7.09,"imp":14.387,"train_time":2289.39,"predict_time":1.253,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+75\/-66","imputed":false},{"position":8,"method":"TabICLv2","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2602.11139","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1562.0,"score":0.611,"rank":15.05,"hrank":5.79,"imp":13.829,"train_time":3.22,"predict_time":0.167,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+94\/-83","imputed":false},{"position":9,"method":"LimiX","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2509.03505","family_symbol":"\ud83e\udde0\u26a1","verified":false,"elo":1457.0,"score":0.404,"rank":21.66,"hrank":10.16,"imp":16.484,"train_time":27.77,"predict_time":5.044,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+77\/-76","imputed":false},{"position":10,"method":"RealMLP","variant":"Tuned + Ens.","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.04491","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1451.0,"score":0.352,"rank":22.12,"hrank":13.69,"imp":17.479,"train_time":3423.61,"predict_time":18.933,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+70\/-52","imputed":false},{"position":11,"method":"TabDPT-Turbo","variant":"Default","family":"Foundation Model","url":"https:\/\/openreview.net\/pdf?id=Y00pwFyrHR","family_symbol":"\ud83e\udde0\u26a1","verified":false,"elo":1430.0,"score":0.356,"rank":23.61,"hrank":10.06,"imp":18.179,"train_time":4.35,"predict_time":0.169,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+65\/-63","imputed":false},{"position":12,"method":"TabM","variant":"Tuned + Ens.","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2410.24210","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1430.0,"score":0.319,"rank":23.67,"hrank":12.17,"imp":18.456,"train_time":2469.48,"predict_time":3.418,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+64\/-55","imputed":false},{"position":13,"method":"AutoGluon 1.4 (best, 4h)","variant":"","family":"Reference Pipeline","url":"https:\/\/arxiv.org\/abs\/2003.06505","family_symbol":"\ud83d\udcca","verified":true,"elo":1423.0,"score":0.293,"rank":24.14,"hrank":14.99,"imp":18.234,"train_time":3144.62,"predict_time":1.882,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+70\/-55","imputed":false},{"position":14,"method":"TabDPT","variant":"Tuned + Ens.","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2410.18164","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1401.0,"score":0.318,"rank":25.8,"hrank":12.6,"imp":18.472,"train_time":5271.47,"predict_time":231.832,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+63\/-60","imputed":false},{"position":15,"method":"BetaTabPFN","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2502.02527","family_symbol":"\ud83e\udde0\u26a1","verified":false,"elo":1392.0,"score":0.302,"rank":26.5,"hrank":15.36,"imp":19.773,"train_time":331.0,"predict_time":2.359,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+61\/-50","imputed":false},{"position":16,"method":"TabM","variant":"Tuned","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2410.24210","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1381.0,"score":0.258,"rank":27.36,"hrank":13.98,"imp":19.294,"train_time":2469.48,"predict_time":0.408,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+53\/-60","imputed":false},{"position":17,"method":"LightGBM","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/papers.nips.cc\/paper_files\/paper\/2017\/hash\/6449f44a102fde848669bdd9eb6b76fa-Abstract.html","family_symbol":"\ud83c\udf33","verified":true,"elo":1377.0,"score":0.217,"rank":27.68,"hrank":20.89,"imp":19.488,"train_time":735.37,"predict_time":1.9,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+50\/-34","imputed":false},{"position":18,"method":"RealMLP","variant":"Tuned","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.04491","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1373.0,"score":0.25,"rank":28.0,"hrank":15.26,"imp":18.971,"train_time":3423.61,"predict_time":1.533,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+62\/-54","imputed":false},{"position":19,"method":"TabDPT","variant":"Tuned","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2410.18164","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1370.0,"score":0.278,"rank":28.25,"hrank":13.01,"imp":19.145,"train_time":5271.47,"predict_time":33.978,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+71\/-59","imputed":false},{"position":20,"method":"LightGBM","variant":"Tuned","family":"Tree-based","url":"https:\/\/papers.nips.cc\/paper_files\/paper\/2017\/hash\/6449f44a102fde848669bdd9eb6b76fa-Abstract.html","family_symbol":"\ud83c\udf33","verified":true,"elo":1352.0,"score":0.18,"rank":29.73,"hrank":22.94,"imp":19.855,"train_time":735.37,"predict_time":0.311,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+46\/-34","imputed":false},{"position":21,"method":"TabSwift","variant":"Default","family":"Foundation Model","url":"https:\/\/github.com\/LAMDA-Tabular\/TabSwift","family_symbol":"\ud83e\udde0\u26a1","verified":false,"elo":1345.0,"score":0.269,"rank":30.26,"hrank":17.96,"imp":20.583,"train_time":2.24,"predict_time":0.055,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+60\/-59","imputed":false},{"position":22,"method":"CatBoost","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1706.09516","family_symbol":"\ud83c\udf33","verified":true,"elo":1344.0,"score":0.186,"rank":30.34,"hrank":22.24,"imp":19.888,"train_time":1542.95,"predict_time":0.396,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+44\/-35","imputed":false},{"position":23,"method":"iLTM","variant":"Tuned + Ens.","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.15941","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1338.0,"score":0.167,"rank":30.82,"hrank":21.47,"imp":19.969,"train_time":21290.02,"predict_time":663.263,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+48\/-48","imputed":false},{"position":24,"method":"CatBoost","variant":"Tuned","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1706.09516","family_symbol":"\ud83c\udf33","verified":true,"elo":1334.0,"score":0.17,"rank":31.21,"hrank":23.03,"imp":20.145,"train_time":1542.95,"predict_time":0.044,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+39\/-31","imputed":false},{"position":25,"method":"ModernNCA","variant":"Tuned","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.03257","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1330.0,"score":0.184,"rank":31.48,"hrank":15.74,"imp":20.235,"train_time":6049.28,"predict_time":0.525,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+56\/-50","imputed":false},{"position":26,"method":"CatBoost","variant":"Default","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1706.09516","family_symbol":"\ud83c\udf33","verified":true,"elo":1315.0,"score":0.155,"rank":32.77,"hrank":23.91,"imp":20.738,"train_time":7.18,"predict_time":0.04,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+44\/-32","imputed":false},{"position":27,"method":"SAP-RPT-OSS","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2506.10707","family_symbol":"\ud83e\udde0\u26a1","verified":false,"elo":1314.0,"score":0.257,"rank":32.86,"hrank":11.69,"imp":21.621,"train_time":13.27,"predict_time":1.624,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+70\/-72","imputed":false},{"position":28,"method":"xRFM","variant":"Tuned + Ens.","family":"Other","url":"https:\/\/arxiv.org\/abs\/2508.10053","family_symbol":"\u2753","verified":true,"elo":1311.0,"score":0.181,"rank":33.07,"hrank":20.44,"imp":20.862,"train_time":1053.94,"predict_time":3.062,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+61\/-60","imputed":false},{"position":29,"method":"XGBoost","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1603.02754","family_symbol":"\ud83c\udf33","verified":true,"elo":1307.0,"score":0.138,"rank":33.4,"hrank":24.87,"imp":20.679,"train_time":798.08,"predict_time":2.227,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+41\/-47","imputed":false},{"position":30,"method":"TabM","variant":"Default","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2410.24210","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1299.0,"score":0.184,"rank":34.1,"hrank":20.07,"imp":21.102,"train_time":8.79,"predict_time":0.411,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+62\/-60","imputed":false},{"position":31,"method":"ModernNCA","variant":"Tuned + Ens.","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.03257","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1298.0,"score":0.199,"rank":34.2,"hrank":18.06,"imp":21.182,"train_time":6049.28,"predict_time":8.736,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+78\/-77","imputed":false},{"position":32,"method":"XGBoost","variant":"Tuned","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1603.02754","family_symbol":"\ud83c\udf33","verified":true,"elo":1291.0,"score":0.111,"rank":34.79,"hrank":24.24,"imp":20.902,"train_time":798.08,"predict_time":0.353,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+38\/-41","imputed":false},{"position":33,"method":"TabDPT","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2410.18164","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1286.0,"score":0.206,"rank":35.18,"hrank":17.19,"imp":21.56,"train_time":51.45,"predict_time":43.707,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+72\/-81","imputed":false},{"position":34,"method":"EBM","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/www.cs.cornell.edu\/~yinlou\/papers\/lou-kdd13.pdf","family_symbol":"\ud83c\udf33","verified":true,"elo":1279.0,"score":0.111,"rank":35.81,"hrank":25.93,"imp":21.933,"train_time":2499.4,"predict_time":0.174,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+42\/-37","imputed":false},{"position":35,"method":"xRFM","variant":"Tuned","family":"Other","url":"https:\/\/arxiv.org\/abs\/2508.10053","family_symbol":"\u2753","verified":true,"elo":1270.0,"score":0.141,"rank":36.56,"hrank":21.27,"imp":22.044,"train_time":1053.94,"predict_time":0.169,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+58\/-52","imputed":false},{"position":36,"method":"ChimeraBoost","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/github.com\/bbstats\/chimeraboost","family_symbol":"\ud83c\udf33","verified":true,"elo":1268.0,"score":0.13,"rank":36.67,"hrank":26.08,"imp":22.283,"train_time":1142.82,"predict_time":0.536,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+67\/-59","imputed":false},{"position":37,"method":"TorchMLP","variant":"Tuned + Ens.","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1268.0,"score":0.119,"rank":36.73,"hrank":26.95,"imp":21.508,"train_time":2977.91,"predict_time":2.415,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+51\/-49","imputed":false},{"position":38,"method":"ChimeraBoost","variant":"Tuned","family":"Tree-based","url":"https:\/\/github.com\/bbstats\/chimeraboost","family_symbol":"\ud83c\udf33","verified":true,"elo":1254.0,"score":0.11,"rank":37.88,"hrank":27.06,"imp":22.553,"train_time":1142.82,"predict_time":0.043,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+54\/-47","imputed":false},{"position":39,"method":"EBM","variant":"Tuned","family":"Tree-based","url":"https:\/\/www.cs.cornell.edu\/~yinlou\/papers\/lou-kdd13.pdf","family_symbol":"\ud83c\udf33","verified":true,"elo":1251.0,"score":0.082,"rank":38.11,"hrank":27.35,"imp":22.498,"train_time":2499.4,"predict_time":0.022,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+44\/-44","imputed":false},{"position":40,"method":"ModernNCA","variant":"Default","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.03257","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1248.0,"score":0.111,"rank":38.4,"hrank":20.62,"imp":23.792,"train_time":15.55,"predict_time":0.346,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+56\/-61","imputed":false},{"position":41,"method":"FastaiMLP","variant":"Tuned + Ens.","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1242.0,"score":0.138,"rank":38.92,"hrank":21.24,"imp":22.579,"train_time":1424.22,"predict_time":9.206,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+69\/-60","imputed":false},{"position":42,"method":"iLTM","variant":"Tuned","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.15941","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1240.0,"score":0.071,"rank":39.07,"hrank":28.09,"imp":22.259,"train_time":21290.02,"predict_time":161.221,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+44\/-40","imputed":false},{"position":43,"method":"EBM","variant":"Default","family":"Tree-based","url":"https:\/\/www.cs.cornell.edu\/~yinlou\/papers\/lou-kdd13.pdf","family_symbol":"\ud83c\udf33","verified":true,"elo":1233.0,"score":0.082,"rank":39.64,"hrank":24.94,"imp":23.138,"train_time":7.09,"predict_time":0.022,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+56\/-48","imputed":false},{"position":44,"method":"ChimeraBoost","variant":"Default","family":"Tree-based","url":"https:\/\/github.com\/bbstats\/chimeraboost","family_symbol":"\ud83c\udf33","verified":true,"elo":1216.0,"score":0.1,"rank":41.1,"hrank":25.91,"imp":23.737,"train_time":4.96,"predict_time":0.044,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+63\/-61","imputed":false},{"position":45,"method":"RealMLP","variant":"Default","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2407.04491","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1212.0,"score":0.06,"rank":41.38,"hrank":28.38,"imp":23.13,"train_time":14.89,"predict_time":4.432,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+43\/-40","imputed":false},{"position":46,"method":"ExtraTrees","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1007\/s10994-006-6226-1","family_symbol":"\ud83c\udf33","verified":true,"elo":1203.0,"score":0.096,"rank":42.15,"hrank":26.0,"imp":24.166,"train_time":703.03,"predict_time":1.431,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+78\/-72","imputed":false},{"position":47,"method":"TorchMLP","variant":"Tuned","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1200.0,"score":0.074,"rank":42.47,"hrank":30.67,"imp":23.55,"train_time":2977.91,"predict_time":0.156,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+45\/-58","imputed":false},{"position":48,"method":"FastaiMLP","variant":"Tuned","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1191.0,"score":0.068,"rank":43.16,"hrank":26.19,"imp":23.892,"train_time":1424.22,"predict_time":0.749,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+56\/-54","imputed":false},{"position":49,"method":"ExtraTrees","variant":"Tuned","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1007\/s10994-006-6226-1","family_symbol":"\ud83c\udf33","verified":true,"elo":1179.0,"score":0.089,"rank":44.14,"hrank":23.69,"imp":24.993,"train_time":703.03,"predict_time":0.184,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+85\/-73","imputed":false},{"position":50,"method":"XGBoost","variant":"Default","family":"Tree-based","url":"https:\/\/arxiv.org\/abs\/1603.02754","family_symbol":"\ud83c\udf33","verified":true,"elo":1176.0,"score":0.025,"rank":44.45,"hrank":37.75,"imp":23.716,"train_time":2.8,"predict_time":0.238,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+40\/-46","imputed":false},{"position":51,"method":"LightGBM","variant":"Default","family":"Tree-based","url":"https:\/\/papers.nips.cc\/paper_files\/paper\/2017\/hash\/6449f44a102fde848669bdd9eb6b76fa-Abstract.html","family_symbol":"\ud83c\udf33","verified":true,"elo":1163.0,"score":0.058,"rank":45.47,"hrank":36.35,"imp":24.028,"train_time":3.15,"predict_time":0.141,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+51\/-50","imputed":false},{"position":52,"method":"OrionMSP","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.02818","family_symbol":"\ud83e\udde0\u26a1","verified":false,"elo":1155.0,"score":0.101,"rank":46.15,"hrank":30.63,"imp":26.066,"train_time":15.45,"predict_time":2.611,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+66\/-75","imputed":false},{"position":53,"method":"TabSTAR","variant":"Tuned","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2505.18125","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1149.0,"score":0.175,"rank":46.59,"hrank":11.92,"imp":26.211,"train_time":40588.15,"predict_time":5.606,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+95\/-106","imputed":false},{"position":54,"method":"RandomForest","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1023\/A:1010933404324","family_symbol":"\ud83c\udf33","verified":true,"elo":1149.0,"score":0.082,"rank":46.6,"hrank":26.15,"imp":25.694,"train_time":571.73,"predict_time":1.389,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+76\/-88","imputed":false},{"position":55,"method":"TabSTAR","variant":"Tuned + Ens.","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2505.18125","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1145.0,"score":0.168,"rank":46.91,"hrank":11.48,"imp":26.289,"train_time":40588.15,"predict_time":22.575,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+98\/-106","imputed":false},{"position":56,"method":"RandomForest","variant":"Tuned","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1023\/A:1010933404324","family_symbol":"\ud83c\udf33","verified":true,"elo":1113.0,"score":0.053,"rank":49.44,"hrank":24.54,"imp":26.459,"train_time":571.73,"predict_time":0.129,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+74\/-78","imputed":false},{"position":57,"method":"iLTM","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2511.15941","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1110.0,"score":0.043,"rank":49.68,"hrank":29.63,"imp":26.266,"train_time":463.05,"predict_time":147.937,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+70\/-70","imputed":false},{"position":58,"method":"PerpetualBooster","variant":"Tuned + Ens.","family":"Tree-based","url":"https:\/\/perpetual-ml.com\/","family_symbol":"\ud83c\udf33","verified":true,"elo":1075.0,"score":0.035,"rank":52.29,"hrank":39.06,"imp":32.395,"train_time":391.09,"predict_time":1.052,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+63\/-76","imputed":false},{"position":59,"method":"TorchMLP","variant":"Default","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1064.0,"score":0.015,"rank":53.1,"hrank":36.59,"imp":27.705,"train_time":11.29,"predict_time":0.204,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+57\/-63","imputed":false},{"position":60,"method":"TabSTAR","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2505.18125","family_symbol":"\ud83e\udde0\u26a1","verified":true,"elo":1051.0,"score":0.113,"rank":54.02,"hrank":19.04,"imp":31.674,"train_time":502.34,"predict_time":7.328,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+98\/-141","imputed":false},{"position":61,"method":"TabFlex","variant":"Default","family":"Foundation Model","url":"https:\/\/arxiv.org\/abs\/2506.05584","family_symbol":"\ud83e\udde0\u26a1","verified":false,"elo":1044.0,"score":0.068,"rank":54.51,"hrank":33.48,"imp":30.603,"train_time":2.59,"predict_time":0.533,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+83\/-96","imputed":false},{"position":62,"method":"PerpetualBooster","variant":"Tuned","family":"Tree-based","url":"https:\/\/perpetual-ml.com\/","family_symbol":"\ud83c\udf33","verified":true,"elo":1040.0,"score":0.021,"rank":54.76,"hrank":38.0,"imp":33.895,"train_time":391.09,"predict_time":0.404,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+59\/-80","imputed":false},{"position":63,"method":"xRFM","variant":"Default","family":"Other","url":"https:\/\/arxiv.org\/abs\/2508.10053","family_symbol":"\u2753","verified":true,"elo":1030.0,"score":0.023,"rank":55.46,"hrank":47.63,"imp":29.981,"train_time":4.95,"predict_time":1.012,"imputed_pct":0.0,"hardware":"GPU","elo_ci":"+71\/-104","imputed":false},{"position":64,"method":"Linear","variant":"Tuned + Ens.","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/linear_model.html","family_symbol":"\ud83d\udccf","verified":true,"elo":1027.0,"score":0.054,"rank":55.65,"hrank":35.07,"imp":33.817,"train_time":483.07,"predict_time":0.874,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+77\/-93","imputed":false},{"position":65,"method":"FastaiMLP","variant":"Default","family":"Neural Network","url":"https:\/\/arxiv.org\/abs\/2003.06505","family_symbol":"\ud83e\udde0\ud83d\udd01","verified":true,"elo":1013.0,"score":0.002,"rank":56.58,"hrank":36.48,"imp":29.013,"train_time":5.04,"predict_time":0.645,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+64\/-74","imputed":false},{"position":66,"method":"KNN","variant":"Tuned + Ens.","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/neighbors.html","family_symbol":"\ud83d\udccf","verified":true,"elo":1011.0,"score":0.027,"rank":56.7,"hrank":35.09,"imp":31.576,"train_time":121.17,"predict_time":1.63,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+84\/-103","imputed":false},{"position":67,"method":"Linear","variant":"Tuned","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/linear_model.html","family_symbol":"\ud83d\udccf","verified":true,"elo":1005.0,"score":0.038,"rank":57.08,"hrank":36.49,"imp":34.329,"train_time":483.07,"predict_time":0.113,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+80\/-95","imputed":false},{"position":68,"method":"RandomForest","variant":"Default","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1023\/A:1010933404324","family_symbol":"\ud83c\udf33","verified":true,"elo":1000.0,"score":0.007,"rank":57.41,"hrank":50.01,"imp":31.637,"train_time":0.46,"predict_time":0.068,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+66\/-80","imputed":false},{"position":69,"method":"ExtraTrees","variant":"Default","family":"Tree-based","url":"https:\/\/link.springer.com\/article\/10.1007\/s10994-006-6226-1","family_symbol":"\ud83c\udf33","verified":true,"elo":1000.0,"score":0.011,"rank":57.41,"hrank":49.47,"imp":30.9,"train_time":3.61,"predict_time":0.552,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+80\/-96","imputed":false},{"position":70,"method":"PerpetualBooster","variant":"Default","family":"Tree-based","url":"https:\/\/perpetual-ml.com\/","family_symbol":"\ud83c\udf33","verified":true,"elo":953.0,"score":0.0,"rank":60.17,"hrank":40.86,"imp":36.54,"train_time":56.11,"predict_time":0.048,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+54\/-78","imputed":false},{"position":71,"method":"Linear","variant":"Default","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/linear_model.html","family_symbol":"\ud83d\udccf","verified":true,"elo":932.0,"score":0.024,"rank":61.32,"hrank":41.43,"imp":37.408,"train_time":2.39,"predict_time":0.143,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+90\/-125","imputed":false},{"position":72,"method":"KNN","variant":"Tuned","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/neighbors.html","family_symbol":"\ud83d\udccf","verified":true,"elo":923.0,"score":0.015,"rank":61.79,"hrank":42.21,"imp":36.94,"train_time":121.17,"predict_time":0.136,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+102\/-105","imputed":false},{"position":73,"method":"KNN","variant":"Default","family":"Baseline","url":"https:\/\/scikit-learn.org\/stable\/modules\/neighbors.html","family_symbol":"\ud83d\udccf","verified":true,"elo":604.0,"score":0.0,"rank":71.61,"hrank":65.15,"imp":51.749,"train_time":0.28,"predict_time":0.023,"imputed_pct":0.0,"hardware":"CPU","elo_ci":"+89\/-150","imputed":false}];
+
+
+  const NS = "http://www.w3.org/2000/svg";
+  // Baseline and Other are one bucket, as in the site's own type legend: they
+  // already share a color, and each holds only a handful of methods.
+  const FAM_MERGED = "Baseline / Other";
+  const famOf = (family) => (family === "Baseline" || family === "Other" ? FAM_MERGED : family);
+  // Normalized up front so every later lookup — colors, chips, sorting — sees
+  // the merged family. Both templates declare POINTS above this block.
+  for (const p of POINTS) p.family = famOf(p.family);
+
+  const FAM_ORDER = ["Foundation Model", "Tree-based", "Neural Network", "Reference Pipeline", FAM_MERGED];
+  const FAM_VAR = {
+    "Foundation Model": "var(--fam-foundation)",
+    "Tree-based": "var(--fam-tree)",
+    "Neural Network": "var(--fam-nn)",
+    "Reference Pipeline": "var(--fam-reference)",
+    [FAM_MERGED]: "var(--fam-baseline)",
+  };
+  // The symbol the website shows for each family, so a family chip here reads the
+  // same as the Type column on the site. Baseline and Other are one bucket, so
+  // that chip carries both symbols.
+  const FAM_SYMBOL = {
+    "Foundation Model": "🧠⚡",
+    "Tree-based": "🌳",
+    "Neural Network": "🧠🔁",
+    "Reference Pipeline": "📊",
+    [FAM_MERGED]: "📏 ❓",
+  };
+  // Tuning-variant colours, matching the --var-* tokens the charts plot with.
+  const VARIANT_VAR = {
+    "Default": "var(--var-default)",
+    "Tuned": "var(--var-tuned)",
+    "Tuned + Ens.": "var(--var-tunedens)",
+  };
+
+  // A family chip's label: its symbol, its name and how many methods it holds.
+  function famChipLabel(family, count) {
+    const symbol = FAM_SYMBOL[family];
+    return '<span class="dot"></span>' + (symbol ? '<span class="sym">' + symbol + "</span> " : "") +
+      family + ' <span class="count">&times;' + count + "</span>";
+  }
+
+  // The same hues stepped for use as text (see the --fam-*-ink tokens).
+  const FAM_INK = {
+    "Foundation Model": "var(--fam-foundation-ink)",
+    "Tree-based": "var(--fam-tree-ink)",
+    "Neural Network": "var(--fam-nn-ink)",
+    "Reference Pipeline": "var(--fam-reference-ink)",
+    [FAM_MERGED]: "var(--fam-baseline-ink)",
+  };
+
+  // Create an SVG element with attributes, optionally appended to `parent`.
+  function el(name, attrs, parent) {
+    const node = document.createElementNS(NS, name);
+    for (const k in attrs) node.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(node);
+    return node;
+  }
+
+  // Plain, ungrouped numbers with a "." decimal separator. `toFixed` is
+  // locale-independent by definition, which is the point: `toLocaleString`
+  // would follow the *viewer's* browser locale and print 1234,5 for a German
+  // visitor, disagreeing with the figures and CSVs beside it.
+  function fmtNum(v, decimals) {
+    if (v == null || !isFinite(v)) return "—";
+    return v.toFixed(decimals);
+  }
+
+  function fmtMetric(metric, v) {
+    if (v == null || !isFinite(v)) return "—";
+    return fmtNum(v, metric.decimals) + (metric.suffix || "");
+  }
+
+  function fmtTime(v) {
+    if (v >= 100) return fmtNum(v, 0) + " s";
+    if (v >= 1) return fmtNum(v, 1) + " s";
+    if (v >= 0.1) return fmtNum(v, 2) + " s";
+    return fmtNum(v, 3) + " s";
+  }
+
+  // Smallest "nice" (1/2/2.5/5 x a power of ten) step that is at least `raw`.
+  function niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    for (const m of [1, 2, 2.5, 5, 10]) {
+      if (mag * m >= raw) return mag * m;
+    }
+    return mag * 10;
+  }
+
+  // ~`target` evenly spaced "nice" tick values covering [min, max]. Stepped by
+  // index rather than by accumulation so fractional steps do not drift.
+  function ticks(min, max, target) {
+    const step = niceStep((max - min) / target);
+    const first = Math.ceil(min / step);
+    const out = [];
+    for (let i = 0; first * step + i * step <= max + 1e-9; i++) out.push((first + i) * step);
+    return out.length ? out : [min];
+  }
+
+  // A hover tooltip anchored inside `box` (which must be position:relative).
+  function makeTooltip(box) {
+    const node = box.querySelector(".tooltip");
+    return {
+      show(html, ev) { node.innerHTML = html; node.style.display = "block"; this.move(ev); },
+      move(ev) {
+        const r = box.getBoundingClientRect();
+        let tx = ev.clientX - r.left + 14;
+        const ty = ev.clientY - r.top + 12;
+        if (tx > r.width - 270) tx = ev.clientX - r.left - 274;
+        node.style.left = tx + "px";
+        node.style.top = ty + "px";
+      },
+      hide() { node.style.display = "none"; },
+    };
+  }
+
+  // Paper view — white surface, legend + chart only — is the *default*: what a
+  // reader wants first is the figure, and it is the state worth exporting. The
+  // controls, chip list and data table are one click away behind "Edit view".
+  // `afterToggle` re-renders charts whose size is measured from the layout.
+  // `options.openInPaper` (default true) decides the state the page opens in. A
+  // chart opens as the figure; the leaderboard table opens with its controls,
+  // since there the interaction is the point rather than scaffolding around it.
+  function setUpPaperView(afterToggle, options) {
+    const opts = options || {};
+    const root = document.documentElement;
+    let hostTheme = null;   // the embedding page's choice, captured on entry
+    const btn = document.getElementById("btn-paper");
+    const embedded = window.parent !== window;
+
+    function setPaper(on) {
+      document.body.classList.toggle("paper", on);
+      if (on) {
+        hostTheme = root.getAttribute("data-theme");
+        root.setAttribute("data-theme", "light");
+      } else if (hostTheme) {
+        root.setAttribute("data-theme", hostTheme);
+      } else {
+        root.removeAttribute("data-theme");
+      }
+      btn.textContent = on ? "Edit view" : "Paper view";
+      document.getElementById("exportbar").hidden = !on || embedded;
+      if (afterToggle) requestAnimationFrame(afterToggle);
+      postHeight();
+    }
+    btn.addEventListener("click", () => setPaper(!document.body.classList.contains("paper")));
+    // Embedded, the host page owns these controls — they sit beside the panel's
+    // static-figure toggle and are driven from the outside. Standalone (the
+    // shareable single file) this page needs its own.
+    if (embedded) document.querySelector(".viewbar").hidden = true;
+    window.addEventListener("message", ev => {
+      const d = ev.data;
+      if (d && d.type === "tabarena-explorer-paper" && typeof d.on === "boolean") setPaper(d.on);
+    });
+    // Only standalone: embedded, the host owns the button and would not see the
+    // key press, so its label would fall out of step with the frame.
+    if (!embedded) {
+      document.addEventListener("keydown", ev => {
+        if (ev.key === "Escape" && !document.body.classList.contains("paper")) setPaper(true);
+      });
+    }
+    setPaper(opts.openInPaper !== false);   // for a chart, the figure is what opens
+  }
+
+  // --- Figure export ---------------------------------------------------------
+  // The chart is live SVG, so a file can be built from it directly. Three things
+  // a copy has to fix up: the colors are CSS custom properties (var(--x) means
+  // nothing outside this document), it has no background or font of its own, and
+  // the legend is HTML rather than part of the SVG.
+
+  // Rebuild the HTML legend as SVG, reusing its live layout: each item's glyph is
+  // cloned and its label re-emitted at the measured position. foreignObject would
+  // be far simpler, but Chrome refuses to rasterize it onto a canvas, which would
+  // break the PNG path.
+  // Rewrite every var(--x) in a clone's paint attributes; they resolve to nothing
+  // once the node leaves this document.
+  function resolveVars(root, resolve) {
+    for (const node of [root, ...root.querySelectorAll("*")]) {
+      for (const attr of ["fill", "stroke"]) {
+        const value = node.getAttribute(attr);
+        if (value && value.includes("var(")) node.setAttribute(attr, resolve(value));
+      }
+    }
+  }
+
+  function legendToSvg(container, resolve) {
+    const base = container.getBoundingClientRect();
+    const group = document.createElementNS(NS, "g");
+    let height = 0;
+    for (const item of container.querySelectorAll(".item")) {
+      const box = item.getBoundingClientRect();
+      if (!box.width) continue;
+      height = Math.max(height, box.bottom - base.top);
+      let textLeft = box.left - base.left;
+      const glyph = item.querySelector("svg");
+      if (glyph) {
+        const gbox = glyph.getBoundingClientRect();
+        const wrap = el("g", {
+          transform: `translate(${gbox.left - base.left} ${gbox.top - base.top})`,
+        }, group);
+        const glyphClone = glyph.cloneNode(true);
+        resolveVars(glyphClone, resolve);
+        wrap.appendChild(glyphClone);
+        textLeft = gbox.right - base.left + 5;
+      }
+      const label = item.textContent.trim();
+      if (!label) continue;
+      const colored = item.querySelector("[style*='color']");
+      const text = el("text", {
+        x: textLeft, y: box.top - base.top + box.height / 2 + 4, "font-size": 12.5,
+        fill: resolve(getComputedStyle(colored || item).color),
+      }, group);
+      text.textContent = label;
+    }
+    return { group, height: Math.ceil(height) };
+  }
+
+  // `parts` is a list of {svg, dx}, so a chart split across panes (the sticky
+  // y-axis beside the scrolling plot) still exports as one figure.
+  function buildExportSvg(parts, legendEl, pad = 10) {
+    const rootStyle = getComputedStyle(document.documentElement);
+    const resolve = value => String(value).replace(
+      /var\((--[\w-]+)\)/g, (_, name) => rootStyle.getPropertyValue(name).trim() || "none");
+    const paper = rootStyle.getPropertyValue("--paper").trim() || "#ffffff";
+
+    let chartW = 0, chartH = 0;
+    for (const part of parts) {
+      chartW = Math.max(chartW, part.dx + Number(part.svg.getAttribute("width")));
+      chartH = Math.max(chartH, Number(part.svg.getAttribute("height")));
+    }
+
+    const out = document.createElementNS(NS, "svg");
+    out.setAttribute("xmlns", NS);
+    out.setAttribute("font-family", 'system-ui, -apple-system, "Segoe UI", sans-serif');
+    let top = pad;
+    const later = [];   // built after the width is known
+    const legend = legendEl ? legendToSvg(legendEl, resolve) : null;
+    if (legend && legend.height) {
+      legend.group.setAttribute("transform", `translate(${pad} ${top})`);
+      later.push(() => out.appendChild(legend.group));
+      top += legend.height + 8;
+    }
+
+    const width = Math.max(chartW, legendEl ? legendEl.getBoundingClientRect().width : 0) + pad * 2;
+    const height = top + chartH + pad;
+    out.setAttribute("width", Math.ceil(width));
+    out.setAttribute("height", Math.ceil(height));
+    el("rect", { x: 0, y: 0, width: Math.ceil(width), height: Math.ceil(height), fill: paper }, out);
+    for (const build of later) build();
+
+    for (const part of parts) {
+      const group = el("g", { transform: `translate(${part.dx + pad} ${top})` }, out);
+      const clone = part.svg.cloneNode(true);
+      resolveVars(clone, resolve);
+      while (clone.firstChild) group.appendChild(clone.firstChild);
+    }
+    return out;
+  }
+
+  // Page title -> a safe file stem, e.g. "tabarena-leaderboard-explorer-all-tasks".
+  function slugify(text) {
+    return (text || "chart").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+  }
+
+  function downloadUrl(url, filename) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // Rasterize the export SVG into a canvas at `scale`, then hand it to `done`.
+  function rasterize(svg, scale, done, fail) {
+    const width = Number(svg.getAttribute("width")), height = Number(svg.getAttribute("height"));
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.drawImage(img, 0, 0);
+      done(canvas, width, height);
+    };
+    img.onerror = fail;
+    img.src = "data:image/svg+xml;charset=utf-8,"
+      + encodeURIComponent(new XMLSerializer().serializeToString(svg));
+  }
+
+  // A one-page PDF wrapping the rendered figure, written by hand: a library would
+  // cost this page its zero-dependency, single-file property. The image is stored
+  // losslessly (raw RGB + /FlateDecode via CompressionStream) and the page is sized
+  // in points to the figure's CSS size, so it prints at the size it appears here
+  // and the pixels land at 96*scale dpi.
+  async function buildPdf(canvas, cssWidth, cssHeight) {
+    const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+    const rgb = new Uint8Array((pixels.length / 4) * 3);
+    for (let i = 0, j = 0; i < pixels.length; i += 4, j += 3) {
+      rgb[j] = pixels[i];
+      rgb[j + 1] = pixels[i + 1];
+      rgb[j + 2] = pixels[i + 2];
+    }
+    const deflated = new Uint8Array(await new Response(
+      new Blob([rgb]).stream().pipeThrough(new CompressionStream("deflate"))).arrayBuffer());
+
+    const encoder = new TextEncoder();
+    const chunks = [];
+    const offsets = [];
+    let cursor = 0;
+    const put = data => {
+      const bytes = typeof data === "string" ? encoder.encode(data) : data;
+      chunks.push(bytes);
+      cursor += bytes.length;
+    };
+    const object = (id, body, stream) => {
+      offsets[id] = cursor;
+      put(`${id} 0 obj\n${body}\n`);
+      if (stream) {
+        put("stream\n");
+        put(stream);
+        put("\nendstream\n");
+      }
+      put("endobj\n");
+    };
+
+    const ptW = (cssWidth * 0.75).toFixed(2), ptH = (cssHeight * 0.75).toFixed(2);
+    const content = `q ${ptW} 0 0 ${ptH} 0 0 cm /Im0 Do Q`;
+    put("%PDF-1.4\n");
+    put(new Uint8Array([0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a]));   // binary marker
+    object(1, "<< /Type /Catalog /Pages 2 0 R >>");
+    object(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+    object(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${ptW} ${ptH}] `
+      + "/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>");
+    object(4, "<< /Type /XObject /Subtype /Image "
+      + `/Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB `
+      + `/BitsPerComponent 8 /Filter /FlateDecode /Length ${deflated.length} >>`, deflated);
+    object(5, `<< /Length ${content.length} >>`, content);
+
+    const xref = cursor;
+    let table = "xref\n0 6\n0000000000 65535 f \n";
+    for (let id = 1; id <= 5; id++) table += String(offsets[id]).padStart(10, "0") + " 00000 n \n";
+    put(table);
+    put(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return new Blob(chunks, { type: "application/pdf" });
+  }
+
+  // Wire up the export buttons; `getParts` is called per click so the file always
+  // matches what is on screen. Returns a `run(format)` the host page can drive.
+  function setUpExport(getParts, basename) {
+    const buttons = {
+      svg: document.getElementById("btn-svg"),
+      png: document.getElementById("btn-png"),
+      pdf: document.getElementById("btn-pdf"),
+    };
+    const figure = () => buildExportSvg(getParts(), document.getElementById("legendstrip"));
+
+    // A sandboxed frame has no modals, so a failure is reported on the button.
+    function complain(format) {
+      const button = buttons[format];
+      if (!button) return;
+      const label = button.textContent;
+      button.textContent = "failed";
+      setTimeout(() => { button.textContent = label; }, 2500);
+    }
+
+    function run(format) {
+      const svg = figure();
+      const name = basename();
+      if (format === "svg") {
+        downloadUrl("data:image/svg+xml;charset=utf-8,"
+          + encodeURIComponent(new XMLSerializer().serializeToString(svg)), name + ".svg");
+        return;
+      }
+      // 3x for a screen-resolution PNG; 2x for the PDF, whose page is sized in
+      // points so the pixels already land near 200 dpi at print size.
+      rasterize(svg, format === "pdf" ? 2 : 3, (canvas, cssWidth, cssHeight) => {
+        if (format === "png") {
+          canvas.toBlob(blob => downloadUrl(URL.createObjectURL(blob), name + ".png"), "image/png");
+        } else {
+          buildPdf(canvas, cssWidth, cssHeight)
+            .then(blob => downloadUrl(URL.createObjectURL(blob), name + ".pdf"))
+            .catch(() => complain("pdf"));
+        }
+      }, () => complain(format));
+    }
+
+    for (const format of Object.keys(buttons)) {
+      if (buttons[format]) buttons[format].addEventListener("click", () => run(format));
+    }
+    // Embedded, the buttons live in the host's panel header (see main.taExport).
+    window.addEventListener("message", ev => {
+      const d = ev.data;
+      if (d && d.type === "tabarena-explorer-export" && buttons[d.format] !== undefined) run(d.format);
+    });
+  }
+
+  // When embedded, report the content height so the host page can size the
+  // iframe to fit (avoids an inner scrollbar). Works from a sandboxed frame.
+  // Measure the body (viewport-independent) — documentElement.scrollHeight is
+  // clamped to at least the iframe's current viewport, which turns the
+  // resize round-trip into a grow-forever feedback loop. The change guard
+  // stops re-posting once the height settles.
+  let lastPostedHeight = 0;
+  function postHeight() {
+    if (window.parent === window) return;
+    const height = Math.ceil(document.body.offsetHeight);
+    if (Math.abs(height - lastPostedHeight) < 3) return;
+    lastPostedHeight = height;
+    window.parent.postMessage({ type: "tabarena-explorer-height", height: height }, "*");
+  }
+
+
+  const COLUMNS = CONFIG.columns;
+  const RANK_KEY = CONFIG.rankKey;
+  const colByKey = new Map(COLUMNS.map(c => [c.key, c]));
+  const VARIANTS = CONFIG.variants.filter(v => POINTS.some(p => p.variant === v));
+
+  // How a variant is written out. The short "Tuned + Ens." form is the internal key
+  // (the charts' colour and marker tables are keyed by it), but nothing on the page
+  // should show the abbreviation: the row tag uses the spelling the data and the
+  // app's cross-subset table use, and the toggle spells it out in full.
+  const VARIANT_TEXT = {
+    "Default": "default",
+    "Tuned": "tuned",
+    "Tuned + Ens.": "tuned + ensembled",
+  };
+  const VARIANT_BTN = { "Tuned + Ens.": "Tuned + Ensembled" };
+  const variantText = v => VARIANT_TEXT[v] || v;
+  const HAS_IMPUTED = POINTS.some(p => p.imputed);
+
+  const state = {
+    methods: new Set(POINTS.map(p => p.method)),
+    variants: new Set(VARIANTS),
+    columns: new Set(COLUMNS.filter(c => c.on !== false).map(c => c.key)),
+    imputed: true,
+    search: "",
+    sortKey: null,
+    sortAsc: false,
+  };
+
+  const tblwrap = document.getElementById("tblwrap");
+  const chipsBox = document.getElementById("chips");
+  const famChips = new Map();
+  const chipByMethod = new Map();
+
+  // ---------- heat shading ----------
+  // Green (best) through olive to red (worst), matching the website's
+  // cross-subset overview so a reader moving between them reads one scale.
+  const RAMP = [[0, [28, 120, 62]], [0.5, [138, 122, 36]], [1, [160, 58, 58]]];
+  function heatColor(frac) {
+    const f = Math.max(0, Math.min(1, frac));
+    for (let i = 0; i < RAMP.length - 1; i++) {
+      const [f0, c0] = RAMP[i], [f1, c1] = RAMP[i + 1];
+      if (f <= f1) {
+        const t = f1 === f0 ? 0 : (f - f0) / (f1 - f0);
+        const mix = c0.map((v, j) => Math.round(v + t * (c1[j] - v)));
+        return "rgb(" + mix.join(",") + ")";
+      }
+    }
+    return "rgb(" + RAMP[RAMP.length - 1][1].join(",") + ")";
+  }
+  // Runtimes span orders of magnitude; shading them linearly paints every model
+  // the same green and only the slowest one red, so those normalize in log space.
+  function scaleOf(col, v) { return col.logScale ? Math.log10(v) : v; }
+  function bounds(rows, col) {
+    const values = [];
+    for (const p of rows) {
+      const v = p[col.key];
+      if (v == null || !isFinite(v)) continue;
+      if (col.logScale && !(v > 0)) continue;
+      values.push(scaleOf(col, v));
+    }
+    if (values.length < 2) return null;
+    const lo = Math.min(...values), hi = Math.max(...values);
+    return hi > lo ? [lo, hi] : null;
+  }
+
+  // ---------- cells ----------
+  function nameCell(p) {
+    const ink = FAM_INK[p.family] || "var(--muted)";
+    let inner = escapeHtml(p.method);
+    if (p.variant) inner += ' <span class="variant-tag">(' + escapeHtml(variantText(p.variant)) + ")</span>";
+    if (p.verified) inner += ' <span class="verified" title="Verified implementation">&#10004;&#65039;</span>';
+    if (p.imputed) {
+      const pct = isFinite(p.imputed_pct) ? fmtNum(p.imputed_pct, 0) + "% " : "";
+      inner += ' <span class="imp-mark" title="' + pct + 'imputed">&#8225;</span>';
+    }
+    const body = p.url
+      ? '<a href="' + escapeHtml(p.url) + '" target="_blank" rel="noopener" style="color:' + ink +
+        ';font-weight:600;">' + inner + '<span class="link-icon">&#8599;</span></a>'
+      : '<span style="color:' + ink + ';font-weight:600;">' + inner + "</span>";
+    return '<td class="name" data-export="' + escapeHtml(plainName(p)) + '">' + body + "</td>";
+  }
+  function plainName(p) {
+    return p.method + (p.variant ? " (" + p.variant + ")" : "");
+  }
+  function escapeHtml(text) {
+    return String(text == null ? "" : text).replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  }
+
+  // ---------- rows ----------
+  function visibleRows() {
+    const term = state.search.trim().toLowerCase();
+    return POINTS.filter(p => {
+      if (!state.methods.has(p.method)) return false;
+      if (p.variant && !state.variants.has(p.variant)) return false;
+      if (!state.imputed && p.imputed) return false;
+      if (term && !(p.method + " " + (p.variant || "") + " " + p.family).toLowerCase().includes(term)) return false;
+      return true;
+    });
+  }
+  function sortRows(rows) {
+    const out = rows.slice();
+    if (!state.sortKey) return out.sort((a, b) => a.position - b.position);
+    const col = colByKey.get(state.sortKey);
+    const sign = state.sortAsc ? 1 : -1;
+    const keyOf = p => {
+      const v = p[state.sortKey];
+      if (col && col.text) return String(v == null ? "" : v).toLowerCase();
+      return v == null || !isFinite(v) ? null : v;
+    };
+    return out.sort((a, b) => {
+      const ka = keyOf(a), kb = keyOf(b);
+      if (ka === null || kb === null) return ka === kb ? 0 : ka === null ? 1 : -1;
+      return ka < kb ? -sign : ka > kb ? sign : 0;
+    });
+  }
+
+  function activeColumns() {
+    return COLUMNS.filter(c => c.always || state.columns.has(c.key));
+  }
+
+  function render() {
+    const rows = sortRows(visibleRows());
+    const cols = activeColumns();
+    if (!rows.length) {
+      tblwrap.innerHTML = '<p class="lbt-empty">Nothing selected — turn a family or variant back on.</p>';
+      document.getElementById("caption").textContent = "";
+      postHeight();
+      return;
+    }
+    // No medals here: this table is the full ranking, so the position column
+    // already says who is where. They belong to the cross-subset overview.
+    const heat = new Map();
+    for (const col of cols) if (col.heatmap) heat.set(col.key, bounds(rows, col));
+
+    let html = '<table class="lbt"><thead><tr>';
+    for (const col of cols) {
+      const sorted = state.sortKey === col.key
+        ? ' aria-sort="' + (state.sortAsc ? "ascending" : "descending") + '"' : "";
+      html += "<th" + sorted + ' data-key="' + col.key + '" title="' + escapeHtml(col.hint || col.label) +
+        '"><span class="lbl">' + escapeHtml(col.label) + "</span>" +
+        (col.key === "elo" ? ' <span class="ci">(95% CI)</span>' : "") + "</th>";
+    }
+    html += "</tr></thead><tbody>";
+    for (const p of rows) {
+      html += "<tr>";
+      for (const col of cols) {
+        if (col.key === "position") {
+          html += '<td class="pos num" data-sort="' + p.position + '">' + p.position + "</td>";
+        } else if (col.key === "family") {
+          const mark = FAM_VAR[p.family] || "var(--fam-baseline)";
+          html += '<td class="type" data-sort="' + escapeHtml(p.family) + '" data-export="' + escapeHtml(p.family) +
+            '"><span class="pill" style="background:color-mix(in srgb, ' + mark +
+            ' 13%, transparent);color:' + (FAM_INK[p.family] || "var(--muted)") +
+            ";border:1px solid color-mix(in srgb, " + mark + ' 40%, transparent);">' +
+            escapeHtml(p.family_symbol || "") + "</span></td>";
+        } else if (col.key === "model") {
+          html += nameCell(p);
+        } else {
+          html += valueCell(p, col, heat.get(col.key));
+        }
+      }
+      html += "</tr>";
+    }
+    tblwrap.innerHTML = html + "</tbody></table>";
+    for (const th of tblwrap.querySelectorAll("th")) {
+      th.addEventListener("click", () => sortBy(th.dataset.key));
+    }
+    document.getElementById("caption").textContent =
+      rows.length + (rows.length === 1 ? " row" : " rows") +
+      " · click a column header to sort, hover one for what it means" +
+      (heat.size ? " · green is better, red is worse, per column" : "") +
+      (HAS_IMPUTED ? " · ‡ marks a partly imputed score" : "");
+    postHeight();
+  }
+
+  function valueCell(p, col, span) {
+    const v = p[col.key];
+    if (v == null || (typeof v === "number" && !isFinite(v))) return '<td class="na">&ndash;</td>';
+    if (col.text) {
+      return '<td data-sort="' + escapeHtml(v) + '" data-export="' + escapeHtml(v) + '">' + escapeHtml(v) + "</td>";
+    }
+    let style = "";
+    if (span) {
+      let frac = (scaleOf(col, v) - span[0]) / (span[1] - span[0]);
+      if (!col.lowerBetter) frac = 1 - frac;
+      style = ' style="background:' + heatColor(frac) + ';color:#f7f7f7;"';
+    }
+    let text = fmtNum(v, col.decimals) + (col.suffix || "");
+    let ci = "";
+    if (col.key === "elo" && p.elo_ci) {
+      ci = ' <span class="ci">(' + escapeHtml(p.elo_ci) + ")</span>";
+    }
+    return '<td class="num" data-sort="' + v + '"' + (ci ? ' data-ci="' + escapeHtml(p.elo_ci) + '"' : "") +
+      style + ">" + text + ci + "</td>";
+  }
+
+  function sortBy(key) {
+    if (!key) return;
+    if (state.sortKey === key) state.sortAsc = !state.sortAsc;
+    else { state.sortKey = key; state.sortAsc = !!(colByKey.get(key) || {}).lowerBetter; }
+    render();
+  }
+
+  // ---------- chips (families and their methods) ----------
+  function familyMembers(fam) {
+    return [...new Set(POINTS.filter(p => p.family === fam).map(p => p.method))];
+  }
+  function methodRank(name) {
+    const col = colByKey.get(RANK_KEY);
+    const values = POINTS.filter(p => p.method === name && isFinite(p[RANK_KEY])).map(p => p[RANK_KEY]);
+    if (!values.length) return Infinity;
+    return col.lowerBetter ? Math.min(...values) : -Math.max(...values);
+  }
+  function buildChips() {
+    const head = document.createElement("div");
+    head.className = "chips-head";
+    head.textContent = "Models shown — click to remove, click a family to toggle the whole group";
+    chipsBox.appendChild(head);
+    for (const fam of FAM_ORDER) {
+      const members = familyMembers(fam);
+      if (!members.length) continue;
+      members.sort((a, b) => methodRank(a) - methodRank(b));
+      const row = document.createElement("div");
+      row.className = "chiprow";
+      const famBtn = document.createElement("button");
+      famBtn.className = "famchip";
+      famBtn.style.setProperty("--fam", FAM_VAR[fam]);
+      famBtn.innerHTML = famChipLabel(fam, members.length);
+      famBtn.title = "Toggle all " + members.length + " " + fam + " models";
+      famBtn.addEventListener("click", () => toggleFamily(fam));
+      row.appendChild(famBtn);
+      famChips.set(fam, famBtn);
+      const set = document.createElement("div");
+      set.className = "chipset";
+      for (const name of members) {
+        const imputed = POINTS.some(p => p.method === name && p.imputed);
+        const b = document.createElement("button");
+        b.className = "chip";
+        b.style.setProperty("--fam", FAM_VAR[fam]);
+        b.innerHTML = '<span class="dot"></span><span>' + escapeHtml(name) + "</span>" +
+          (imputed ? '<span class="imp-mark">&#8225;</span>' : "");
+        b.title = name + (imputed ? " — partially imputed" : "");
+        b.addEventListener("click", () => toggleMethod(name));
+        set.appendChild(b);
+        chipByMethod.set(name, b);
+      }
+      row.appendChild(set);
+      chipsBox.appendChild(row);
+    }
+  }
+  function syncChips() {
+    for (const [name, b] of chipByMethod) b.setAttribute("aria-pressed", String(state.methods.has(name)));
+    for (const [fam, b] of famChips) {
+      b.setAttribute("aria-pressed", String(familyMembers(fam).every(m => state.methods.has(m))));
+    }
+  }
+  function toggleMethod(name) {
+    if (state.methods.has(name)) state.methods.delete(name); else state.methods.add(name);
+    syncChips();
+    render();
+  }
+  function toggleFamily(fam) {
+    const members = familyMembers(fam);
+    const allOn = members.every(m => state.methods.has(m));
+    for (const m of members) { if (allOn) state.methods.delete(m); else state.methods.add(m); }
+    syncChips();
+    render();
+  }
+
+  // ---------- variant / imputed / column toggles ----------
+  const variantBtns = new Map();
+  function buildVariantBtns() {
+    const box = document.getElementById("variant-btns");
+    for (const v of VARIANTS) {
+      const b = document.createElement("button");
+      b.className = "btn toggle";
+      b.innerHTML = '<span class="swatch"></span>' + escapeHtml(VARIANT_BTN[v] || v);
+      b.style.setProperty("--fam", VARIANT_VAR[v] || "var(--accent)");
+      b.title = "Show or hide the " + variantText(v) + " results";
+      b.addEventListener("click", () => {
+        if (state.variants.has(v)) state.variants.delete(v); else state.variants.add(v);
+        syncVariantBtns();
+        render();
+      });
+      box.appendChild(b);
+      variantBtns.set(v, b);
+    }
+  }
+  function syncVariantBtns() {
+    for (const [v, b] of variantBtns) b.setAttribute("aria-pressed", String(state.variants.has(v)));
+    const imp = document.getElementById("btn-imputed");
+    imp.hidden = !HAS_IMPUTED;
+    imp.className = "btn toggle";
+    imp.innerHTML = '<span class="swatch"></span>&#8225; Imputed';
+    imp.setAttribute("aria-pressed", String(state.imputed));
+    imp.style.setProperty("--fam", "var(--muted)");
+  }
+  function buildColumnBtns() {
+    const box = document.getElementById("col-btns");
+    for (const col of COLUMNS) {
+      if (col.always) continue;
+      const b = document.createElement("button");
+      b.className = "btn toggle";
+      b.textContent = col.short || col.label;
+      b.title = "Show or hide " + col.label;
+      b.style.setProperty("--fam", "var(--accent)");
+      b.addEventListener("click", () => {
+        if (state.columns.has(col.key)) state.columns.delete(col.key); else state.columns.add(col.key);
+        b.setAttribute("aria-pressed", String(state.columns.has(col.key)));
+        render();
+      });
+      b.setAttribute("aria-pressed", String(state.columns.has(col.key)));
+      box.appendChild(b);
+    }
+  }
+
+  // ---------- CSV ----------
+  // Exports what the reader is looking at: the rows the filters left, the
+  // columns they picked, in the order they sorted.
+  function downloadCsv() {
+    const cols = activeColumns();
+    const rows = sortRows(visibleRows());
+    const quote = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    const head = [];
+    for (const col of cols) {
+      head.push(col.label);
+      if (col.key === "elo" && rows.some(p => p.elo_ci)) head.push("Elo 95% CI");
+    }
+    const lines = [head.map(quote).join(",")];
+    for (const p of rows) {
+      const values = [];
+      for (const col of cols) {
+        if (col.key === "model") values.push(plainName(p));
+        else values.push(p[col.key]);
+        if (col.key === "elo" && rows.some(q => q.elo_ci)) values.push(p.elo_ci || "");
+      }
+      lines.push(values.map(quote).join(","));
+    }
+    const blob = new Blob([lines.join("\n") + "\n"], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    downloadUrl(url, slugify(CONFIG.title || document.title || "leaderboard") + ".csv");
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------- boot ----------
+  if (CONFIG.title) document.getElementById("title").textContent = CONFIG.title;
+  document.getElementById("search").addEventListener("input", ev => {
+    state.search = ev.target.value;
+    render();
+  });
+  document.getElementById("btn-imputed").addEventListener("click", () => {
+    state.imputed = !state.imputed;
+    syncVariantBtns();
+    render();
+  });
+  document.getElementById("btn-csv").addEventListener("click", downloadCsv);
+  // Embedded, the host page puts its own CSV button in the panel header (next to
+  // the title) and asks for the download over postMessage, the same way it drives
+  // the figure exports. Standalone, this page needs its own button.
+  if (window.parent !== window) {
+    document.getElementById("btn-csv").hidden = true;
+    window.addEventListener("message", ev => {
+      if (ev.data && ev.data.type === "tabarena-leaderboard-csv") downloadCsv();
+    });
+  }
+  // Opens with the controls: the filters are the point of this page, not chrome
+  // around a figure.
+  setUpPaperView(render, { openInPaper: false });
+  buildVariantBtns();
+  buildColumnBtns();
+  buildChips();
+  syncChips();
+  syncVariantBtns();
+  render();
+  window.addEventListener("resize", postHeight);
+})();
+</script>
+</body>
+</html>

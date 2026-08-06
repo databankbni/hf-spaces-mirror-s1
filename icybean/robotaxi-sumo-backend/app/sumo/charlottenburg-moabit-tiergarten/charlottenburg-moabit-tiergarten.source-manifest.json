@@ -1,0 +1,131 @@
+{
+  "scenarioKey": "charlottenburg-moabit-tiergarten",
+  "scenarioName": "Charlottenburg + Moabit + Tiergarten service zone",
+  "status": "planning_scaffold",
+  "createdBy": "plan_charlottenburg_moabit_tiergarten_scenario.py",
+  "sourceBoundary": {
+    "provider": "Geoportal Berlin / ALKIS Ortsteile WFS",
+    "url": "https://gdi.berlin.de/services/wfs/alkis_ortsteile",
+    "layer": "alkis_ortsteile:ortsteile",
+    "sourceCrs": "EPSG:25833",
+    "outputCrs": "EPSG:4326",
+    "featureCounts": {
+      "alkis_ortsteile:ortsteile": 97
+    },
+    "selectedAreas": [
+      {
+        "role": "charlottenburg",
+        "layer": "alkis_ortsteile:ortsteile",
+        "idField": "nam",
+        "id": "Charlottenburg",
+        "name": "Charlottenburg",
+        "schluessel": "110000040401",
+        "areaSqM": 10596788.0,
+        "uuid": "DEBE04YY50000003"
+      },
+      {
+        "role": "moabit",
+        "layer": "alkis_ortsteile:ortsteile",
+        "idField": "nam",
+        "id": "Moabit",
+        "name": "Moabit",
+        "schluessel": "110000010102",
+        "areaSqM": 7709344,
+        "uuid": "DEBE01YYK0000009"
+      },
+      {
+        "role": "tiergarten",
+        "layer": "alkis_ortsteile:ortsteile",
+        "idField": "nam",
+        "id": "Tiergarten",
+        "name": "Tiergarten",
+        "schluessel": "110000010104",
+        "areaSqM": 5180511,
+        "uuid": "DEBE01YYK000000B"
+      }
+    ]
+  },
+  "serviceGeometryStrategy": {
+    "officialBoundary": "Use the three official Ortsteil polygons for source provenance, user-facing inspection, and MATSim demand membership unless the product intentionally chooses a broader corridor.",
+    "simulationEnvelope": {
+      "path": "data\\source\\berlin-ortsteile\\charlottenburg-moabit-tiergarten\\charlottenburg-moabit-tiergarten.corridor-envelope.geojson",
+      "method": "Padded EPSG:25833 bounding rectangle around the selected official Ortsteil polygons.",
+      "paddingM": 250.0,
+      "intendedUse": "Candidate SUMO edge-selection polygon for a clean rectangular-ish west-central corridor. If used, report it as an approximation rather than an official neighborhood boundary."
+    },
+    "screenshotContext": [
+      "C:\\Users\\KitCat\\Pictures\\Screenshots\\Screenshot 2026-07-03 163916.png",
+      "C:\\Users\\KitCat\\Pictures\\Screenshots\\Screenshot 2026-07-03 163928.png",
+      "C:\\Users\\KitCat\\Pictures\\Screenshots\\Screenshot 2026-07-03 163939.png"
+    ]
+  },
+  "fleetAndDepotStrategy": {
+    "initialFleetSize": 5,
+    "depotUserControl": false,
+    "depotStory": "Existing Cybercab depot marker and fleet-origin story",
+    "depotEdge": "8036812#2",
+    "depotReturnEdge": "-8036812#2",
+    "operatingModel": [
+      "Keep the existing depot location/story as a visual marker and fleet origin.",
+      "During onboarding/tutorial playback, cabs may be shown driving from the depot in the background.",
+      "At service start, the 5 cabs should already be staged inside the Charlottenburg + Moabit + Tiergarten service area.",
+      "Do not count the depot-to-service staging drive as active customer service.",
+      "After the 18:00-21:00 service window, cabs return to the fixed depot.",
+      "Do not expose depot choice as a user control."
+    ]
+  },
+  "localSourceAvailability": {
+    "bestSumoDir": {
+      "path": "C:\\Users\\KitCat\\Desktop\\Projects\\EV Mobility Dashboard\\data\\raw\\best-scenario\\scenario\\sumo",
+      "exists": true
+    },
+    "bestSumoCandidates": [
+      "C:\\Users\\KitCat\\.codex\\worktrees\\528f\\EV Mobility Dashboard\\data\\raw\\best-scenario\\scenario\\sumo",
+      "C:\\Users\\KitCat\\Desktop\\Projects\\EV Mobility Dashboard\\data\\raw\\best-scenario\\scenario\\sumo",
+      "C:\\Users\\KitCat\\Desktop\\EV Mobility Dashboard\\data\\raw\\best-scenario\\scenario\\sumo"
+    ],
+    "matsimPlans": {
+      "path": "C:\\Users\\KitCat\\Desktop\\robotaxi-control-room\\data\\source\\matsim-berlin\\berlin-v6.4-1pct.plans.xml.gz",
+      "exists": true
+    },
+    "matsimPlanCandidates": [
+      "C:\\Users\\KitCat\\.codex\\worktrees\\528f\\robotaxi-control-room\\data\\source\\matsim-berlin\\berlin-v6.4-1pct.plans.xml.gz",
+      "C:\\Users\\KitCat\\Desktop\\robotaxi-control-room\\data\\source\\matsim-berlin\\berlin-v6.4-1pct.plans.xml.gz"
+    ],
+    "matsimSample": "1pct"
+  },
+  "plannedOutputs": {
+    "sourceBoundaryGeojson": "data\\source\\berlin-ortsteile\\charlottenburg-moabit-tiergarten\\charlottenburg-moabit-tiergarten.ortsteile.geojson",
+    "simulationEnvelopeGeojson": "data\\source\\berlin-ortsteile\\charlottenburg-moabit-tiergarten\\charlottenburg-moabit-tiergarten.corridor-envelope.geojson",
+    "sumoIntermediateDir": "data/intermediate/sumo/charlottenburg-moabit-tiergarten/",
+    "appSumoDir": "hf-space/app/sumo/charlottenburg-moabit-tiergarten/",
+    "demandOutputBase": "data/processed/matsim/charlottenburg-moabit-tiergarten_person_trips_v6_4_1pct_180000_210000"
+  },
+  "generatorPlan": [
+    "Use the official Ortsteil GeoJSON as the service-area membership test for demand extraction.",
+    "Use either official Ortsteil polygons or the generated corridor envelope for SUMO edge selection, then document which one was used.",
+    "Parse BeST berlin.net.xml and keep road edges whose lane or edge midpoint is inside the selected service polygon.",
+    "Add connector edges from the fixed depot edge to the service-zone edge set using sumolib shortest paths.",
+    "Generate initial staging positions for 5 cabs inside the service area before the 18:00 service start.",
+    "Run netconvert with --keep-edges.input-file instead of a single --keep-edges.in-boundary polygon.",
+    "Filter berlin.rou.gz to strict-contained background routes inside the service-zone edge set, excluding depot connector-only edges.",
+    "Extract MATSim person trips for 18:00-21:00 whose origin and destination are inside the Ortsteil service area."
+  ],
+  "acceptanceChecks": [
+    "Boundary GeoJSON contains exactly the official Charlottenburg, Moabit, and Tiergarten Ortsteil features.",
+    "No selected target area is Mitte Zentrum or any other Mitte core replacement.",
+    "Corridor envelope is visually inspected against the screenshots before it becomes a SUMO cutout input.",
+    "Generated SUMO net validates with netconvert/sumo and contains a connected path from depot edge to service-zone entry edges.",
+    "Scenario manifest fixes fleet size at 5 and does not expose depot choice as a user control.",
+    "Service playback starts with all 5 cabs staged in the service area; depot drive-in is tutorial/background only.",
+    "Post-service return-to-depot path is feasible from service-zone edges.",
+    "Background route filter reports total, kept, and rejected vehicle counts.",
+    "MATSim demand metadata reports persons read, trips in window, trips inside area, and candidate car/ride trips.",
+    "Backend smoke checks pass after the packaged scenario is wired into hf-space/app/main.py."
+  ],
+  "blockers": [
+    "Current isolated worktree does not include the legacy MATSim demand script; the older desktop checkout has a reference implementation.",
+    "Current isolated worktree does not include BeST berlin.net.xml, berlin.rou.gz, or cutouts.txt; the planner found them in a nearby EV Mobility Dashboard project path.",
+    "Multi-feature official service areas need edge-list generation; a single hand-written SUMO boundary string is not sufficient."
+  ]
+}

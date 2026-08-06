@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Energy-attested inference receipts — emit signed receipts in your browser and re-verify the published corpus against its real signing key, live.">
+<title>Energy-Attested Inference Runs — SZL Holdings</title>
+<style>
+:root{--bg:#060D1F;--panel:#0B1F3A;--panel2:#0A1830;--teal:#3AF4C8;--gold:#C9B787;--ink:#E8D9AE;--txt:#DCE7F5;--muted:#8FA3BF;--red:#F46A6A;--line:rgba(58,244,200,.18)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+a{color:var(--teal)}
+main{max-width:1080px;margin:0 auto;padding:0 20px 60px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;max-width:1080px;margin:0 auto;padding:18px 20px;border-bottom:1px solid var(--line)}
+.wordmark{color:var(--ink);text-decoration:none;font-weight:700;letter-spacing:.12em}
+.wordmark .mark{color:var(--teal);border:1px solid var(--teal);padding:2px 7px;border-radius:4px;margin-right:8px}
+.toplinks a{color:var(--muted);text-decoration:none;margin-left:16px;font-size:13px}
+.toplinks a:hover{color:var(--teal)}
+.eyebrow{color:var(--gold);letter-spacing:.22em;font-size:11px;margin:42px 0 10px;text-transform:uppercase}
+.eyebrow .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--teal);box-shadow:0 0 12px var(--teal);margin-right:8px;animation:p 2s infinite}
+@keyframes p{50%{opacity:.35}}
+h1{font-size:clamp(1.9rem,4.5vw,3rem);line-height:1.08;letter-spacing:-.03em;color:#F3FFFC;margin:0 0 12px}
+h1 span{color:var(--teal)}
+.lede{color:var(--muted);max-width:780px;margin:0 0 22px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:0 0 34px}
+.stats div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px}
+.stats strong{display:block;font-size:22px;color:var(--teal)}
+.stats span{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+section{margin:36px 0}
+.kicker{color:var(--gold);font-size:11px;letter-spacing:.2em;text-transform:uppercase;margin:0 0 6px}
+h2{color:#F3FFFC;font-size:1.25rem;margin:0 0 14px}
+.panel{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:18px}
+textarea,input[type=number]{background:#050B18;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:12px;font:inherit}
+textarea{width:100%;min-height:90px;resize:vertical}
+textarea:focus,input:focus{outline:1px solid var(--teal)}
+input[type=number]{width:190px;margin:8px 8px 0 0}
+button{background:transparent;border:1px solid var(--teal);color:var(--teal);padding:9px 18px;border-radius:6px;font:inherit;cursor:pointer;margin:10px 8px 0 0}
+button:hover{background:rgba(58,244,200,.08)}
+button.primary{background:var(--teal);color:#04121C;font-weight:700}
+pre{background:#050B18;border:1px solid var(--line);border-radius:8px;padding:14px;overflow:auto;font-size:12px;color:#BFE8DC;max-height:420px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{border-bottom:1px solid rgba(143,163,191,.15);padding:7px 8px;text-align:left;vertical-align:top}
+th{color:var(--gold);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.tag{font-weight:700;letter-spacing:.06em}
+.tag.meas{color:var(--teal)} .tag.unav{color:var(--gold)} .tag.fail{color:var(--red)}
+.vband{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:14px}
+.vcheck{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel2);font-size:13px}
+.st{font-weight:700;letter-spacing:.1em}
+.st.pass{color:var(--teal)} .st.fail{color:var(--red)} .st.wait{color:var(--muted)}
+.note{border-left:3px solid var(--gold);background:rgba(201,183,135,.06);color:var(--ink);padding:10px 14px;font-size:13px;margin:14px 0}
+.demo{display:inline-block;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:1px 8px;font-size:11px;letter-spacing:.15em;margin-left:8px;vertical-align:middle}
+footer{border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;padding:22px 20px;max-width:1080px;margin:40px auto 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:860px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="wordmark" href="./"><span class="mark">SZL</span>ENERGY-ATTESTED RUNS</a>
+  <nav class="toplinks">
+    <a href="https://huggingface.co/datasets/SZLHOLDINGS/energy-attested-runs" target="_blank" rel="noopener">Receipt corpus</a>
+    <a href="https://github.com/szl-holdings/governed-receipt-spec" target="_blank" rel="noopener">Receipt spec</a>
+    <a href="https://huggingface.co/SZLHOLDINGS" target="_blank" rel="noopener">SZLHOLDINGS</a>
+  </nav>
+</header>
+<main>
+<section>
+  <p class="eyebrow"><span class="pulse"></span> HONEST ENERGY · SIGNED RECEIPTS</p>
+  <h1>A joule is measured<br><span>or it is null. Never invented.</span></h1>
+  <p class="lede">Run a DEMO-labeled routed inference and get a signed, hash-chained receipt of its tokens, cost, and energy — every field labeled <b>MEASURED</b>, <b>COMPUTED</b>, or <b>UNAVAILABLE</b>. Then go further: this page fetches the <em>real published receipt corpus</em> and re-verifies its ECDSA&#8209;P256 signatures against the corpus signing key, in your browser, on every load.</p>
+  <div class="stats">
+    <div><strong id="st-corpus">…</strong><span>corpus receipts verified live</span></div>
+    <div><strong id="st-count">0</strong><span>session receipts</span></div>
+    <div><strong>null J</strong><span>browser energy — honest</span></div>
+    <div><strong id="st-key">generating…</strong><span>session signing key</span></div>
+  </div>
+</section>
+
+<section>
+  <p class="kicker">01 · LIVE PROOF — REAL ARTIFACTS</p>
+  <h2>The published corpus, re-verified by your browser</h2>
+  <div class="panel">
+    <p class="lede" style="margin-bottom:10px">Fetched live from <a href="https://huggingface.co/datasets/SZLHOLDINGS/energy-attested-runs" target="_blank" rel="noopener">datasets/SZLHOLDINGS/energy-attested-runs</a> — <code>receipts.ndjson</code> + <code>signing_key.pub</code>. For each record this page recomputes the DSSE PAE SHA-256, re-walks the <code>prev ← digest</code> hash chain, and verifies the ECDSA-P256 signature against the published key. Nothing below is asserted; it is recomputed here, now.</p>
+    <div class="vband">
+      <div class="vcheck"><div class="st wait" id="c-fetch">FETCHING</div>corpus + public key fetched</div>
+      <div class="vcheck"><div class="st wait" id="c-pae">WAITING</div>PAE SHA-256 recomputed for every record</div>
+      <div class="vcheck"><div class="st wait" id="c-sig">WAITING</div>every signature verifies vs <code>signing_key.pub</code></div>
+      <div class="vcheck"><div class="st wait" id="c-chain">WAITING</div>hash chain re-walk, genesis → head</div>
+    </div>
+    <pre id="corpus-log" style="margin-top:12px">fetching corpus…</pre>
+  </div>
+</section>
+
+<section>
+  <p class="kicker">02 · EMIT</p>
+  <h2>Run an inference → emit a receipt <span class="demo">DEMO ROUTE</span></h2>
+  <div class="panel">
+    <textarea id="inp" placeholder="e.g. Summarize what an energy-attested receipt proves."></textarea>
+    <div>
+      <input type="number" id="rate-in" step="0.0001" min="0" placeholder="USD / 1k tokens in (opt)">
+      <input type="number" id="rate-out" step="0.0001" min="0" placeholder="USD / 1k tokens out (opt)">
+    </div>
+    <button class="primary" id="run">Run inference + emit receipt</button>
+    <div id="reply" style="margin-top:14px;color:var(--ink)"></div>
+    <div style="overflow-x:auto;margin-top:14px"><table id="fields"></table></div>
+  </div>
+  <p class="note"><b>Honest by construction:</b> the route is a <b>local deterministic mock</b> (clearly labeled in the receipt as <code>mock:true</code> — no model is called, nothing is downloaded). The receipt mechanics are <b>real</b>: real token counts of the actual bytes, a real SHA-256 hash chain, a real ECDSA-P256 signature. Your browser has no NVML energy counter, so <code>energy.joules</code> stays <code>null</code> / <code>UNAVAILABLE_NO_NVML</code> — a joule is never fabricated. Cost is <code>null</code> / <code>UNPRICED</code> unless you supply a real rate.</p>
+</section>
+
+<section class="grid2">
+  <div>
+    <p class="kicker">03 · RECEIPT</p>
+    <h2>Signed DSSE envelope</h2>
+    <pre id="receipt">// run an inference — the signed envelope appears here</pre>
+  </div>
+  <div>
+    <p class="kicker">04 · VERIFY</p>
+    <h2>Session proof band</h2>
+    <div class="vband" style="grid-template-columns:1fr">
+      <div class="vcheck"><div class="st wait" id="v-pae">WAITING</div>DSSE PAE SHA-256 recomputed = <code>_pae_sha256</code></div>
+      <div class="vcheck"><div class="st wait" id="v-sig">WAITING</div>ECDSA-P256 signature verifies (session key)</div>
+      <div class="vcheck"><div class="st wait" id="v-chain">WAITING</div>session hash chain re-walk</div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <p style="font-size:13px;color:var(--muted);margin:0 0 8px">Session public key (ephemeral — regenerated every page load, private key never leaves the browser):</p>
+      <pre id="pub" style="max-height:140px">generating…</pre>
+    </div>
+  </div>
+</section>
+</main>
+<footer>
+  <p><b>Doctrine:</b> energy = measured joules OR honest null. Λ = Conjecture 1 — advisory, never green. Receipts signed or UNSIGNED-honest, never faked. Token counts are counts of real bytes; the demo route is labeled <code>mock:true</code> inside the signed payload itself.</p>
+  <p><a href="https://huggingface.co/datasets/SZLHOLDINGS/energy-attested-runs">receipt corpus</a> · <a href="https://github.com/szl-holdings/governed-receipt-spec">governed-receipt-spec</a> · <a href="https://a-11-oy.com">a-11-oy.com</a> · Apache-2.0</p>
+</footer>
+
+<!-- SZL-FOURTH-WALL:v1:START — this page proves itself to the visitor. Integrity & origin only. -->
+<section id="fourth-wall" style="background:#060D1F;border-top:1px solid #C9B787;padding:14px 20px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#8FA3BF;line-height:1.7">
+  <div style="max-width:960px;margin:0 auto">
+    <span style="color:#C9B787;letter-spacing:2px">⟨ 4TH WALL ⟩</span>
+    <span> You are reading rendered bytes. Don&rsquo;t trust them — hash them:</span>
+    <button id="fw-hash-btn" style="margin-left:8px;background:transparent;border:1px solid #3AF4C8;color:#3AF4C8;padding:2px 10px;border-radius:3px;font:inherit;cursor:pointer">hash this page</button>
+    <span id="fw-hash-out" style="color:#3AF4C8;word-break:break-all"></span>
+    <div style="margin-top:6px">canonical source: <a href="https://huggingface.co/spaces/SZLHOLDINGS/energy-attested-runs/tree/main" style="color:#C9B787">SZLHOLDINGS/energy-attested-runs</a><span id="fw-rev"></span> · verify from outside:
+      <code style="color:#E8D9AE;background:#0B1F3A;padding:1px 6px;border-radius:3px">curl -sL https://huggingface.co/spaces/SZLHOLDINGS/energy-attested-runs/resolve/main/index.html | sha256sum</code>
+    </div>
+    <div style="margin-top:4px;color:#5c6f8a">Integrity &amp; origin of this page only — never the accuracy of anything on it. Hugging Face may inject one <code>window.huggingface</code> <code>&lt;script&gt;</code> into <code>&lt;head&gt;</code>, so the in-browser hash can differ from the source hash by exactly that banner. Doctrine v11.</div>
+  </div>
+</section>
+<!-- SZL-FOURTH-WALL:v1:END -->
+
+<script>
+"use strict";
+const te=new TextEncoder();
+const hex=b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join("");
+const b64e=b=>btoa(String.fromCharCode(...new Uint8Array(b)));
+const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const sha256=async b=>hex(await crypto.subtle.digest("SHA-256",b));
+function canon(v){if(Array.isArray(v))return"["+v.map(canon).join(",")+"]";
+ if(v&&typeof v==="object")return"{"+Object.keys(v).sort().map(k=>JSON.stringify(k)+":"+canon(v[k])).join(",")+"}";
+ return JSON.stringify(v);}
+function pae(pt,raw){const head=te.encode("DSSEv1 "+pt.length+" "+pt+" "+raw.length+" ");
+ const out=new Uint8Array(head.length+raw.length);out.set(head);out.set(raw,head.length);return out;}
+/* Raw-token canonicalizer: sorts keys but preserves the file's own number literals
+   (JS floats would reformat Python's 2.2e-05 / 1.0 and falsely break digests). */
+function canonicalFromText(text){
+ let i=0;
+ function ws(){while(i<text.length&&" \t\n\r".includes(text[i]))i++;}
+ function parse(){ws();const c=text[i];
+  if(c==="{"){i++;const kv=[];ws();
+   if(text[i]==="}"){i++;return{t:"obj",kv};}
+   for(;;){ws();const k=parse();ws();i++;const v=parse();kv.push([JSON.parse(k.raw),v]);ws();
+    if(text[i]===","){i++;continue;}i++;break;}
+   return{t:"obj",kv};}
+  if(c==="["){i++;const it=[];ws();
+   if(text[i]==="]"){i++;return{t:"arr",it};}
+   for(;;){it.push(parse());ws();if(text[i]===","){i++;continue;}i++;break;}
+   return{t:"arr",it};}
+  if(c==='"'){let j=i+1;for(;;){if(text[j]==="\\")j+=2;else if(text[j]==='"')break;else j++;}
+   const raw=text.slice(i,j+1);i=j+1;return{t:"lit",raw};}
+  let j=i;while(j<text.length&&!",}] \t\n\r".includes(text[j]))j++;
+  const raw=text.slice(i,j);i=j;return{t:"lit",raw};}
+ function ser(n){
+  if(n.t==="lit")return n.raw;
+  if(n.t==="arr")return"["+n.it.map(ser).join(",")+"]";
+  const kv=n.kv.slice().sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0);
+  return"{"+kv.map(([k,v])=>JSON.stringify(k)+":"+ser(v)).join(",")+"}";}
+ return{node:parse(),ser};
+}
+function canonicalMinusKey(text,dropKey){
+ const{node,ser}=canonicalFromText(text);
+ if(node.t==="obj")node.kv=node.kv.filter(([k])=>k!==dropKey);
+ return ser(node);
+}
+/* DER ECDSA sig -> raw r||s (P-256) for WebCrypto verify */
+function derToRaw(der){let i=0;if(der[i++]!==0x30)throw 0;if(der[i]&0x80)i+=(der[i]-0x80);i++;
+ function readInt(){if(der[i++]!==0x02)throw 0;let len=der[i++];let v=der.slice(i,i+len);i+=len;
+  while(v.length>32&&v[0]===0)v=v.slice(1);const out=new Uint8Array(32);out.set(v,32-v.length);return out;}
+ const r=readInt(),s=readInt();const out=new Uint8Array(64);out.set(r);out.set(s,32);return out;}
+function pemToSpki(pem){return b64d(pem.replace(/-----[^-]+-----/g,"").replace(/\s+/g,""));}
+
+/* ---------- corpus verification (real artifacts) ---------- */
+const DS="https://huggingface.co/datasets/SZLHOLDINGS/energy-attested-runs/resolve/main/";
+const setSt=(id,ok,txt)=>{const e=document.getElementById(id);e.className="st "+(ok?"pass":"fail");e.textContent=txt||(ok?"PASS":"FAIL");};
+(async()=>{
+ const log=document.getElementById("corpus-log");const lines=[];
+ try{
+  const[nd,pk]=await Promise.all([
+   fetch(DS+"receipts.ndjson").then(r=>{if(!r.ok)throw new Error("receipts.ndjson HTTP "+r.status);return r.text();}),
+   fetch(DS+"signing_key.pub").then(r=>{if(!r.ok)throw new Error("signing_key.pub HTTP "+r.status);return r.text();})
+  ]);
+  setSt("c-fetch",true,"FETCHED");
+  const recs=nd.split("\n").filter(l=>l.trim()).map(l=>JSON.parse(l));
+  const pub=await crypto.subtle.importKey("spki",pemToSpki(pk),{name:"ECDSA",namedCurve:"P-256"},false,["verify"]);
+  let paeOK=0,sigOK=0,chainOK=true,prev="0".repeat(64);
+  for(let i=0;i<recs.length;i++){
+   const r=recs[i];const raw=b64d(r.payload);const text=new TextDecoder().decode(raw);const body=JSON.parse(text);
+   const paeBytes=pae(r.payloadType,raw);
+   const p=(await sha256(paeBytes))===r._pae_sha256;if(p)paeOK++;
+   let s=false;
+   try{s=await crypto.subtle.verify({name:"ECDSA",hash:"SHA-256"},pub,derToRaw(b64d(r.signatures[0].sig)),paeBytes);}catch(e){}
+   if(s)sigOK++;
+   const dOK=(await sha256(te.encode(canonicalMinusKey(text,"digest"))))===body.digest;
+   const cOK=body.prev===prev&&dOK;if(!cOK)chainOK=false;prev=body.digest;
+   lines.push(`[${String(i).padStart(2)}] seq=${body.seq} pae=${p?"PASS":"FAIL"} sig=${s?"PASS":"FAIL"} digest=${dOK?"PASS":"FAIL"} chain=${cOK?"PASS":"BREAK"} energy=${body.energy&&body.energy.joules===null?"null (honest)":body.energy&&body.energy.joules}`);
+  }
+  setSt("c-pae",paeOK===recs.length,paeOK+"/"+recs.length+" PASS");
+  setSt("c-sig",sigOK===recs.length,sigOK+"/"+recs.length+" PASS");
+  setSt("c-chain",chainOK);
+  document.getElementById("st-corpus").textContent=(sigOK===recs.length&&chainOK?recs.length+"/"+recs.length:"FAIL");
+  log.textContent=lines.join("\n")+"\n\nRESULT: "+(paeOK===recs.length&&sigOK===recs.length&&chainOK?"PASS — every published receipt re-verified in this browser":"FAIL — a check failed; this is rendered as FAIL, never hidden");
+ }catch(e){
+  setSt("c-fetch",false,"BLOCKED");["c-pae","c-sig","c-chain"].forEach(id=>setSt(id,false,"BLOCKED"));
+  document.getElementById("st-corpus").textContent="BLOCKED";
+  log.textContent="BLOCKED — could not fetch the corpus ("+e.message+").\nThis state is rendered honestly as BLOCKED, never faked green. Verify offline:\n  curl -sL "+DS+"receipts.ndjson";
+ }
+})();
+
+/* ---------- session emit + verify ---------- */
+let KEY=null,PUB_SPKI=null,SEQ=0,PREV="0".repeat(64);const CHAIN=[];
+(async()=>{KEY=await crypto.subtle.generateKey({name:"ECDSA",namedCurve:"P-256"},false,["sign","verify"]);
+ PUB_SPKI=await crypto.subtle.exportKey("spki",KEY.publicKey);
+ document.getElementById("pub").textContent="-----BEGIN PUBLIC KEY-----\n"+b64e(PUB_SPKI).match(/.{1,64}/g).join("\n")+"\n-----END PUBLIC KEY-----";
+ document.getElementById("st-key").textContent="ephemeral P-256";})();
+
+function mockRoute(prompt){
+ const facts=["An energy-attested receipt binds token counts, cost, and an HONEST energy field into one signed, hash-chained record.",
+  "If no real meter is present, joules stay null — an honest UNKNOWN always beats a fabricated green.",
+  "The signature proves who emitted the receipt and that nothing changed after signing — not that the model was smart.",
+  "Re-walking prev ← digest proves ordering and tamper-evidence across the whole run history."];
+ let h=0;for(const c of prompt)h=(h*31+c.charCodeAt(0))>>>0;
+ return{organ:"local/mock-deterministic-v1",completion:"[DEMO — deterministic local mock, no model called] "+facts[h%facts.length]};
+}
+const tok=s=>s.split(/\s+/).filter(Boolean).length;
+
+document.getElementById("run").onclick=async()=>{
+ const prompt=document.getElementById("inp").value.trim();if(!prompt||!KEY)return;
+ const route=mockRoute(prompt);
+ const tin=tok(prompt),tout=tok(route.completion);
+ const ri=parseFloat(document.getElementById("rate-in").value),ro=parseFloat(document.getElementById("rate-out").value);
+ const priced=!isNaN(ri)&&!isNaN(ro);
+ const usd=priced?+(tin/1000*ri+tout/1000*ro).toFixed(8):null;
+ const body={ns:"energy-attested-runs/browser",seq:SEQ,prev:PREV,ts:new Date().toISOString(),
+  action:"inference",organ:route.organ,mock:true,
+  mock_note:"local deterministic responder; receipt mechanics are real",
+  prompt_sha256:await sha256(te.encode(prompt)),
+  completion_sha256:await sha256(te.encode(route.completion)),
+  tokens:{tokens_in:tin,tokens_out:tout,note:"whitespace token count of the real bytes — MEASURED count of this rule, not a model tokenizer"},
+  cost:priced?{usd,label:"COMPUTED",note:"derived from the user-supplied per-1k rates and the measured counts"}
+   :{usd:null,label:"UNPRICED",note:"No provider rate supplied; cost is not fabricated."},
+  energy:{joules:null,label:"UNAVAILABLE_NO_NVML",
+   evidence:{meter:"none — browsers expose no NVML energy counter",note:"joule NOT fabricated — honest UNKNOWN over fabricated green"}},
+  lambda:{score:null,label:"Λ = Conjecture 1 — never green"},decision:"allow"};
+ body.digest=await sha256(te.encode(canon(body)));
+ const raw=te.encode(canon(body));const pt="application/vnd.szl.energy-receipt+json";
+ const paeBytes=pae(pt,raw);
+ const sig=await crypto.subtle.sign({name:"ECDSA",hash:"SHA-256"},KEY.privateKey,paeBytes);
+ const rec={payloadType:pt,payload:b64e(raw),signatures:[{keyid:"browser/ephemeral-session",sig:b64e(sig)}],
+  signed:true,_dsse:"DSSEv1-browser-rawsig",_pae_sha256:await sha256(paeBytes),_signed_at:new Date().toISOString(),
+  honesty:"signed with an EPHEMERAL in-browser key — session integrity, not long-term authorship"};
+ SEQ++;PREV=body.digest;CHAIN.push(body);
+ document.getElementById("reply").innerHTML="<b>Mock-routed reply</b> (<code>"+route.organ+"</code>):<br>"+route.completion.replace(/</g,"&lt;");
+ document.getElementById("fields").innerHTML=
+  "<tr><th>Field</th><th>Status</th><th>Value</th></tr>"+
+  `<tr><td>energy.joules</td><td><span class="tag unav">UNAVAILABLE</span></td><td><code>null</code> — no NVML in a browser</td></tr>`+
+  `<tr><td>tokens_in / tokens_out</td><td><span class="tag meas">MEASURED</span></td><td>${tin} / ${tout} (count of real bytes)</td></tr>`+
+  `<tr><td>cost.usd</td><td><span class="tag ${priced?"meas":"unav"}">${priced?"COMPUTED":"UNPRICED"}</span></td><td><code>${usd===null?"null":usd}</code></td></tr>`+
+  `<tr><td>lambda</td><td><span class="tag unav">ADVISORY</span></td><td>Λ = Conjecture 1 — never green</td></tr>`+
+  `<tr><td>chain</td><td>seq=${body.seq}</td><td>prev=<code>${body.prev.slice(0,16)}…</code></td></tr>`;
+ document.getElementById("receipt").textContent=JSON.stringify(rec,null,2);
+ setSt("v-pae",(await sha256(pae(pt,b64d(rec.payload))))===rec._pae_sha256);
+ let s=false;try{const pub=await crypto.subtle.importKey("spki",PUB_SPKI,{name:"ECDSA",namedCurve:"P-256"},false,["verify"]);
+  s=await crypto.subtle.verify({name:"ECDSA",hash:"SHA-256"},pub,b64d(rec.signatures[0].sig),paeBytes);}catch(e){}
+ setSt("v-sig",s);
+ let prev="0".repeat(64),ok=true;
+ for(const b of CHAIN){const u={...b};delete u.digest;
+  if(b.prev!==prev||(await sha256(te.encode(canon(u))))!==b.digest){ok=false;break;}prev=b.digest;}
+ setSt("v-chain",ok);
+ document.getElementById("st-count").textContent=CHAIN.length;
+};
+
+/* fourth wall */
+(function(){var btn=document.getElementById("fw-hash-btn"),out=document.getElementById("fw-hash-out");
+ if(btn)btn.addEventListener("click",function(){out.textContent=" hashing…";
+  fetch(window.location.href,{cache:"reload"}).then(r=>r.arrayBuffer()).then(b=>crypto.subtle.digest("SHA-256",b))
+  .then(d=>{out.textContent=" sha256:"+hex(d);}).catch(()=>{out.textContent=" hash failed — use the curl line";});});
+ fetch("https://huggingface.co/api/spaces/SZLHOLDINGS/energy-attested-runs").then(r=>r.ok?r.json():null)
+ .then(j=>{if(j&&j.sha)document.getElementById("fw-rev").textContent=" (live revision = "+j.sha.slice(0,12)+")";}).catch(()=>{});})();
+</script>
+</body>
+</html>

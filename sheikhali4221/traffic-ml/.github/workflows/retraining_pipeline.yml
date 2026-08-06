@@ -1,0 +1,50 @@
+name: Continuous Training (CT) Pipeline
+
+on:
+  schedule:
+    - cron: "0 0 */3 * *" # Strictly triggers every 3 days at midnight UTC
+  workflow_dispatch: # Allows you to press a button and test anytime
+
+permissions:
+  contents: write
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code with LFS support
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true # Ensures actual model binary is pulled, not just the text pointer
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies with Explicit Versions
+        run: |
+          pip install -r requirements.txt
+          # Force lock scikit-learn to match your active model environment
+          pip install scikit-learn==1.3.2 
+          
+
+      - name: Run CT Script
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python ct_script.py
+
+      - name: Smart Git LFS Push back to GitHub
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Initialize LFS on the GitHub runner runner
+          git lfs install
+          
+          # Force add model because it might be in .gitignore
+          git add backend/*.pkl -f
+          git add backend/*.json -f
+          git commit -m "🤖 Automated: Retrained Ensemble Models [Skip CI]" || echo "No changes to commit. All models rejected."
+          git push origin main

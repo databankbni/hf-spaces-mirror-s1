@@ -1,0 +1,267 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div class="d-flex align-items-end justify-content-between mb-4 fade-up">
+    <div>
+        <div class="page-sub mb-1">// Portfolio Analysis</div>
+        <h1 class="page-heading">Correlation Matrix</h1>
+    </div>
+    {% if data_points %}
+    <div style="font-family:var(--mono);font-size:0.75rem;color:var(--text-muted);">
+        {{ data_points }} overlapping data points
+    </div>
+    {% endif %}
+</div>
+
+<div class="card mb-4 fade-up-1">
+    <div class="card-body">
+        <div class="card-title">Parameters</div>
+        <form method="POST" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Tickers (comma-separated)</label>
+                <input type="text" name="tickers" class="form-control"
+                    value="{{ request.form.tickers or 'AAPL, MSFT, GOOGL' }}"
+                    placeholder="AAPL, MSFT, GOOGL" required>
+                <div class="form-text">2 – 10 symbols</div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Start Date</label>
+                <input type="date" name="start_date" class="form-control"
+                    value="{{ request.form.start_date or start_date or '2021-01-01' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">End Date</label>
+                <input type="date" name="end_date" class="form-control"
+                    value="{{ request.form.end_date or end_date }}">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Analyze →</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger fade-up">⚠ {{ error }}</div>
+{% endif %}
+
+{% if warning %}
+<div class="alert alert-warning fade-up" style="background:rgba(218,119,86,0.1);border:1px solid rgba(218,119,86,0.3);color:var(--claude-warm);">
+    ⚠ {{ warning }}
+</div>
+{% endif %}
+
+{% if corr_matrix %}
+
+{% if stats %}
+<div class="section-label fade-up">Stock Statistics</div>
+<div class="row g-3 mb-4">
+    {% for ticker, data in stats.items() %}
+    <div class="col-md-4 fade-up">
+        <div class="card h-100" style="border-color:rgba(218,119,86,0.2);">
+            <div class="card-body">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;">
+                    <span style="font-family:var(--mono);font-size:1.2rem;font-weight:700;color:var(--claude-coral);">{{ ticker }}</span>
+                    <span class="badge {% if data.price_change > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                        {{ data.price_change }}%
+                    </span>
+                </div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;">Price</div>
+                        <div style="font-size:1.3rem;font-weight:700;color:var(--text-primary);">${{ data.current_price }}</div>
+                    </div>
+                    <div class="col-6">
+                        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;">Avg Price</div>
+                        <div style="font-size:1.3rem;font-weight:700;color:var(--text-primary);">${{ data.mean_price }}</div>
+                    </div>
+                    <div class="col-6">
+                        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;">Volatility</div>
+                        <div style="font-family:var(--mono);font-weight:600;color:var(--claude-warm);">{{ data.volatility }}%</div>
+                    </div>
+                    <div class="col-6">
+                        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;">Sharpe</div>
+                        <div style="font-family:var(--mono);font-weight:600;color:var(--text-primary);">{{ data.sharpe_ratio }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if corr_pairs %}
+<div class="card mb-4 fade-up">
+    <div class="card-body">
+        <div class="card-title">Top Correlation Pairs</div>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead><tr><th>Stock A</th><th>Stock B</th><th>Coefficient</th><th>Strength</th></tr></thead>
+                <tbody>
+                    {% for pair in corr_pairs %}
+                    <tr>
+                        <td style="color:var(--claude-coral);font-weight:600;">{{ pair.ticker1 }}</td>
+                        <td style="color:var(--claude-warm);font-weight:600;">{{ pair.ticker2 }}</td>
+                        <td style="font-weight:700;">{{ pair.correlation }}</td>
+                        <td>
+                            {% set ac = pair.correlation|abs %}
+                            {% if ac >= 0.8 %}<span class="badge bg-success">Very Strong</span>
+                            {% elif ac >= 0.6 %}<span class="badge bg-primary">Strong</span>
+                            {% elif ac >= 0.4 %}<span class="badge bg-warning">Moderate</span>
+                            {% else %}<span class="badge" style="background:rgba(90,91,106,0.2);color:var(--text-muted);border:1px solid var(--bg-border);">Weak</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card mb-4 fade-up">
+    <div class="card-body">
+        <div class="card-title">Correlation Heatmap</div>
+        <p style="font-family:var(--mono);font-size:0.72rem;color:var(--text-muted);margin-bottom:1.25rem;">
+            −1 = perfect negative · 0 = no correlation · +1 = perfect positive
+        </p>
+        <div class="table-responsive">
+            <table class="table table-bordered text-center align-middle" style="font-family:var(--mono);font-size:0.85rem;">
+                <thead>
+                    <tr style="background:var(--bg-deep);">
+                        <th style="border-color:var(--bg-border);"></th>
+                        {% for label in labels %}
+                        <th style="color:var(--claude-coral);border-color:var(--bg-border);font-size:0.78rem;">{{ label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in range(corr_matrix|length) %}
+                    <tr>
+                        <th style="color:var(--claude-coral);background:var(--bg-deep);border-color:var(--bg-border);font-size:0.78rem;">{{ labels[i] }}</th>
+                        {% for j in range(corr_matrix[i]|length) %}
+                        {% set val = corr_matrix[i][j] %}
+                        {% if val >= 0.8 %}
+                            {% set cell_bg = 'background:rgba(45,206,137,0.35);color:#2dce89;' %}
+                        {% elif val >= 0.6 %}
+                            {% set cell_bg = 'background:rgba(45,206,137,0.2);color:#2dce89;' %}
+                        {% elif val >= 0.4 %}
+                            {% set cell_bg = 'background:rgba(45,206,137,0.1);color:#5eead4;' %}
+                        {% elif val >= 0.1 %}
+                            {% set cell_bg = 'background:rgba(45,206,137,0.05);color:var(--text-secondary);' %}
+                        {% elif val >= -0.1 %}
+                            {% set cell_bg = 'background:var(--bg-card2);color:var(--text-muted);' %}
+                        {% elif val >= -0.4 %}
+                            {% set cell_bg = 'background:rgba(218,119,86,0.1);color:var(--claude-warm);' %}
+                        {% elif val >= -0.6 %}
+                            {% set cell_bg = 'background:rgba(245,54,92,0.15);color:#ff6b8a;' %}
+                        {% else %}
+                            {% set cell_bg = 'background:rgba(245,54,92,0.3);color:#f5365c;' %}
+                        {% endif %}
+                        <td style="{{ cell_bg }} border-color:var(--bg-border);padding:0.85rem;font-weight:{% if val >= 0.8 or val <= -0.6 %}700{% else %}500{% endif %};">
+                            {{ val }}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <!-- Legend -->
+        <div class="d-flex flex-wrap gap-2 mt-4" style="font-family:var(--mono);font-size:0.7rem;">
+            <span style="padding:0.3rem 0.8rem;border-radius:4px;background:rgba(45,206,137,0.35);color:#2dce89;border:1px solid rgba(45,206,137,0.4);">Strong Positive ≥ 0.8</span>
+            <span style="padding:0.3rem 0.8rem;border-radius:4px;background:rgba(45,206,137,0.1);color:#5eead4;border:1px solid rgba(45,206,137,0.2);">Moderate 0.4–0.8</span>
+            <span style="padding:0.3rem 0.8rem;border-radius:4px;background:var(--bg-card2);color:var(--text-muted);border:1px solid var(--bg-border);">Weak −0.4–0.4</span>
+            <span style="padding:0.3rem 0.8rem;border-radius:4px;background:rgba(218,119,86,0.1);color:var(--claude-warm);border:1px solid rgba(218,119,86,0.3);">Moderate −0.8–−0.4</span>
+            <span style="padding:0.3rem 0.8rem;border-radius:4px;background:rgba(245,54,92,0.3);color:#f5365c;border:1px solid rgba(245,54,92,0.4);">Strong Negative ≤ −0.8</span>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4 fade-up">
+    <div class="card-body">
+        <div class="card-title">Correlation Strength Visualization</div>
+        <div style="position:relative;height:380px;">
+            <canvas id="correlationChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="text-center mb-4 fade-up">
+    <button class="btn btn-outline-success" onclick="downloadCorrelationCSV()">↓ Export Matrix CSV</button>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if corr_matrix %}
+<script>
+const CORAL = '#da7756', GREEN = '#2dce89', RED = '#f5365c', BLUE = '#5e72e4';
+const labels = {{ labels|tojson }};
+const corrMatrix = {{ corr_matrix|tojson }};
+
+const corrData = [], corrLabels = [];
+for (let i=0; i<labels.length; i++)
+    for (let j=i+1; j<labels.length; j++) {
+        corrLabels.push(labels[i]+' / '+labels[j]);
+        corrData.push(corrMatrix[i][j]);
+    }
+
+new Chart(document.getElementById('correlationChart'), {
+    type: 'bar',
+    data: {
+        labels: corrLabels,
+        datasets: [{
+            label: 'Correlation',
+            data: corrData,
+            backgroundColor: corrData.map(v =>
+                v >= 0.8  ? 'rgba(45,206,137,0.7)'  :
+                v >= 0.4  ? 'rgba(45,206,137,0.35)' :
+                v >= 0    ? 'rgba(94,114,228,0.3)'  :
+                v >= -0.4 ? 'rgba(218,119,86,0.5)'  :
+                            'rgba(245,54,92,0.7)'
+            ),
+            borderColor: corrData.map(v =>
+                v >= 0.6 ? GREEN : v >= 0 ? BLUE : v >= -0.4 ? CORAL : RED
+            ),
+            borderWidth: 1.5, borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor:'#141519', borderColor:'#252630', borderWidth:1, padding:12, cornerRadius:6,
+                callbacks: {
+                    label: c => {
+                        const v = c.parsed.y;
+                        const s = Math.abs(v)>=0.8?'Very Strong':Math.abs(v)>=0.6?'Strong':Math.abs(v)>=0.4?'Moderate':'Weak';
+                        return `${v.toFixed(3)} (${s})`;
+                    }
+                }
+            }
+        },
+        scales: {
+            y: { min:-1, max:1, grid:{color:'#1a1b21'}, ticks:{callback:v=>v.toFixed(1)} },
+            x: { grid:{display:false}, ticks:{maxRotation:45, font:{size:11}} }
+        }
+    }
+});
+
+function downloadCorrelationCSV() {
+    let csv = 'Stock,' + labels.join(',') + '\n';
+    for (let i=0; i<labels.length; i++) {
+        csv += labels[i] + ',' + corrMatrix[i].join(',') + '\n';
+    }
+    const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(new Blob([csv],{type:'text/csv'})),
+        download: 'correlation_matrix.csv'
+    });
+    a.click();
+}
+</script>
+{% endif %}
+{% endblock %}

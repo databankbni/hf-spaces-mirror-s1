@@ -1,0 +1,126 @@
+import os
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from app import db
+from app import schemas
+from contextlib import asynccontextmanager
+from argon2 import PasswordHasher
+
+def get_db():
+    conn = db.get_database_connection()
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    conn = db.get_database_connection()
+    db.init_db(conn)
+    yield
+    # Tear down the civic Postgres pool on shutdown. It spawns worker threads when
+    # opened lazily on first use; without this they leak (uvicorn logs "couldn't
+    # stop thread pool-1-worker-N"). close_pool() is idempotent — a no-op if the
+    # pool was never opened, so this stays safe for tests that never touch civic.
+    try:
+        from app.civic import db as civic_db
+        civic_db.close_pool()
+    except Exception:
+        pass
+
+app = FastAPI(lifespan=lifespan)
+ph = PasswordHasher()
+
+# CORS: the Docket web UI runs on :3000 and calls this API on :8000, so the
+# browser needs the dev origin allowed for the POST /civic/ask fetch to succeed.
+_cors_origins = [
+    o.strip()
+    for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
+    if o.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    # Also match any *.vercel.app preview/production domain for this project.
+    allow_origin_regex=os.environ.get("CORS_ORIGIN_REGEX") or None,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- Civic-intelligence slice (feat/civic-intel-slice) --------------------
+# Additive wiring for the civic RAG routers. These mount POST /civic/ingest and
+# POST /civic/ask alongside the existing tasks/auth/health routes above; they
+# share none of the SQLite tables or connections. The civic Postgres schema is
+# initialised lazily on first use by app.civic.db.init() (not in the SQLite
+# lifespan above), so importing/mounting these routers requires no live Postgres.
+from app.civic.routers import (
+    ingest as civic_ingest,
+    ask as civic_ask,
+    stream as civic_stream,
+    insights as civic_insights,
+    digest as civic_digest,
+    jurisdictions as civic_jurisdictions,
+    bills as civic_bills,
+    auth as civic_auth,
+    watchlist as civic_watchlist,
+)
+
+app.include_router(civic_ingest.router)         # POST /civic/ingest
+app.include_router(civic_ask.router)            # POST /civic/ask
+app.include_router(civic_stream.router)         # POST /civic/ask/stream
+app.include_router(civic_insights.router)       # GET  /civic/insights/{overview,topics}
+app.include_router(civic_digest.router)         # GET  /civic/insights/recent
+app.include_router(civic_jurisdictions.router)  # GET  /civic/jurisdictions
+app.include_router(civic_bills.router)          # GET  /civic/bills
+app.include_router(civic_auth.router)           # POST /civic/auth/{signup,login}, GET /me
+app.include_router(civic_watchlist.router)      # GET/POST/DELETE /civic/watchlist
+# --------------------------------------------------------------------------
+
+@app.get("/health")
+def get_health():
+    return {"status": "ok"}
+
+@app.post("/register", status_code=201, response_model=schemas.UserOut)
+def add_user(user: schemas.UserCreate, conn = Depends(get_db)):
+    user_payload = user.model_dump(mode="json")
+    password = user_payload["password"]
+    hashed_password = ph.hash(password)
+    row = db.add_user(conn, {"email": user_payload["email"], "password_hash": hashed_password})
+    if row is None:
+        raise HTTPException(409, detail="Email already registered")
+    return row
+
+@app.post("/tasks", status_code=201, response_model=schemas.TaskOut)
+def add_task(task: schemas.TaskCreate, conn = Depends(get_db)):
+    task_payload = task.model_dump(mode="json")
+    row = db.add_task(conn, task_payload)
+    return row
+
+@app.get("/tasks", response_model=list[schemas.TaskOut])
+def get_tasks(conn = Depends(get_db)):
+    rows = db.get_tasks(conn)
+    return rows
+
+@app.get("/tasks/{id}", response_model=schemas.TaskOut)
+def get_task(id: int, conn = Depends(get_db)):
+    row = db.get_task(conn, id)
+    if row is None:
+        raise HTTPException(404, detail=f"Task with ID {id} not found")
+    return row
+
+@app.patch("/tasks/{id}", response_model=schemas.TaskOut)
+def update_task(id: int, task: schemas.TaskUpdate, conn = Depends(get_db)):
+    updates_dict = task.model_dump(exclude_unset=True, mode="json")
+    updated_row = db.update_task(conn, id, updates_dict)
+
+    if updated_row is None:
+        raise HTTPException(404, detail=f"Task with ID {id} not found")
+    return updated_row
+
+@app.delete("/tasks/{id}", response_model=schemas.TaskOut)
+def delete_task(id: int, conn = Depends(get_db)):
+    row = db.delete_task(conn, id)
+    if row is None:
+        raise HTTPException(404, detail=f"Task with ID {id} not found")
+    return row

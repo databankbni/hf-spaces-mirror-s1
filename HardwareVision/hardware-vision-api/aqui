@@ -1,0 +1,651 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# main.py — Hardware Vision API (Render)
+# Pipeline completo: YOLO + Gemini
+# ═══════════════════════════════════════════════════════════════════════════════
+import os, json, re, urllib.parse
+from fastapi import FastAPI, File, UploadFile, Form
+from fastapi.middleware.cors import CORSMiddleware
+from PIL import Image
+import io, numpy as np
+import cv2
+import uvicorn
+
+from ultralytics import YOLO
+from google import genai
+from google.genai import types
+
+# ── Configurações ────────────────────────────────────────────────────────────
+GEMINI_KEY = os.environ.get("GEMINI_KEY", "")
+CONFIANCA_MIN   = 0.50  # threshold elevado para evitar falsos positivos
+MODELOS_GEMINI  = [
+    "gemini-3.1-flash-lite",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-3.5-flash",
+]
+
+# ── Inicializa Gemini ─────────────────────────────────────────────────────────
+client = genai.Client(api_key=GEMINI_KEY, http_options={'api_version': 'v1beta'})
+
+# ── Aliases de componentes (texto do usuário → classe do modelo) ──────────────
+ALIASES = {
+    # RAM
+    "ram": "ram_stick",
+    "memória ram": "ram_stick",
+    "memoria ram": "ram_stick",
+    "memória": "ram_stick",
+    "memoria": "ram_stick",
+    "pente de ram": "ram_stick",
+    "pente ram": "ram_stick",
+    # Disco
+    "hd": "disk_drive",
+    "hdd": "disk_drive",
+    "ssd": "disk_drive",
+    "ssd sata": "disk_drive",
+    "hd sata": "disk_drive",
+    "hdd sata": "disk_drive",
+    "ssd nvme": "disk_drive",
+    "nvme": "disk_drive",
+    "m.2": "disk_drive",
+    "ssd m.2": "disk_drive",
+    "disco": "disk_drive",
+    "disco rígido": "disk_drive",
+    "disco rigido": "disk_drive",
+    "disco sólido": "disk_drive",
+    "disco solido": "disk_drive",
+    "armazenamento": "disk_drive",
+    "drive": "disk_drive",
+    # Placa-mãe
+    "placa mãe": "motherboard",
+    "placa mae": "motherboard",
+    "placa-mãe": "motherboard",
+    "placa-mae": "motherboard",
+    "mainboard": "motherboard",
+    # CPU
+    "processador": "cpu",
+    "proc": "cpu",
+    "processor": "cpu",
+    # Cooler
+    "cooler": "cpu_cooler",
+    "cooler cpu": "cpu_cooler",
+    "ventoinha": "cpu_cooler",
+    # Fonte
+    "fonte": "psu",
+    "fonte de alimentação": "psu",
+    "fonte de alimentacao": "psu",
+    "power supply": "psu",
+    # GPU
+    "placa de vídeo": "gpu",
+    "placa de video": "gpu",
+    "gpu": "gpu",
+    "placa gráfica": "gpu",
+    "placa grafica": "gpu",
+    "video card": "gpu",
+    # Outros
+    "slot ram": "ram_slot",
+    "slot de ram": "ram_slot",
+    "painel frontal": "front_panel",
+    "io traseiro": "rear_io",
+    "rear io": "rear_io",
+    "drive óptico": "optical_drive",
+    "drive optico": "optical_drive",
+    "dvd": "optical_drive",
+    "leitor dvd": "optical_drive",
+    "slot gpu": "gpu_slot",
+    "slot de gpu": "gpu_slot",
+    "slot pcie": "gpu_slot",
+}
+
+def normalizar_componente(texto: str) -> str:
+    """Mapeia o texto livre do usuário para a classe do modelo YOLO."""
+    t = texto.lower().strip()
+    return ALIASES.get(t, t)
+
+# ── Tradução para inglês — YOLO-World foi treinado em inglês ─────────────────
+ALIASES_EN = {
+    "ram": "RAM memory stick",
+    "memória ram": "RAM memory stick",
+    "memoria ram": "RAM memory stick",
+    "memória": "RAM memory stick",
+    "memoria": "RAM memory stick",
+    "pente de ram": "RAM memory stick",
+    "pente ram": "RAM memory stick",
+    "ram_stick": "RAM memory stick",
+    "ssd": "SSD solid state drive",
+    "ssd sata": "SATA SSD solid state drive",
+    "hd sata": "SATA hard disk drive",
+    "hdd": "hard disk drive",
+    "hd": "hard disk drive",
+    "disco": "hard disk drive",
+    "disco rígido": "hard disk drive",
+    "nvme": "NVMe SSD drive",
+    "ssd nvme": "NVMe SSD solid state drive",
+    "m.2": "M.2 NVMe SSD",
+    "disk_drive": "SSD solid state drive",
+    "processador": "CPU processor chip",
+    "proc": "CPU processor",
+    "cpu": "CPU processor chip",
+    "cooler": "CPU cooler fan heatsink",
+    "cooler cpu": "CPU cooler fan",
+    "cpu_cooler": "CPU cooler heatsink fan",
+    "placa mãe": "motherboard circuit board",
+    "placa mae": "motherboard circuit board",
+    "mainboard": "motherboard",
+    "motherboard": "motherboard circuit board",
+    "fonte": "power supply unit PSU",
+    "fonte de alimentação": "power supply unit",
+    "psu": "power supply unit PSU",
+    "placa de vídeo": "GPU graphics card",
+    "placa de video": "GPU graphics card",
+    "gpu": "GPU graphics card",
+    "placa gráfica": "GPU graphics card",
+    "drive óptico": "optical disc drive DVD",
+    "dvd": "DVD optical drive",
+    "optical_drive": "optical disc drive",
+    "painel frontal": "front panel connector",
+    "front_panel": "front panel connector",
+    "rear_io": "rear IO panel ports",
+    "slot ram": "RAM memory slot",
+    "ram_slot": "RAM memory slot",
+    "slot gpu": "PCIe GPU slot",
+    "gpu_slot": "PCIe graphics card slot",
+}
+
+def traduzir_para_ingles(texto: str) -> str:
+    """Traduz o texto do usuário para inglês para uso no YOLO-World."""
+    t = texto.lower().strip()
+    return ALIASES_EN.get(t, texto)
+
+# ── Inicializa YOLO customizado ───────────────────────────────────────────────
+try:
+    modelo_yolo = YOLO("best_v2.pt")
+    print(f"✅ YOLO carregado! Classes: {list(modelo_yolo.names.values())}")
+except Exception as e:
+    print(f"❌ Erro YOLO: {e}")
+    modelo_yolo = None
+
+# ── YOLO-World — carregado sob demanda para economizar memória ────────────────
+_modelo_world = None
+
+def get_world_model():
+    global _modelo_world
+    if _modelo_world is None:
+        print("🔄 Carregando YOLO-World (yolov8s-worldv2)...")
+        _modelo_world = YOLO("yolov8s-worldv2.pt")
+        print("✅ YOLO-World carregado!")
+    return _modelo_world
+
+# ── FastAPI ───────────────────────────────────────────────────────────────────
+app = FastAPI(title="Hardware Vision API")
+app.add_middleware(CORSMiddleware, allow_origins=["*"],
+                   allow_methods=["*"], allow_headers=["*"])
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+def bytes_para_cv2(b):
+    nparr = np.frombuffer(b, np.uint8)
+    return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+def gemini_gerar(prompt, imagem_bytes=None):
+    key = os.environ.get("GEMINI_KEY", GEMINI_KEY)
+    for modelo in MODELOS_GEMINI:
+        try:
+            c = genai.Client(api_key=key, http_options={"api_version": "v1beta"})
+            contents = [prompt]
+            if imagem_bytes:
+                contents.append(
+                    types.Part.from_bytes(data=imagem_bytes, mime_type="image/jpeg"))
+            resp = c.models.generate_content(model=modelo, contents=contents)
+            return resp.text
+        except Exception as e:
+            print(f"⚠️ {modelo} falhou: {e}")
+    raise Exception("Todos os modelos Gemini falharam")
+
+def gemini_json(prompt, imagem_bytes=None):
+    txt = gemini_gerar(prompt, imagem_bytes)
+    txt = txt.replace("```json","").replace("```","").strip()
+    match = re.search(r'\{[\s\S]*\}', txt)
+    if match:
+        return json.loads(match.group(0))
+    return json.loads(txt)
+
+def descrever_com_gemini(imagem_bytes, nome):
+    prompt = (
+        f"Aja como especialista em hardware. Componente: {nome}.\n"
+        f"Responda APENAS JSON puro sem markdown:\n"
+        f'{{"tipo":"SSD","modelo":"SA400S37/240G","descricao":"Descrição técnica em até 25 palavras.","dica":"Dica prática curta."}}\n'
+        f"- modelo: exatamente como aparece na etiqueta física, null se não visível\n"
+        f"- NUNCA invente modelos"
+    )
+    dados = gemini_json(prompt, imagem_bytes)
+    dados.setdefault("modelo", None)
+    return dados
+
+# ════════════════════════════════════════════════════════════════════════════
+# ROTAS
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/")
+def health():
+    classes = list(modelo_yolo.names.values()) if modelo_yolo else []
+    return {"status": "online", "modelo": "Hardware Vision API", "classes": classes}
+
+@app.get("/ping")
+def ping():
+    return {"status": "online", "yolo": modelo_yolo is not None}
+
+# ── /detectar — YOLO puro ────────────────────────────────────────────────────
+@app.post("/detectar")
+async def detectar(imagem: UploadFile = File(...)):
+    try:
+        b   = await imagem.read()
+        img = bytes_para_cv2(b)
+        h, w = img.shape[:2]
+
+        if modelo_yolo is None:
+            return {"sucesso": False, "erro": "YOLO offline"}
+
+        if min(h, w) < 640:
+            scale = 640 / min(h, w)
+            img   = cv2.resize(img, (int(w*scale), int(h*scale)))
+            h, w  = img.shape[:2]
+
+        results   = modelo_yolo(img, verbose=False)[0]
+        deteccoes = []
+        for box in results.boxes:
+            conf = float(box.conf[0])
+            if conf >= CONFIANCA_MIN:
+                x1,y1,x2,y2 = box.xyxy[0].tolist()
+                nome = modelo_yolo.names[int(box.cls[0])]
+                deteccoes.append({
+                    "nome": nome, "confianca": round(conf,2),
+                    "x": round((x1+x2)/2/w,4), "y": round((y1+y2)/2/h,4),
+                    "w": round((x2-x1)/w,4),   "h": round((y2-y1)/h,4),
+                    "tipo":"","descricao":"","dica":"","modelo":None,
+                })
+        print(f"🔍 Detectados: {[d['nome'] for d in deteccoes]}")
+        if not deteccoes:
+            return {"sucesso": False, "detectados": []}
+        return {"sucesso": True, "detectados": deteccoes}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+# ── /descrever — Gemini descreve componentes ─────────────────────────────────
+@app.post("/descrever")
+async def descrever(
+    imagem:      UploadFile = File(...),
+    componentes: str        = Form("[]"),
+):
+    try:
+        b    = await imagem.read()
+        comp = json.loads(componentes)
+        resultado = []
+        for det in comp:
+            try:
+                info = descrever_com_gemini(b, det["nome"])
+                resultado.append({**det, **info})
+            except:
+                resultado.append({**det,"tipo":"Hardware",
+                    "descricao":"Componente identificado visualmente.",
+                    "dica":"Consulte o manual para especificações.","modelo":None})
+        return {"sucesso": True, "componentes": resultado}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+# ── /analisar — YOLO + Gemini combinados ─────────────────────────────────────
+@app.post("/analisar")
+async def analisar(imagem: UploadFile = File(...)):
+    try:
+        b   = await imagem.read()
+        img = bytes_para_cv2(b)
+        h, w = img.shape[:2]
+
+        if modelo_yolo is None:
+            return {"sucesso": False, "erro": "YOLO offline"}
+
+        results   = modelo_yolo(img, verbose=False)[0]
+        deteccoes = []
+        for box in results.boxes:
+            conf = float(box.conf[0])
+            if conf >= CONFIANCA_MIN:
+                x1,y1,x2,y2 = box.xyxy[0].tolist()
+                nome = modelo_yolo.names[int(box.cls[0])]
+                deteccoes.append({
+                    "nome": nome, "confianca": round(conf,2),
+                    "x": round((x1+x2)/2/w,4), "y": round((y1+y2)/2/h,4),
+                    "w": round((x2-x1)/w,4),   "h": round((y2-y1)/h,4),
+                })
+
+        if not deteccoes:
+            return {"sucesso": False, "componentes": []}
+
+        componentes_finais = []
+        for det in deteccoes:
+            try:
+                info = descrever_com_gemini(b, det["nome"])
+                componentes_finais.append({**det, **info})
+            except:
+                componentes_finais.append({**det,"tipo":"Hardware",
+                    "descricao":"Componente identificado.","dica":"","modelo":None})
+
+        return {"sucesso": True, "detectados": deteccoes, "componentes": componentes_finais}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+# ── /target — Target Vision (YOLO + Gemini) ───────────────────────────────────
+@app.post("/target")
+async def target(
+    imagem:     UploadFile = File(...),
+    componente: str        = Form("componente de hardware"),
+    prompt:     str        = Form(""),
+    preciso:    str        = Form("0"),
+):
+    try:
+        b        = await imagem.read()
+        eh_preciso = preciso == "1"
+
+        # ── ETAPA 1: YOLO-World (vocabulário aberto) — TESTE ────────────────
+        if eh_preciso:
+            try:
+                img = bytes_para_cv2(b)
+                h, w = img.shape[:2]
+                world = get_world_model()
+                # Traduz para inglês — YOLO-World foi treinado em inglês
+                comp_en = traduzir_para_ingles(componente)
+                print(f"🌍 YOLO-World buscando: '{comp_en}' (original: '{componente}')")
+                world.set_classes([comp_en])
+                results = world(img, conf=0.30, verbose=False)[0]
+                if len(results.boxes) > 0:
+                    box = results.boxes[0]
+                    conf = float(box.conf[0])
+                    x1,y1,x2,y2 = box.xyxy[0].tolist()
+                    print(f"✅ Target YOLO-World: {comp_en} conf={int(conf*100)}%")
+                    return {
+                        "sucesso": True,
+                        "encontrado": True,
+                        "confianca": int(conf*100),
+                        "posicao": {
+                            "x":       round((x1+x2)/2/w,4),
+                            "y":       round((y1+y2)/2/h,4),
+                            "largura": round((x2-x1)/w,4),
+                            "altura":  round((y2-y1)/h,4),
+                        }
+                    }
+                print(f"🔍 YOLO-World não detectou: {comp_en} (pt: {componente})")
+            except Exception as e:
+                print(f"⚠️ Target YOLO-World erro: {e}")
+
+        # ── ETAPA 2: YOLO customizado (best_v2.pt) ───────────────────────────
+        if eh_preciso and modelo_yolo:
+            try:
+                img = bytes_para_cv2(b)
+                h, w = img.shape[:2]
+                results = modelo_yolo(img, verbose=False)[0]
+                detectados = []
+                comp_norm = normalizar_componente(componente)
+                for box in results.boxes:
+                    conf = float(box.conf[0])
+                    nome = modelo_yolo.names[int(box.cls[0])]
+                    match = (
+                        nome.lower() == comp_norm or
+                        comp_norm in nome.lower() or
+                        nome.lower() in comp_norm
+                    )
+                    if conf >= 0.35 and match:
+                        x1,y1,x2,y2 = box.xyxy[0].tolist()
+                        detectados.append({
+                            "encontrado": True,
+                            "confianca": int(conf*100),
+                            "posicao": {
+                                "x":       round((x1+x2)/2/w,4),
+                                "y":       round((y1+y2)/2/h,4),
+                                "largura": round((x2-x1)/w,4),
+                                "altura":  round((y2-y1)/h,4),
+                            }
+                        })
+                if detectados:
+                    melhor = max(detectados, key=lambda d: d["confianca"])
+                    print(f"✅ Target best_v2: {componente} conf={melhor['confianca']}%")
+                    return {"sucesso": True, **melhor}
+            except Exception as e:
+                print(f"⚠️ Target best_v2 erro: {e}")
+
+        # Gemini como fallback
+        prompt_final = prompt if prompt else (
+            f'Localize "{componente}" nesta imagem. '
+            f'Responda SOMENTE JSON: {{"encontrado":true/false,"confianca":0-100,'
+            f'"posicao":{{"x":0.0-1.0,"y":0.0-1.0,"largura":0.0-1.0,"altura":0.0-1.0}}}}'
+        )
+        dados = gemini_json(prompt_final, b)
+        return {
+            "sucesso":    True,
+            "encontrado": dados.get("encontrado", False),
+            "confianca":  dados.get("confianca", 0),
+            "posicao":    dados.get("posicao",
+                          {"x":0.5,"y":0.5,"largura":0.3,"altura":0.3}),
+        }
+    except Exception as e:
+        print(f"❌ Target erro: {e}")
+        return {"sucesso": True, "encontrado": False, "confianca": 0,
+                "posicao": {"x":0.5,"y":0.5,"largura":0.3,"altura":0.3}}
+
+# ── /raiox ────────────────────────────────────────────────────────────────────
+@app.post("/raiox")
+async def raiox(
+    imagem:     UploadFile = File(None),
+    componente: str        = Form("componente de hardware"),
+):
+    try:
+        b = await imagem.read() if imagem else None
+        if not b:
+            return {"sucesso": True, "laudo": {
+                "status":"atencao","titulo":"Análise sem imagem",
+                "texto":f"Pause a câmera sobre o {componente} e tente novamente.",
+                "recomendacao":"Pause a câmera sobre o componente.",
+                "pontuacao":50,"pins":[]}}
+
+        prompt = (
+            f"Técnico especialista em hardware. Analise '{componente}' na imagem.\n"
+            f"Sistema de coordenadas: x=0 esquerda, x=1000 direita, y=0 topo, y=1000 base.\n"
+            f"Responda SOMENTE JSON puro sem markdown:\n"
+            f'{{"divergente":false,"status":"saudavel","titulo":"Resumo 5 palavras",'
+            f'"texto":"Descrição técnica 2-3 frases.","recomendacao":"Ação em 1 frase.",'
+            f'"pontuacao":85,"pins":[{{"id":1,"x":500,"y":300,"label":"Chip","status":"ok",'
+            f'"detalhe":"Detalhe técnico do elemento."}}]}}\n'
+            f"- status: saudavel(80-100), atencao(50-79), critico(0-49)\n"
+            f"- pins.status: ok=verde, atencao=amarelo, critico=vermelho, info=azul\n"
+            f"- Gere 4-10 pins em elementos DIFERENTES e bem separados (distância mínima 100)\n"
+            f"- divergente=true somente se imagem mostrar CLARAMENTE outro componente"
+        )
+        resultado = gemini_json(prompt, b)
+        resultado.setdefault("pins", [])
+        resultado.setdefault("divergente", False)
+        if resultado.get("divergente"):
+            resultado["pins"] = []
+        return {"sucesso": True, "laudo": resultado}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+# ── /doutor ───────────────────────────────────────────────────────────────────
+@app.post("/doutor")
+async def doutor(
+    sintoma:             str        = Form(""),
+    respostas_perguntas: str        = Form(""),
+    imagem:              UploadFile = File(None),
+):
+    try:
+        b = await imagem.read() if imagem else None
+
+        system_prompt = (
+            "Você é Dr. Hardware, especialista em diagnóstico de PCs e notebooks.\n"
+            "ESCOPO: RAM, SSD, CPU, GPU, placa-mãe, fonte, cooler, Windows, drivers, BIOS.\n"
+            "FORA DO ESCOPO: celulares, TVs, consoles, culinária, esportes, etc.\n\n"
+            "Responda SOMENTE JSON puro sem markdown:\n"
+            '{"componente":"RAM","explicacao":"Diagnóstico.\\n\\nSugere-se:\\n1- Passo",'
+            '"confianca":85,"svg_id":"svg_ram"}\n'
+            "svg_id: svg_ram, svg_ssd, svg_cpu, svg_gpu, svg_motherboard, svg_psu, "
+            "svg_hdd, svg_cooler, svg_generico ou svg_bloqueio\n"
+        )
+        contexto = system_prompt
+        if sintoma:
+            contexto += f'\nSintoma: "{sintoma}"\n'
+        else:
+            contexto += "\nO usuário enviou apenas uma imagem. Analise-a.\n"
+        if respostas_perguntas:
+            contexto += f"\nRespostas:\n{respostas_perguntas}\n"
+
+        resultado = gemini_json(contexto, b)
+        return {"sucesso": True, "diagnostico": resultado}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+# ── /perguntas ────────────────────────────────────────────────────────────────
+@app.post("/perguntas")
+async def perguntas(sintoma: str = Form("")):
+    try:
+        if not sintoma:
+            return {"sucesso": False, "erro": "Sintoma vazio"}
+        prompt = (
+            f'Sintoma: "{sintoma}"\n'
+            f"Especialista em hardware de PCs. Gere ATÉ 3 perguntas técnicas ou lista vazia.\n"
+            f"Responda SOMENTE JSON puro:\n"
+            f'{{"perguntas":[{{"id":1,"texto":"Pergunta?","tipo":"sim_nao"}}]}}\n'
+            f"tipos: sim_nao, multipla_escolha (com opcoes:[]), imagem_opcional\n"
+            f"Se sintoma for fora do escopo ou muito específico, retorne perguntas:[]"
+        )
+        resultado = gemini_json(prompt)
+        return {"sucesso": True, "perguntas": resultado.get("perguntas", [])}
+    except:
+        return {"sucesso": True, "perguntas": []}
+
+# ── /dica ─────────────────────────────────────────────────────────────────────
+@app.post("/dica")
+async def dica(prompt: str = Form("")):
+    try:
+        if not prompt:
+            return {"sucesso": False, "erro": "Prompt vazio"}
+        txt = gemini_gerar(prompt)
+        return {"sucesso": True, "dica": txt.strip()}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+# ── /ocr ──────────────────────────────────────────────────────────────────────
+@app.post("/ocr")
+async def ocr(imagem: UploadFile = File(...)):
+    try:
+        b      = await imagem.read()
+        prompt = (
+            "Analise esta etiqueta de notebook ou PC. Extraia o modelo exato.\n"
+            "Responda SOMENTE JSON puro: {\"modelo\": \"Lenovo IdeaPad 3 15ITL6\"}\n"
+            "Se não identificar claramente, retorne modelo vazio: ''\n"
+            "NUNCA invente modelos."
+        )
+        dados = gemini_json(prompt, b)
+        modelo_encontrado = dados.get("modelo", "").strip()
+        if modelo_encontrado:
+            return {"sucesso": True, "modelo": modelo_encontrado}
+        return {"sucesso": False, "erro": "Modelo não identificado."}, 422
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+# ── /preco ────────────────────────────────────────────────────────────────────
+@app.post("/preco")
+async def preco(componente: str = Form(""), modelo: str = Form("")):
+    try:
+        if not componente:
+            return {"sucesso": False, "erro": "Componente vazio"}
+        identificador = f"{componente} {modelo}".strip() if modelo else componente
+        prompt = (
+            f"Especialista em hardware brasileiro. Preço de mercado: '{identificador}'.\n"
+            f"Lojas: Kabum, Pichau, Amazon BR, Mercado Livre.\n"
+            f"Responda SOMENTE JSON puro:\n"
+            f'{{"faixa":"R$ 120 – 350","nota":"Varia conforme capacidade e marca."}}\n'
+            f"- faixa: formato 'R$ X – Y', valores inteiros\n"
+            f"- nota: máximo 8 palavras em português"
+        )
+        dados = gemini_json(prompt)
+        return {"sucesso": True, "faixa": dados.get("faixa",""),
+                "nota": dados.get("nota",""), "componente_normalizado": identificador}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+# ── /upgrade ──────────────────────────────────────────────────────────────────
+@app.post("/upgrade")
+async def upgrade(componente: str = Form(""), modelo: str = Form("")):
+    try:
+        if not componente:
+            return {"sucesso": False, "erro": "Componente vazio"}
+        prompt = (
+            f"Especialista em hardware brasileiro.\n"
+            f"Componente: '{componente}' | Equipamento: '{modelo or 'genérico'}'\n"
+            f"Gere 4 produtos compatíveis disponíveis no Brasil com preços realistas.\n"
+            f"Responda SOMENTE JSON puro:\n"
+            f'{{"ofertas":[{{"nome":"Kingston NV3 500GB M.2 NVMe","preco":"R$ 289",'
+            f'"avaliacao":4.8,"loja":"Amazon","url":"https://amazon.com.br/s?k=Kingston+NV3",'
+            f'"thumbnail":""}}],'
+            f'"url_ver_todos":"https://www.amazon.com.br/s?k={urllib.parse.quote(componente)}"}}'
+        )
+        dados = gemini_json(prompt)
+        return {"sucesso": True, "ofertas": dados.get("ofertas",[]),
+                "url_ver_todos": dados.get("url_ver_todos","")}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+# ── /sugestoes ────────────────────────────────────────────────────────────────
+@app.get("/sugestoes")
+async def sugestoes():
+    prompt = (
+        "Gere exatamente 6 modelos populares de notebooks ou PCs.\n"
+        "Apenas marca + linha (ex: 'Dell Inspiron', 'Lenovo IdeaPad').\n"
+        "Responda SOMENTE JSON: {\"modelos\": [\"Modelo 1\", ...]}"
+    )
+    try:
+        dados = gemini_json(prompt)
+        modelos = dados.get("modelos", [])
+        if len(modelos) == 6:
+            return {"sucesso": True, "modelos": modelos}
+        raise ValueError("Quantidade incorreta")
+    except:
+        return {"sucesso": True, "modelos": [
+            "Lenovo IdeaPad","Dell Inspiron","HP Pavilion",
+            "Acer Aspire","Samsung Galaxy Book","Asus VivoBook"]}
+
+# ── /guia_visual ──────────────────────────────────────────────────────────────
+@app.post("/guia_visual")
+async def guia_visual(
+    componente:   str        = Form("componente"),
+    acao:         str        = Form("instalar"),
+    modelo_texto: str        = Form(""),
+    imagem:       UploadFile = File(None),
+):
+    try:
+        b = await imagem.read() if imagem else None
+        modelo_ctx = f"Modelo: '{modelo_texto}'.\n" if modelo_texto else ""
+        prompt = (
+            f"Técnico especialista em hardware. O usuário quer {acao} '{componente}'.\n"
+            f"{modelo_ctx}"
+            f"NUNCA gere passos de: desligar, remover bateria, abrir gabinete.\n"
+            f"Comece DIRETAMENTE no 1º passo técnico (localizar slot, remover parafuso, etc).\n"
+            f"Responda SOMENTE JSON puro sem markdown:\n"
+            f'{{"dificuldade":"Médio","tempo_estimado":"20 minutos","risco":"Baixo",'
+            f'"ferramentas":[{{"nome":"Chave Philips #0","emoji":"🪛"}}],'
+            f'"passos":[{{"numero":1,"titulo":"Título curto","instrucao":"Instrução detalhada.",'
+            f'"ferramenta":{{"nome":"Chave Philips #0","emoji":"🪛"}},'
+            f'"destaques":[{{"x":500,"y":300,"label":"Componente"}}],'
+            f'"seta":{{"x":500,"y":300,"direcao":"baixo"}},'
+            f'"retangulo":{{"x1":350,"y1":200,"x2":650,"y2":450,"label":"Slot"}}}}],'
+            f'"verificacao_final":["Verificar encaixe","Fechar a tampa","Ligar o equipamento"]}}'
+        )
+        resultado = gemini_json(prompt, b)
+        if "passos" not in resultado or not resultado["passos"]:
+            raise ValueError("JSON sem passos")
+        for p in resultado["passos"]:
+            f = p.get("ferramenta")
+            if isinstance(f, str):
+                p["ferramenta"] = {"nome": f, "emoji": "🔧"}
+        return {"sucesso": True, "guia": resultado}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+# ── Inicialização ─────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

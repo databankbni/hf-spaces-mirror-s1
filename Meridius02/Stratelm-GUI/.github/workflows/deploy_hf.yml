@@ -1,0 +1,42 @@
+# Push this repo to a Hugging Face Space on every commit to main, which triggers
+# the Space to (re)build the root Dockerfile and redeploy the dashboard.
+#
+# ONE-TIME SETUP (in YOUR forked GitHub repo — Settings):
+#   Secrets and variables -> Actions:
+#     * Secret   HF_TOKEN     = a Hugging Face access token with WRITE scope
+#                               (huggingface.co -> Settings -> Access Tokens)
+#     * Variable HF_USERNAME  = your Hugging Face username
+#     * Variable HF_SPACE     = the Space name you created (SDK: Docker)
+#
+# Create the Space first at huggingface.co/new-space (SDK = Docker, blank).
+name: Deploy to Hugging Face Space
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:      # lets you trigger it manually from the Actions tab
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history, needed for the HF git push)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ vars.HF_USERNAME }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_USERNAME" ] || [ -z "$HF_SPACE" ]; then
+            echo "::error::Set the HF_TOKEN secret and HF_USERNAME / HF_SPACE variables in repo settings."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # force-push the current tree to the Space's main branch
+          git push --force "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE}" HEAD:main

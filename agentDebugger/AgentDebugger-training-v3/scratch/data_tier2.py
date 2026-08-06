@@ -1,0 +1,195 @@
+t2_bugs = [
+    
+    {
+        "id": "t2_004", "difficulty": 2, "bug_type": "wrong_loop_termination", "function_name": "find_first_positive",
+        "buggy_code": "def find_first_positive(nums):\n    i = 0\n    while i < len(nums) - 1:\n        if nums[i] > 0:\n            return nums[i]\n        i += 1\n    return -1",
+        "original_code": "def find_first_positive(nums):\n    i = 0\n    while i < len(nums):\n        if nums[i] > 0:\n            return nums[i]\n        i += 1\n    return -1",
+        "initial_error": "AssertionError: expected 5, got -1", "bug_location": {"function": "find_first_positive", "line_start": 3},
+        "test_cases": [{"input": [[-1, -2, 5]], "expected_output": 5}, {"input": [[1, 2, 3]], "expected_output": 1}, {"input": [[-1]], "expected_output": -1}, {"input": [[-5, -3, -1, 10]], "expected_output": 10}]
+    },
+    {
+        "id": "t2_005", "difficulty": 2, "bug_type": "wrong_loop_termination", "function_name": "binary_search_insert",
+        "buggy_code": "def binary_search_insert(arr, target):\n    left, right = 0, len(arr) - 1\n    while left < right:\n        mid = (left + right) // 2\n        if arr[mid] < target:\n            left = mid + 1\n        else:\n            right = mid\n    return left",
+        "original_code": "def binary_search_insert(arr, target):\n    left, right = 0, len(arr)\n    while left < right:\n        mid = (left + right) // 2\n        if arr[mid] < target:\n            left = mid + 1\n        else:\n            right = mid\n    return left",
+        "initial_error": "AssertionError: expected 3, got 2", "bug_location": {"function": "binary_search_insert", "line_start": 2},
+        "test_cases": [{"input": [[1, 3, 5], 6], "expected_output": 3}, {"input": [[1, 3, 5], 4], "expected_output": 2}, {"input": [[1, 3, 5], 0], "expected_output": 0}, {"input": [[], 1], "expected_output": 0}]
+    },
+    {
+        "id": "t2_006", "difficulty": 2, "bug_type": "wrong_loop_termination", "function_name": "countdown_to_zero",
+        "buggy_code": "def countdown_to_zero(n):\n    res = []\n    while n > 0:\n        res.append(n)\n        n -= 1\n    return res",
+        "original_code": "def countdown_to_zero(n):\n    res = []\n    while n >= 0:\n        res.append(n)\n        n -= 1\n    return res",
+        "initial_error": "AssertionError: expected [3, 2, 1, 0], got [3, 2, 1]", "bug_location": {"function": "countdown_to_zero", "line_start": 3},
+        "test_cases": [{"input": 3, "expected_output": [3, 2, 1, 0]}, {"input": 0, "expected_output": [0]}, {"input": 1, "expected_output": [1, 0]}, {"input": -1, "expected_output": []}]
+    },
+    {
+        "id": "t2_007", "difficulty": 2, "bug_type": "wrong_loop_termination", "function_name": "collect_until_negative",
+        "buggy_code": "def collect_until_negative(nums):\n    res = []\n    i = 0\n    while i <= len(nums) and nums[i] >= 0:\n        res.append(nums[i])\n        i += 1\n    return res",
+        "original_code": "def collect_until_negative(nums):\n    res = []\n    i = 0\n    while i < len(nums) and nums[i] >= 0:\n        res.append(nums[i])\n        i += 1\n    return res",
+        "initial_error": "IndexError: list index out of range", "bug_location": {"function": "collect_until_negative", "line_start": 4},
+        "test_cases": [{"input": [[1, 2, -1, 3]], "expected_output": [1, 2]}, {"input": [[1, 2, 3]], "expected_output": [1, 2, 3]}, {"input": [[-1]], "expected_output": []}, {"input": [[]], "expected_output": []}]
+    },
+    {
+        "id": "t2_008", "difficulty": 2, "bug_type": "wrong_loop_termination", "function_name": "skip_spaces",
+        "buggy_code": "def skip_spaces(s):\n    i = 0\n    while s[i] == ' ':\n        i += 1\n    return s[i:]",
+        "original_code": "def skip_spaces(s):\n    i = 0\n    while i < len(s) and s[i] == ' ':\n        i += 1\n    return s[i:]",
+        "initial_error": "IndexError: string index out of range", "bug_location": {"function": "skip_spaces", "line_start": 3},
+        "test_cases": [{"input": "  hello", "expected_output": "hello"}, {"input": "   ", "expected_output": ""}, {"input": "world", "expected_output": "world"}, {"input": "", "expected_output": ""}]
+    },
+    {
+        "id": "t2_009", "difficulty": 2, "bug_type": "wrong_loop_termination", "function_name": "find_last_even",
+        "buggy_code": "def find_last_even(nums):\n    i = len(nums) - 1\n    while i > 0:\n        if nums[i] % 2 == 0:\n            return nums[i]\n        i -= 1\n    return -1",
+        "original_code": "def find_last_even(nums):\n    i = len(nums) - 1\n    while i >= 0:\n        if nums[i] % 2 == 0:\n            return nums[i]\n        i -= 1\n    return -1",
+        "initial_error": "AssertionError: expected 2, got -1", "bug_location": {"function": "find_last_even", "line_start": 3},
+        "test_cases": [{"input": [[2, 3, 5]], "expected_output": 2}, {"input": [[1, 3, 4]], "expected_output": 4}, {"input": [[1, 3, 5]], "expected_output": -1}, {"input": [[6]], "expected_output": 6}]
+    },
+    {
+        "id": "t2_010", "difficulty": 2, "bug_type": "wrong_loop_termination", "function_name": "get_chunks",
+        "buggy_code": "def get_chunks(lst, size):\n    chunks = []\n    i = 0\n    while i < len(lst) - size:\n        chunks.append(lst[i:i+size])\n        i += size\n    return chunks",
+        "original_code": "def get_chunks(lst, size):\n    chunks = []\n    i = 0\n    while i < len(lst):\n        chunks.append(lst[i:i+size])\n        i += size\n    return chunks",
+        "initial_error": "AssertionError: expected [[1,2],[3]], got [[1,2]]", "bug_location": {"function": "get_chunks", "line_start": 4},
+        "test_cases": [{"input": [[1, 2, 3], 2], "expected_output": [[1, 2], [3]]}, {"input": [[1, 2], 2], "expected_output": [[1, 2]]}, {"input": [[1, 2, 3, 4], 2], "expected_output": [[1, 2], [3, 4]]}, {"input": [[], 2], "expected_output": []}]
+    },
+    
+    {
+        "id": "t2_011", "difficulty": 2, "bug_type": "incorrect_accumulation", "function_name": "sum_even_numbers",
+        "buggy_code": "def sum_even_numbers(nums):\n    total = 1\n    for n in nums:\n        if n % 2 == 0:\n            total += n\n    return total",
+        "original_code": "def sum_even_numbers(nums):\n    total = 0\n    for n in nums:\n        if n % 2 == 0:\n            total += n\n    return total",
+        "initial_error": "AssertionError: expected 6, got 7", "bug_location": {"function": "sum_even_numbers", "line_start": 2},
+        "test_cases": [{"input": [[1, 2, 3, 4]], "expected_output": 6}, {"input": [[1, 3, 5]], "expected_output": 0}, {"input": [[2, 2]], "expected_output": 4}, {"input": [[]], "expected_output": 0}]
+    },
+    {
+        "id": "t2_012", "difficulty": 2, "bug_type": "incorrect_accumulation", "function_name": "multiply_all",
+        "buggy_code": "def multiply_all(nums):\n    total = 0\n    for n in nums:\n        total *= n\n    return total",
+        "original_code": "def multiply_all(nums):\n    total = 1\n    for n in nums:\n        total *= n\n    return total",
+        "initial_error": "AssertionError: expected 24, got 0", "bug_location": {"function": "multiply_all", "line_start": 2},
+        "test_cases": [{"input": [[1, 2, 3, 4]], "expected_output": 24}, {"input": [[5]], "expected_output": 5}, {"input": [[1, -1]], "expected_output": -1}, {"input": [[0, 5]], "expected_output": 0}]
+    },
+    {
+        "id": "t2_013", "difficulty": 2, "bug_type": "incorrect_accumulation", "function_name": "concatenate_strings",
+        "buggy_code": "def concatenate_strings(strs):\n    res = strs[0]\n    for s in strs:\n        res += s\n    return res",
+        "original_code": "def concatenate_strings(strs):\n    res = ''\n    for s in strs:\n        res += s\n    return res",
+        "initial_error": "AssertionError: expected 'abc', got 'aabc'", "bug_location": {"function": "concatenate_strings", "line_start": 2},
+        "test_cases": [{"input": [["a", "b", "c"]], "expected_output": "abc"}, {"input": [["hello", "world"]], "expected_output": "helloworld"}, {"input": [["a"]], "expected_output": "a"}, {"input": [["x", "y"]], "expected_output": "xy"}]
+    },
+    {
+        "id": "t2_014", "difficulty": 2, "bug_type": "incorrect_accumulation", "function_name": "max_profit",
+        "buggy_code": "def max_profit(prices):\n    min_price = 0\n    max_prof = 0\n    for price in prices:\n        min_price = min(min_price, price)\n        max_prof = max(max_prof, price - min_price)\n    return max_prof",
+        "original_code": "def max_profit(prices):\n    min_price = float('inf')\n    max_prof = 0\n    for price in prices:\n        min_price = min(min_price, price)\n        max_prof = max(max_prof, price - min_price)\n    return max_prof",
+        "initial_error": "AssertionError: expected 5, got 6", "bug_location": {"function": "max_profit", "line_start": 2},
+        "test_cases": [{"input": [[7, 1, 5, 3, 6, 4]], "expected_output": 5}, {"input": [[7, 6, 4, 3, 1]], "expected_output": 0}, {"input": [[1, 2]], "expected_output": 1}, {"input": [[2, 4, 1]], "expected_output": 2}]
+    },
+    {
+        "id": "t2_015", "difficulty": 2, "bug_type": "incorrect_accumulation", "function_name": "find_longest_word",
+        "buggy_code": "def find_longest_word(words):\n    longest = words[0]\n    for word in words:\n        if len(word) > len(longest):\n            longest = longest\n    return longest",
+        "original_code": "def find_longest_word(words):\n    longest = ''\n    for word in words:\n        if len(word) > len(longest):\n            longest = word\n    return longest",
+        "initial_error": "AssertionError: expected 'banana', got 'apple'", "bug_location": {"function": "find_longest_word", "line_start": 5},
+        "test_cases": [{"input": [["apple", "banana", "kiwi"]], "expected_output": "banana"}, {"input": [["a", "ab", "abc"]], "expected_output": "abc"}, {"input": [["dog"]], "expected_output": "dog"}, {"input": [["x", "yz"]], "expected_output": "yz"}]
+    },
+    {
+        "id": "t2_016", "difficulty": 2, "bug_type": "incorrect_accumulation", "function_name": "running_sum",
+        "buggy_code": "def running_sum(nums):\n    res = []\n    current = nums[0]\n    for n in nums:\n        current += n\n        res.append(current)\n    return res",
+        "original_code": "def running_sum(nums):\n    res = []\n    current = 0\n    for n in nums:\n        current += n\n        res.append(current)\n    return res",
+        "initial_error": "AssertionError: expected [1, 3, 6], got [2, 4, 7]", "bug_location": {"function": "running_sum", "line_start": 3},
+        "test_cases": [{"input": [[1, 2, 3]], "expected_output": [1, 3, 6]}, {"input": [[1, 1, 1]], "expected_output": [1, 2, 3]}, {"input": [[5]], "expected_output": [5]}, {"input": [[0, 0, 0]], "expected_output": [0, 0, 0]}]
+    },
+    {
+        "id": "t2_017", "difficulty": 2, "bug_type": "incorrect_accumulation", "function_name": "count_negatives",
+        "buggy_code": "def count_negatives(nums):\n    count = -1\n    for n in nums:\n        if n < 0:\n            count += 1\n    return count",
+        "original_code": "def count_negatives(nums):\n    count = 0\n    for n in nums:\n        if n < 0:\n            count += 1\n    return count",
+        "initial_error": "AssertionError: expected 2, got 1", "bug_location": {"function": "count_negatives", "line_start": 2},
+        "test_cases": [{"input": [[1, -1, 2, -2]], "expected_output": 2}, {"input": [[1, 2, 3]], "expected_output": 0}, {"input": [[-1, -2, -3]], "expected_output": 3}, {"input": [[]], "expected_output": 0}]
+    },
+    
+    {
+        "id": "t2_018", "difficulty": 2, "bug_type": "wrong_conditional_branch", "function_name": "classify_number",
+        "buggy_code": "def classify_number(n):\n    if n > 0:\n        return 'positive'\n    elif n < 0:\n        return 'negative'\n    elif n == 0:\n        return 'negative'",
+        "original_code": "def classify_number(n):\n    if n > 0:\n        return 'positive'\n    elif n < 0:\n        return 'negative'\n    else:\n        return 'zero'",
+        "initial_error": "AssertionError: expected 'zero', got 'negative'", "bug_location": {"function": "classify_number", "line_start": 6},
+        "test_cases": [{"input": 5, "expected_output": "positive"}, {"input": -3, "expected_output": "negative"}, {"input": 0, "expected_output": "zero"}, {"input": 1, "expected_output": "positive"}]
+    },
+    {
+        "id": "t2_019", "difficulty": 2, "bug_type": "wrong_conditional_branch", "function_name": "get_discount",
+        "buggy_code": "def get_discount(price):\n    if price > 100:\n        return 20\n    if price > 50:\n        return 50\n    return 0",
+        "original_code": "def get_discount(price):\n    if price > 100:\n        return 20\n    elif price > 50:\n        return 10\n    return 0",
+        "initial_error": "AssertionError: expected 10, got 50", "bug_location": {"function": "get_discount", "line_start": 5},
+        "test_cases": [{"input": 150, "expected_output": 20}, {"input": 75, "expected_output": 10}, {"input": 50, "expected_output": 0}, {"input": 20, "expected_output": 0}]
+    },
+    {
+        "id": "t2_020", "difficulty": 2, "bug_type": "wrong_conditional_branch", "function_name": "fizz_buzz",
+        "buggy_code": "def fizz_buzz(n):\n    if n % 3 == 0:\n        return 'Fizz'\n    if n % 5 == 0:\n        return 'Buzz'\n    if n % 15 == 0:\n        return 'FizzBuzz'\n    return str(n)",
+        "original_code": "def fizz_buzz(n):\n    if n % 15 == 0:\n        return 'FizzBuzz'\n    if n % 3 == 0:\n        return 'Fizz'\n    if n % 5 == 0:\n        return 'Buzz'\n    return str(n)",
+        "initial_error": "AssertionError: expected 'FizzBuzz', got 'Fizz'", "bug_location": {"function": "fizz_buzz", "line_start": 2},
+        "test_cases": [{"input": 3, "expected_output": "Fizz"}, {"input": 5, "expected_output": "Buzz"}, {"input": 15, "expected_output": "FizzBuzz"}, {"input": 2, "expected_output": "2"}]
+    },
+    {
+        "id": "t2_021", "difficulty": 2, "bug_type": "wrong_conditional_branch", "function_name": "is_leap_year",
+        "buggy_code": "def is_leap_year(year):\n    if year % 4 == 0:\n        if year % 100 == 0:\n            if year % 400 == 0:\n                return False\n            return True\n        return True\n    return False",
+        "original_code": "def is_leap_year(year):\n    if year % 4 == 0:\n        if year % 100 == 0:\n            if year % 400 == 0:\n                return True\n            return False\n        return True\n    return False",
+        "initial_error": "AssertionError: expected False, got True", "bug_location": {"function": "is_leap_year", "line_start": 5},
+        "test_cases": [{"input": 2000, "expected_output": True}, {"input": 1900, "expected_output": False}, {"input": 2004, "expected_output": True}, {"input": 2001, "expected_output": False}]
+    },
+    {
+        "id": "t2_022", "difficulty": 2, "bug_type": "wrong_conditional_branch", "function_name": "grade_score",
+        "buggy_code": "def grade_score(score):\n    if score >= 90:\n        return 'A'\n    elif score >= 80:\n        return 'B'\n    elif score > 70:\n        return 'C'\n    else:\n        return 'F'",
+        "original_code": "def grade_score(score):\n    if score >= 90:\n        return 'A'\n    elif score >= 80:\n        return 'B'\n    elif score >= 70:\n        return 'C'\n    else:\n        return 'F'",
+        "initial_error": "AssertionError: expected 'C', got 'F'", "bug_location": {"function": "grade_score", "line_start": 6},
+        "test_cases": [{"input": 95, "expected_output": "A"}, {"input": 80, "expected_output": "B"}, {"input": 70, "expected_output": "C"}, {"input": 60, "expected_output": "F"}]
+    },
+    {
+        "id": "t2_023", "difficulty": 2, "bug_type": "wrong_conditional_branch", "function_name": "can_drink_alcohol",
+        "buggy_code": "def can_drink_alcohol(age, country):\n    if country == 'US':\n        if age > 21:\n            return True\n        return False\n    return age >= 18",
+        "original_code": "def can_drink_alcohol(age, country):\n    if country == 'US':\n        if age >= 21:\n            return True\n        return False\n    return age >= 18",
+        "initial_error": "AssertionError: expected True, got False", "bug_location": {"function": "can_drink_alcohol", "line_start": 3},
+        "test_cases": [{"input": [21, "US"], "expected_output": True}, {"input": [20, "US"], "expected_output": False}, {"input": [18, "UK"], "expected_output": True}, {"input": [17, "UK"], "expected_output": False}]
+    },
+    {
+        "id": "t2_024", "difficulty": 2, "bug_type": "wrong_conditional_branch", "function_name": "get_quadrant",
+        "buggy_code": "def get_quadrant(x, y):\n    if x > 0 and y > 0:\n        return 1\n    elif x < 0 and y > 0:\n        return 2\n    elif x > 0 and y < 0:\n        return 3\n    elif x < 0 and y < 0:\n        return 4\n    return 0",
+        "original_code": "def get_quadrant(x, y):\n    if x > 0 and y > 0:\n        return 1\n    elif x < 0 and y > 0:\n        return 2\n    elif x < 0 and y < 0:\n        return 3\n    elif x > 0 and y < 0:\n        return 4\n    return 0",
+        "initial_error": "AssertionError: expected 4, got 3", "bug_location": {"function": "get_quadrant", "line_start": 6},
+        "test_cases": [{"input": [1, 1], "expected_output": 1}, {"input": [-1, 1], "expected_output": 2}, {"input": [-1, -1], "expected_output": 3}, {"input": [1, -1], "expected_output": 4}]
+    },
+    
+    {
+        "id": "t2_025", "difficulty": 2, "bug_type": "wrong_variable", "function_name": "merge_arrays",
+        "buggy_code": "def merge_arrays(a, b):\n    res = a + b\n    res.sort()\n    return a",
+        "original_code": "def merge_arrays(a, b):\n    res = a + b\n    res.sort()\n    return res",
+        "initial_error": "AssertionError: expected [1, 2, 3, 4], got [1, 3]", "bug_location": {"function": "merge_arrays", "line_start": 4},
+        "test_cases": [{"input": [[1, 3], [2, 4]], "expected_output": [1, 2, 3, 4]}, {"input": [[], [1]], "expected_output": [1]}, {"input": [[2], [1]], "expected_output": [1, 2]}, {"input": [[], []], "expected_output": []}]
+    },
+    {
+        "id": "t2_026", "difficulty": 2, "bug_type": "wrong_variable", "function_name": "find_min_max",
+        "buggy_code": "def find_min_max(nums):\n    if not nums:\n        return None\n    mn = min(nums)\n    mx = max(nums)\n    return (mn, mn)",
+        "original_code": "def find_min_max(nums):\n    if not nums:\n        return None\n    mn = min(nums)\n    mx = max(nums)\n    return (mn, mx)",
+        "initial_error": "AssertionError: expected (1, 5), got (1, 1)", "bug_location": {"function": "find_min_max", "line_start": 6},
+        "test_cases": [{"input": [[1, 2, 5]], "expected_output": (1, 5)}, {"input": [[3, 3]], "expected_output": (3, 3)}, {"input": [[-1, 0, 1]], "expected_output": (-1, 1)}, {"input": [[]], "expected_output": None}]
+    },
+    {
+        "id": "t2_027", "difficulty": 2, "bug_type": "wrong_variable", "function_name": "remove_evens",
+        "buggy_code": "def remove_evens(nums):\n    res = []\n    for n in nums:\n        if n % 2 != 0:\n            res.append(n)\n    return nums",
+        "original_code": "def remove_evens(nums):\n    res = []\n    for n in nums:\n        if n % 2 != 0:\n            res.append(n)\n    return res",
+        "initial_error": "AssertionError: expected [1, 3], got [1, 2, 3]", "bug_location": {"function": "remove_evens", "line_start": 6},
+        "test_cases": [{"input": [[1, 2, 3]], "expected_output": [1, 3]}, {"input": [[2, 4]], "expected_output": []}, {"input": [[1, 3]], "expected_output": [1, 3]}, {"input": [[]], "expected_output": []}]
+    },
+    {
+        "id": "t2_028", "difficulty": 2, "bug_type": "wrong_variable", "function_name": "duplicate_list",
+        "buggy_code": "def duplicate_list(lst):\n    res = lst[:]\n    res.extend(lst)\n    return lst",
+        "original_code": "def duplicate_list(lst):\n    res = lst[:]\n    res.extend(lst)\n    return res",
+        "initial_error": "AssertionError: expected [1, 1], got [1]", "bug_location": {"function": "duplicate_list", "line_start": 4},
+        "test_cases": [{"input": [[1]], "expected_output": [1, 1]}, {"input": [[1, 2]], "expected_output": [1, 2, 1, 2]}, {"input": [[]], "expected_output": []}, {"input": [[0]], "expected_output": [0, 0]}]
+    },
+    {
+        "id": "t2_029", "difficulty": 2, "bug_type": "wrong_variable", "function_name": "swap_halves",
+        "buggy_code": "def swap_halves(lst):\n    mid = len(lst) // 2\n    left = lst[:mid]\n    right = lst[mid:]\n    return left + left",
+        "original_code": "def swap_halves(lst):\n    mid = len(lst) // 2\n    left = lst[:mid]\n    right = lst[mid:]\n    return right + left",
+        "initial_error": "AssertionError: expected [3, 4, 1, 2], got [1, 2, 1, 2]", "bug_location": {"function": "swap_halves", "line_start": 5},
+        "test_cases": [{"input": [[1, 2, 3, 4]], "expected_output": [3, 4, 1, 2]}, {"input": [[1, 2, 3]], "expected_output": [3, 1, 2]}, {"input": [[1]], "expected_output": [1]}, {"input": [[]], "expected_output": []}]
+    },
+    {
+        "id": "t2_030", "difficulty": 2, "bug_type": "wrong_variable", "function_name": "get_initials",
+        "buggy_code": "def get_initials(name):\n    words = name.split()\n    initials = [w[0].upper() for w in words]\n    return ''.join(words)",
+        "original_code": "def get_initials(name):\n    words = name.split()\n    initials = [w[0].upper() for w in words]\n    return ''.join(initials)",
+        "initial_error": "AssertionError: expected 'JD', got 'JohnDoe'", "bug_location": {"function": "get_initials", "line_start": 4},
+        "test_cases": [{"input": "John Doe", "expected_output": "JD"}, {"input": "Alice", "expected_output": "A"}, {"input": "bob smith junior", "expected_output": "BSJ"}, {"input": "", "expected_output": ""}]
+    }
+]

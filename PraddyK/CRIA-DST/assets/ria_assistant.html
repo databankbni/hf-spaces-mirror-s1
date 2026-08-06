@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RIA — River Intelligence Assistant</title>
+<style>
+  :root{--maroon:#8C1D40;--maroon2:#6d1531;--gold:#FFC627;--gold2:#e0a800;
+        --ink:#31251b;--mut:#8a7a68;--bg:#fffdf8;--card:#ffffff;--line:#ece0cf;
+        --bot:#fbf5ea;--tint:#fff6dd;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;}
+  .wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;height:100vh;padding:0;}
+  .top{display:flex;align-items:center;gap:11px;padding:14px 18px;
+       background:var(--maroon);color:#fff;border-bottom:3px solid var(--gold);}
+  .av{width:40px;height:40px;flex:0 0 40px;border-radius:50%;background:#fff;
+      display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);}
+  .av svg{width:22px;height:22px;fill:var(--maroon);}
+  .who{flex:1;} .who h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.3px;}
+  .who p{margin:1px 0 0;font-size:11.5px;color:#f3d6df;}
+  .who .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gold);margin-right:5px;vertical-align:middle;}
+  .body{flex:1;display:flex;flex-direction:column;padding:14px 16px 0;overflow:hidden;}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:11px;}
+  .chip{font-size:11.5px;font-weight:600;color:var(--maroon);background:var(--card);
+        border:1px solid #f0e0bf;border-radius:20px;padding:6px 12px;cursor:pointer;transition:.13s;}
+  .chip:hover{background:var(--tint);border-color:var(--gold);}
+  .chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:11px;padding:4px 2px 12px;}
+  .line{display:flex;gap:9px;align-items:flex-end;max-width:90%;}
+  .line.me{align-self:flex-end;flex-direction:row-reverse;}
+  .mini{width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:var(--maroon);
+        display:flex;align-items:center;justify-content:center;}
+  .mini svg{width:15px;height:15px;fill:var(--gold);}
+  .msg{padding:10px 14px;border-radius:14px;font-size:13.5px;line-height:1.55;white-space:pre-wrap;}
+  .bot .msg{background:var(--bot);color:#3a2c20;border:1px solid #f0e6d5;border-bottom-left-radius:4px;}
+  .me .msg{background:var(--maroon);color:#fff;border-bottom-right-radius:4px;}
+  .bot .msg b{color:var(--maroon);}
+  .typing span{display:inline-block;width:6px;height:6px;margin:0 1.5px;border-radius:50%;
+       background:var(--maroon);opacity:.4;animation:blink 1.2s infinite;}
+  .typing span:nth-child(2){animation-delay:.2s} .typing span:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+  .inbar{display:flex;flex-wrap:nowrap;gap:6px;align-items:center;padding:12px 14px;background:var(--card);
+         border-top:1px solid var(--line);}
+  .inbar input{flex:1 1 60px;min-width:0;border:1px solid var(--line);border-radius:22px;padding:11px 14px;
+       font-size:13.5px;background:#fffdf8;color:var(--ink);}
+  .inbar input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,198,39,.25);}
+  .ib{height:40px;flex:0 0 auto;border-radius:20px;border:none;cursor:pointer;
+      display:inline-flex;align-items:center;gap:4px;padding:0 10px;transition:.14s;}
+  .ib svg{width:15px;height:15px;flex:0 0 15px;}
+  .ib-lbl{font-size:10.5px;font-weight:800;letter-spacing:.2px;white-space:nowrap;}
+  .mic{background:var(--maroon);color:#fff;} .mic:hover{background:var(--maroon2);}
+  .mic.on{background:#c0392b;animation:pulse 1s infinite;}
+  .spk{background:#fff;color:var(--maroon);border:1px solid var(--line);} .spk.off{color:#c9bda9;}
+  .send{background:var(--gold);color:var(--maroon2);} .send:hover{background:var(--gold2);color:#fff;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+  .foot{font-size:10px;color:#b7a993;text-align:center;padding:5px 0 8px;background:var(--card);}
+  .stars{margin-top:9px;font-size:23px;line-height:1;}
+  .star{color:#e7dcc6;cursor:pointer;transition:transform .1s,color .1s;padding:0 2px;display:inline-block;}
+  .star:hover,.star.on{color:var(--gold);transform:scale(1.12);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="av"><svg viewBox="0 0 24 24"><path d="M12 2s6.5 7 6.5 11.5a6.5 6.5 0 0 1-13 0C5.5 9 12 2 12 2z"/></svg></div>
+    <div class="who">
+      <h1>RIA</h1>
+      <p><span class="dot"></span>River Intelligence Assistant · online</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="chips" id="chips"></div>
+    <div class="chat" id="chat"></div>
+  </div>
+
+  <div class="inbar">
+    <input id="q" placeholder="Ask RIA anything about the tool…" autocomplete="off">
+    <button class="ib mic" id="mic" title="Ask by voice" aria-label="Voice input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="ib-lbl">Mic</span></button>
+    <button class="ib spk" id="spk" title="Mute / unmute RIA's voice" aria-label="Mute voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8a5 5 0 0 1 0 8"/></svg><span class="ib-lbl">Mute</span></button>
+    <button class="ib send" id="send" title="Send (Enter)" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14M13 6l6 6-6 6"/></svg><span class="ib-lbl">Enter</span></button>
+  </div>
+  <div class="foot" id="foot">Curated, accurate answers · works offline · voice via your browser</div>
+</div>
+
+<script>
+const KB=[
+ {k:["more question","more questions","another question","one more","have more","ask more","continue","keep asking","not done"],a:"Of course \u2014 go ahead and ask me anything else about CRIA. I'm happy to keep going."},
+ {k:["beautiful","prettier","nicer","make it pretty","more attractive","looks better","look better","ugly","appearance","better design","nicer design","design should","visually"],a:"The look and feel follows ASU colors \u2014 maroon, gold and white \u2014 with a clean layout so managers can focus on the numbers, not the interface. Ask me anything about CRIA \u2014 the data, the science, or how it was built."},
+ {k:["hello","hi","hey","namaste","start"],a:"Hi, I'm RIA — the CRIA River Intelligence Assistant. Ask me about the data, the technology, how the tool was built, the science, validation, the papers, or the idea behind it. Tap a suggestion or just type."},
+ {k:["what is cria","what is this","what does this tool","about the tool","overview","what is the app","purpose","what is ria"],a:"CRIA (Colorado River Integrated Assessment) is an interactive decision-support tool for the Colorado River Basin. It fuses a calibrated hydrologic model (VIC 5.0) with three NASA/observational datasets — GRACE, SMAP and SNOTEL — into 29 decision-framed analyses across six sections. A manager can see how much water there is, how severe the drought and shortage risk is, and what happens under a warmer or drier climate — each answer with its uncertainty."},
+ {k:["why","idea behind","motivation","why build","why did you","reason","goal"],a:"The idea: the 1922 Compact allocated the river based on an unusually wet early-1900s record, so the basin is now over-allocated. Managers at Reclamation, CAP, the Basin States and Tribes need supply, risk and climate-sensitivity together, in the units they use — acre-feet and Lake Mead tiers. The goal is to turn independent Earth observations into decision-ready products, in the units managers use, as the applied face of the NASA project (Award 80NSSC22K0925, PI Vivoni)."},
+ {k:["kept in mind","principle","philosophy","design","values","careful","what did you keep"],a:"Four principles guided the build: (1) Honesty — where evidence is missing, the tool says 'no data available' rather than inventing a value. (2) Uncertainty — show the confidence, not just the point estimate; major trends and the scenario engine carry 95% confidence intervals. (3) Traceability — every number is linked to a real source, and the References tab compares each value to the published value. (4) Reproducibility — the whole pipeline is scripted, tested, and containerized so anyone can rebuild it."},
+ {k:["data source","what data","which data","datasets","inputs","data used"],a:"Four independent sources plus public policy values: VIC 5.0 (a calibrated hydrologic model), GRACE/GRACE-FO (satellite water storage), SMAP (satellite soil moisture), and SNOTEL (103 in-situ snow stations). USBR provides public figures like Lake Mead tiers and reservoir capacities. Independence is the point — if a model result also shows up in satellite and in-situ data, you trust it more."},
+ {k:["vic","model","reanalysis","hydrologic model","variable infiltration"],a:"VIC is the Variable Infiltration Capacity model — a physically-based land-surface hydrology model from the University of Washington. Here it's a PRISM-forced reanalysis over water years 1984 to 2024. It gives runoff, baseflow, evapotranspiration, snow water equivalent, soil moisture and temperatures on a roughly 6 km grid. It's calibrated to snow and streamflow, reaching a streamflow NSE of 0.96 in the Upper Basin."},
+ {k:["grace","water storage","gravity","tws"],a:"GRACE and GRACE-FO are NASA/JPL satellite missions that measure tiny changes in Earth's gravity to infer terrestrial water storage — all the water in soil, groundwater, reservoirs and snow. In CRIA it provides basin-wide storage-change signals from 2002 to present, and the groundwater signal when VIC's soil and snow are subtracted."},
+ {k:["smap","soil moisture"],a:"SMAP is NASA's Soil Moisture Active Passive satellite. It gives surface and root-zone soil moisture at about 9 km. In CRIA it's used to independently validate the VIC model — the model's soil moisture matches SMAP with R-squared around 0.71 at the surface and 0.81 in the root zone."},
+ {k:["snotel","snow station","snowpack station","in-situ"],a:"SNOTEL is the NRCS network of automated snow-telemetry stations. CRIA uses 103 stations in the Colorado River Basin region for observed peak snow-water-equivalent and snowpack trends — the ground-truth for the snow story."},
+ {k:["usbr","reclamation policy","tiers","policy"],a:"USBR, the U.S. Bureau of Reclamation, provides the public policy values — Lake Mead shortage-tier thresholds, reservoir capacities, and CAP delivery cuts. These are facts from the 2007 Interim Guidelines and 2019 Drought Contingency Plan, not model output."},
+ {k:["nse","nash","accuracy","calibrated","calibration","how accurate"],a:"NSE is the Nash-Sutcliffe Efficiency — a model-skill score where 1.0 is perfect and above 0.5 is good. The VIC model reaches 0.96 for Upper Basin streamflow, meaning modeled flow tracks observed flow very closely. It's calibrated to snow and streamflow and cross-checked against SMAP and GRACE."},
+ {k:["how built","how was it built","how is it built","how is it made","how do you build","how it built","built how","how did you build","pipeline","steps","process","architecture","workflow"],a:"Five stages. One: four data sources plus USBR policy. Two: preprocessing scripts aggregate, quality-check and grid the raw data, turning about 58 GB of NetCDF into a compact 300 MB Parquet cache. Three: a data loader reads the cache once into memory. Four: the app runs the statistics, renders maps with matplotlib and interactive charts with Plotly, and serves six sections and 29 views through a Dash app. Five: outputs are maps, animations, scenario projections and CSV downloads. Around it all: validation and Docker deployment on Hugging Face."},
+ {k:["parquet","cache","preprocessing","netcdf","storage size"],a:"The raw NASA and observational NetCDF files are large — about 58 GB. Preprocessing scripts aggregate and quality-check them into a compact, version-controlled Parquet cache of roughly 300 MB: 11 basin tables plus 19 spatial-grid tables. The running app never touches the raw files — the loader reads the cache once and holds it in memory, which keeps it fast."},
+ {k:["tech","technology","stack","web framework","dash","plotly","flask","built with","programming","language"],a:"It's Python end to end. The web app is Plotly Dash (Flask plus Bootstrap), with each view as a layout plus callbacks module. Maps and animations are rendered server-side with matplotlib; interactive charts use Plotly. Data is stored as Apache Parquet with Git LFS. Analytics use pandas, numpy, scipy, statsmodels and pymannkendall. It's containerized with Docker and served by gunicorn on Hugging Face Spaces."},
+ {k:["scenario","elasticity","what if","projection engine","delta t","warming scenario"],a:"The Scenario Explorer lets you dial a temperature change and a precipitation change and see the projected runoff. Under the hood it's hydrologic elasticity — an OLS regression of log-streamflow on log-precipitation and temperature. That gives the percent change in runoff per degree of warming and per percent of precipitation change, with a 95% confidence interval, converted to acre-feet and read against Lake Mead tiers. Roughly, streamflow falls about 8 percent per degree Celsius of warming."},
+ {k:["uncertainty","confidence","ci","bootstrap","error bar","how sure"],a:"Uncertainty is shown, not hidden. The scenario engine reports a 95% confidence interval on projected runoff; the major trend analyses now display 95% CIs and significance; and there's a dedicated Uncertainty tab with bootstrap confidence intervals and cross-sensor validation. We show the range and the confidence, not just a single number."},
+{k:["basis of 95","how is the confidence interval","how do you calculate uncertainty","why 95","how is 95","on what basis 95","where does 95 come from","how is the range calculated","how is ci calculated"],a:"95 percent is the standard scientific confidence level. The size of the range comes from the spread in the data itself: either the standard error of the estimate times about 1.96 (the value that captures 95 percent of a normal distribution), or a bootstrap that resamples the data thousands of times and keeps the middle 95 percent of the answers. Noisier data gives a wider range; cleaner data gives a tighter one."}, {k:["water balance","water budget","precipitation minus","where does the water go","water accounting"],a:"The water balance is the basin's water accounting: precipitation coming in equals evapotranspiration (water evaporated) plus runoff (water reaching rivers) plus the change in storage. It is like a bank statement for water - what comes in, what goes out, and what is left."}, {k:["aridification","drying trend","runoff efficiency","getting drier","long term drying","long-term drying"],a:"Aridification is the long-term drying of the basin: over time the same amount of precipitation produces less runoff, so runoff efficiency falls. It reflects a persistent shift toward drier conditions, not just a single dry year."}, {k:["drought propagation","drought cascade","propagation","how drought spreads","drought stages","meteorological to hydrological"],a:"Drought propagation is how drought moves through the system in stages: first a shortage of precipitation (meteorological drought), then dry soils (soil-moisture drought), and finally low streamflow and reservoirs (hydrological drought). The tool shows this cascade from meteorological to soil to hydrological drought."},
+ {k:["validate","validation","verify","how do you know","trust","reliable"],a:"Three ways. One: the VIC model is calibrated and independently evaluated against NASA SMAP (soil moisture R-squared 0.71 to 0.81) and GRACE (storage R-squared 0.66 to 0.86), published in Scientific Reports. Two: every headline result is compared to 12-plus peer-reviewed studies in the References and Validation tab. Three: an automated 26-test suite checks data integrity, the physics like water-balance closure, and that the analytics match an independent statsmodels recomputation."},
+ {k:["paper","papers","publication","publications","published","research","journal","study","studies"],a:"The project has produced several peer-reviewed papers, including Wang et al. 2021 and Wang and Vivoni 2022 (irrigation and climate, JAWRA), Xiao et al. 2022 (satellite remote sensing, HESS), three Whitney et al. 2023 papers (streamflow attribution, stakeholder engagement, and accessibility of projections), and Wang et al. 2024 (precipitation-partition sensitivity, Water Resources Research). Manuscripts in review or preparation cover NMME forecast skill (Yue et al.), revisiting VIC with Earth-observation data (Wang et al., Scientific Reports), drought propagation (Ghimire et al.) and CMIP5/CMIP6 hydroclimate (Chen et al.). The References tab lists sources with the tool\u2019s value next to the published value."},
+ {k:["mann","kendall","sen","trend","slope","trend test"],a:"Trends use the Mann-Kendall test with Sen's slope — a robust, non-parametric method that's standard in hydrology because it doesn't assume the data are normally distributed. In the app the trends are shown together with an OLS 95% confidence interval and a significance flag, so you see both the estimate and how certain it is."},
+ {k:["budyko","aridity index","water energy","pet"],a:"The Budyko framework is a water-versus-energy balance. The aridity index is potential evaporation divided by precipitation — higher means more energy-limited and drier. It tells you whether the basin is water-limited or energy-limited, which shapes how it responds to warming."},
+ {k:["swe","snow water","snowpack","snow"],a:"SWE is snow water equivalent — the amount of water held in the snowpack. Snowmelt is the basin's biggest natural reservoir, so a shrinking, earlier-melting snowpack means less and earlier runoff. In the data, roughly 67 of 103 SNOTEL stations are declining."},
+ {k:["drought","shortage","risk","lake mead","cap","delivery cut","tier"],a:"Lake Mead shortage tiers are elevation thresholds — for example 1,075 feet is Tier 1 — that trigger delivery cuts under the 2007 Interim Guidelines and 2019 Drought Contingency Plan. A lower lake means a deeper tier and bigger cuts, and Arizona and the Central Arizona Project are first in line. The Drought and Reservoirs tabs connect basin runoff to this tier ladder."},
+ {k:["reservoir live","current level","real time","why not live","live data","link out"],a:"Current Lake Mead and Powell elevations are shown as a link to USBR's authoritative daily source rather than embedded live. That's a deliberate, honest choice: there isn't a single reliable public API for daily Mead and Powell levels, and a flaky live widget would be less trustworthy than linking to the official source. The tool reads the current elevation against the tier ladder it displays."},
+ {k:["tribal","tribe","winters","water rights","indigenous"],a:"Thirty federally recognized tribes hold rights to a substantial share of Colorado River water — largely senior Winters reserved rights that sit ahead of many state allocations. The tool gives this legal context and links to Reclamation, but does not show per-tribe numbers, because those quantified allocations are legal-settlement data not bundled in this project, and several major claims are unquantified or in active settlement. Rather than invent numbers, it states that plainly."},
+ {k:["groundwater","subsurface","residual"],a:"Subsurface storage is estimated by subtracting VIC's soil and snow water from the GRACE total storage. What's left — the residual — is mainly the groundwater plus surface-reservoir signal, on the order of minus 2 cubic kilometers per year, indicating ongoing depletion."},
+ {k:["no data","honest","honesty","missing","synthetic","fake"],a:"A core rule: nothing is synthetic. Every value is either observed or VIC-modelled. Where evidence is missing, the tool explicitly says 'no data available' rather than filling the gap. That honesty is deliberate — it's what makes the tool trustworthy to reviewers and managers."},
+ {k:["novel","new","contribution","original","different","what's new"],a:"The novelty is not a new model — it's the applied synthesis. CRIA puts VIC, GRACE, SMAP and SNOTEL into one decision-framed, uncertainty-aware, reproducible tool that a manager can actually use, with honest data-gap handling. The underlying science draws on published work, which the tool credits explicitly."},
+ {k:["who is it for","who uses","target user","persona","intended user","audience","who should use","for whom","technical water manager"],a:"It's built first for the Technical Water Manager — an analyst or planner at CAP/CAWCD, Reclamation or ADWR who is accountable for supply and shortage decisions but doesn't run models. They benefit most because it gives a basin-wide, observation-validated picture already in their own units — acre-feet, Lake Mead shortage tiers, live reservoir status. Basin States and Tribes, students and researchers, and NASA partners are served by the same interface."},
+ {k:["differ from whitney","vs whitney","whitney tool","scenario explorer","kristen tool","how is it different","different from the other","compared to whitney","versus the scenario","previous tool"],a:"CRIA builds on Kristen Whitney's CRB Scenario-Explorer, from the same ASU lab, and complements it. That tool (Shiny/R) made VIC streamflow projections under climate and forest-disturbance scenarios accessible to stakeholders. CRIA carries that mission forward for a different purpose: it adds an observational-validation layer (GRACE, SMAP, SNOTEL), broadens from a single scenario theme to a whole-basin diagnostic view, and expresses results in operational units — Lake Mead tiers, CAP delivery cuts and live reservoir levels. The two share the same lab lineage and NASA heritage, and Whitney's formal stakeholder and UX-testing methodology remains a benchmark CRIA still looks to."},
+ {k:["why helpful","help managers","how does cria help","why useful","why does it matter","what makes it useful","why is it good","who benefits most","why nasa","why cap","why asu"],a:"For NASA, it turns GRACE and SMAP observations into decisions and validates against those same sensors — applied Earth science, end to end. For ASU and the Center for Hydrologic Innovations, it's rigorous and honest, reporting what does not hold up and citing every source. For CAP and Reclamation, it speaks acre-feet, Lake Mead tiers and delivery cuts, with no models to run. In short: it brings into one platform what usually sits in separate tools — NASA observations, their independent validation, whole-basin integration, and the decision units managers use."},
+ {k:["more efficient","efficient to use","makes cria efficient","why efficient","efficiency","why use this","advantage","faster","why this tool"],a:"Efficiency here means less work to a decision. Everything sits in one validated platform, so you don't stitch together separate model, satellite and reservoir sources. Results already arrive in the units you plan with — acre-feet and Lake Mead shortage tiers — with uncertainty attached, so there's no post-processing. And every figure is traceable: the tool shows its value beside the published one, and says 'no data available' rather than guessing. You reach a defensible answer in minutes instead of assembling one."},
+ {k:["capabilities","what can it do","new capabilities","abilities","what does it offer","compared with previous","spectacular","standout"],a:"Capabilities that didn't previously sit in one tool: a GRACE-minus-VIC reconstruction of subsurface (groundwater) storage extended to 2024; drought propagation as a lag cascade; runoff-efficiency and warming attribution; Budyko migration toward the water-limited regime; land-surface warming and energy signals; the 2023 'Great Recovery' as a multi-sensor natural experiment; explicit bootstrap uncertainty; live reservoir shortage tiers; and an uncertainty-aware scenario engine in acre-feet."},
+ {k:["limitation","weakness","drawback","problem","con","shortcoming"],a:"Honest limitations: it's an applied synthesis, not new fundamental science; live reservoir levels are a link-out, not embedded; it's a single-developer project so maintenance depends on re-running the pipeline; some tabs are thinner than others because they depend on external ensembles; uncertainty is on the major trends, not yet literally every view; and VIC is a model — excellent, but still a model, which is why it's cross-checked against SMAP and GRACE."},
+ {k:["reproducible","docker","deploy","hugging face","hosting","maintain","how deployed"],a:"It's fully reproducible. The app is containerized with Docker and served by gunicorn — two workers on port 7860 — on Hugging Face Spaces, which rebuilds automatically on every git push. The raw-to-cache pipeline is scripted, so anyone can rebuild it from the repository."},
+ {k:["test","testing","ci","pytest","quality","automated"],a:"There's an automated test suite of 26 pytest tests plus GitHub Actions continuous integration that runs them on every push. The tests check that the app imports and routes, that every view renders, that the data is real, that the physics holds — like water-balance closure — and that the analytics match an independent statsmodels recomputation. A green badge shows the suite passes."},
+ {k:["who is it for","users","audience","who uses","stakeholder"],a:"It's built for water managers at the Bureau of Reclamation, the Central Arizona Project, the Basin States and Tribes, plus researchers — and it underpins the project's papers and outreach."},
+ {k:["how current","time period","how recent","up to date","years","record"],a:"The VIC reanalysis covers water years 1984 to 2024. GRACE runs from 2002 to present, SMAP from 2015 to present, and SNOTEL is annual. The policy values are current USBR guidelines."},
+ {k:["maps","how are maps","spatial","grid"],a:"The maps are rendered server-side with matplotlib from the VIC grid — about 22,000 cells — then sent as images, which keeps them fast and consistent. The anomaly maps compare each year to a per-cell long-term baseline, so red means drier than normal and blue means wetter."},
+ {k:["animation","gif","animated"],a:"The animations are pre-rendered frames stitched into GIFs — seasonal water-cycle animations and 40-year drought cycles — so they play smoothly without heavy client-side computation."},
+ {k:["csv","download","export","data download"],a:"Most analyses have a CSV download button, so a user can export the underlying data for their own analysis — that's part of the design."},
+ {k:["how many","tabs","views","sections","number of"],a:"There are six decision-framed sections and 29 analysis views, plus a live scenario engine. The sections are Overview, Water Supply and Snow, Drought and Risk, Scenarios and Future, Basin Maps, and Governance and About."},
+ {k:["who made","who built","developer","author","contact","pradeep","pradeepika","kaushik","praddy","who is she","who is he","who is praddy","she","her","creator","made by","designed by","author of"],a:"CRIA was developed by Pradeepika Kaushik (Praddy) at Arizona State University — a geospatial and data-visualization scientist — as part of the NASA Applied Sciences project led by PI Enrique Vivoni."},
+ {k:["who are you","your name","what is ria","ria","assistant","who r u"],a:"I'm RIA — the CRIA River Intelligence Assistant. I'm a built-in guide that answers questions about this tool: its data, technology, science, validation, papers and design. Ask me anything, by text or voice."},
+ {k:["are you ai","are you a bot","chatgpt","llm","gpt","real person","robot"],a:"I'm a built-in assistant with curated, accurate answers about CRIA — not a general chatbot. That's deliberate: I won't guess or make things up, so every answer about the tool is reliable."},
+ {k:["can you talk","can you speak","voice","read aloud","speak","hear you"],a:"Yes — tap the speaker icon to hear my answers read aloud, and tap the microphone to ask a question by voice."},
+ {k:["thank","thanks","thankyou","great","awesome","nice work"],a:"You're welcome! Ask me anything else about CRIA — the data, the science, how it was built, or the papers."},
+ {k:["help","what can you do","what can i ask","options","topics","what do you know"],a:"You can ask me about: the data (VIC, GRACE, SMAP, SNOTEL), the technology and pipeline, how it was built, validation and uncertainty, the scenario engine, the papers, the idea and principles behind the tool, its limitations, and who built it. Tap a suggestion or just type."},
+ {k:["vivoni","who is vivoni","principal investigator","enrique","the pi"],a:"Enrique R. Vivoni is the Principal Investigator of the NASA Applied Sciences project behind CRIA, based at Arizona State University."},
+ {k:["asu","arizona state","affiliation","where made","which university"],a:"CRIA was built at Arizona State University, in collaboration with the Central Arizona Project, under NASA Applied Sciences (Award 80NSSC22K0925)."},
+ {k:["nasa","award","awards","grant","grants","funding","funded","who funds","how many award","how many awards","how many grant","recognition","honors","prize"],a:"On funding, the project is supported by a NASA Applied Sciences award — grant 80NSSC22K0925, led by PI Enrique Vivoni. Beyond that grant, the project and its team have earned several recognitions: selection for the 2023 Governor's Award for Arizona's Future through the Arizona Forward Environmental Excellence Awards; the 2023 Paul F. Boulos Excellence in Computational Hydraulics and Hydrology Award; a 2023 Arizona Hydrological Society academic award; Babbitt Center for Land and Water Policy dissertation fellowships; and a NASA Postdoctoral Fellowship at Goddard Space Flight Center. The broader ASU water-innovation effort also leveraged a 40 million dollar award from the State of Arizona."},
+ {k:["bye","goodbye","see you"],a:"Goodbye! Come back anytime you have a question about CRIA."},
+
+ {k:["full project","project title","project name","what is the project","about the project","tell me about the project","the whole project","managing the colorado","nasa project","80nssc"],a:"The full project is 'Managing the Colorado River as an Infrastructure Asset: Fusing Remote Sensing and Numerical Modeling in the Operations of the Central Arizona Project.' It's funded by NASA Applied Sciences – Water Resources (Award 80NSSC22K0925), led by Principal Investigator Enrique R. Vivoni at Arizona State University, in coordination with the Central Arizona Project and a network of Colorado River Basin water agencies. CRIA is its applied decision-support tool."},
+ {k:["objectives","four objectives","project objectives","tasks","aims","project goals","the objectives"],a:"The project has four objectives. One: collect the datasets — satellite remote sensing, in-situ networks, and NMME seasonal climate forecasts — using in-house scripts. Two: run short- and long-range simulations with the VIC hydrologic model that include seasonal forecasts and climate projections, working toward integration with the Colorado River Simulation System (CRSS). Three: analyze the sociopolitical context and develop the infrastructure-asset framework. Four: engage stakeholders through a co-development process. CRIA brings these together."},
+ {k:["vision","problem","big picture","why does it matter","drought crisis","reservoir decline","paradigm","mission"],a:"A prolonged drought and growing water demand have left the Colorado River's reservoirs in decline. The project partners with the Central Arizona Project to turn NASA Earth observations and hydrologic modeling into actionable knowledge, so stakeholders can cooperatively plan, adapt and mitigate. The core idea is to treat both the biophysical system and the sociopolitical institutions as 'infrastructure assets' whose resilience to drought stress can be measured — a shift from the baseline way decisions are made."},
+ {k:["key triggers","triggers","hydrologic risk","risk triggers","trigger"],a:"A central concept is 'key triggers' — the points in the biophysical system that lead to different levels of hydrologic risk. CRIA identifies these triggers through stakeholder interaction, quantifies their past behavior and future projected conditions through modeling, and monitors short-range changes in them, working toward a regular reporting system."},
+ {k:["how was the analysis done","on what basis","analysis method","methodology","how did you analyze","how analyses","basis of analysis","how do you calculate","how is it computed"],a:"Every analysis has a clear methodological basis. Satellite products like SMAP are compared to the VIC model using standardized anomalies, so datasets with different means and variances compare fairly. Trends use the non-parametric Mann-Kendall test with Sen's slope. Climate sensitivity uses a hydrologic-elasticity regression. Water-versus-energy limits use the Budyko framework. Seasonal forecasts are evaluated against operational products using NMME, and future projections compare CMIP6 to CMIP5. Each method is standard in the hydrology literature and cross-checked against published studies."},
+ {k:["earth observation","satellites used","which satellites","eo products","earth observations used"],a:"The project draws on a range of NASA Earth observations — including MODIS and VIIRS, ECOSTRESS, SMAP soil moisture, and GRACE water storage — together with SNOTEL in-situ snow data. These feed and validate the VIC hydrologic model, and are combined with NMME seasonal forecasts and CMIP5 and CMIP6 climate projections."},
+ {k:["crss","colorado river simulation system","24-month study","operations model"],a:"VIC streamflow is designed to feed the Colorado River Simulation System (CRSS), which informs the Bureau of Reclamation's 24-Month Study and the Lake Mead shortage-tier decisions. That's the bridge from basin hydrology to operational water-supply decisions."},
+ {k:["nmme","seasonal forecast","forecast skill","north american multi-model","months ahead"],a:"NMME is the North American Multi-Model Ensemble, used for seasonal, months-ahead streamflow forecasts. The project evaluated its forecast skill in the Upper Colorado River Basin relative to current operational products."},
+ {k:["cmip","cmip5","cmip6","climate projection","future climate models","global models"],a:"CMIP5 and CMIP6 are successive generations of global climate-model ensembles. The project evaluated the newer CMIP6 projections and compared them to CMIP5 to help basin stakeholders assess future conditions in the Colorado River Basin."},
+ {k:["project publications","project papers","what have you published","papers from project","publications list","research output"],a:"The project has produced peer-reviewed work with further studies in progress. Topics include evaluating the VIC model with SMAP and GRACE (Wang, Vivoni and colleagues), seasonal streamflow forecast skill with NMME (Yue and colleagues), and early-21st-century drought propagation in the basin (Ghimire, Vivoni and Wang). The applied soil-moisture-to-streamflow work underpins the tool's coupling analysis."},
+ {k:["framework","asset framework","biophysical","sociopolitical","cria framework","infrastructure asset framework"],a:"The CRIA framework maps the basin as a set of infrastructure assets — both biophysical (snow, soil moisture, runoff, storage) and sociopolitical (the institutions and agreements that govern the river). By quantifying each asset's resilience to drought stress, it links the physical science to the governance side, which is Objective 3 of the project."},
+ {k:["stakeholders","end users","end-users","who are the users","agencies","working group","co-development"],a:"The tool is co-developed with and for water managers: the Central Arizona Project, the U.S. Bureau of Reclamation, the Basin States, Tribes, and a network of Colorado River Basin water agencies, including engagement with the basin's Hydrology Working Group. Their input shapes the design of the CRIA framework."},
+ {k:["validation paper","validation publication","validation published","papers on validation","how many validation","published validation","validation paper published"],a:"The dedicated validation paper - Wang et al., \u2018Revisiting the Application of the VIC Model in the Colorado River Basin using Earth Observation Datasets\u2019 for Scientific Reports - is currently in preparation and not yet published. The validation itself is robust and builds on already-published work, such as Xiao et al. 2022 in Hydrology and Earth System Sciences, which used satellite remote sensing to reduce model uncertainty."},
+ {k:["vivoni","enrique","enrique vivoni","who is enrique","who is the pi","principal investigator","the pi"],a:"Enrique R. Vivoni is the project's Principal Investigator. At ASU he is the Fulton Professor of Hydrosystems Engineering in the School of Sustainable Engineering and the Built Environment, and Director of the Center for Hydrologic Innovations (chi.asu.edu) — the lab this tool sits within. He earned his PhD in hydrology from MIT (2003), is a licensed professional engineer, and is a Fellow of the American Meteorological Society. His research covers watershed modeling, eco-hydrology of semiarid regions and stakeholder-driven decision support, with long-running collaborations supporting the Central Arizona Project, Salt River Project and Arizona agencies. On this project he leads the overall direction, the hydrologic modeling, and basin-wide stakeholder engagement."}, {k:["zhaocheng","zhaocheng wang","who is wang","wang"],a:"Dr. Zhaocheng Wang is a postdoctoral scholar at ASU and the project's lead hydrologic modeler, responsible for the VIC calibration and the precipitation-partition and snow-rainfall work. He received a Babbitt Center dissertation fellowship, a 2023 AZ Water Scholarship, and the 2023 Paul F. Boulos Excellence in Computational Hydraulics and Hydrology Award."}, {k:["kristen","whitney","kristen whitney","who is whitney"],a:"Kristen M. Whitney was a project researcher and NASA Postdoctoral Fellow, and is now an Associate Research Scientist at NASA Goddard Space Flight Center. Her work covers streamflow attribution, stakeholder engagement, and the accessibility of hydrologic projections, including the CRB Scenario-Explorer. She received a Babbitt Center dissertation fellowship and a NASA Postdoctoral Fellowship."}, {k:["swastik","ghimire","swastik ghimire","who is ghimire"],a:"Swastik Ghimire is an MS student at ASU who works on drought propagation in the Colorado River Basin. He received a 2023 Arizona Hydrological Society academic award."}, {k:["haowen","yue","haowen yue","who is yue"],a:"Dr. Haowen Yue is a postdoctoral scholar at ASU who worked on seasonal streamflow forecasting using the North American Multi-Model Ensemble (NMME)."}, {k:["xinyu","xinyu chen","who is chen","chen"],a:"Xinyu Chen is a PhD student at ASU who works on CMIP5 and CMIP6 climate-change projections and the future hydroclimate of the Colorado River Basin."}, {k:["nour","kandalaft","who is kandalaft"],a:"Nour Kandalaft is an MS student at ASU who contributes to the project's data collection and analysis work."}, {k:["mu xiao","xiao","who is xiao"],a:"Mu Xiao contributed satellite remote sensing and model-calibration work, including studies on using remote sensing to reduce uncertainty in Colorado River simulations."}, {k:["giuseppe","mascaro","who is mascaro"],a:"Dr. Giuseppe Mascaro is a project co-investigator and an Associate Professor in ASU's School of Sustainable Engineering and the Built Environment, where he leads the Hydroclimate & Infrastructure Research Lab. He earned his PhD in hydrology from the University of Cagliari, Italy (2008). His expertise spans stochastic hydrology, watershed modeling, hydroclimatology, climate change and the food-water-energy nexus. On this project he contributes forecasting, statistical analysis and climate-downscaling methods."}, {k:["dave white","dave d. white","who is white","d white"],a:"Dr. Dave D. White is a project co-investigator and a Professor in ASU's School of Community Resources and Development (Watts College of Public Service and Community Solutions). He directs ASU's Global Institute of Sustainability and Innovation, previously led the NSF Decision Center for a Desert City (DCDC), and leads the Arizona Water Innovation Initiative — an ASU-led water-resilience effort. On this project he brings water governance, sustainability and stakeholder-engagement expertise, connecting the science to real water-policy decisions."}, {k:["vineetha","kartha","who is kartha","cap co-pi","cap co-lead"],a:"Vineetha Kartha is the Colorado River Programs Manager at the Central Arizona Project (CAP) and the project's CAP co-lead. She has nearly two decades of water-management experience and holds a master's in Urban and Environmental Planning from ASU and a master's in Geology from the University of Bombay; she previously managed the Colorado River section at the Arizona Department of Water Resources. As the water-management partner, she grounds the tool in real operational needs and steers its co-development with basin stakeholders."},
+ {k:["vivian","hobbins","vivian hobbins","who is vivian","who is hobbins","program manager"],a:"Vivian Hobbins is a Senior Program Manager in ASU's School of Sustainable Engineering and the Built Environment, where she supports program management for the research group's projects. She holds a PhD in Ecohydrology, an MS in Natural Resources, and a BS in Civil Engineering, and has more than ten years of experience in water resources management and sustainability."}, {k:["team","who is on the team","co-investigators","collaborators","students","project team","researchers","members","who works"],a:"The project is led by PI Enrique Vivoni (Fulton Professor, ASU), with co-investigators Giuseppe Mascaro and Dave White (ASU) and CAP co-leads including Vineetha Kartha. Postdoctoral scholars include Dr. Zhaocheng Wang (lead hydrologic modeler), Dr. Pradeepika \u2018Praddy\u2019 Kaushik (who built this CRIA tool) and Dr. Haowen Yue (seasonal forecasting); Kristen Whitney, a former project researcher, is now at NASA Goddard. Graduate students include Swastik Ghimire, Xinyu Chen and Nour Kandalaft, with Mu Xiao on remote sensing. It is done at ASU with the Central Arizona Project and Colorado River Basin agencies."},
+ {k:["who did what","contributions","who worked on","roles","who made what","division of work","who did which"],a:"Roughly: PI Vivoni leads the project and stakeholder outreach. Zhaocheng Wang led the VIC modeling, calibration and precipitation-partition work. Praddy Kaushik built this interactive CRIA decision-support tool. Haowen Yue led the NMME seasonal-forecast work. Swastik Ghimire worked on drought propagation, Xinyu Chen on CMIP5/CMIP6 projections, Mu Xiao on satellite remote sensing and calibration, and Kristen Whitney on streamflow attribution and stakeholder engagement. Mascaro contributed forecasting and statistics; White contributed water governance; CAP co-developed the tool."},
+ {k:["how many papers","who has most papers","paper count","number of papers","most publications","kitne paper"],a:"Across the project publications, PI Vivoni is an author on all of them. Zhaocheng Wang is on about ten, Kristen Whitney about six, Giuseppe Mascaro about four, Dave White and Mu Xiao about three each, and Haowen Yue, Swastik Ghimire and Xinyu Chen about two each, with Nour Kandalaft on one. Praddy Kaushik\u2019s main contribution is the CRIA tool itself rather than these modeling papers."},
+ {k:["quarterly","reporting system","monitoring","short-range monitoring","regular updates"],a:"One project aim is a regular reporting system that uses remote sensing and modeling to monitor short-range changes in the basin's key triggers, so managers get timely updates rather than only retrospective analysis."},
+ {k:["history","prototype","earlier version","first version","previous tool","how did it start","origin"],a:"An earlier prototype of the CRIA framework demonstrated the asset-mapping idea for biophysical and sociopolitical elements. The current tool is the interactive decision-support version you're using now — rebuilt to be reproducible, uncertainty-aware, and deployable."},
+
+ {k:["water year","wy","what is a water year"],a:"A water year runs from October 1 to September 30 and is named for the calendar year it ends in. Hydrologists use it so the snow season stays within one year."},
+ {k:["acre-foot","acre foot","maf","kaf","million acre","how much is an acre"],a:"An acre-foot is water covering one acre one foot deep — about 326,000 gallons, roughly a year's supply for two to three households. MAF is million acre-feet; KAF is thousand acre-feet."},
+ {k:["streamflow vs runoff","difference between runoff and streamflow","what is streamflow","what is runoff"],a:"Runoff is water reaching streams from the land; streamflow is the total river flow, essentially runoff plus baseflow. In the tool, streamflow is VIC runoff plus baseflow."},
+ {k:["baseflow","what is baseflow"],a:"Baseflow is the slow, groundwater-fed part of streamflow that sustains rivers between storms and after snowmelt."},
+ {k:["evapotranspiration","what is et","pet","potential evaporation"],a:"Evapotranspiration is water lost to the air from soil evaporation plus plant transpiration. Potential ET is the maximum if water were unlimited, used in the Budyko aridity index."},
+ {k:["megadrought","how bad is the drought","worst drought"],a:"The early-21st-century Colorado drought is described as a megadrought — among the driest multi-decade periods in over a thousand years, intensified by warming."},
+ {k:["structural deficit","over-allocated","overallocated","gap between"],a:"The structural deficit is the gap between the roughly 16.5 million acre-feet the 1922 Compact allocated and the smaller amount the basin actually yields today — the core driver of shortage."},
+ {k:["law of the river"],a:"The Law of the River is the body of compacts, treaties, court rulings and guidelines that govern the Colorado, starting with the 1922 Compact."},
+ {k:["colorado river compact","1922 compact"],a:"The 1922 Colorado River Compact split the basin into an Upper and a Lower Basin, each allocated 7.5 million acre-feet per year, based on an unusually wet early record."},
+ {k:["mexico treaty","1944 treaty","mexico water"],a:"The 1944 U.S.-Mexico Water Treaty guarantees Mexico 1.5 million acre-feet of Colorado River water per year."},
+ {k:["arizona v california","lower basin shares","state allocations"],a:"The 1963 Supreme Court case Arizona v. California fixed Lower Basin shares: California 4.4, Arizona 2.8, and Nevada 0.3 million acre-feet per year."},
+ {k:["central arizona project","what is cap","the cap canal"],a:"The Central Arizona Project is a 336-mile system of canals and pumps delivering Colorado River water to central and southern Arizona. It holds junior priority, so it takes the first cuts in a shortage."},
+ {k:["lake mead","lake powell","hoover","glen canyon","reservoirs of the basin"],a:"Lake Mead, behind Hoover Dam, and Lake Powell, behind Glen Canyon Dam, are the basin's two giant reservoirs — the buffers that store water between wet and dry years."},
+ {k:["dead pool"],a:"Dead pool is the reservoir level below which water can no longer flow past the dam by gravity — for Lake Mead, around 895 feet of elevation."},
+ {k:["shortage tier","tier 1","tier 2","tier 0","tier 3","elevation thresholds","when do cuts","cuts","delivery cuts","when do the cuts happen"],a:"Under the 2007 Interim Guidelines and 2019 Drought Contingency Plan, Lake Mead thresholds trigger deeper cuts: Tier 0 near 1,090 feet, Tier 1 at 1,075, Tier 2 at 1,050, and Tier 3 at 1,025 — mostly affecting Arizona."},
+ {k:["drought contingency plan","dcp"],a:"The 2019 Drought Contingency Plan added voluntary extra cutbacks by the states to keep Lakes Mead and Powell from crashing."},
+ {k:["post-2026","2026 guidelines","renegotiation","new rules"],a:"The 2007 Interim Guidelines expire at the end of 2026, so the basin is negotiating new operating rules — which is exactly why accurate, well-validated science matters now."},
+ {k:["winters","reserved rights","tribal rights basis"],a:"Winters rights are senior federal reserved water rights for tribal reservations, dating to each reservation's establishment, that often rank ahead of state allocations."},
+ {k:["ten tribes","tribes partnership"],a:"The Ten Tribes Partnership represents the tribes holding the largest quantified Colorado River entitlements."},
+ {k:["24-month study","24 month","operating tier"],a:"The Bureau of Reclamation's 24-Month Study projects reservoir levels two years ahead and sets the operating tier for the coming year."},
+ {k:["p value","p-value","significant","significance"],a:"A p-value below 0.05 means a trend is unlikely to be due to chance — it is statistically significant."},
+ {k:["confidence interval","what is ci","95 percent"],a:"A 95 percent confidence interval is the range in which the true value most likely lies. The tool shows it so you can see how certain each estimate is."},
+ {k:["bootstrap","resample"],a:"Bootstrapping repeatedly resamples the data to estimate uncertainty without assuming a particular distribution."},
+ {k:["standardized anomaly","anomaly","z-score","how do you compare datasets"],a:"A standardized anomaly expresses a value as how many standard deviations it sits from the long-term mean, so datasets with different units or variability compare fairly."},
+ {k:["r-squared","r2","goodness of fit"],a:"R-squared measures how much of the variation in one variable is explained by another; 1 is a perfect fit."},
+ {k:["prism"],a:"PRISM is a high-quality gridded dataset of precipitation and temperature used to drive the VIC model."},
+ {k:["downscaling","bias correction","coarse models"],a:"Global climate models are coarse, so their output is downscaled and bias-corrected to the basin scale before use — a step that adds its own uncertainty."},
+ {k:["rcp","ssp","emission scenario","scenarios of climate"],a:"RCPs and SSPs are standardized future emission and socioeconomic scenarios used by CMIP climate models to bracket possible futures."},
+ {k:["remote sensing","what is remote sensing"],a:"Remote sensing means measuring the Earth from satellites or aircraft rather than on the ground — for example, soil moisture from SMAP or water storage from GRACE."},
+ {k:["modis","viirs"],a:"MODIS and VIIRS are NASA and NOAA imaging sensors that track snow cover, vegetation and surface conditions across the basin."},
+ {k:["ecostress"],a:"ECOSTRESS is a NASA instrument on the International Space Station that measures evapotranspiration and plant water stress at high resolution."},
+ {k:["mascon","how does grace work","gravity measurement"],a:"GRACE senses total water storage by detecting tiny changes in Earth's gravity; its mascon products give storage change over regions like the Colorado Basin."},
+ {k:["cubesat","small satellite"],a:"CubeSats are small, low-cost satellites; the project's data collection includes CubeSat platforms alongside the major NASA missions."},
+ {k:["nasa applied sciences","applied sciences program"],a:"NASA's Applied Sciences Program funds projects that put Earth observations to work for real-world decisions in water, disasters, health and more. This project is one of them."},
+ {k:["resolution","how fine","grid resolution","pixel size"],a:"VIC runs at about 6 km, SMAP at about 9 km, and GRACE is basin-scale. Finer resolution shows more detail, but each product has its own accuracy."},
+ {k:["why vic","why this model","why not another model","why did you use vic","why use vic","why choose vic","chose vic","which model did you use"],a:"VIC was chosen because it is a well-established, physically-based model with a strong record in large basins, resolving snow, soil moisture and streamflow together."},
+ {k:["why not machine learning","why not ai model","explainable"],a:"The tool favors physically-based modeling and explainable statistics over opaque machine-learning models, so every result is explainable and traceable — important for high-stakes water decisions."},
+ {k:["reliable for operations","can managers trust","what could go wrong","how reliable for decisions"],a:"Like any model, VIC carries uncertainty, which is why it is calibrated, cross-checked against SMAP and GRACE, and always presented with confidence intervals rather than as absolute truth."},
+ {k:["future work","next steps","what's next","roadmap"],a:"Next steps include completing the sociopolitical asset framework, deeper stakeholder co-development, and integration with the operational CRSS model."},
+];
+const CONF=/\b(budget|salary|salaries|how much (money|funding|did it cost|is the grant)|funding amount|grant amount|cost of the project|what did it cost|profit|personal (detail|details|info|information|number)|home address|phone number|cell number|password|credential|api key|token|ssn|social security|proprietary|classified|internal only|off the record)\b/i;
+const CONFIDENTIAL="I'm sorry \u2014 that's confidential, and I don't have the right to share it. But I'm happy to explain anything about the tool, the science, the data, the methods, or the public parts of the project.";
+const FALLBACK="I don't have a pre-written answer for that exact question, but I can help with the data (VIC, GRACE, SMAP, SNOTEL), the technology and pipeline, validation, uncertainty, the papers, the scenario engine, or the idea and principles behind the tool. You can also ask about the NASA project, its four objectives, the methods and how each analysis was done, the team and stakeholders, or the publications. Try rephrasing, or tap a suggestion.";
+const SUGGEST=["What is CRIA?","Who is it for?","What's novel here?","What makes CRIA efficient to use?","How does CRIA help managers?","Which data does it use?","How was it validated?","What is the scenario engine?","How is uncertainty shown?","What are the limitations?"];;
+
+const chat=document.getElementById("chat"), qin=document.getElementById("q"), chips=document.getElementById("chips");
+SUGGEST.forEach(s=>{const c=document.createElement("div");c.className="chip";c.textContent=s;c.onclick=()=>ask(s);chips.appendChild(c);});
+const aiChip=document.createElement("div");aiChip.className="chip";aiChip.id="aichip";aiChip.textContent="AI mode: on";aiChip.style.background="var(--gold)";aiChip.style.borderColor="var(--gold)";aiChip.style.color="var(--maroon2)";
+aiChip.onclick=()=>{AIMODE=!AIMODE;aiChip.textContent="AI mode: "+(AIMODE?"on":"off");
+  aiChip.style.background=AIMODE?"var(--gold)":"";aiChip.style.borderColor=AIMODE?"var(--gold)":"";aiChip.style.color=AIMODE?"var(--maroon2)":"";
+  botSay(AIMODE?"AI mode is on \u2014 for open-ended questions I'll try a live model, and fall back to my built-in answers if it's unavailable. Confidential topics are always declined.":"AI mode is off \u2014 using my built-in, curated answers.");};
+chips.appendChild(aiChip);
+
+let speakOn=true;
+if(window.speechSynthesis){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=function(){window.speechSynthesis.getVoices();RIAVOICE=pickVoice();};}
+const spkBtn=document.getElementById("spk");
+spkBtn.onclick=()=>{speakOn=!speakOn;spkBtn.classList.toggle("off",!speakOn);
+  var lb=spkBtn.querySelector(".ib-lbl");if(lb)lb.textContent=speakOn?"Mute":"Muted";
+  if(!speakOn)window.speechSynthesis.cancel();};
+
+const DROP='<svg viewBox="0 0 24 24"><path d="M12 2s6.5 7 6.5 11.5a6.5 6.5 0 0 1-13 0C5.5 9 12 2 12 2z"/></svg>';
+function add(text,who){const l=document.createElement("div");l.className="line "+who;
+  let inner="";
+  if(who==="bot")inner='<div class="mini">'+DROP+'</div><div class="msg">'+text+'</div>';
+  else inner='<div class="msg"></div>';
+  l.innerHTML=inner;
+  if(who==="me")l.querySelector(".msg").textContent=text;
+  chat.appendChild(l);chat.scrollTop=chat.scrollHeight;return l;}
+
+function typing(){const l=document.createElement("div");l.className="line bot";
+  l.innerHTML='<div class="mini">'+DROP+'</div><div class="msg typing"><span></span><span></span><span></span></div>';
+  chat.appendChild(l);chat.scrollTop=chat.scrollHeight;return l;}
+
+let RIAVOICE=null;
+function voiceScore(v){var n=(v.name||"").toLowerCase(),l=(v.lang||"").toLowerCase(),sc=0;
+  if(/^en[-_]us/.test(l))sc+=6;else if(/^en[-_]gb/.test(l))sc+=4;else if(/^en/.test(l))sc+=2;
+  if(/(natural|neural|premium|enhanced|online|siri)/.test(n))sc+=20;
+  if(/(samantha|ava|allison|zoe|serena|nicky|karen|moira|tessa|jenny|aria|michelle|sonia|libby|emma|joanna)/.test(n))sc+=5;
+  if(/google/.test(n))sc+=4;
+  if(/(compact|eloquence|zarvox|albert|organ|bells|boing|bubbles|cellos|deranged|hysterical|jester|novelty|superstar|trinoids|whisper|wobble|bad|bahh|ralph|fred|junior|kathy|victoria|grandma|grandpa|rocko|shelley|reed|flo|sandy)/.test(n))sc-=9;
+  return sc;}
+function pickVoice(){const s=window.speechSynthesis;if(!s)return null;const vs=s.getVoices();if(!vs||!vs.length)return null;
+  return vs.slice().sort((a,b)=>voiceScore(b)-voiceScore(a))[0];}
+function speak(text,onFirst){if(!speakOn||!window.speechSynthesis)return;const s=window.speechSynthesis;s.cancel();
+  var clean=String(text).replace(/<[^>]+>/g," ")
+    .replace(/[\u2014\u2013\u2012\u00b7\u2022;:,]/g," ")
+    .replace(/\s+/g," ").trim();
+  if(!clean)return;if(!RIAVOICE)RIAVOICE=pickVoice();
+  var sentences=clean.split(/(?<=[.!?])\s+/);var first=true;
+  sentences.forEach(function(p){
+    p=p.replace(/[^A-Za-z0-9%\u00b0'\s.\-]/g," ").replace(/\s+/g," ").replace(/[.\s]+$/,"").trim();
+    if(!p||!/[A-Za-z0-9]/.test(p))return;
+    var u=new SpeechSynthesisUtterance(p);
+    if(RIAVOICE)u.voice=RIAVOICE;
+    u.rate=0.9;u.pitch=0.95;u.volume=1;
+    if(first&&onFirst){first=false;u.onstart=onFirst;}
+    s.speak(u);});}
+
+const STOP=new Set(["what","is","the","a","an","of","to","and","or","how","why","does","do","did",
+  "this","that","it","its","you","your","are","was","were","in","on","for","with","me","my","tell",
+  "about","which","can","could","would","i","we","us","they","them","give","show","explain","mean",
+  "means","here","there","have","has","been","be","at","by","as","from","get","when","where","who"]);
+function toks(s){return s.toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>=3&&!STOP.has(w));}
+function ans(kw){const e=KB.find(x=>x.k.indexOf(kw)!==-1);return e?e.a:"";}
+function match(q){const t=q.toLowerCase();if(CONF.test(t))return CONFIDENTIAL;
+  if(/\bwho\b/.test(t)&&/\b(built|build|made|make|develop|created|create|behind|design)\b/.test(t)){
+    var w=ans("who built"),ex="";
+    if(/\bhow\b/.test(t))ex=ans("how built");
+    else if(/\bwhy\b/.test(t))ex=ans("why");
+    if(w)return ex?(w+"\n\n"+ex):w;
+  }
+  if(/\bhow\b/.test(t)&&/\b(built|build|made|make|develop|created|construct|assembl)\b/.test(t))return ans("how built");
+  let best=null,score=0;
+  for(const e of KB){let s=0;
+    for(const k of e.k){var kk=k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+      if(new RegExp("\\b"+kk,"i").test(t))s+=k.split(" ").length*3;}
+    const kw=new Set(); e.k.forEach(k=>toks(k).forEach(w=>kw.add(w)));
+    new Set(toks(t)).forEach(w=>{if(kw.has(w))s+=2;});
+    if(s>score){score=s;best=e;}}
+  return score>=3?best.a:FALLBACK;}
+
+function unlock(){try{const s=window.speechSynthesis;if(!s)return;s.resume();
+  if(!window.__riaPrimed){const w=new SpeechSynthesisUtterance(" ");w.volume=0;s.speak(w);window.__riaPrimed=true;}}catch(e){}}
+let MODE="askname", USERNAME="", NQ=0, RATING=0, AIMODE=true;
+async function aiAsk(q){try{const r=await fetch("/ai_ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q:q})});if(!r.ok)return null;const d=await r.json();return d&&d.answer?d.answer:null;}catch(e){return null;}}
+function botSay(html,say){const t=typing();setTimeout(()=>{t.remove();add(html,"bot");if(say)speak(html);},520);}
+// ── gentle engagement: nudge for more questions on silence, then a warm goodbye ──
+let __folT=null,__byeT=null;
+function clearTimers(){if(__folT)clearTimeout(__folT);if(__byeT)clearTimeout(__byeT);__folT=__byeT=null;}
+function scheduleFollowup(){clearTimers();
+  // after ~40s of silence, gently check in ONCE — never say goodbye on our own.
+  // The farewell happens only when the user says no / nothing else / bye.
+  __folT=setTimeout(function(){if(MODE==="chat"){var n=USERNAME?(", "+USERNAME):"";
+    botSay("Is there anything else you'd like to know"+n+"?");}},40000);}
+function looksLikeName(t){t=t.trim();if(!t||t.length>24||t.includes("?"))return false;
+  var c=t.replace(/^(my name is|i am|i'm|im|this is|it's|its|call me|name is)\s+/i,"").trim();
+  if(/\b(what|how|why|who|where|when|which|data|tool|vic|grace|smap|snotel|cria|help|hi|hello|hey|rate|like|love|want|need|think|good|bad|nice|cool|yes|no|not|dont|don't|thanks|thank|is|are|was|the|this|that|question|answer|test|important|reliable|trust|use|useful)\b/i.test(c))return false;
+  if(c.split(/\s+/).length>2)return false;
+  return /^[a-zA-Z][a-zA-Z .'-]{0,20}$/.test(c);}
+function extractName(t){t=t.replace(/^(my name is|i am|i'm|im|this is|it's|its|call me|name is)\s+/i,"").trim().replace(/[.?!]+$/,"");
+  var w=(t.split(/\s+/)[0]||t);return w.charAt(0).toUpperCase()+w.slice(1);}
+function greetName(){var g=["Nice to meet you","Lovely to meet you","Great to have you here"][Math.floor(Math.random()*3)];
+  return g+", <b>"+USERNAME+"</b>! Ask me anything about CRIA \u2014 the data, how it was built, validation, the papers, or the idea behind it. Tap a suggestion or just type.";}
+function saveFB(note){try{var a=JSON.parse(localStorage.getItem("ria_feedback")||"[]");
+  a.push({name:USERNAME,rating:RATING,note:note,at:new Date().toISOString()});
+  localStorage.setItem("ria_feedback",JSON.stringify(a));}catch(e){}}
+function startFeedback(){MODE="rating";
+  var l=document.createElement("div");l.className="line bot";
+  var stars="";for(var i=1;i<=5;i++)stars+='<span class="star" data-v="'+i+'">&#9733;</span>';
+  var pre=USERNAME?("Before you go, <b>"+USERNAME+"</b> \u2014 "):"Before you go \u2014 ";
+  l.innerHTML='<div class="mini">'+DROP+'</div><div class="msg">'+pre+'how would you rate your experience with CRIA?<div class="stars">'+stars+'</div></div>';
+  chat.appendChild(l);chat.scrollTop=chat.scrollHeight;
+  l.querySelectorAll(".star").forEach(function(st){st.onclick=function(){RATING=+st.dataset.v;
+    l.querySelectorAll(".star").forEach(function(x){x.classList.toggle("on",+x.dataset.v<=RATING);});
+    add(RATING+" / 5 stars","me");MODE="fbtext";
+    botSay("Thank you! What did you like, and do you have any ideas or suggestions to make CRIA better?");};});
+}
+function ask(q,viaMic){if(!q.trim())return;unlock();clearTimers();add(q,"me");qin.value="";
+  if(MODE==="askname"){
+    if(looksLikeName(q)){USERNAME=extractName(q);MODE="chat";botSay(greetName());return;}
+    MODE="chat";
+  }
+  if(MODE==="rating"){var _n=q.trim().match(/^([1-5])\s*(\/\s*5|stars?|star)?$/i);
+    if(_n){RATING=+_n[1];MODE="fbtext";botSay("Thank you for the "+RATING+"-star rating! What did you like, and any ideas or suggestions to make CRIA better?");return;}
+    MODE="chat";}
+  if(MODE==="fbtext"){saveFB(q);RATING=0;MODE="chat";
+    var _nm=USERNAME?(", <b>"+USERNAME+"</b>"):"";
+    if(/^(y|n|yes|no|ok|okay|nope|yeah|yup|good|nice|cool|great|fine|na|nah|nothing|none|idk|maybe)\W*$/i.test(q.trim())){
+      botSay("Got it"+_nm+"! If a specific idea comes to mind, just tell me and I'll share it with the team. Meanwhile, ask me anything else about CRIA.");
+    } else {
+      botSay("Thank you so much"+_nm+"! I'll share this with the team. Ask me anything else, anytime.");
+    }
+    return;}
+  // let the user (re)introduce or change their name at any point
+  if(/\b(my name is|name is|rename me|change my name|actually i'?m|actually im)\b/i.test(q)&&looksLikeName(q)){
+    USERNAME=extractName(q);
+    botSay("Got it — I'll call you <b>"+USERNAME+"</b> from now on. What would you like to know?");return;}
+  // a goodbye or "no more questions" — thank them warmly
+  if(/^(no|nope|nah|no thanks|no thank you|thanks|thank you|thankyou|that'?s all|that is all|nothing|nothing else|i'?m good|im good|all good|bye|goodbye|see you|see ya|done|that'?s it|cool thanks)\W*$/i.test(q.trim())){
+    var _g=USERNAME?(", <b>"+USERNAME+"</b>"):"";
+    botSay("Thank you for stopping by"+_g+"! It was lovely talking with you — see you soon, and come back anytime you have a question about CRIA. 👋");return;}
+  NQ++;
+  const tp=typing();
+  setTimeout(async function(){tp.remove();
+    var a=null;
+    if(CONF.test(q.toLowerCase())){a=CONFIDENTIAL;}
+    else if(AIMODE){a=await aiAsk(q);}
+    if(!a)a=match(q);
+    if(USERNAME&&Math.random()<0.32)a=USERNAME+", "+a.charAt(0).toLowerCase()+a.slice(1);
+    add(a,"bot");if(viaMic)speak(a);scheduleFollowup();
+  },560);}
+
+document.getElementById("send").onclick=()=>ask(qin.value);
+qin.addEventListener("keydown",e=>{if(e.key==="Enter")ask(qin.value);});
+
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const micBtn=document.getElementById("mic");
+if(SR){
+  const rec=new SR();rec.lang="en-US";rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
+  const QPH=qin.getAttribute("placeholder")||"Ask about CRIA…";
+  let listening=false, finalT="";
+  micBtn.onclick=()=>{
+    if(listening){try{rec.stop();}catch(e){}return;}          // tap again to stop early
+    try{window.speechSynthesis.cancel();finalT="";qin.value="";
+      qin.setAttribute("placeholder","Listening… speak your question");
+      rec.start();listening=true;micBtn.classList.add("on");}catch(e){}
+  };
+  rec.onresult=e=>{let interim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];
+      if(r.isFinal)finalT+=r[0].transcript+" ";else interim+=r[0].transcript;}
+    qin.value=(finalT+interim).trim();                        // show what RIA is hearing, live
+  };
+  rec.onend=()=>{listening=false;micBtn.classList.remove("on");qin.setAttribute("placeholder",QPH);
+    const q=finalT.trim();finalT="";
+    if(q){qin.value="";ask(q,true);}                          // mic question -> RIA speaks the answer
+  };
+  rec.onerror=()=>{listening=false;micBtn.classList.remove("on");qin.setAttribute("placeholder",QPH);};
+}else{micBtn.style.display="none";document.getElementById("foot").textContent="Curated answers · works offline · voice answers via your browser (mic input needs Chrome/Edge)";}
+
+var GREET="Hi! I'm RIA, your CRIA River Intelligence Assistant. Before we begin \u2014 what's your name? Or just tap a suggestion, or ask me a question.";
+var greetSpoke=false;
+window.addEventListener("message",function(e){if(e&&e.data==="ria-stop"){try{window.speechSynthesis.cancel();}catch(_){}}});
+add("Hi! I'm <b>RIA</b>, your CRIA River Intelligence Assistant. Before we begin \u2014 what's your name? (Or just tap a suggestion / ask a question.)","bot");
+/* RIA stays silent on open — it only speaks answers to questions asked by mic. */
+// the parent app tells us the moment the "Ask RIA" panel opens → greet out loud right away
+</script>
+</body>
+</html>

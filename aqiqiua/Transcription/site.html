@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>Transcriber · video → text</title>
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --bg:#080D1A;
+  --text:#F4F7FB;          /* headings */
+  --text-2:#E2E8F0;        /* values, input text */
+  --muted:rgba(203,213,225,.6);
+  --muted-2:rgba(203,213,225,.55);
+  --dim:rgba(203,213,225,.45);
+  --faint:rgba(148,163,184,.6);   /* micro-labels */
+  --faint-2:rgba(148,163,184,.45);/* footnotes */
+  --surface:rgba(148,163,184,.07);
+  --surface-2:rgba(148,163,184,.08);
+  --border:rgba(148,163,184,.14);
+  --border-2:rgba(148,163,184,.16);
+  --border-hover:rgba(148,163,184,.35);
+  --dash:rgba(148,163,184,.25);
+  --dash-soft:rgba(148,163,184,.22);
+  --dash-softer:rgba(148,163,184,.18);
+  --accent-1:#34D399;
+  --accent-2:#14B8A6;
+  --accent-grad:linear-gradient(135deg,#34D399,#14B8A6);
+  --accent-hover:rgba(52,211,153,.5);
+  --on-accent:#062B1F;
+  --cta-shadow:0 12px 34px rgba(20,184,166,.32), inset 0 1px 0 rgba(255,255,255,.35);
+  --skeleton:rgba(148,163,184,.08);
+}
+
+/* ============ BASE ============ */
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);font-family:Manrope,system-ui,sans-serif;color:var(--text)}
+input{font-family:inherit}
+input::placeholder{color:rgba(226,232,240,.4)}
+/* Chrome/Safari autofill: keep glass inputs dark in ALL states.
+   The ~infinite background-color transition delay stops Chrome ever painting
+   the autofill fill, so the field keeps its transparent glass bg; text-fill-color
+   fixes the text in every state incl. focus. (Do NOT add background-clip:text —
+   it flips the text to black on focus.) LITERAL colour, not var() — Chrome does
+   not resolve custom properties inside :-webkit-autofill. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active{
+  -webkit-text-fill-color:#E2E8F0 !important;
+  caret-color:#E2E8F0 !important;
+  transition:background-color 9999999s ease-in-out 0s;
+}
+/* Firefox */
+input:autofill{background:transparent;color:#E2E8F0}
+svg{display:block;flex:none}
+/* custom scrollbars — the macOS default paints a white track over the dark glass */
+*{scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.28) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-corner{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(148,163,184,.22);border-radius:999px;border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(148,163,184,.4);border:3px solid transparent;background-clip:padding-box}
+
+/* ============ PAGE + AURORA GLOWS ============ */
+/* overflow:clip, NOT hidden — hidden is programmatically scrollable, so the
+   auto-scroll to the result could shift this container with no way to scroll back */
+.page{position:relative;overflow:clip;min-height:100vh}
+.glow{position:absolute;border-radius:50%;pointer-events:none}
+.glow-1{top:-200px;left:-160px;width:560px;height:560px;background:radial-gradient(circle,rgba(16,185,129,.30),transparent 68%)}
+.glow-2{top:-120px;right:-200px;width:480px;height:480px;background:radial-gradient(circle,rgba(45,212,191,.14),transparent 68%)}
+.glow-3{bottom:-220px;left:34%;width:560px;height:560px;background:radial-gradient(circle,rgba(99,102,241,.14),transparent 68%)}
+.container{position:relative;max-width:980px;margin:0 auto;padding:40px 40px 30px}
+
+/* ============ GLASS SURFACE (the core recipe) ============ */
+.glass{background:var(--surface);border:1px solid var(--border);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+
+/* ============ APP HEADER ============ */
+.brand{display:flex;align-items:center;gap:14px}
+.logo-tile{width:46px;height:46px;border-radius:14px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:var(--on-accent);box-shadow:0 8px 24px rgba(20,184,166,.3)}
+.brand-name{font-weight:800;font-size:19px;color:var(--text)}
+.brand-tag{margin-top:2px;font-weight:500;font-size:12.5px;color:var(--muted-2)}
+
+/* ============ HERO ============ */
+.hero{margin-top:30px;padding:36px;border-radius:26px}
+.eyebrow{font-weight:800;font-size:11px;letter-spacing:.16em;color:var(--accent-1)}
+.hero h1{margin:10px 0 0;font-weight:800;font-size:40px;line-height:1.1;letter-spacing:-1px;color:var(--text)}
+.lede{margin-top:12px;max-width:600px;font-weight:500;font-size:15px;line-height:1.6;color:var(--muted)}
+.chips{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:7px 14px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-2);font-weight:600;font-size:12.5px;color:#CBD5E1}
+
+/* ============ TWO-COLUMN GRID ============ */
+.grid{margin-top:22px;display:grid;grid-template-columns:5fr 6fr;gap:22px;align-items:start}
+.panel{padding:22px;border-radius:24px}
+.panel-label{font-weight:800;font-size:10.5px;letter-spacing:.14em;color:var(--faint)}
+
+/* ============ LINK INPUT (pill) ============ */
+.input-pill{margin-top:14px;display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-2);transition:border-color .15s}
+.input-pill:hover,.input-pill:focus-within{border-color:var(--accent-hover)}
+.input-pill input{flex:1;min-width:0;background:transparent;border:none;outline:none;font-weight:500;font-size:13.5px;color:var(--text-2)}
+
+/* ============ DROP ZONE ============ */
+.dropzone{margin-top:10px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px;border-radius:18px;border:1.5px dashed var(--dash);cursor:pointer;transition:border-color .15s}
+.dropzone:hover{border-color:rgba(52,211,153,.55)}
+.dz-main{font-weight:600;font-size:13px;color:var(--muted)}
+.dz-sub{font-weight:500;font-size:11px;color:rgba(148,163,184,.5)}
+
+/* ============ SELECT ROWS (compact row, NOT a boxed native select) ============ */
+.row-stack{margin-top:10px;display:flex;flex-direction:column;gap:10px}
+.select-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:border-color .15s}
+.select-row:hover{border-color:var(--border-hover)}
+.select-micro{font-weight:700;font-size:9.5px;letter-spacing:.09em;color:var(--faint)}
+.select-value{margin-top:2px;font-weight:600;font-size:13.5px;color:var(--text-2)}
+
+/* ============ SUMMARY ROW + SWITCH ============ */
+.summary-row{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--border);cursor:pointer;user-select:none}
+.summary-left{display:flex;align-items:center;gap:8px;min-width:0}
+.summary-title{font-weight:600;font-size:12.5px;color:var(--text-2)}
+.switch{width:40px;height:24px;border-radius:999px;padding:3px;flex:none;display:flex;align-items:center;background:rgba(148,163,184,.25);transition:background .2s}
+.switch .knob{width:18px;height:18px;border-radius:50%;background:#F8FAFC;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .2s}
+.switch.on{background:var(--accent-grad)}
+.switch.on .knob{transform:translateX(16px)}
+
+/* ============ CTA (gradient pill) ============ */
+.cta{margin-top:16px;display:flex;align-items:center;justify-content:center;gap:9px;padding:15px;border-radius:999px;background:var(--accent-grad);box-shadow:var(--cta-shadow);cursor:pointer;user-select:none;border:none;width:100%;transition:transform .15s,filter .15s}
+.cta:hover{filter:brightness(1.07)}
+.cta:active{transform:scale(.98)}
+.cta span{font-weight:800;font-size:15px;line-height:1;color:var(--on-accent)}
+
+/* ============ RESULT PANEL ============ */
+.panel-result{display:flex;flex-direction:column}
+.files-strip{margin-top:14px;display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:16px;border:1.5px dashed var(--dash-soft)}
+.files-strip span{font-weight:500;font-size:12.5px;color:rgba(203,213,225,.5)}
+.output{margin-top:10px;min-height:220px;max-height:48vh;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:18px;border:1.5px dashed var(--dash-softer)}
+.skel{height:10px;border-radius:6px;background:var(--skeleton)}
+.output-hint{flex:1;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:13px;color:rgba(148,163,184,.5)}
+
+/* ============ FOOTNOTE ============ */
+.footnote{margin-top:20px;text-align:center;font-weight:500;font-size:12px;color:var(--faint-2)}
+
+/* ============ LOGIN ============ */
+.login-wrap{position:relative;min-height:600px;display:flex;align-items:center;justify-content:center;padding:50px}
+.login-card{width:380px;padding:30px;border-radius:26px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.login-card .logo-tile{margin:0 auto}
+.login-title{margin-top:14px;text-align:center;font-weight:800;font-size:21px;color:var(--text)}
+.login-tag{margin-top:5px;text-align:center;font-weight:500;font-size:12.5px;color:var(--muted-2)}
+.login-fields{margin-top:22px;display:flex;flex-direction:column;gap:10px}
+.login-fields .input-pill{margin-top:0;padding:13px 16px}
+.login-card .cta{margin-top:14px;padding:14px}
+
+/* ============ SCREEN DIVIDER (reference file only — not part of the app) ============ */
+.divider{position:relative;text-align:center;padding:18px;font:600 10px Manrope;letter-spacing:.2em;color:var(--faint-2);border-top:1px dashed var(--dash);border-bottom:1px dashed var(--dash)}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width:900px){
+  .grid{grid-template-columns:1fr}
+  .hero h1{font-size:32px}
+  .container{padding:28px 20px 24px}
+}
+
+/* ===== app-specific additions (logic wiring + loading/result/error states) ===== */
+.select-row{position:relative}
+.native-select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.file-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;
+background:var(--surface-2);border:1px solid var(--border-2);font-weight:600;font-size:12px;
+color:#CBD5E1;text-decoration:none;margin:2px 6px 2px 0}
+.file-chip:hover{border-color:var(--accent-hover)}
+.output-text{white-space:pre-wrap;font-family:Manrope,system-ui,sans-serif;font-weight:500;font-size:12.5px;
+line-height:1.65;color:var(--muted)}
+/* rich rendering of transcripts / AI answers (instead of raw ═══ and **asterisks**) */
+.thead{font-weight:800;color:var(--text)}
+.tstamp{color:var(--accent-1);font-weight:700}
+.tdiv{display:block;height:1px;background:var(--border);margin:8px 0}
+.output-text b,.review-out b{font-weight:800;color:var(--text)}
+.output.loading .skel{animation:skelpulse 1.2s ease-in-out infinite}
+/* Ask / Fact-check panel */
+.review{margin-top:14px;padding-top:14px;border-top:1px dashed var(--dash-soft);display:none}
+.review-label{font-weight:800;font-size:10px;letter-spacing:.14em;color:var(--faint)}
+.review-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.review-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:999px;background:var(--accent-grad);color:var(--on-accent);font-weight:800;font-size:14px;border:none;cursor:pointer;box-shadow:var(--cta-shadow);transition:transform .15s,filter .15s}
+.review-btn:hover{filter:brightness(1.07)}
+.review-btn:active{transform:scale(.98)}
+.review-btn[disabled]{opacity:.55;pointer-events:none}
+.ask-row{display:flex;gap:10px;flex:1;min-width:260px}
+.ask-row input{flex:1;min-width:0;padding:13px 16px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text-2);font-family:inherit;font-weight:500;font-size:13.5px;outline:none;transition:border-color .15s}
+.ask-row input:focus{border-color:var(--accent-hover)}
+.ask-send{display:inline-flex;align-items:center;gap:7px;padding:0 18px;border-radius:999px;background:var(--accent-grad);border:none;color:var(--on-accent);font-family:inherit;font-weight:800;font-size:13px;cursor:pointer;box-shadow:var(--cta-shadow);transition:transform .15s,filter .15s}
+.ask-send:hover{filter:brightness(1.07)}
+.ask-send:active{transform:scale(.98)}
+.ask-send[disabled]{opacity:.55;pointer-events:none}
+.review-out{margin-top:16px;white-space:pre-wrap;font-weight:500;font-size:13.5px;line-height:1.7;color:var(--text-2);display:none}
+.review-out.loading{color:rgba(148,163,184,.55);animation:hintpulse 1.4s ease-in-out infinite}
+@keyframes hintpulse{50%{opacity:.45}}
+.review-sources{margin-top:12px;display:flex;flex-direction:column;gap:5px}
+.review-sources a{font-size:12px;color:#7FB2F0;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-sources a:hover{text-decoration:underline}
+.review-src-label{font-weight:700;font-size:10px;letter-spacing:.09em;color:var(--faint);margin-bottom:2px}
+@keyframes skelpulse{50%{opacity:.35}}
+.cta[disabled]{opacity:.6;pointer-events:none}
+.login-err{margin-top:10px;text-align:center;font-weight:600;font-size:12.5px;color:#FCA5A5;min-height:16px}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+  <div class="glow glow-3"></div>
+
+  <div class="container">
+
+    <header class="brand">
+      <div class="logo-tile">T.</div>
+      <div>
+        <div class="brand-name">Transcriber</div>
+        <div class="brand-tag">Video &amp; audio → text</div>
+      </div>
+    </header>
+
+    <section class="hero glass">
+      <div class="eyebrow">TRANSCRIPTION</div>
+      <h1>Link or file → clean text</h1>
+      <p class="lede">Paste a YouTube link or upload video / audio — get clean text with logical paragraphs, chapters and timestamps.</p>
+      <div class="chips">
+        <span class="chip">YouTube link</span>
+        <span class="chip">MP4 · MOV · MP3</span>
+        <span class="chip">Paragraphs &amp; chapters</span>
+        <span class="chip">Timestamps</span>
+      </div>
+    </section>
+
+    <div class="grid">
+
+      <!-- LEFT: input panel -->
+      <section class="panel glass">
+        <div class="panel-label">WHAT TO TRANSCRIBE</div>
+
+        <label class="input-pill">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+          <input placeholder="Paste a YouTube link" id="url">
+        </label>
+
+        <div class="dropzone" id="dropzone">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+          <span class="dz-main" id="dzMain">Drop a file here — or click to upload</span><input type="file" id="file" accept="audio/*,video/*" hidden>
+          <span class="dz-sub">MP4 · MOV · MP3 · M4A · WAV</span>
+        </div>
+
+        <div class="row-stack">
+          <div class="select-row">
+            <div>
+              <div class="select-micro">RECOGNITION LANGUAGE</div>
+              <div class="select-value" id="valLang">Auto-detect</div>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8l4-4 4 4"></path><path d="M6 12l4 4 4-4"></path></svg><select class="native-select" id="selLang" aria-label="Recognition language"><option value="auto" selected>Auto-detect</option><option value="ru">Русский</option><option value="en">English</option><option value="uk">Українська</option><option value="de">Deutsch</option><option value="fr">Français</option><option value="es">Español</option></select>
+          </div>
+          <div class="select-row">
+            <div>
+              <div class="select-micro">TRANSLATE RESULT</div>
+              <div class="select-value" id="valTr">Off — keep original</div>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8l4-4 4 4"></path><path d="M6 12l4 4 4-4"></path></svg><select class="native-select" id="selTr" aria-label="Translate result"><option value="" selected>Off — keep original</option><option value="ru">Русский</option><option value="en">English</option><option value="uk">Українська</option><option value="de">Deutsch</option><option value="es">Español</option></select>
+          </div>
+          <div class="select-row">
+            <div>
+              <div class="select-micro">OUTPUT FORMAT</div>
+              <div class="select-value" id="valFmt">TXT — readable text</div>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8l4-4 4 4"></path><path d="M6 12l4 4 4-4"></path></svg><select class="native-select" id="selFmt" aria-label="Output format"><option value="txt" selected>TXT — readable text</option><option value="both">TXT + SRT</option><option value="srt">SRT — subtitles only</option></select>
+          </div>
+        </div>
+
+        <div class="summary-row" id="summaryRow">
+          <div class="summary-left">
+            <span class="summary-title">Summary, key points &amp; outline</span>
+          </div>
+          <!-- default state: ON -->
+          <div class="switch on" id="summarySwitch"><div class="knob"></div></div>
+        </div>
+
+        <button class="cta" type="button" id="go">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="#062B1F"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"></path></svg>
+          <span>Transcribe</span>
+        </button>
+      </section>
+
+      <!-- RIGHT: result panel -->
+      <section class="panel panel-result glass">
+        <div class="panel-label">RESULT</div>
+
+        <div class="files-strip">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg>
+          <span id="filesText">Files will appear here — TXT · SRT</span>
+        </div>
+
+        <div class="output" id="output">
+          <div class="skel" style="width:85%"></div>
+          <div class="skel" style="width:65%"></div>
+          <div class="skel" style="width:45%"></div>
+          <div class="output-hint" id="outputHint">The ready text will appear here…</div>
+        </div>
+
+        <div class="review" id="reviewPanel">
+          <div class="review-label">ASK / FACT-CHECK</div>
+          <div class="review-actions">
+            <button class="review-btn" id="fcBtn" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#062B1F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+              Fact-check
+            </button>
+            <div class="ask-row">
+              <input id="askInput" placeholder="Ask about the video…">
+              <button class="ask-send" id="askBtn" type="button">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#062B1F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4z"></path></svg>
+                Ask
+              </button>
+            </div>
+          </div>
+          <div class="review-out" id="reviewOut"></div>
+          <div class="review-sources" id="reviewSources"></div>
+        </div>
+      </section>
+
+    </div>
+
+    <p class="footnote">Videos without subtitles may take a couple of minutes — keep this tab open · Large files upload slower from a phone</p>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let file = null;
+let summaryOn = true;   // reference default: ON
+let lastTranscript = '';   // enables Ask / Fact-check on the last result
+
+// summary switch (reference ids)
+$('summaryRow').addEventListener('click', () => {
+  summaryOn = !summaryOn;
+  $('summarySwitch').classList.toggle('on', summaryOn);
+});
+
+// dropzone
+$('dropzone').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', () => {
+  file = $('file').files[0] || null;
+  $('dzMain').textContent = file
+    ? file.name + ' · ' + (file.size / 1048576).toFixed(1) + ' MB'
+    : 'Drop a file here — or click to upload';
+});
+
+// native selects → visible values
+function bindSelect(selId, valId) {
+  const s = $(selId);
+  s.addEventListener('change', () => {
+    $(valId).textContent = s.selectedOptions[0].textContent;
+  });
+}
+bindSelect('selLang', 'valLang');
+bindSelect('selTr', 'valTr');
+bindSelect('selFmt', 'valFmt');
+
+function resetOutput(loading) {
+  $('output').innerHTML =
+    '<div class="skel" style="width:85%"></div>' +
+    '<div class="skel" style="width:65%"></div>' +
+    '<div class="skel" style="width:45%"></div>' +
+    '<div class="output-hint" id="outputHint">The ready text will appear here…</div>';
+  $('output').classList.toggle('loading', !!loading);
+}
+function hint(t) { const h = $('outputHint'); if (h) h.textContent = t; }
+
+async function sseResult(eventId, onProgress) {
+  const r = await fetch('/gradio_api/call/run/' + eventId,
+                        { headers: { accept: 'text/event-stream' } });
+  if (!r.ok || !r.body) throw new Error('stream HTTP ' + r.status);
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '', ev = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).replace(/\r$/, ''); buf = buf.slice(i + 1);
+      if (line.startsWith('event:')) ev = line.slice(6).trim();
+      else if (line.startsWith('data:')) {
+        const payload = line.slice(5).trim();
+        if (ev === 'complete') { try { return JSON.parse(payload); } catch (e) { return []; } }
+        if (ev === 'error') {
+          let msg = payload;
+          try { const p = JSON.parse(payload);
+            msg = typeof p === 'string' ? p : (p && typeof p.error === 'string' ? p.error : payload);
+          } catch (e) {}
+          throw new Error(String(msg || 'Space error').slice(0, 300));
+        }
+        if (ev === 'generating') {
+          try { const d = JSON.parse(payload);
+            if (typeof d[1] === 'string') onProgress(d[1].split('\n')[0]);
+          } catch (e) {}
+        }
+      }
+    }
+  }
+  throw new Error('stream ended without a result');
+}
+
+$('go').addEventListener('click', async () => {
+  const url = $('url').value.trim();
+  if (!url && !file) { resetOutput(false); hint('Paste a link or attach a file first.'); return; }
+  $('go').disabled = true;
+  resetOutput(true);
+  hint('Starting…');
+  $('filesText').textContent = 'Files will appear here — TXT · SRT';
+  try {
+    let fd = null;
+    if (file && !url) {
+      hint('Uploading the file…');
+      const f = new FormData();
+      f.append('files', file, file.name);
+      const up = await fetch('/gradio_api/upload', { method: 'POST', body: f });
+      const paths = await up.json();
+      if (!Array.isArray(paths) || !paths[0]) throw new Error('upload failed');
+      fd = { path: paths[0], orig_name: file.name, size: file.size,
+             meta: { _type: 'gradio.FileData' } };
+    }
+    const start = await fetch('/gradio_api/call/run', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ data: [url || null, fd, $('selLang').value,
+        $('selTr').value, summaryOn, false, $('selFmt').value] }) });
+    const j = await start.json();
+    if (!j.event_id) throw new Error('could not start the job');
+    const result = await sseResult(j.event_id, hint);
+    const filesArr = Array.isArray(result[0]) ? result[0] : (result[0] ? [result[0]] : []);
+    const preview = typeof result[1] === 'string' ? result[1] : '';
+    const strip = $('filesText');
+    strip.textContent = '';
+    filesArr.forEach(fdd => {
+      const a = document.createElement('a');
+      a.className = 'file-chip';
+      a.href = String(fdd.url || '#');
+      a.download = String(fdd.orig_name || 'file');
+      a.textContent = String(fdd.orig_name || 'file');
+      strip.appendChild(a);
+    });
+    if (!filesArr.length) strip.textContent = 'No files returned';
+    $('output').classList.remove('loading');
+    $('output').innerHTML = '';
+    const txt = document.createElement('div');
+    txt.className = 'output-text';
+    renderPreview(txt, preview);
+    $('output').appendChild(txt);
+    lastTranscript = preview;
+    $('reviewPanel').style.display = 'block';
+    $('reviewOut').style.display = 'none';
+    $('reviewSources').innerHTML = '';
+    // NO programmatic scrolling here: auto-scroll triggered a Chrome paint bug
+    // (top of the page rendered black); the panel sits right under the output.
+  } catch (e) {
+    resetOutput(false);
+    hint('⚠️ ' + (e && e.message ? e.message : e));
+  } finally {
+    $('go').disabled = false;
+  }
+});
+
+// ---- rich text rendering (escape first, then decorate) ----
+function escHtml(t) {
+  return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+// AI answers: **bold** → real bold, "* " bullets → •, # headings → bold
+function renderRich(el, text) {
+  let h = escHtml(text);
+  h = h.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+  h = h.replace(/^(\s*)[\*\-]\s+/gm, '$1• ');
+  h = h.replace(/^#{1,4}\s+(.+)$/gm, '<b>$1</b>');
+  el.innerHTML = h;
+}
+// transcript preview: ═══ separators → thin lines, headers → bold, [0:00] → accent
+function renderPreview(el, text) {
+  let h = escHtml(text);
+  h = h.replace(/^(.{2,200})\n[═=─-]{6,}$/gm, '<span class="thead">$1</span>');
+  h = h.replace(/^[═=─_-]{6,}$/gm, '<span class="tdiv"></span>');
+  h = h.replace(/\[(?:\d+:)?\d+:\d\d\]/g, '<span class="tstamp">$&</span>');
+  el.innerHTML = h;
+}
+
+// ---- Ask / Fact-check ----
+async function callEndpoint(api, data) {
+  const start = await fetch('/gradio_api/call/' + api, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ data }) });
+  const j = await start.json();
+  if (!j.event_id) throw new Error('could not start');
+  const result = await sseResult(j.event_id, () => {});
+  return result[0] || {};
+}
+function reviewBusy(on, msg) {
+  $('fcBtn').disabled = on; $('askBtn').disabled = on; $('askInput').disabled = on;
+  const out = $('reviewOut');
+  out.classList.toggle('loading', !!on);
+  if (msg) { out.style.display = 'block'; out.textContent = msg; }
+}
+function showSources(sources) {
+  const box = $('reviewSources'); box.innerHTML = '';
+  if (!sources || !sources.length) return;
+  const lbl = document.createElement('div');
+  lbl.className = 'review-src-label'; lbl.textContent = 'SOURCES';
+  box.appendChild(lbl);
+  sources.forEach(s => {
+    if (!/^https?:/i.test(String(s.uri || ''))) return;   // only real http(s) links
+    const a = document.createElement('a');
+    a.href = String(s.uri); a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = '• ' + String(s.title || s.uri || '');
+    box.appendChild(a);
+  });
+}
+$('fcBtn').addEventListener('click', async () => {
+  if (!lastTranscript || $('fcBtn').disabled) return;
+  reviewBusy(true, 'Checking the facts against sources — up to a minute…');
+  $('reviewSources').innerHTML = '';
+  try {
+    const r = await callEndpoint('factcheck', [lastTranscript]);
+    if (r.error) throw new Error(r.error);
+    renderRich($('reviewOut'), r.text || 'No review returned.');
+    showSources(r.sources);
+  } catch (e) {
+    $('reviewOut').textContent = '⚠️ ' + (e && e.message ? e.message : e);
+  } finally {
+    reviewBusy(false);
+  }
+});
+async function doAsk() {
+  const q = $('askInput').value.trim();
+  if (!q || !lastTranscript || $('askBtn').disabled) return;
+  reviewBusy(true, 'Looking through the transcript…');
+  $('reviewSources').innerHTML = '';
+  try {
+    const r = await callEndpoint('ask_video', [{ transcript: lastTranscript, question: q }]);
+    if (r.error) throw new Error(r.error);
+    renderRich($('reviewOut'), r.answer || 'No answer.');
+  } catch (e) {
+    $('reviewOut').textContent = '⚠️ ' + (e && e.message ? e.message : e);
+  } finally {
+    reviewBusy(false);
+  }
+}
+$('askBtn').addEventListener('click', doAsk);
+$('askInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') doAsk(); });
+</script>
+</body>
+</html>

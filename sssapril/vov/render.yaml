@@ -1,0 +1,32 @@
+# Render 部署配置 (Blueprint)
+# 文档: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: agentflow
+    runtime: docker
+    plan: free
+    rootDir: .
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+
+    # 启动相关：免费层冷启动慢，给 60s 启动窗口
+    initialDeployTimeout: 120
+
+    # 公共环境变量（直接写入 render.yaml，值可见）
+    envVars:
+      - key: OPENAI_BASE_URL
+        value: https://apihub.agnes-ai.com/v1
+      - key: DEFAULT_LLM_MODEL
+        value: agnes-2.0-flash
+      - key: DEBUG
+        value: "false"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+      # 私密环境变量（需在 Render Dashboard 手动填）
+      - key: OPENAI_API_KEY
+        sync: false

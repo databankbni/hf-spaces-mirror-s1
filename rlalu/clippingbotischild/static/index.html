@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0a0a12">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>⚡ VOD Hype Clipper | AI Highlight Extractor</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="navbar glass-card">
+            <div class="logo-group">
+                <div class="logo-icon">⚡</div>
+                <div>
+                    <h1 class="logo-text">VOD <span class="gradient-text">HYPE CLIPPER</span></h1>
+                    <p class="logo-subtitle">AI Chat Activity & Peak Highlight Extractor</p>
+                </div>
+            </div>
+            <div class="nav-badges">
+                <span class="badge twitch-badge">Twitch</span>
+                <span class="badge kick-badge">Kick</span>
+                <span class="badge format-badge">16:9 Horizontal</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Hero & Input Card -->
+            <section class="input-section glass-card">
+                <div class="section-header">
+                    <h2>Analyze Stream & Extract Clips</h2>
+                    <p>Paste a Twitch or Kick VOD link to analyze chat spikes and cut high-activity highlight clips in seconds.</p>
+                </div>
+
+                <form id="analyze-form" class="analyze-form">
+                    <div class="url-input-group">
+                        <input 
+                            type="text" 
+                            id="vod-url" 
+                            placeholder="Paste VOD link (e.g., https://twitch.tv/videos/... or https://kick.com/video/...) or leave empty for Demo"
+                            autocomplete="off"
+                        >
+                        <button type="button" id="demo-btn" class="btn btn-secondary">Load Demo</button>
+                    </div>
+
+                    <!-- Expandable Settings -->
+                    <div class="settings-grid">
+                        <div class="setting-item">
+                            <label for="duration-mode">Clip Duration Mode</label>
+                            <select id="duration-mode">
+                                <option value="short" selected>Short Viral Clips (30s - 60s)</option>
+                                <option value="viral_bunch">📱 Viral Shorts Bunch (AI Speech + Chat Spikes - Max Clips)</option>
+                                <option value="medium">Medium Segments (1m - 3m)</option>
+                                <option value="long">Long Stream Recaps (5m - 10m)</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="enable-ai-speech">AI Speech Analysis</label>
+                            <select id="enable-ai-speech">
+                                <option value="true" selected>Enabled (Speech-to-Text AI)</option>
+                                <option value="false">Disabled (Chat Only)</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="interval-sec">Chat Bucket Window</label>
+                            <select id="interval-sec">
+                                <option value="10">10 Seconds (Fine)</option>
+                                <option value="15" selected>15 Seconds (Balanced)</option>
+                                <option value="30">30 Seconds (Broad)</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="top-n">Max Highlights</label>
+                            <select id="top-n">
+                                <option value="3">Top 3 Peaks</option>
+                                <option value="5" selected>Top 5 Peaks</option>
+                                <option value="10">Top 10 Peaks</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="before-sec">Before Peak Buffer</label>
+                            <select id="before-sec">
+                                <option value="15">15 Seconds</option>
+                                <option value="30" selected>30 Seconds</option>
+                                <option value="45">45 Seconds</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="after-sec">After Peak Buffer</label>
+                            <select id="after-sec">
+                                <option value="10">10 Seconds</option>
+                                <option value="15" selected>15 Seconds</option>
+                                <option value="30">30 Seconds</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary glow-button">
+                            <i data-lucide="zap"></i> Analyze Chat Activity
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Loading Spinner / Status -->
+            <div id="loading-state" class="loading-container glass-card hidden">
+                <div class="spinner"></div>
+                <h3 id="loading-title">Scraping Chat & Analyzing Hype...</h3>
+                <p id="loading-subtitle">Bucketing timestamp density and detecting POG moments</p>
+            </div>
+
+            <!-- Results Section (Hidden Initially) -->
+            <section id="results-section" class="results-section hidden">
+                <!-- KPI Stats Row -->
+                <div class="kpi-grid">
+                    <div class="kpi-card glass-card">
+                        <span class="kpi-label">Total Messages</span>
+                        <span class="kpi-value" id="stat-messages">0</span>
+                    </div>
+                    <div class="kpi-card glass-card">
+                        <span class="kpi-label">Stream Duration</span>
+                        <span class="kpi-value" id="stat-duration">00:00</span>
+                    </div>
+                    <div class="kpi-card glass-card">
+                        <span class="kpi-label">Highlights Found</span>
+                        <span class="kpi-value gradient-text" id="stat-highlights">0</span>
+                    </div>
+                    <div class="kpi-card glass-card">
+                        <span class="kpi-label">Output Format</span>
+                        <span class="kpi-value">16:9 MP4</span>
+                    </div>
+                </div>
+
+                <!-- Interactive Hype Chart Card -->
+                <div class="chart-container glass-card">
+                    <div class="chart-header">
+                        <div>
+                            <h3>📈 Chat Activity Timeline</h3>
+                            <p>Visualizing message density and keyword hype score over time. Click any peak to jump to that highlight!</p>
+                        </div>
+                        <div class="chart-legend">
+                            <span class="legend-dot hype-dot"></span> Hype Score
+                            <span class="legend-dot msg-dot"></span> Message Count
+                        </div>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="hypeChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Detected Highlights List -->
+                <div class="highlights-container glass-card">
+                    <div class="highlights-header">
+                        <div>
+                            <h3>🔥 Top Detected Hype Peaks</h3>
+                            <p>Click "Clip This" to slice and download the 16:9 video segment instantly.</p>
+                        </div>
+                        <button id="clip-all-btn" class="btn btn-accent glow-button">
+                            <i data-lucide="scissors"></i> Clip All Highlights
+                        </button>
+                    </div>
+                    <div id="highlights-list" class="highlights-grid">
+                        <!-- Cards injected by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Generated Clips Gallery -->
+            <section class="gallery-section glass-card">
+                <div class="section-header">
+                    <div>
+                        <h2>🎬 Generated Video Clips</h2>
+                        <p>Your sliced 16:9 horizontal stream highlights ready for download.</p>
+                    </div>
+                    <button id="refresh-clips-btn" class="btn btn-secondary btn-sm">
+                        <i data-lucide="refresh-cw"></i> Refresh Gallery
+                    </button>
+                </div>
+                <div id="clips-gallery" class="clips-grid">
+                    <p class="empty-state">No clips generated yet. Analyze a stream above and cut your first highlight!</p>
+                </div>
+            </section>
+        </main>
+
+
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

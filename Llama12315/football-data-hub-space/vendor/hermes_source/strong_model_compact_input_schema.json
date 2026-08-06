@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StrongModelCompactInput",
+  "description": "强模型最终复核的紧凑输入格式，只传必需字段，不传raw_rows/完整references/完整历史案例",
+  "version": "v1.0",
+  "type": "object",
+  "required": [
+    "match_id",
+    "teams",
+    "best_candidate",
+    "top_3_candidates",
+    "risk_flags",
+    "kline_summary",
+    "settlement_path",
+    "no_bet_reviewer",
+    "stake_unit_initial",
+    "pre_mortem",
+    "rules_triggered"
+  ],
+  "properties": {
+    "match_id": {
+      "type": "string",
+      "description": "比赛ID"
+    },
+    "teams": {
+      "type": "object",
+      "description": "队伍基本信息（最小集）",
+      "properties": {
+        "home": { "type": "string" },
+        "away": { "type": "string" },
+        "league": { "type": "string" },
+        "competition_type": { "type": "string" }
+      }
+    },
+    "best_candidate": {
+      "type": "object",
+      "description": "当前最优候选（完整定义）",
+      "properties": {
+        "market": { "type": "string", "enum": ["AH", "OU"] },
+        "side": { "type": "string" },
+        "line": { "type": "number" },
+        "water": { "type": "number" },
+        "water_source": { "type": "string", "enum": ["exact_main", "exact_adjacent", "inherited_main", "stale_plate", "missing"] },
+        "rank_eligible": { "type": "boolean" },
+        "score": { "type": "integer" },
+        "ev": { "type": "number" }
+      }
+    },
+    "top_3_candidates": {
+      "type": "array",
+      "description": "前3名候选（紧凑版，只有key字段）",
+      "items": {
+        "type": "object",
+        "properties": {
+          "market": { "type": "string" },
+          "side": { "type": "string" },
+          "line": { "type": "number" },
+          "water": { "type": "number" },
+          "score": { "type": "integer" },
+          "ev": { "type": "number" },
+          "rank_eligible": { "type": "boolean" }
+        }
+      },
+      "maxItems": 3
+    },
+    "risk_flags": {
+      "type": "array",
+      "description": "触发的风控标记列表",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rule_id": { "type": "string" },
+          "severity": { "type": "string", "enum": ["hard", "soft", "info"] },
+          "description": { "type": "string", "maxLength": 200 }
+        }
+      }
+    },
+    "kline_summary": {
+      "type": "object",
+      "description": "K线摘要（无OHLC数据，只含方向+置信度）",
+      "properties": {
+        "ah": {
+          "type": "object",
+          "properties": {
+            "direction": { "type": "string" },
+            "confidence": { "type": "integer", "minimum": 0, "maximum": 10 },
+            "water_reversal": { "type": "boolean" },
+            "value_window_closed": { "type": "boolean" }
+          }
+        },
+        "ou": {
+          "type": "object",
+          "properties": {
+            "direction": { "type": "string" },
+            "confidence": { "type": "integer", "minimum": 0, "maximum": 10 },
+            "water_reversal": { "type": "boolean" },
+            "value_window_closed": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "settlement_path": {
+      "type": "object",
+      "description": "结算路径（best_candidate的）",
+      "properties": {
+        "full_win_p": { "type": "number" },
+        "half_win_p": { "type": "number" },
+        "push_p": { "type": "number" },
+        "half_loss_p": { "type": "number" },
+        "full_loss_p": { "type": "number" },
+        "expected_profit": { "type": "number" }
+      }
+    },
+    "no_bet_reviewer": {
+      "type": "object",
+      "description": "NO_BET审查器输出",
+      "properties": {
+        "original_decision": { "type": "string" },
+        "review_status": { "type": "string", "enum": ["no_bet_valid", "no_bet_overturned", "no_bet_confirmed", "no_bet_lazy_detected"] },
+        "alternative_found": { "type": "boolean" },
+        "review_notes": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "stake_unit_initial": {
+      "type": "string",
+      "description": "初始资金单位（如C0.25u）"
+    },
+    "pre_mortem": {
+      "type": "string",
+      "description": "如果错了，最可能的根因（#18要求）",
+      "maxLength": 200
+    },
+    "rules_triggered": {
+      "type": "array",
+      "description": "本场比赛触发的规则列表（rule_id + 触发条件）",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rule_id": { "type": "string" },
+          "trigger_reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}

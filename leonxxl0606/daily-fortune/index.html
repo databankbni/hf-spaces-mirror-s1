@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#F7F3EB">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="玄机先生">
+<title>玄机先生</title>
+<style>
+:root{--cream:#F7F3EB;--burgundy:#6B1A2B;--burgundy-deep:#4A0E1C;--gold:#C9A961;--gold-light:#E5D4A1;--gold-dark:#A68B3E;--ink:#2C2420;--ink-light:#5C4F4A;--green:#4A6741;--red:#8B3A3A}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Songti SC','STSong',SimSun,serif;background:var(--cream);background-image:radial-gradient(ellipse at 50% 0%,rgba(201,169,97,0.08) 0%,transparent 60%);min-height:100vh;color:var(--ink);line-height:1.7;-webkit-font-smoothing:antialiased}
+.container{max-width:440px;margin:0 auto;padding:32px 24px}
+.top-ornament{display:flex;align-items:center;gap:12px;margin-bottom:28px;opacity:0.6}
+.top-ornament::before,.top-ornament::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--gold-dark),transparent)}
+.top-ornament .diamond{width:8px;height:8px;background:var(--gold);transform:rotate(45deg)}
+.header{text-align:center;margin-bottom:36px;position:relative}
+.header::after{content:'';display:block;width:60px;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:20px auto 0}
+.header .gregorian{font-family:Georgia,'Times New Roman',serif;font-size:13px;letter-spacing:3px;color:var(--ink-light);margin-bottom:6px;text-transform:uppercase}
+.header .ganzhi{font-family:Georgia,'Times New Roman',serif;font-size:42px;font-weight:400;color:var(--burgundy-deep);letter-spacing:6px;line-height:1.1;margin-bottom:8px}
+.header .ganzhi .day::after{content:'日';font-size:16px;font-family:'Songti SC','STSong',serif;letter-spacing:2px;margin-left:4px;color:var(--gold-dark)}
+.header .jieqi{font-size:12px;color:var(--gold-dark);letter-spacing:4px;font-weight:500}
+.section-divider{display:flex;align-items:center;justify-content:center;gap:16px;margin:28px 0;opacity:0.5}
+.section-divider .line{width:40px;height:1px;background:var(--gold-dark)}
+.section-divider .ornament{font-size:14px;color:var(--gold)}
+.section{margin-bottom:28px}
+.section-title{display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid rgba(107,26,43,0.15)}
+.section-title .name{font-size:18px;font-weight:600;color:var(--burgundy-deep);letter-spacing:2px}
+.item{margin-bottom:14px;padding-left:4px}
+.item-label{font-size:11px;letter-spacing:3px;margin-bottom:2px;font-weight:500}
+.item-content{font-size:15px;line-height:1.8}
+.yi .item-label{color:var(--green)}
+.ji .item-label{color:var(--red)}
+.note{margin-top:12px;padding:14px 16px;background:rgba(107,26,43,0.04);border-left:3px solid var(--gold);font-size:14px;line-height:1.8;color:var(--ink-light)}
+.advice-box{background:linear-gradient(135deg,var(--burgundy-deep) 0%,var(--burgundy) 100%);border-radius:4px;padding:24px 20px;margin-top:8px;position:relative;overflow:hidden}
+.advice-box::before,.advice-box::after{content:'';position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold-light),transparent)}
+.advice-box::before{top:0}.advice-box::after{bottom:0}
+.advice-box .label{font-family:Georgia,'Times New Roman',serif;font-size:11px;letter-spacing:3px;color:var(--gold-light);margin-bottom:12px;text-transform:uppercase}
+.advice-box .content{font-size:15px;line-height:1.9;color:var(--cream);letter-spacing:0.5px}
+.advice-box.green{background:linear-gradient(135deg,#2d4a3e 0%,#1a3a2a 100%)}
+.footer{text-align:center;margin-top:40px;padding-top:20px;border-top:1px solid rgba(107,26,43,0.1)}
+.footer .brand{font-family:Georgia,'Times New Roman',serif;font-size:14px;font-style:italic;color:var(--gold-dark);letter-spacing:2px;margin-bottom:4px}
+.footer .sub{font-size:11px;color:var(--ink-light);opacity:0.5;letter-spacing:1px}
+.container{animation:fadeInUp 0.6s ease-out}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.error-box{text-align:center;padding:40px 20px;color:var(--ink-light)}
+.error-box .icon{font-size:32px;margin-bottom:12px;opacity:0.5}
+@media(max-width:380px){.container{padding:24px 18px}.header .ganzhi{font-size:36px}}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="top-ornament"><div class="diamond"></div></div>
+<div class="header">
+<div class="gregorian" id="date-display">&mdash;</div>
+<div class="ganzhi" id="ganzhi-display">&mdash;</div>
+<div class="jieqi" id="jieqi-display"></div>
+</div>
+<div id="content-area"><div class="error-box"><div class="icon">...</div><div>推算中&hellip;</div></div></div>
+<div class="footer"><div class="brand">玄机先生</div><div class="sub">每日自动推算</div></div>
+</div>
+<script>
+(function(){
+'use strict';
+var STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+var BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+var SHISHEN=['比肩','劫财','食神','伤官','偏财','正财','七杀','正官','偏印','正印'];
+var LEON={name:'Leon',dayMaster:1,branches:[4,5,11,9]};
+var XINGXING={name:'星星',dayMaster:2,branches:[8,9,6,3]};
+function shishenIndex(dm,stem){
+  var wuxing=((Math.floor(stem/2)-Math.floor(dm/2))+5)%5;
+  var samePolarity=(dm%2)===(stem%2);
+  return wuxing*2+(samePolarity?0:1)
+}
+function getDayPillar(date){
+  var anchor=Date.UTC(2026,0,1);
+  var today=Date.UTC(date.getFullYear(),date.getMonth(),date.getDate());
+  var diff=Math.round((today-anchor)/86400000);
+  return{stem:((1+diff)%10+10)%10,branch:((11+diff)%12+12)%12}
+}
+var JIEQI={'01-05':'小寒','01-20':'大寒','02-04':'立春','02-17':'雨水','03-05':'惊蛰','03-20':'春分','04-04':'清明','04-20':'谷雨','05-05':'立夏','05-21':'小满','06-05':'芒种','06-21':'夏至','07-07':'小暑','07-22':'大暑','08-07':'立秋','08-23':'处暑','09-07':'白露','09-23':'秋分','10-08':'寒露','10-23':'霜降','11-07':'立冬','11-22':'小雪','12-07':'大雪','12-22':'冬至'};
+function getJieqi(date){
+  var key=(date.getMonth()+1).toString().padStart(2,'0')+'-'+date.getDate().toString().padStart(2,'0');
+  return JIEQI[key]||''
+}
+var YI_LIB=[
+['今天适合约朋友聚聚，你身上那股"我们一起"的气场很足，容易感染身边的人，社交运佳','处理合作事宜，谈判顺利，容易达成共识，今天你特别能体谅别人，沟通效率高','学习新技能，吸收能力强，看书记得牢，听课能抓住重点，适合充电','整理房间或办公桌，断舍离的好时机，清爽的环境让你心情也好，做完有成就感','主动帮别人一个小忙，今天你给出的善意会加倍回来，贵人运佳'],
+['把拖了很久的事今天推掉，你今天有那股冲劲，不拖泥带水，执行力比平时强','表达自己真实的想法，别绕弯子，今天直说反而更容易被接受，沟通顺畅','做那个一直犹豫的决定，内心其实已经有答案了，相信直觉，果断利落','主动找个人聊一件重要的事，今天沟通效率高，容易说开，别憋着','处理一件让你纠结的小事，完成后的轻松感会让你想接着完成下一件，上瘾'],
+['去吃那家一直想去的店，今天味蕾敏感，普通食物也能吃出幸福感，适合探店','写点东西，日记感悟甚至发个朋友圈，灵感来得又快又真，创作欲强','看一部电影或追一集剧，今天共情能力强，容易被触动，放松娱乐正合适','做一顿饭给自己，哪怕简单，今天你的手艺会比平时好，享受过程','散步或发呆，别觉得浪费，今天独处是在给大脑整理内存，放松充电'],
+['把憋在心里的话说出来，今天你表达清晰，对方能听懂你的意思，别憋着','和某个重要的人深聊一次，真诚比技巧更重要，今天你说的话有分量','解决一件积压的小事，完成后的轻松感会让你想接着完成下一件，行动力回升','整理思绪写下来，今天你的文字比平时有力量，适合记录和表达','主动联系一个很久没联系的人，今天叙旧特别有感觉，容易打开话匣子'],
+['处理一件和钱有关的事，谈判报价还价，今天眼光准，偏财运佳','看看有没有被遗忘的账、红包或退款，今天容易发现"漏网之鱼"','小额投资可以考虑，今天直觉准，但别贪心，见好就收，理性消费','和朋友聊聊赚钱的事，今天容易获得有价值的信息，适合探讨理财','买一件心仪已久的小东西，今天花钱买的是开心不是冲动，犒劳自己'],
+['整理账单和收支，今天头脑清晰，能发现平时忽略的支出，条理清晰','存一笔钱，哪怕不多，今天开始的储蓄习惯会持续下去，节俭稳健','拒绝一个不必要的花钱邀请，今天说"不"没有心理负担，不勉强','研究一个省钱但不降质的方法，今天你特别会算这笔账，精打细算','把家里闲置的东西挂二手，今天容易卖出好价钱，断舍离还赚钱'],
+['处理那件让你头疼很久的事，今天抗压能力比平时强一个档次，适合攻坚','去健身房或跑步，把压力转化成汗水，今天运动效果特别好，精力充沛','独自完成一项需要专注的任务，今天不容易被打扰，适合深度工作','拒绝一个不合理的要求，今天你说"不"比说"好"更舒服，有底气','整理一个混乱的文件夹或邮箱，今天清理完特别有成就感，条理清晰'],
+['处理一件和工作相关的事，今天执行力强，不容易拖延，责任心强','和长辈或上级交流，今天你说的话得体，容易获得认可，社交运佳','完成一个承诺过的事，今天兑现承诺会让你心情舒畅，靠谱被看见','整理自己的计划或目标，今天规划的东西更容易实现，方向清晰','主动承担一件小事，今天你的靠谱会被看见，适合表现自己'],
+['读一本一直想读的书，今天理解力深，能读出作者没明说的东西，思考力佳','写一篇日记或复盘，今天你的文字有深度，以后回看会感谢自己','研究一个感兴趣的话题，今天能钻进去，获得心流的快乐，专注力强','冥想或静坐十分钟，今天内心比平时安静，容易听到自己，适合独处','整理照片或回忆，今天翻看过去会涌起温暖的感觉，怀旧而治愈'],
+['找一位你尊敬的人聊聊天，今天对方说的一句话可能点醒你，贵人运佳','上一节网课或听一期播客，今天记得住，而且能用到，学习效率高','帮父母做一件小事，今天家庭氛围特别好，陪伴家人很温暖','整理学习笔记，今天梳理的知识框架会记很久，适合总结归纳','主动请教一个问题，今天遇到的老师特别有耐心，求知欲强']
+];
+var JI_LIB=[
+['今天别冲动消费，尤其是"限时""限量"那种，买完大概率会后悔，冷静24小时再说','别因为小事和人争执，今天你嘴快但容易说伤人，赢了道理输了感情','别答应超出能力范围的事，今天高估自己，明天会为难，量力而行','别在深夜做重要决定，今天情绪上头，明天醒来可能会改主意','别忽视身体发出的信号，累了就休息，硬撑容易小病变大'],
+['今天别做大额投资或借钱给人，看起来稳的事可能藏着风险，缓一缓','别和人有正面冲突，今天你火力全开但容易伤及无辜，退一步海阔天空','别因为面子硬撑着答应邀约，不想去就礼貌拒绝，硬去大家都累','别在情绪激动时发消息，打出去的字收回来要十倍力气，三思而后发','别同时处理太多事，今天容易贪多嚼不烂，一件一件来，稳扎稳打'],
+['今天别暴饮暴食，味蕾敏感但胃容量有限，吃撑了后悔的是自己','别一整天刷短视频，时间溜走的速度比你以为的快得多，做些有意义的事','别把"放松"当成"放纵"，休息是为了走更远，不是原地打转','别因为懒而跳过一件重要的小事，今天拖了明天会加倍，今日事今日毕','别在深夜emo时发朋友圈，今天发的动态明天可能想删，冷静后再发'],
+['今天别说话太冲，你觉得是"直率"，别人可能觉得是"刻薄"，三思而后言','别翻旧账，翻出来只会让两个人都难受，过去的就让它过去，向前看','别在气头上做决定，今天说的狠话容易收不回来，冷静后再说','别对最亲的人发脾气，他们容忍你是因为爱你，不是活该，珍惜眼前人','别把吐槽当成沟通，抱怨太多会让人想远离，换个方式表达'],
+['今天别做大额消费或投资，偏财运不稳的时候，保守是上策，稳一稳','别因为"便宜"买不需要的东西，不买立省100%，理性消费','别和朋友谈钱的事，今天容易因为钱的事产生误会，谈钱伤感情','别碰赌博或投机，今天运气不在你这边，远离赌博','别为了面子请客超出预算，真正的朋友不会让你为难，量力而行'],
+['今天别冲动购物，尤其是直播间那种"最后100件"，冷静三天再决定','别因为省钱而委屈自己，该花的钱不花，后面可能花更多，适度消费','别在钱的问题上太计较，有时候吃亏是福，尤其是对亲近的人','别为了省钱买质量差的东西，用两天就坏反而浪费，性价比更重要','别忽视小钱，今天漏掉的小钱加起来可能比你想象的多，注意细节'],
+['今天别独自硬撑，扛不住就说，求助不是软弱，是智慧，懂得借力','别逃避那个让你压力大的事，躲得过初一躲不过十五，面对它才是解决之道','别在情绪低落时做大决定，今天做的决定明天大概率会后悔，等等再说','别把所有责任都揽在自己身上，你不是超人，允许自己做不到','别因为压力大而苛责自己，你已经做得够好了，给自己一些宽容'],
+['今天别挑战规则或流程，走捷径可能绕远路，按规矩来反而快','别和上级或长辈正面冲突，今天硬碰硬没有赢家，委婉表达更有效','别因为"应该"而勉强自己，有些责任可以分担，不必一个人扛','别太死板，计划赶不上变化，灵活一点会更轻松，随机应变','别因为守规矩而得罪人，原则要有，方式要柔，外圆内方'],
+['今天别过度社交，表面热闹内心空虚，不如独处充电，质量胜过数量','别为了合群而合群，虚伪的社交不如真实的独处，做自己就好','别钻牛角尖想一件事太久，想不通就先放一放，答案会自己来','别因为想太多而什么都不做，有时候先行动，答案才会出现','别封闭自己，如果心里难受，找信任的人说说会好很多，别一个人扛'],
+['今天别拒绝别人的好意，接受帮助也是一种能力，不是软弱','别固执己见不听劝，今天别人的建议里可能有你没想到的角度，兼听则明','别把自己封闭起来，社交不是负担，是获取能量的方式，适度社交','别因为独立而拒绝依赖，偶尔依赖一下别人，关系会更亲密','别觉得求助是丢脸的事，真正厉害的人懂得借力，会求助是本事']
+];
+var ADVICE_LEON_BOTH=[
+'今天你们都比较敏感，像两只刺猬，靠近容易扎到对方。不是谁的错，是今天的气场就这样。各自给一点空间，晚上再聊也不迟。如果她找你倾诉，记住：她不是在要解决方案，她只是需要你在。',
+'今天你和她都容易上头，小事可能被放大。如果感觉对话要升级成吵架，先喊停，去喝杯水，回来再说。冷静不是逃避，是尊重。',
+'今天你们的情绪像过山车，忽上忽下。别在这种时候讨论重要话题，聊点轻松的，开个玩笑，让气氛先缓下来。',
+'今天你们都容易被触发，说话容易带刺。开口前问自己：这句话是说给她的，还是说给情绪听的？如果是后者，先别说。',
+'今天你们都需要被哄，但谁都没力气哄对方。这时候别讲理，讲理没用。给她一个拥抱，或者点她爱吃的外卖，行动比语言有力。'
+];
+var ADVICE_LEON_ONLY_LEON_SENSITIVE=[
+'今天你情绪波动大，容易急躁。如果她说了让你不舒服的话，先别急着回应，去洗把脸，冷静十分钟再回复。你不是在忍，你是在保护这段关系。',
+'今天你像一只炸毛的猫，谁碰谁被挠。不是她的问题，是你今天气场不对。别在这种时候和她讲道理，先让自己平静下来。',
+'今天你容易把小事想大，把一句话听出三层意思。如果她没回你消息，可能只是忙，不是不在乎。别脑补，别焦虑。',
+'今天你说话容易冲，自己说完都后悔。重要的话发之前先读一遍，或者先存草稿，十分钟后再决定要不要发。',
+'今天你特别需要被理解，但越需要越说不出口。如果难受，就直接说"我今天状态不好"，她会懂的。'
+];
+var ADVICE_LEON_ONLY_XINGXING_SENSITIVE=[
+'今天她情绪敏感，可能因为小事不开心。别问"你怎么了"，她可能自己也不知道。就陪着她，让她知道你在，比什么都重要。',
+'今天她像一只受惊的小动物，需要安全感。别讲道理，别分析对错，给她一个拥抱，或者默默帮她做件事。行动比语言更能让她安心。',
+'今天她说话可能带刺，但那是情绪在说话，不是真的想伤害她。如果说了重话，事后记得告诉她"我不是那个意思"。',
+'今天她需要被看见，被重视。如果她分享一件事，认真听，别敷衍。她不是在汇报，她是在邀请你走进她的世界。',
+'今天她可能莫名其妙就哭了，或者莫名其妙就生气了。别慌，这不是你的错。递张纸巾，倒杯水，安静陪着就好。'
+];
+var ADVICE_XINGXING_BOTH=[
+'今天你们都比较敏感，容易因小事起摩擦。如果他说话冲，别往心里去，他可能只是情绪上头，不是针对你。给自己一些独处空间。',
+'今天你和他都容易上头，小事可能被放大。如果感觉对话要升级成吵架，先离开一会儿，去洗把脸，回来再说。',
+'今天你们的情绪像过山车。别在这种时候讨论重要话题，聊点轻松的，开个玩笑，让气氛先缓下来。',
+'今天你和他都容易被触发。开口前问自己：这句话是想说的，还是情绪逼你说的？如果是后者，先别说。',
+'今天你们都需要被哄，但谁都没力气。这时候别讲理，讲理没用。直接告诉他"我今天需要你哄"，他会懂的。'
+];
+var ADVICE_XINGXING_ONLY_XINGXING_SENSITIVE=[
+'今天你情绪敏感，可能因为小事不开心。想哭就哭，想说出来就说出来。别一个人扛，让他知道你需要他，这不是软弱。',
+'今天你像一只受惊的小动物，需要安全感。别假装没事，直接告诉他"我今天不太开心"，他会想办法让你好起来。',
+'今天你说话可能带刺，但那是情绪在说话，不是真的想伤害他。如果说了重话，事后记得告诉他"我不是那个意思"。',
+'今天你需要被看见，被重视。如果分享一件事，希望他认真听。如果他敷衍了，直接告诉他"我想让你认真听我说"。',
+'今天你可能莫名其妙就哭了，或者莫名其妙就生气了。别慌，这不是你的错。让他知道你需要他，比什么都重要。'
+];
+var ADVICE_XINGXING_ONLY_LEON_SENSITIVE=[
+'今天他情绪波动大，容易急躁。如果他态度不好，别急着反驳，等他冷静下来再沟通。他不是不在意你，他只是今天状态不好。',
+'今天他像一只炸毛的猫，谁碰谁被挠。别在这种时候和他讲道理，先让他自己平静下来。你越淡定，他越快恢复。',
+'今天他容易把小事想大。如果他没回你消息，可能只是忙，不是不在乎。别脑补，别焦虑，做自己的事。',
+'今天他说话容易冲，自己说完都后悔。如果他说了让你难受的话，别急着回击，冷静后告诉他你的感受。',
+'今天他特别需要被理解，但越需要越说不出口。如果他看起来烦躁，别追问，给他倒杯水，默默陪着就好。'
+];
+var ADVICE_LEON_GOOD=[
+'今天你们状态都不错，适合一起做点什么。约她吃那家一直想去的店，或者一起看一部电影。创造共同回忆的好时机，别浪费了。',
+'今天能量平稳，适合处理之前没聊完的话题。选个轻松的时机，认真聊一聊你们的未来。今天说的话，你们都会认真听。',
+'今天适合表达心意。如果有什么想对她说的话，今天说出来效果不错。别等到"合适的时机"，现在就是合适的时机。',
+'今天你们都比较放松，适合一起规划未来。聊聊下次去哪里玩，或者一起学一件新事物。一起期待美好事物，本身就是美好。',
+'今天你们之间有一种舒服的默契，不用刻意说什么，待在一起就很好。珍惜这种平淡的日子，这是感情最真实的样子。'
+];
+var ADVICE_XINGXING_GOOD=[
+'今天你们状态都不错，适合一起做点什么。让他陪你逛街、看电影，或者一起做顿好吃的。享受彼此的陪伴，这就是幸福。',
+'今天能量平稳，适合处理之前没聊完的话题。有什么想法直接说，今天沟通顺畅，容易达成共识。',
+'今天适合表达心意。如果有什么想让他知道的话，今天说出来效果不错。他会认真听，也会认真回应。',
+'今天你们都比较放松，适合一起规划未来。让他带你去想去的地方，或者一起为下次旅行做准备。',
+'今天你们之间有一种舒服的默契，不用刻意说什么，待在一起就很好。珍惜这种平淡的日子，这是感情最真实的样子。'
+];
+function genFortune(person,dStem,dBranch,date){
+  var si=shishenIndex(person.dayMaster,dStem);
+  var seed=date.getFullYear()*10000+(date.getMonth()+1)*100+date.getDate()+si;
+  var rnd=function(n){var x=Math.sin(seed*(n+1)*12.9898+person.dayMaster*78.233)*43758.5453;return x-Math.floor(x)};
+  var yi=YI_LIB[si][Math.floor(rnd(1)*5)];
+  var ji=JI_LIB[si][Math.floor(rnd(2)*5)];
+  var fuyin=person.branches.indexOf(dBranch)!==-1;
+  var chongPairs=[[0,6],[1,7],[2,8],[3,9],[4,10],[5,11]];
+  var hePairs=[[0,1],[2,11],[3,10],[4,9],[5,8],[6,7]];
+  var hitPair=function(pairs){return pairs.some(function(pair){return(person.branches.indexOf(pair[0])!==-1&&dBranch===pair[1])||(person.branches.indexOf(pair[1])!==-1&&dBranch===pair[0])})};
+  var chong=hitPair(chongPairs);
+  var he=hitPair(hePairs);
+  var note;
+  if(fuyin){note=person.name+'今天日支伏吟，'+SHISHEN[si]+'能量叠加，内心比平时敏感，情绪容易被触发。适合独处消化，不适合硬碰硬'}
+  else if(chong){note=person.name+'今天日支相冲，'+SHISHEN[si]+'被冲动，容易有突如其来的情绪或事件。保持冷静，事后再做判断'}
+  else if(he){note=person.name+'今天日支相合，'+SHISHEN[si]+'得助力，人缘和贵人运都不错，适合主动沟通、推进想做的事'}
+  else{note=person.name+'今天'+SHISHEN[si]+'当令，能量平稳，适合按自己的节奏做事，不必强求也不必回避'}
+  return{yi:yi,ji:ji,note:note,sensitive:fuyin||chong}
+}
+function pickAdvice(sets,lSens,xSens,date,salt){
+  var seed=date.getFullYear()*10000+(date.getMonth()+1)*100+date.getDate();
+  var x=Math.sin(seed*12.9898+salt*78.233)*43758.5453;
+  var idx=Math.floor((x-Math.floor(x))*5);
+  if(lSens&&xSens)return sets.both[idx];
+  if(lSens)return sets.leonSensitive[idx];
+  if(xSens)return sets.xingSensitive[idx];
+  return sets.good[idx]
+}
+function render(){
+  try{
+    var date=new Date();
+    var dp=getDayPillar(date);
+    var jieqi=getJieqi(date);
+    var lf=genFortune(LEON,dp.stem,dp.branch,date);
+    var xf=genFortune(XINGXING,dp.stem,dp.branch,date);
+    var leonAdvice=pickAdvice({both:ADVICE_LEON_BOTH,leonSensitive:ADVICE_LEON_ONLY_LEON_SENSITIVE,xingSensitive:ADVICE_LEON_ONLY_XINGXING_SENSITIVE,good:ADVICE_LEON_GOOD},lf.sensitive,xf.sensitive,date,1);
+    var xingAdvice=pickAdvice({both:ADVICE_XINGXING_BOTH,leonSensitive:ADVICE_XINGXING_ONLY_LEON_SENSITIVE,xingSensitive:ADVICE_XINGXING_ONLY_XINGXING_SENSITIVE,good:ADVICE_XINGXING_GOOD},lf.sensitive,xf.sensitive,date,2);
+    var y=date.getFullYear();
+    var m=String(date.getMonth()+1).padStart(2,'0');
+    var d=String(date.getDate()).padStart(2,'0');
+    document.getElementById('date-display').textContent=y+'.'+m+'.'+d;
+    document.getElementById('ganzhi-display').innerHTML='<span class="day">'+STEMS[dp.stem]+' '+BRANCHES[dp.branch]+'</span>';
+    document.getElementById('jieqi-display').textContent=jieqi;
+    document.getElementById('content-area').innerHTML=
+      '<div class="section"><div class="section-title"><span class="name">'+LEON.name+'</span></div>'+
+      '<div class="item yi"><div class="item-label">宜</div><div class="item-content">'+lf.yi+'</div></div>'+
+      '<div class="item ji"><div class="item-label">忌</div><div class="item-content">'+lf.ji+'</div></div>'+
+      '<div class="note">'+lf.note+'</div></div>'+
+      '<div class="section-divider"><span class="line"></span><span class="ornament">*</span><span class="line"></span></div>'+
+      '<div class="section"><div class="section-title"><span class="name">'+XINGXING.name+'</span></div>'+
+      '<div class="item yi"><div class="item-label">宜</div><div class="item-content">'+xf.yi+'</div></div>'+
+      '<div class="item ji"><div class="item-label">忌</div><div class="item-content">'+xf.ji+'</div></div>'+
+      '<div class="note">'+xf.note+'</div></div>'+
+      '<div class="section-divider"><span class="line"></span><span class="ornament">*</span><span class="line"></span></div>'+
+      '<div class="advice-box"><div class="label">给 Leon 的建议</div><div class="content">'+leonAdvice+'</div></div>'+
+      '<div style="height:16px"></div>'+
+      '<div class="advice-box green"><div class="label">给星星的建议</div><div class="content">'+xingAdvice+'</div></div>'
+  }catch(e){
+    var box=document.getElementById('content-area');
+    box.innerHTML='<div class="error-box"><div class="icon">⚠️</div><div class="err-msg"></div></div>';
+    box.querySelector('.err-msg').textContent='计算出错：'+e.message+'。请刷新页面重试'
+  }
+}
+var renderedDay=new Date().toDateString();
+function refreshIfNewDay(){
+  var today=new Date().toDateString();
+  if(today!==renderedDay){renderedDay=today;render()}
+}
+render();
+document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshIfNewDay()});
+setInterval(refreshIfNewDay,60000);
+})();
+</script>
+</body>
+</html>

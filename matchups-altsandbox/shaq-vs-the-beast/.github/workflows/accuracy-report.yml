@@ -1,0 +1,138 @@
+name: Score simulation accuracy
+
+# Grades the model against reality every night, and commits the result.
+#
+# Scoring runs *here*, not in the Space. The Space's filesystem is rebuilt from
+# the image on every deploy, and the deploy copies `data/` in wholesale — so
+# anything the running app writes is erased by the next push to main. That
+# makes its database a cache, not a record. The runner, by contrast, has the
+# statline database, network access to MLB, and a git tree to put the answer
+# in, so the record survives.
+#
+# The committed file is `data/accuracy/scored.jsonl`, one graded game per line.
+# The app loads it at startup, which is what puts the report in front of a
+# visitor.
+#
+# On cadence: nightly, and each run simulates only the previous day's games —
+# everything older is already in the record and skipped by id.
+#
+# The window it *looks* at is a week, though, and that distinction is the whole
+# design. A one-day window grades last night and never looks behind it, so a
+# missed run is a permanent hole. That happened on the first nightly run: it
+# graded 2026-08-02 and stepped over 2026-08-01, which had nothing. A week of
+# lookback costs six extra schedule fetches and no simulations, and it means a
+# hole gets filled the next night instead of never.
+
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: Window end date (YYYY-MM-DD); blank means yesterday
+        type: string
+        required: false
+      days:
+        description: How many days back to score. Blank = from the last graded day (one, on a nightly run).
+        type: string
+        required: false
+      force:
+        description: Re-score games already graded
+        type: boolean
+        required: false
+        default: false
+      seasons:
+        description: Seasons of league history to fetch, comma-separated
+        type: string
+        required: false
+
+concurrency:
+  group: accuracy-report
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # A real token so the commit below can push back to main.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      # Must run before scoring: the trend forecasts issued at the end of the
+      # scoring step read this record, and a forecast built on eighty of our own
+      # games is a much weaker thing than one built on several seasons of the
+      # league. Finished seasons are fetched once, so a rerun costs one season.
+      - name: Refresh league history
+        env:
+          END_DATE: ${{ inputs.date }}
+          SEASONS: ${{ inputs.seasons }}
+        run: |
+          end="${END_DATE:-$(date -u -d 'yesterday' +%Y-%m-%d)}"
+          args=""
+          [ -n "${SEASONS}" ] && args="--seasons ${SEASONS}"
+          python -m thebeast.cli.main fetch-league-history --date "${end}" ${args}
+
+      - name: Score finished games
+        env:
+          END_DATE: ${{ inputs.date }}
+          DAYS: ${{ inputs.days }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          # Default to yesterday: today's games have not finished, so including
+          # them only adds rows that cannot be scored.
+          end="${END_DATE:-$(date -u -d 'yesterday' +%Y-%m-%d)}"
+          force=""
+          [ "${FORCE}" = "true" ] && force="--force"
+
+          # No --days unless one was asked for. The default is a lookback over
+          # the schedule, not an amount of work: games already in the record
+          # are skipped, so a nightly run simulates only the previous day while
+          # still being able to see — and fill — a night an earlier run missed.
+          days_arg=""
+          [ -n "${DAYS}" ] && days_arg="--days ${DAYS}"
+
+          python -m thebeast.cli.main score-accuracy \
+            --date "${end}" ${days_arg} --limit 40 ${force}
+
+      - name: Commit the record
+        run: |
+          if git diff --quiet -- data/accuracy; then
+            echo "No new games graded — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/accuracy
+          lines="$(wc -l < data/accuracy/scored.jsonl | tr -d ' ')"
+          # Forecasts are issued on every run, so this commit can carry new
+          # trends even on a night when no game finished in time to grade.
+          trends="$(wc -l < data/accuracy/trends.jsonl 2>/dev/null | tr -d ' ')"
+          hist="$(wc -l < data/accuracy/league_history.jsonl 2>/dev/null | tr -d ' ')"
+          git commit -m "Record graded games (${lines} total, ${trends:-0} forecasts, ${hist:-0} league rows)"
+          # Grading fetches schedules and lineups into the bundled database.
+          # That is runtime churn, not a result — committing a 5 MB binary
+          # every run would bloat the repo, and leaving it dirty blocks the
+          # rebase below with "cannot pull with rebase: You have unstaged
+          # changes", which is what silently ate the first successful run.
+          git checkout -- .
+          # Rebase rather than force: a human push during the run should win.
+          for i in 1 2 3 4; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            echo "push attempt ${i} failed; retrying"
+            sleep $((2 ** i))
+          done
+          echo "::warning::could not push the graded record"

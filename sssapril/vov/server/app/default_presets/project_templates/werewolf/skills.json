@@ -1,0 +1,26 @@
+{
+  "_doc": "狼人杀模板 skills: self-memory(玩家+法官记笔记), werewolf-rules(玩法规则, 玩家和法官共用), game-state(法官专用, 维护 game_state / role_book)。",
+  "skills": [
+    {
+      "name": "self-memory",
+      "description": "教 Agent 如何用 slug 分类管理自己的个人笔记 (mode 参数支持 replace / append / replace_globally / rewrite_section)",
+      "skill_type": "prompt",
+      "config": {},
+      "content": "# 自我笔记管理 (self-memory)\n\n## 你的笔记是私人的、agent 级别的\n\n你拥有自己的一片笔记空间 (agent memory), 与该项目下其他人独立, 也 **不会** 同步到主群或主链历史。\n\n笔记通过 `slug` 分类, 每次写入同 slug 默认会 **覆盖** (mode=replace)。\n\n## 工具用法\n\n- 写入: `set_memory(agent_id, project_id, content, slug, mode=\"replace\")`\n- 读取: `get_memory(agent_id, project_id, slug)`\n- 列出: `list_memories(agent_id, project_id)`\n\n### mode 参数\n\n- `replace` (默认): 全量替换 content\n- `append`: 追加到已有内容末尾\n- `replace_globally`: 全文查找替换, 需配合 `find` + `replace_with`\n- `rewrite_section`: 按 Markdown 标题替换整个 section, 需配合 `section_heading`\n\n## 狼人杀场景下的标准 slug\n\n| slug | 用途 | 谁写 | 隐私级别 |\n|------|------|------|----------|\n| `my_role` | 你的真实身份 (如 \"我是狼人\") | 玩家 (收到身份任务时写) | 仅自己+法官可见 |\n| `my_state` | 角色专属状态 (女巫的药 / 预言家查验记录 / 猎人触发) | 玩家 (身份相关任务后写) | 仅自己+法官可见 |\n| `game_state` | 当前回合/阶段/存活列表/击杀目标 | 法官 (每阶段更新) | 仅法官可见 |\n| `role_book` | 角色分配账本 | 法官 (开局写一次) | 仅法官可见 |\n\n## 重要原则\n\n- 笔记是 **你自己** 管理的, 不是系统替你管\n- 玩家每次被唤醒, 第一步必须 `get_memory(\"my_role\")` 确认身份\n- 玩家收到身份任务时, 必须 `set_memory(\"my_role\", ...)` 记录, 否则你会忘记自己是谁\n- 女巫/预言家/猎人在身份任务时必须初始化自己的 `my_state`\n- `update_task_status` 的 `result` 会被法官看到, **result 里不写身份词** (只写动作+目标, 如 `击杀:3`)"
+    },
+    {
+      "name": "werewolf-rules",
+      "description": "狼人杀标准 5 人局玩法规则 (角色 / 阶段 / 胜利条件 / 特殊规则), 玩家和法官共用",
+      "skill_type": "prompt",
+      "config": {},
+      "content": "# 狼人杀玩法规则 (玩家 + 法官共用)\n\n## 角色配置 (标准 5 人局)\n\n- **狼人 (2人)**: 每晚集体决定击杀 1 个目标。两个狼人都要单独给出选择, 法官汇总得票最高的作为击杀目标 (平票选编号小的)。狼人知道谁是自己的狼同伴。\n- **预言家 (1人)**: 每晚可查验 1 个人的身份 (知道是好人还是狼人), 整局每晚一次。查验结果只有预言家自己和法官知道, 不会自动公布。\n- **女巫 (1人)**: 1 瓶解药 (救活当晚被狼杀的人) + 1 瓶毒药 (毒杀任意 1 人), 整局各只能用一次。同一夜可以同时用解药和毒药 (比如救自己同时毒别人)。女巫知道每晚狼人击杀的目标是谁。\n- **猎人 (1人)**: 被票出或被刀时 (非女巫毒死) 可开枪带走 1 人, 整局一次。被女巫毒死时不能开枪。\n\n注意: 本配置没有普通村民, 5人=2狼+1预言家+1女巫+1猎人。\n\n## 夜晚行动顺序 (严格按此顺序)\n\n1. 狼人击杀 (两个狼人分别给出选择, 法官汇总)\n2. 预言家查验\n3. 女巫行动 (知道击杀目标, 决定救/毒/弃权)\n\n注意：猎人夜晚不行动, 法官不会在夜晚给猎人创建任务。\n\n## 白天流程\n\n1. 法官公布昨晚死亡名单 (或 \"平安夜\")\n2. (第一晚有遗言) 死亡玩家依次发表遗言\n3. 存活玩家按编号从小到大依次发言\n4. 存活玩家按编号从小到大依次投票\n5. 得票最多者出局 (平票无人出局)\n6. 猎人被票出/被刀时 (非毒死), 可以开枪带走一人\n\n## 胜利条件\n\n- **好人胜**: 所有狼人出局 (alive 中没有 werewolf)\n- **狼人胜**: 狼人数量 >= 好人数量 (alive 中 werewolf 数量 >= 非 werewolf 数量)\n- 其他情况: 继续下一夜\n\n## 特殊规则\n\n- **同票**: 平票时无人出局, 直接进入下一夜\n- **猎人开枪**: 被票出或被狼刀时可以开枪; 被女巫毒死时不能开枪\n- **女巫自救**: 任意夜晚都可以救自己 (包括第一晚)\n- **发言顺序**: 按玩家编号从小到大依次进行\n- **投票顺序**: 按玩家编号从小到大依次进行"
+    },
+    {
+      "name": "game-state",
+      "description": "法官专用: 如何用 memory 维护 game_state (回合/阶段/存活) 与 role_book (角色分配账本)",
+      "skill_type": "prompt",
+      "config": {},
+      "content": "# 游戏状态管理 (法官专用)\n\n## 你必须维护的两个 slug\n\n### `role_book` — 角色分配账本 (开局一次性写入)\n\n开局随机分配身份后, 立即写入。格式为JSON:\n```json\n{\"1\": \"werewolf\", \"2\": \"werewolf\", \"3\": \"seer\", \"4\": \"witch\", \"5\": \"hunter\"}\n```\n身份值对照表:\n- `werewolf` = 狼人\n- `seer` = 预言家\n- `witch` = 女巫\n- `hunter` = 猎人\n\n**这是你的内部账本, 永远不要把role_book的内容写到主群或任务title里。任务description里可以给对应玩家看ta自己的身份。**\n\n### `game_state` — 当前游戏状态 (每阶段更新)\n\nJSON 字符串, 每阶段用mode=\"replace\"全量更新:\n```json\n{\n  \"day\": 1,\n  \"phase\": \"night\",\n  \"alive\": [1, 2, 3, 4, 5],\n  \"dead\": [],\n  \"night_kill\": null,\n  \"antidote_used\": false,\n  \"poison_used\": false,\n  \"checks\": {},\n  \"wolf_votes\": {},\n  \"phase_step\": 0\n}\n```\n\n字段说明:\n- `day`: 当前第几天 (从1开始)\n- `phase`: 当前阶段: `init`(初始) / `night`(夜晚) / `day`(白天) / `ended`(游戏结束)\n- `alive`: 当前存活的玩家编号数组\n- `dead`: 已出局的玩家编号数组\n- `night_kill`: 本晚狼人最终击杀目标 (汇总狼人投票后写入); 被女巫救了则该玩家仍在alive中\n- `antidote_used`: 女巫解药是否已用 (boolean)\n- `poison_used`: 女巫毒药是否已用 (boolean)\n- `checks`: 预言家查验历史, key是被查验玩家编号, value是`werewolf`或`good`\n- `wolf_votes`: 本晚狼人的击杀投票记录, key是狼人编号, value是ta选择击杀的编号\n- `phase_step`: 当前阶段内的进度计数 (记录当前阶段处理到第几个玩家了, 方便下一次唤醒时知道该激活谁)\n\n## 更新时机\n\n| 事件 | 更新内容 |\n|------|----------|\n| 开局 | 写入 role_book; 写入 game_state(day=0, phase=init, alive=[1,2,3,4,5]) |\n| 进入夜晚 | day+1, phase=\"night\", night_kill=null, wolf_votes={}, phase_step=0 |\n| 收到每个狼人投票 | wolf_votes记录选择 |\n| 所有狼人投完 | 汇总得票写入night_kill; phase_step推进 |\n| 预言家查验完 | checks记录结果; phase_step推进 |\n| 女巫决策完 | 更新antidote_used/poison_used; 确定最终死亡名单; 更新alive/dead; phase=\"day\" |\n| 进入白天 | phase=\"day\", phase_step=0 |\n| 每个玩家发言完/投票完 | phase_step递增 |\n| 投票结束 | 票出者加入dead并从alive移除 |\n| 猎人开枪完 | 被带走的人加入dead并从alive移除; 判断胜负 |\n| 游戏结束 | phase=\"ended\" |\n\n## 写入方式\n\n用 `set_memory(slug=\"game_state\", content=<JSON字符串>, mode=\"replace\")` 全量替换。\n\n每次做决策前, 先 `get_memory(slug=\"game_state\")` 读取当前状态。\n\n## 玩家状态你不需要维护\n\n玩家自己会在my_role和my_state里记录:\n- 女巫自己记录解药/毒药是否用了\n- 预言家自己记录查验历史\n- 猎人自己记录是否开过枪\n\n你在给女巫创建夜晚任务时, 需要读女巫的my_state来确认药的状态, 并在description里告诉她。\n\n## 提示\n\n- 每次状态变更后立即更新game_state, 不要攒到最后\n- 读game_state要在每次被唤醒后第一件事做\n- 随机分配身份时, 确保公平随机\n- role_book永远不要暴露给玩家（除了玩家自己的身份写在任务description里）\n- task title绝对不能包含身份词"
+    }
+  ]
+}
