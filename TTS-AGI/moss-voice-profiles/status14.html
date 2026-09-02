@@ -1,0 +1,199 @@
+<!doctype html><meta charset=utf-8><title>Status 14 — alle Stränge</title>
+<style>
+:root{--bg:#0e1117;--fg:#e6edf3;--mut:#9aa7b4;--line:#26303b;--card:#161c24;--ok:#3fb950;
+--warn:#d29922;--bad:#f85149;--acc:#58a6ff}
+*{box-sizing:border-box}
+body{font-family:system-ui,Segoe UI,Arial;background:var(--bg);color:var(--fg);margin:0 auto;
+padding:32px 22px;max-width:1060px;line-height:1.62}
+h1{font-size:1.85em;margin:0 0 .1em} h2{margin:2.1em 0 .5em;border-top:1px solid var(--line);
+padding-top:.7em;font-size:1.3em} h3{margin:1.4em 0 .4em;font-size:1.04em;color:#cbd5e1}
+.sub{color:var(--mut);margin:0 0 1.5em}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.93em}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:#1b2530} td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+code{background:#1b2530;padding:1px 5px;border-radius:4px;font-size:.9em}
+a{color:var(--acc)} .win{color:var(--ok);font-weight:600} .neg{color:var(--bad);font-weight:600}
+.warn{color:var(--warn);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:14px 18px;
+margin:1.1em 0}
+.scroll{overflow-x:auto} ul{padding-left:1.15em}
+.done{color:var(--ok)} .run{color:var(--warn)}
+</style>
+
+<h1>Status 14 — alle Arbeitsstränge</h1>
+<p class=sub>Stand 13.08.2026. Fünf Stränge, vier davon abgeschlossen und publiziert.</p>
+
+<div class=card>
+<table>
+<tr><th>Strang</th><th>Stand</th><th>Ergebnis</th></tr>
+<tr><td>10 Pilotstimmen</td><td class=done>fertig</td><td>402.560 Kandidaten, 10 Seiten live</td></tr>
+<tr><td>Voice-Profile-Dataset + LoRAs</td><td class=done>fertig</td><td>106.424 Zeilen, 2 Adapter publiziert</td></tr>
+<tr><td>LeVo 2 Vocals</td><td class=done>fertig</td><td>8.582 Clips, Dataset + Modell + 71 Seiten</td></tr>
+<tr><td>Tokenisierungs-Korpus</td><td class=done>fertig</td><td>119,8 M Utterances, Kostenmodell</td></tr>
+<tr><td>Music-Whisper-Demo</td><td class=run>läuft</td><td>10 Clips, Vorhersagen generieren</td></tr>
+</table>
+</div>
+
+<h2>1. Die zehn Pilotstimmen</h2>
+<p>Der Test, ob der 500-Stimmen-Pfad wirklich funktioniert. <b>402.560 Kandidaten</b>, je 40.256 pro
+Stimme, 842 Gruppen, keine Fehler. Neun Array-Tasks liefen 7,0–8,4 h gegen ein 12-h-Limit.</p>
+
+<h3>Was der Pilot bewiesen hat</h3>
+<p>Der <b>A/B-Split funktioniert jetzt</b> — das war der Blocker, an dem die erste Profilseite
+gescheitert war, ohne dass es jemand merkte:</p>
+<div class=scroll><table>
+<tr><th>&nbsp;</th><th class=n>erste Profilseite</th><th class=n>Pilotstimmen</th></tr>
+<tr><td>A-Pools</td><td class=n>—</td><td class=n>421 × exakt 32</td></tr>
+<tr><td>B-Pools</td><td class=n>—</td><td class=n>125 × exakt 16</td></tr>
+<tr><td>verschiedene englische Sätze</td><td class=n><span class=neg>114</span></td>
+<td class=n><span class=win>~15.465</span></td></tr>
+<tr><td>Zeilen unter 10 Wörtern</td><td class=n>1,93 %</td><td class=n><span class=win>0,13 %</span></td></tr>
+<tr><td>Burst-Dichte realisiert</td><td class=n>17,0 %</td><td class=n>35,3 %</td></tr>
+</table></div>
+<p><b>Offen:</b> die Burst-Dichte kommt als 35 % an, nicht als die verlangten 50 %. 24,6 % der
+zugewiesenen Bursts fallen weg, weil <code>place_bursts</code> in <i>beiden</i> Sprachen eine
+Innenposition braucht und in einer keine findet. Das ist kein Längenproblem mehr — die kurzen
+Zeilen sind auf 0,13 % runter. Die Positionsregel zu lockern würde Bursts direkt hinter das zweite
+Wort setzen, was laut Manual schlechter integriert. <b>Erst anhören, dann entscheiden.</b></p>
+
+<h3>Live</h3>
+<ul>
+<li><a href="https://tts-agi-moss-voice-profiles.static.hf.space/pilot_voices.html">Index der zehn
+Stimmen</a> — je eine Unterseite mit 842 Clips</li>
+<li><a href="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio">Audio</a> — 8.430
+Clips</li>
+</ul>
+<p>Die zehn sind stratifiziert gewählt, nicht die besten zehn: der Pool ist <b>76 % männlich und
+87 % englisch</b>. Ergebnis 4 w / 5 m / 1 divers, Deutsch dabei.</p>
+
+<h2>2. Voice-Profile-Dataset und die LoRAs</h2>
+<p><b>106.424 Zeilen</b>, 832 Gruppen, 239,6 Audio-Stunden, vier Varianten je Kandidat, <b>14,4
+GPU-h</b>. Jede Variante <b>auf sich selbst</b> gescored — vorher trugen die konvertierten Zeilen
+die Zahlen des Originals.</p>
+<div class=scroll><table>
+<tr><th>Variante</th><th class=n>Sprecherähnlichkeit</th><th class=n>Burst-Blend</th></tr>
+<tr><td><code>raw</code></td><td class=n>0,566</td><td class=n>3,31</td></tr>
+<tr><td><code>vc</code></td><td class=n><b>0,760</b></td><td class=n>1,72</td></tr>
+<tr><td><code>vc_sidon</code></td><td class=n>0,731</td><td class=n><b>3,23</b></td></tr>
+</table></div>
+<p>Die Voice Conversion halbiert den Blend, SIDON holt ihn zurück. Unsichtbar, solange die Scores
+kopiert wurden.</p>
+
+<h3>Die LoRAs — mit einem Handel, der genannt gehört</h3>
+<div class=scroll><table>
+<tr><th>&nbsp;</th><th class=n>Sprecherähnl.</th><th class=n>Reward</th><th class=n>Genuineness</th>
+<th class=n>Blend</th></tr>
+<tr><td>Basis, ohne Adapter</td><td class=n>0,404</td><td class=n><b>4,060</b></td>
+<td class=n><b>0,784</b></td><td class=n>3,130</td></tr>
+<tr><td>rank 16, Stufe 1</td><td class=n>0,595</td><td class=n>3,666</td><td class=n>0,503</td>
+<td class=n>3,118</td></tr>
+<tr><td><b>rank 16, Stufe 2</b></td><td class=n><b>0,597</b></td><td class=n>3,971</td>
+<td class=n>0,581</td><td class=n><b>3,369</b></td></tr>
+<tr><td>rank 32, Stufe 2</td><td class=n>0,593</td><td class=n>3,858</td><td class=n>0,532</td>
+<td class=n>3,196</td></tr>
+</table></div>
+<p><b>Die zweistufige Idee war richtig:</b> Stufe 2 holt Reward um +0,3048 zurück (p = 0,041), bei
+unveränderter Sprecherähnlichkeit (p = 0,683). <b>Aber</b> Reward und Genuineness liegen unter dem
+Basismodell ohne Adapter. Das LoRA kauft Identitätskonsistenz und bezahlt mit Ausdruck. Rang 32
+bringt bei doppelten Parametern nichts.</p>
+<ul>
+<li><a href="https://huggingface.co/datasets/TTS-AGI/moss-voice-profile-references">Dataset</a>
+— alle Kandidaten, nicht nur Top-1</li>
+<li><a href="https://huggingface.co/TTS-AGI/moss-voice-lora-velvet-sage-baritone">LoRA-Repo</a></li>
+</ul>
+
+<h2>3. LeVo 2 Vocals</h2>
+<p><b>6.000 Clips über 60 Genres generiert</b> (fertig), zusammen mit den älteren Läufen
+<b>8.582 Clips über 85 Genres</b> captioniert und gescored.</p>
+
+<h3>Die Captions sind nachweislich echt</h3>
+<p>Nicht angenommen, sondern geprüft: <code>r(audio_tokens, duration) = 1,0000</code> bei exakt
+<b>25,00 Token/s</b>. Der Ausfallmodus mit verworfenem Audio liefert konstant ~40 Prompt-Token und
+ergäbe r ≈ 0. Null Assertion-Verstöße über alle 8.582 Clips.</p>
+
+<h3>Der Caveat, der vorn auf der Karte steht</h3>
+<p><b>Nur 2.544 von 8.582 Clips (29,6 %) sind streng solo, ohne Backing, ohne Instrumente.</b>
+Solo 93,4 %, aber Backing-Stimmen 61,8 % und hörbare Instrumente 35,5 %. „A-cappella-Korpus" wäre
+eine Behauptung, die die Daten nicht tragen.</p>
+
+<h3>Fine-tune: das Aufräumen hat geschadet</h3>
+<div class=scroll><table>
+<tr><th>Lauf</th><th class=n>Val-Loss</th><th class=n>beste Epoche</th></tr>
+<tr><td>Basis</td><td class=n>3,2411</td><td class=n>—</td></tr>
+<tr><td><code>full_all</code> (lr 1e-5)</td><td class=n>1,1080</td><td class=n>3</td></tr>
+<tr><td><b><code>frozen_all</code> (lr 5e-5)</b></td><td class=n><b>0,9461</b></td><td class=n>3</td></tr>
+<tr><td><code>full_vocalsonly</code></td><td class=n>1,2605</td><td class=n>3</td></tr>
+<tr><td><code>frozen_vocalsonly</code></td><td class=n>1,0992</td><td class=n>2</td></tr>
+</table></div>
+<p><b>Auf „nur Vocals" zu filtern macht es in beiden Varianten um ~0,15 schlechter.</b> Der
+intuitive Aufräumschritt war der falsche — publiziert als Ablation statt weggelassen. Qualitativ
+halluziniert das Basismodell <i>„a driving drum beat and a prominent bassline"</i> auf
+unbegleitetem Gesang; beide Fine-tunes hören damit auf.</p>
+
+<h3>Ein echter Defekt, gefunden und behoben</h3>
+<p>Das erste Dataset-README enthielt <b>erfundene Statistiken</b> für die neun ausgeschlossenen
+Genres: behauptet S 4,23 / G 1,21 / I 4,43 bei n=53, tatsächlich <b>S 3,74 / G 1,27 / I 4,61 bei
+n=107</b>. Das Argument hält, die Zahlen hielten nicht. Wird jetzt beim Bauen berechnet statt
+getippt.</p>
+<ul>
+<li><a href="https://huggingface.co/datasets/TTS-AGI/levo2-vocals-captioned">Dataset</a> — 22,78 GB</li>
+<li><a href="https://huggingface.co/TTS-AGI/vocal-music-whisper">Modell</a></li>
+<li><a href="https://tts-agi-moss-voice-profiles.static.hf.space/vocals/genres.html">71 Genre-Seiten</a></li>
+</ul>
+
+<h2>4. Tokenisierungs-Korpus</h2>
+<p><b>462 GB geladen, 119,8 M Utterances, ~335.000 Audio-Stunden.</b> Annotation aller Datasets
+kostet <b>4.680 GPU-h = 336.967 core-h</b>, also 0,49 % des REFORMO-Budgets.</p>
+<div class=scroll><table>
+<tr><th>Stufe</th><th class=n>GPU-h</th><th class=n>Anteil</th></tr>
+<tr><td>Scorer-Stack</td><td class=n>1.406</td><td class=n>30 %</td></tr>
+<tr><td>Forced Alignment</td><td class=n>1.183</td><td class=n>25 %</td></tr>
+<tr><td>MOSS-Tokenisierung</td><td class=n>889</td><td class=n>19 %</td></tr>
+<tr><td>Vocal Bursts</td><td class=n>769</td><td class=n>16 %</td></tr>
+<tr><td>DAC-VAE-Decode → MP3</td><td class=n>433</td><td class=n>9 %</td></tr>
+<tr><td>ASR</td><td class=n><b>0</b></td><td class=n>0 % — alles hat Transkripte</td></tr>
+</table></div>
+<p><b>Sprachfrage beantwortet:</b> Parakeet v3 kann 25 Sprachen, CommonVoice hat <b>117</b>. Neu
+transkribiert wird trotzdem nirgends. Für die Zeitstempel: MMS_FA, 0,00218 GPU-h pro Audio-Stunde;
+die Ausfälle sind nicht-lateinische Schrift und bekommen die Bursts generisch in den GENERAL-Teil.</p>
+<p class=warn>Der Agent hat einen Fehler in seinem eigenen Scanner gefunden: <code>--shards N</code>
+baute nur 3 Kandidaten-Shards. Nach dem Fix verschieben sich die Zählungen um −29,4 % bis +9,5 %.
+<b>Jede Summe und jede GPU-Stunde ist mit ±20 % zu lesen.</b></p>
+<p>Bericht: <code>~/tokcorpus_report.html</code></p>
+
+<h2>5. Was schiefging</h2>
+<div class=card>
+<p><b>Zwei Fehler derselben Klasse, beide von mir.</b> Eine Entscheidung, die getroffen aussieht,
+aber nicht durchgesetzt wird:</p>
+<ul>
+<li><b>audio_key-Kollision</b> — die Profilseite servierte Audio aus einem anderen Lauf als die
+angezeigten Scores. Alle 89 regenerierten Gruppen spielten ihre Vor-Regenerierungs-Aufnahme unter
+einem „NEW"-Badge.</li>
+<li><b>Revert ohne Pin</b> — „zurücksetzen" hatte ich als „aus der Liste weglassen" implementiert.
+Von 44 abgelehnten Gruppen servierten <b>23</b> trotzdem die abgelehnte Aufnahme.</li>
+</ul>
+<p>Behoben durch explizites Pinning statt Weglassen. Beide waren nur sichtbar, weil jemand die
+Zahlen gegen das Audio geprüft hat.</p>
+<p><b>Weitere eigene Fehler:</b> g60 mit 8 h Laufzeit angesetzt bei ~10 h Bedarf (Fortsetzungsjob
+nötig). Space-Speicherlimit nicht vorher geprüft — 1,2 GB Audio gegen 1 GB Limit, hätte 8.430 tote
+Player ergeben. Und ich habe einen zweiten Agenten auf einen Strang gesetzt, dessen erster noch
+lief, weil ich seine Dateien unter dem falschen Pfad suchte — daraus 293 doppelt captionte Clips
+und scheinbar „fremde" Slurm-Jobs.</p>
+</div>
+
+<h2>6. Offen</h2>
+<ul>
+<li><b>Burst-Platzierung:</b> 35 % statt 50 % realisiert. Erst anhören.</li>
+<li><b>Aesthetic-Head widerspricht den Judges</b> (HeartMuLa 4,12 bei 0/30 bestandenen, LeVo 2
+2,41 bei 22/30) — als Feld speichern, nie zum Filtern.</li>
+<li><b>Arousal fällt im Explicit-Block</b> 3,02 → 1,33, obwohl Blend und Genuineness steigen.
+Textlängen-Artefakt oder unzuverlässiger Head.</li>
+<li><b>1,048 GB Audio liegen im Space</b> statt in einem Dataset-Repo. Nicht angefasst, weil
+verlinkt.</li>
+<li class=neg><b>Exponierte Zugangsdaten:</b> zwei HF-Token im Klartext im Quellcode
+(<code>$NB/vblora/ref/code/</code>, mindestens fünf Dateien), einer davon mit globalen
+Schreibrechten. Dazu die Token aus dem Chat-Verlauf. <b>Rotieren.</b></li>
+</ul>
+
+<p class=sub style="margin-top:2.4em">Status 14 · alle Zahlen gegen die Artefakte geprüft, nicht
+aus Agentenberichten übernommen · laufendes Protokoll in <code>~/WORKLOG.md</code></p>

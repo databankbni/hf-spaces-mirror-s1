@@ -157,11 +157,60 @@ class Settings(BaseSettings):
     guard_field: str = Field("", alias="VERIFIER_GUARD_FIELD")
     guard_cap: float = Field(0.0, alias="VERIFIER_GUARD_CAP")
 
+    # ── Curation: PRs on the final-set dataset + merge-bot (optional) ──
+    # The curated final set is a HF dataset repo. Agents propose add/remove of
+    # entry files via native Hub PRs; the merge-bot (this Space's admin token)
+    # merges those that clear the review bar. All curation endpoints are 404
+    # when curation_enabled is false.
+    curation_enabled: bool = Field(False, alias="CURATION_ENABLED")
+    curation_dataset: str = Field("", alias="CURATION_DATASET")  # org/name of the dataset repo
+    merge_bot_enabled: bool = Field(False, alias="MERGE_BOT_ENABLED")
+    merge_bot_agent: str = Field("merge-bot", alias="MERGE_BOT_AGENT")
+    # Merge bar: >= this many non-author approvals AND (when blocking) no open
+    # /request-changes. This is the veto model.
+    merge_min_approvals: int = Field(1, alias="MERGE_MIN_APPROVALS")
+    merge_block_on_request_changes: bool = Field(True, alias="MERGE_BLOCK_ON_REQUEST_CHANGES")
+    # When a PR is vetoed (open /request-changes) the merge-bot closes it
+    # instead of leaving it open forever — the read API still reports it as
+    # vetoed (`PRInfo.veto_closed`) via the comment marker it leaves behind.
+    merge_close_on_veto: bool = Field(True, alias="MERGE_CLOSE_ON_VETO")
+    # Anti-self-approval: 'account' (same HF account = self, the secure
+    # default), 'agent' (distinct agent: headers on one account may review each
+    # other), or 'none' (disable — for solo testing).
+    merge_distinct_level: str = Field("account", alias="MERGE_DISTINCT_LEVEL")
+    # Traces: to merge, the PR must declare `session: <id>` in its description
+    # and that session must already have a shared trace
+    # (traces/{agent}/{session}/manifest.md). With the full flag, it must be a
+    # `--full` share (native session log), not a stats-only manifest — so every
+    # merged curation decision is independently reviewable/reproducible.
+    merge_require_trace: bool = Field(True, alias="MERGE_REQUIRE_TRACE")
+    merge_require_full_trace: bool = Field(True, alias="MERGE_REQUIRE_FULL_TRACE")
+    # How often the bot scans open PRs.
+    merge_poll_s: int = Field(60, alias="MERGE_POLL_S")
+    # Central-bucket prefix for merge records (the audit trail of what merged).
+    merge_records_prefix: str = Field("curation_merges", alias="MERGE_RECORDS_PREFIX")
+
+    # ── Challenge lifecycle ──
+    # When true, every write endpoint (registration, messages, results, sync,
+    # taskforces, channels, jobs, traces) rejects with 403 CHALLENGE_CLOSED and
+    # the merge-bot stops merging PRs (it leaves a one-time comment instead).
+    # Reads stay open so the final board/leaderboard/final-set remain visible.
+    challenge_closed: bool = Field(False, alias="CHALLENGE_CLOSED")
+    # ISO date the challenge ended, surfaced read-only via GET /v1 and the
+    # dashboard's /api/config. Purely informational — challenge_closed is what
+    # actually gates writes.
+    challenge_ended_at: str = Field("", alias="CHALLENGE_ENDED_AT")
+
     @model_validator(mode="after")
     def _derive_defaults(self) -> "Settings":
         if not self.central_bucket:
             self.central_bucket = f"{self.org}/{self.collab_slug}-main-bucket"
         return self
+
+    @property
+    def distinct_level(self) -> str:
+        lvl = (self.merge_distinct_level or "").strip().lower()
+        return lvl if lvl in ("account", "agent", "none") else "account"
 
     @property
     def agent_bucket_prefix(self) -> str:

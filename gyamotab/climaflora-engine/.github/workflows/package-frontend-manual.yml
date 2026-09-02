@@ -1,0 +1,30 @@
+name: Package canonical ClimaFlora frontend
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Validate and package canonical frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f frontend/index.html
+          test -f frontend/static/climaflora.css
+          test "$(find frontend -type f -name '*.css' | wc -l)" -eq 1
+          cd frontend
+          zip -r ../ClimaFlora_Frontend_current.zip .
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClimaFlora_Frontend_current
+          path: ClimaFlora_Frontend_current.zip
+          if-no-files-found: error
+          retention-days: 7

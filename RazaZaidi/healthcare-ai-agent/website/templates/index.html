@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HealthCare AI Assistant</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Fraunces:ital,wght@0,300;0,600;0,700;1,300;1,600&display=swap"
+    rel="stylesheet" />
+  <style>
+    /* ── Variables ─────────────────────────────────────────── */
+    :root {
+      --g900: #064e3b;
+      --g800: #065f46;
+      --g700: #047857;
+      --g600: #059669;
+      --g500: #10b981;
+      --g400: #34d399;
+      --g300: #6ee7b7;
+      --g200: #a7f3d0;
+      --g100: #d1fae5;
+      --g50: #ecfdf5;
+      --white: #ffffff;
+      --gray50: #f8fafc;
+      --gray100: #f1f5f9;
+      --gray200: #e2e8f0;
+      --gray400: #94a3b8;
+      --gray600: #475569;
+      --gray800: #1e293b;
+      --red: #dc2626;
+      --red-bg: #fef2f2;
+      --shadow-sm: 0 1px 3px rgba(6, 78, 59, .08);
+      --shadow-md: 0 4px 16px rgba(6, 78, 59, .12);
+      --shadow-lg: 0 12px 32px rgba(6, 78, 59, .18);
+      --shadow-xl: 0 24px 56px rgba(6, 78, 59, .22);
+      --r-sm: 8px;
+      --r-md: 14px;
+      --r-lg: 22px;
+      --r-xl: 32px;
+      --sidebar-w: 280px;
+      --font-d: 'Fraunces', serif;
+      --font-b: 'DM Sans', sans-serif;
+      --tr: all .3s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    html,
+    body {
+      font-family: var(--font-b);
+      font-size: 16px;
+      height: 100%;
+      overflow: hidden
+    }
+
+    body {
+      background: var(--g50);
+      color: var(--gray800)
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      outline: none;
+      font-family: var(--font-b);
+      background: none
+    }
+
+    input,
+    textarea {
+      outline: none;
+      font-family: var(--font-b);
+      border: none
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit
+    }
+
+    /* ── Medical SVG Background ────────────────────────────── */
+    .med-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 50%, #dcfce7 100%)
+    }
+
+    .med-bg svg {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      opacity: .065
+    }
+
+    /* ── App Shell ─────────────────────────────────────────── */
+    #app {
+      position: relative;
+      z-index: 1;
+      height: 100vh;
+      display: flex;
+      flex-direction: column
+    }
+
+    /* ══════════════════════════════════════════════════════════
+   TOP HEADER — always visible
+══════════════════════════════════════════════════════════ */
+    .top-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 60px;
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, .88);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(16, 185, 129, .15);
+      position: relative;
+      z-index: 50;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .hamburger {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--g50);
+      border: 1.5px solid var(--g100);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--g700);
+      transition: var(--tr);
+    }
+
+    .hamburger:hover {
+      background: var(--g100);
+      border-color: var(--g300)
+    }
+
+    .hamburger svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      fill: none
+    }
+
+    .logo-mark {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-family: var(--font-d);
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--g800);
+    }
+
+    .logo-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--g600), var(--g400));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, .3);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px
+    }
+
+    .hdr-btn {
+      padding: 8px 18px;
+      border-radius: 50px;
+      font-size: .85rem;
+      font-weight: 600;
+      transition: var(--tr);
+    }
+
+    .hdr-ghost {
+      color: var(--g700);
+      border: 1.5px solid var(--g200)
+    }
+
+    .hdr-ghost:hover {
+      background: var(--g50);
+      border-color: var(--g300)
+    }
+
+    .hdr-solid {
+      color: var(--white);
+      background: linear-gradient(135deg, var(--g600), var(--g500));
+      box-shadow: 0 4px 14px rgba(16, 185, 129, .32);
+    }
+
+    .hdr-solid:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, .42)
+    }
+
+    #authTopBtn {
+      padding: 8px 20px;
+      border-radius: 50px;
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--white);
+      background: linear-gradient(135deg, var(--g600), var(--g500));
+      box-shadow: 0 4px 14px rgba(16, 185, 129, .3);
+      transition: var(--tr);
+    }
+
+    #authTopBtn:hover {
+      transform: translateY(-1px)
+    }
+
+    /* ══════════════════════════════════════════════════════════
+   MAIN BODY — below header
+══════════════════════════════════════════════════════════ */
+    .main-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative
+    }
+
+    /* ══════════════════════════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════════════════════════ */
+    #sidebar {
+      width: var(--sidebar-w);
+      height: 100%;
+      background: var(--white);
+      border-right: 1px solid rgba(16, 185, 129, .1);
+      display: flex;
+      flex-direction: column;
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 100;
+      transform: translateX(-100%);
+      transition: transform .33s cubic-bezier(.4, 0, .2, 1);
+      box-shadow: 4px 0 24px rgba(6, 78, 59, .1);
+    }
+
+    #sidebar.open {
+      transform: translateX(0)
+    }
+
+    .sidebar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--g50);
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-family: var(--font-d);
+      font-weight: 700;
+      font-size: .95rem;
+      color: var(--g800)
+    }
+
+    .sidebar-logo-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--g600), var(--g400));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .85rem
+    }
+
+    .sb-close {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: var(--g50);
+      color: var(--g600);
+      font-size: .9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--tr)
+    }
+
+    .sb-close:hover {
+      background: var(--g100)
+    }
+
+    .new-chat-btn {
+      margin: 14px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--g600), var(--g500));
+      color: var(--white);
+      font-size: .85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, .28);
+      transition: var(--tr);
+    }
+
+    .new-chat-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, .38)
+    }
+
+    .sb-section-lbl {
+      padding: 10px 18px 5px;
+      font-size: .7rem;
+      font-weight: 700;
+      color: var(--gray400);
+      letter-spacing: .08em;
+      text-transform: uppercase
+    }
+
+    #historyList {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 8px
+    }
+
+    #historyList::-webkit-scrollbar {
+      width: 3px
+    }
+
+    #historyList::-webkit-scrollbar-thumb {
+      background: var(--g200);
+      border-radius: 10px
+    }
+
+    .history-item {
+      padding: 9px 12px;
+      border-radius: 9px;
+      font-size: .82rem;
+      color: var(--gray600);
+      cursor: pointer;
+      transition: var(--tr);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .history-item:hover {
+      background: var(--g50);
+      color: var(--g700)
+    }
+
+    .sb-footer {
+      padding: 14px 16px;
+      border-top: 1px solid var(--g50);
+      flex-shrink: 0
+    }
+
+    #userCard {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 12px;
+      border-radius: 11px;
+      background: var(--g50);
+      cursor: pointer;
+      transition: var(--tr);
+    }
+
+    #userCard:hover {
+      background: var(--g100)
+    }
+
+    #sideAvatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, var(--g600), var(--g400));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .85rem;
+      color: var(--white);
+      font-weight: 700;
+    }
+
+    .user-text-info {
+      min-width: 0
+    }
+
+    #sideUsername {
+      display: block;
+      font-size: .84rem;
+      font-weight: 600;
+      color: var(--g800);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    #sideRole {
+      display: block;
+      font-size: .7rem;
+      color: var(--gray400);
+      margin-top: 1px
+    }
+
+    .sb-menu {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px
+    }
+
+    .sb-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      border-radius: 9px;
+      font-size: .83rem;
+      color: var(--gray600);
+      cursor: pointer;
+      transition: var(--tr);
+      text-align: left;
+      width: 100%;
+    }
+
+    .sb-menu-item:hover {
+      background: var(--g50);
+      color: var(--g700)
+    }
+
+    .sb-menu-item.danger:hover {
+      background: var(--red-bg);
+      color: var(--red)
+    }
+
+    #userActionBtn {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      border-radius: 9px;
+      font-size: .83rem;
+      color: var(--gray600);
+      cursor: pointer;
+      transition: var(--tr);
+      text-align: left;
+      width: 100%;
+    }
+
+    #userActionBtn:hover {
+      background: var(--red-bg);
+      color: var(--red)
+    }
+
+    /* Overlay */
+    #overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(6, 78, 59, .25);
+      backdrop-filter: blur(3px);
+      z-index: 99
+    }
+
+    #overlay.show {
+      display: block
+    }
+
+    /* ══════════════════════════════════════════════════════════
+   CONTENT AREA
+══════════════════════════════════════════════════════════ */
+    #content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0
+    }
+
+    /* ══════════════════════════════════════════════════════════
+   WELCOME PAGE
+══════════════════════════════════════════════════════════ */
+    #welcomePage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+    }
+
+    #welcomePage::-webkit-scrollbar {
+      width: 4px
+    }
+
+    #welcomePage::-webkit-scrollbar-thumb {
+      background: var(--g200);
+      border-radius: 10px
+    }
+
+    /* Hero section */
+    .hero-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 60px 24px 40px;
+      animation: slideUp .6s ease;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 14px;
+      border-radius: 50px;
+      background: var(--g100);
+      border: 1px solid var(--g300);
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--g700);
+      margin-bottom: 24px;
+      letter-spacing: .04em;
+    }
+
+    .hero-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--g500);
+      animation: pulse 2s infinite
+    }
+
+    .hero-title {
+      font-family: var(--font-d);
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      font-weight: 700;
+      line-height: 1.12;
+      color: var(--g900);
+      margin-bottom: 16px;
+      letter-spacing: -.02em;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: var(--g600);
+      font-weight: 300
+    }
+
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--gray600);
+      line-height: 1.7;
+      max-width: 480px;
+      margin-bottom: 40px
+    }
+
+    /* THE ONE CARD */
+    .feature-card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--white);
+      border-radius: var(--r-xl);
+      padding: 32px 36px;
+      box-shadow: var(--shadow-xl);
+      border: 1px solid rgba(16, 185, 129, .12);
+      cursor: pointer;
+      transition: var(--tr);
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--g400), var(--g600), var(--g400));
+      background-size: 200% 100%;
+      animation: shimmer 3s linear infinite;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 40px 80px rgba(6, 78, 59, .22);
+      border-color: var(--g300)
+    }
+
+    .card-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 15px;
+      background: linear-gradient(135deg, var(--g50), var(--g100));
+      border: 1.5px solid var(--g200);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      margin-bottom: 18px
+    }
+
+    .card-title {
+      font-family: var(--font-d);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--g900);
+      margin-bottom: 8px
+    }
+
+    .card-desc {
+      font-size: .9rem;
+      color: var(--gray600);
+      line-height: 1.65;
+      margin-bottom: 24px
+    }
+
+    .card-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 11px 24px;
+      border-radius: 50px;
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--white);
+      background: linear-gradient(135deg, var(--g700), var(--g500));
+      box-shadow: 0 6px 20px rgba(16, 185, 129, .32);
+      transition: var(--tr);
+    }
+
+    .card-cta:hover {
+      gap: 12px;
+      box-shadow: 0 8px 28px rgba(16, 185, 129, .45)
+    }
+
+    .card-cta svg {
+      transition: transform .3s
+    }
+
+    .feature-card:hover .card-cta svg {
+      transform: translateX(4px)
+    }
+
+    /* Stats */
+    .stats-row {
+      display: flex;
+      gap: 36px;
+      margin-top: 40px;
+      margin-bottom: 60px;
+      animation: fadeIn .8s ease .1s both
+    }
+
+    .stat-item {
+      text-align: center
+    }
+
+    .stat-num {
+      font-family: var(--font-d);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--g700);
+      line-height: 1
+    }
+
+    .stat-lbl {
+      font-size: .72rem;
+      color: var(--gray400);
+      margin-top: 4px;
+      letter-spacing: .04em
+    }
+
+    /* ══════════════════════════════════════════════════════════
+   CHAT PAGE
+══════════════════════════════════════════════════════════ */
+    #chatPage {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    /* Chat topbar */
+    .chat-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, .85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(16, 185, 129, .1);
+      flex-shrink: 0;
+    }
+
+    .chat-bar-title {
+      flex: 1;
+      font-family: var(--font-d);
+      font-size: .95rem;
+      font-weight: 700;
+      color: var(--g900)
+    }
+
+    #chatModeLabel {
+      padding: 4px 12px;
+      border-radius: 50px;
+      font-size: .75rem;
+      font-weight: 700;
+      background: var(--g100);
+      color: var(--g700);
+      border: 1px solid var(--g200);
+    }
+
+    .chat-bar-btns {
+      display: flex;
+      gap: 6px
+    }
+
+    .icon-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: var(--g50);
+      border: 1.5px solid var(--g100);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .85rem;
+      transition: var(--tr);
+      color: var(--g600);
+    }
+
+    .icon-btn:hover {
+      background: var(--g100);
+      border-color: var(--g300);
+      color: var(--g800)
+    }
+
+    /* Messages */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scroll-behavior: smooth;
+    }
+
+    #messages::-webkit-scrollbar {
+      width: 4px
+    }
+
+    #messages::-webkit-scrollbar-thumb {
+      background: var(--g200);
+      border-radius: 10px
+    }
+
+    /* Message bubbles */
+    .msg {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      animation: msgIn .3s ease
+    }
+
+    .msg.user {
+      flex-direction: row-reverse
+    }
+
+    .msg-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .85rem;
+      font-weight: 700;
+    }
+
+    .msg.ai .msg-avatar {
+      background: linear-gradient(135deg, var(--g600), var(--g400));
+      color: var(--white);
+      box-shadow: 0 3px 10px rgba(16, 185, 129, .25)
+    }
+
+    .msg.user .msg-avatar {
+      background: var(--gray800);
+      color: var(--white)
+    }
+
+    .msg-body {
+      display: flex;
+      flex-direction: column;
+      max-width: 72%;
+      gap: 4px
+    }
+
+    .msg.user .msg-body {
+      align-items: flex-end
+    }
+
+    .msg-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      border-radius: 50px;
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      align-self: flex-start;
+      margin-bottom: 2px;
+    }
+
+    .msg-badge.research {
+      background: #eff6ff;
+      color: #1d4ed8
+    }
+
+    .msg-badge.lifestyle {
+      background: var(--g50);
+      color: var(--g700)
+    }
+
+    .msg-badge.emergency {
+      background: var(--red-bg);
+      color: var(--red)
+    }
+
+    .msg-badge.general,
+    .msg-badge.greeting,
+    .msg-badge.goodbye {
+      background: var(--g50);
+      color: var(--g700)
+    }
+
+    .msg-bubble {
+      padding: 12px 16px;
+      border-radius: var(--r-md);
+      font-size: .9rem;
+      line-height: 1.65;
+      word-break: break-word;
+    }
+
+    .msg.ai .msg-bubble {
+      background: var(--white);
+      color: var(--gray800);
+      border: 1px solid rgba(16, 185, 129, .1);
+      border-radius: 4px var(--r-md) var(--r-md) var(--r-md);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .msg.user .msg-bubble {
+      background: linear-gradient(135deg, var(--g700), var(--g500));
+      color: var(--white);
+      border-radius: var(--r-md) 4px var(--r-md) var(--r-md);
+      box-shadow: 0 4px 14px rgba(16, 185, 129, .28);
+    }
+
+    .msg-time {
+      font-size: .66rem;
+      color: var(--gray400);
+      padding: 0 4px
+    }
+
+    /* Typing */
+    .typing-bubble {
+      background: var(--white);
+      border: 1px solid rgba(16, 185, 129, .1);
+      border-radius: 4px var(--r-md) var(--r-md) var(--r-md);
+      padding: 12px 16px;
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .typing-bubble span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--g400);
+      animation: typingBounce 1.4s infinite;
+      display: inline-block;
+    }
+
+    .typing-bubble span:nth-child(2) {
+      animation-delay: .2s
+    }
+
+    .typing-bubble span:nth-child(3) {
+      animation-delay: .4s
+    }
+
+    /* Input area */
+    .input-area {
+      padding: 12px 20px 16px;
+      background: rgba(255, 255, 255, .9);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(16, 185, 129, .1);
+      flex-shrink: 0;
+    }
+
+    .input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: var(--white);
+      border: 1.5px solid var(--g200);
+      border-radius: var(--r-lg);
+      padding: 8px 10px;
+      box-shadow: var(--shadow-sm);
+      transition: var(--tr);
+    }
+
+    .input-row:focus-within {
+      border-color: var(--g400);
+      box-shadow: 0 0 0 3px rgba(52, 211, 153, .15), var(--shadow-md)
+    }
+
+    #msgInput {
+      flex: 1;
+      background: transparent;
+      font-size: .92rem;
+      color: var(--gray800);
+      resize: none;
+      max-height: 110px;
+      line-height: 1.5;
+      padding: 3px 0;
+    }
+
+    #msgInput::placeholder {
+      color: var(--gray400)
+    }
+
+    .input-btns {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      flex-shrink: 0
+    }
+
+    .send-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--g600), var(--g500));
+      color: var(--white);
+      font-size: .9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, .3);
+      transition: var(--tr);
+    }
+
+    .send-btn:hover {
+      transform: scale(1.08);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, .4)
+    }
+
+    .send-btn:disabled {
+      opacity: .45;
+      transform: none;
+      cursor: not-allowed
+    }
+
+    .input-hint {
+      text-align: center;
+      font-size: .68rem;
+      color: var(--gray400);
+      margin-top: 8px
+    }
+
+    /* File Attachment Preview */
+    .attachment-preview {
+      background: var(--gray50);
+      border: 1px solid var(--gray200);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .attachment-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--g100), var(--g200));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .attachment-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .attachment-name {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--gray800);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .attachment-meta {
+      font-size: .72rem;
+      color: var(--gray400);
+      margin-top: 2px;
+    }
+
+    .attachment-remove {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: var(--red-bg);
+      color: var(--red);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .9rem;
+      cursor: pointer;
+      transition: var(--tr);
+    }
+
+    .attachment-remove:hover {
+      background: var(--red);
+      color: white;
+    }
+
+    /* File Card in Messages */
+    .msg-file-card {
+      background: rgba(255, 255, 255, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .msg.user .msg-file-card {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .msg-file-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+
+    .msg-file-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .msg-file-name {
+      font-size: .9rem;
+      font-weight: 600;
+      color: var(--white);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .msg-file-meta {
+      font-size: .75rem;
+      color: rgba(255, 255, 255, 0.85);
+      margin-top: 3px;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+   AUTH MODAL
+══════════════════════════════════════════════════════════ */
+    #authModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: rgba(6, 78, 59, .35);
+      backdrop-filter: blur(8px);
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    #authModal.show {
+      display: flex;
+      animation: fadeIn .25s ease
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--white);
+      border-radius: var(--r-xl);
+      padding: 36px 32px;
+      box-shadow: var(--shadow-xl);
+      border: 1px solid rgba(16, 185, 129, .1);
+      animation: slideUp .3s ease;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: var(--g50);
+      color: var(--g600);
+      font-size: .85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--tr);
+    }
+
+    .modal-close:hover {
+      background: var(--g100)
+    }
+
+    .modal-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--g600), var(--g400));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      margin: 0 auto 14px;
+      box-shadow: 0 8px 24px rgba(16, 185, 129, .32)
+    }
+
+    .modal-title {
+      font-family: var(--font-d);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--g900);
+      text-align: center;
+      margin-bottom: 4px
+    }
+
+    .modal-sub {
+      font-size: .82rem;
+      color: var(--gray400);
+      text-align: center;
+      margin-bottom: 24px
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 3px;
+      background: var(--g50);
+      border-radius: 10px;
+      padding: 3px;
+      margin-bottom: 22px
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 9px;
+      border-radius: 8px;
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--gray400);
+      transition: var(--tr)
+    }
+
+    .auth-tab.active {
+      background: var(--white);
+      color: var(--g700);
+      box-shadow: var(--shadow-sm)
+    }
+
+    .form-group {
+      margin-bottom: 14px
+    }
+
+    .form-lbl {
+      display: block;
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--gray600);
+      margin-bottom: 5px;
+      letter-spacing: .03em
+    }
+
+    .form-inp {
+      width: 100%;
+      padding: 10px 13px;
+      border: 1.5px solid var(--gray200);
+      border-radius: var(--r-sm);
+      font-size: .88rem;
+      color: var(--gray800);
+      background: var(--gray50);
+      transition: var(--tr);
+    }
+
+    .form-inp:focus {
+      border-color: var(--g400);
+      background: var(--white);
+      box-shadow: 0 0 0 3px rgba(52, 211, 153, .12)
+    }
+
+    .form-inp::placeholder {
+      color: var(--gray400)
+    }
+
+    .err-msg {
+      font-size: .75rem;
+      color: var(--red);
+      margin-top: 10px;
+      min-height: 16px;
+      text-align: center
+    }
+
+    .btn-modal {
+      width: 100%;
+      padding: 12px;
+      border-radius: 50px;
+      font-size: .92rem;
+      font-weight: 700;
+      color: var(--white);
+      background: linear-gradient(135deg, var(--g700), var(--g500));
+      box-shadow: 0 6px 20px rgba(16, 185, 129, .32);
+      transition: var(--tr);
+      margin-top: 4px;
+    }
+
+    .btn-modal:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 28px rgba(16, 185, 129, .42)
+    }
+
+    .modal-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 14px 0;
+      color: var(--gray400);
+      font-size: .75rem
+    }
+
+    .modal-divider::before,
+    .modal-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--gray200)
+    }
+
+    .btn-guest {
+      width: 100%;
+      padding: 11px;
+      border-radius: 50px;
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--g700);
+      background: var(--g50);
+      border: 1.5px solid var(--g200);
+      transition: var(--tr);
+    }
+
+    .btn-guest:hover {
+      background: var(--g100);
+      border-color: var(--g300)
+    }
+
+    /* ── Toast ─────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--g800);
+      color: var(--white);
+      padding: 10px 22px;
+      border-radius: 50px;
+      font-size: .83rem;
+      font-weight: 600;
+      box-shadow: var(--shadow-lg);
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    /* ── Animations ─────────────────────────────────────────── */
+    @keyframes fadeIn {
+      from {
+        opacity: 0
+      }
+
+      to {
+        opacity: 1
+      }
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    @keyframes msgIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .3
+      }
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: 200% center
+      }
+
+      100% {
+        background-position: -200% center
+      }
+    }
+
+    @keyframes typingBounce {
+
+      0%,
+      80%,
+      100% {
+        transform: translateY(0)
+      }
+
+      40% {
+        transform: translateY(-5px)
+      }
+    }
+
+    @keyframes recordPulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, .4)
+      }
+
+      50% {
+        box-shadow: 0 0 0 8px rgba(220, 38, 38, 0)
+      }
+    }
+
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translateY(0)
+      }
+
+      50% {
+        transform: translateY(-7px)
+      }
+    }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media(max-width:640px) {
+      .hero-section {
+        padding: 40px 16px 28px
+      }
+
+      .stats-row {
+        gap: 20px;
+        margin-bottom: 40px
+      }
+
+      .feature-card {
+        padding: 24px 20px
+      }
+
+      #messages {
+        padding: 14px
+      }
+
+      .chat-bar {
+        padding: 8px 14px
+      }
+
+      .input-area {
+        padding: 10px 14px 14px
+      }
+
+      .modal-card {
+        padding: 28px 22px
+      }
+
+      .logo-mark span {
+        display: none
+      }
+
+      .hdr-ghost {
+        display: none
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Medical Background -->
+  <div class="med-bg">
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+      <g fill="none" stroke="#059669" stroke-width="2">
+        <line x1="80" y1="55" x2="80" y2="95" />
+        <line x1="60" y1="75" x2="100" y2="75" />
+        <line x1="290" y1="155" x2="290" y2="195" />
+        <line x1="270" y1="175" x2="310" y2="175" />
+        <line x1="1100" y1="75" x2="1100" y2="115" />
+        <line x1="1080" y1="95" x2="1120" y2="95" />
+        <line x1="960" y1="295" x2="960" y2="335" />
+        <line x1="940" y1="315" x2="980" y2="315" />
+        <line x1="510" y1="695" x2="510" y2="735" />
+        <line x1="490" y1="715" x2="530" y2="715" />
+        <line x1="760" y1="595" x2="760" y2="635" />
+        <line x1="740" y1="615" x2="780" y2="615" />
+        <line x1="155" y1="495" x2="155" y2="535" />
+        <line x1="135" y1="515" x2="175" y2="515" />
+        <line x1="1055" y1="545" x2="1055" y2="585" />
+        <line x1="1035" y1="565" x2="1075" y2="565" />
+        <line x1="610" y1="95" x2="610" y2="135" />
+        <line x1="590" y1="115" x2="630" y2="115" />
+        <line x1="405" y1="395" x2="405" y2="435" />
+        <line x1="385" y1="415" x2="425" y2="415" />
+      </g>
+      <g fill="none" stroke="#059669" stroke-width="1.5">
+        <circle cx="205" cy="245" r="28" />
+        <circle cx="205" cy="245" r="16" />
+        <circle cx="1005" cy="145" r="23" />
+        <circle cx="1005" cy="145" r="13" />
+        <circle cx="705" cy="445" r="20" />
+        <circle cx="705" cy="445" r="11" />
+        <circle cx="355" cy="645" r="26" />
+        <circle cx="355" cy="645" r="15" />
+        <circle cx="55" cy="395" r="18" />
+        <circle cx="55" cy="395" r="10" />
+      </g>
+      <g stroke="#059669" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="0,195 40,195 55,165 70,225 90,145 110,235 130,195 210,195" />
+        <polyline points="990,345 1030,345 1045,315 1060,375 1080,295 1100,385 1120,345 1200,345" />
+        <polyline points="280,745 320,745 335,715 350,775 370,695 390,785 410,745 490,745" />
+      </g>
+      <g fill="none" stroke="#059669" stroke-width="1.5">
+        <rect x="865" y="48" width="48" height="23" rx="11" />
+        <line x1="889" y1="48" x2="889" y2="71" />
+        <rect x="125" y="678" width="48" height="23" rx="11" />
+        <line x1="149" y1="678" x2="149" y2="701" />
+        <rect x="608" y="498" width="48" height="23" rx="11" />
+        <line x1="632" y1="498" x2="632" y2="521" />
+      </g>
+      <g fill="none" stroke="#059669" stroke-width="1.4">
+        <rect x="685" y="678" width="42" height="52" rx="4" />
+        <rect x="695" y="672" width="22" height="9" rx="4" />
+        <line x1="695" y1="697" x2="717" y2="697" />
+        <line x1="695" y1="707" x2="717" y2="707" />
+        <line x1="695" y1="717" x2="707" y2="717" />
+      </g>
+      <g fill="none" stroke="#059669" stroke-width="1.3">
+        <path d="M905 400 Q925 420 905 440 Q885 460 905 480 Q925 500 905 520 Q885 540 905 560" />
+        <path d="M925 400 Q905 420 925 440 Q945 460 925 480 Q905 500 925 520 Q945 540 925 560" />
+        <line x1="905" y1="410" x2="925" y2="410" />
+        <line x1="905" y1="430" x2="925" y2="430" />
+        <line x1="905" y1="450" x2="925" y2="450" />
+        <line x1="905" y1="470" x2="925" y2="470" />
+        <line x1="905" y1="490" x2="925" y2="490" />
+        <line x1="905" y1="510" x2="925" y2="510" />
+      </g>
+      <g fill="#059669" opacity=".6">
+        <circle cx="450" cy="78" r="2.5" />
+        <circle cx="468" cy="92" r="1.8" />
+        <circle cx="442" cy="98" r="2" />
+        <circle cx="750" cy="198" r="2.5" />
+        <circle cx="768" cy="212" r="1.8" />
+        <circle cx="198" cy="648" r="2.5" />
+        <circle cx="216" cy="662" r="1.8" />
+      </g>
+    </svg>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+     APP
+═══════════════════════════════════════════════════════ -->
+  <div id="app">
+
+    <!-- TOP HEADER — always visible -->
+    <header class="top-header">
+      <div class="header-left">
+        <button class="hamburger" onclick="openSidebar()" title="Menu">
+          <svg viewBox="0 0 24 24">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+        <div class="logo-mark">
+          <div class="logo-icon">🏥</div>
+          <span>HealthCare AI</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <button id="authTopBtn" onclick="handleAuthClick()">Login</button>
+      </div>
+    </header>
+
+    <!-- MAIN BODY -->
+    <div class="main-body">
+
+      <!-- SIDEBAR -->
+      <aside id="sidebar">
+        <div class="sidebar-head">
+          <div class="sidebar-logo">
+            <div class="sidebar-logo-icon">🏥</div>
+            HealthCare AI
+          </div>
+          <button class="sb-close" onclick="closeSidebar()">✕</button>
+        </div>
+
+        <button class="new-chat-btn" onclick="newChat()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New Conversation
+        </button>
+
+        <div class="sb-section-lbl">Recent Chats</div>
+        <div id="historyList"></div>
+
+        <div class="sb-footer">
+          <div id="userCard">
+            <div id="sideAvatar">G</div>
+            <div class="user-text-info">
+              <span id="sideUsername">Guest User</span>
+              <span id="sideRole">Click to login</span>
+            </div>
+          </div>
+          <div class="sb-menu">
+            <button class="sb-menu-item" onclick="openReportsPanel()">📊 My Reports</button>
+            <button class="sb-menu-item" onclick="clearAllHistory()">🗑️ Clear History</button>
+            <button class="sb-menu-item" onclick="clearChat()">🧹 Clear Messages</button>
+            <button id="userActionBtn" onclick="handleAuthClick()">🚪 Sign Out</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Overlay -->
+      <div id="overlay" onclick="closeSidebar()"></div>
+
+      <!-- CONTENT -->
+      <div id="content">
+
+        <!-- WELCOME PAGE -->
+        <div id="welcomePage" style="display:flex">
+          <div class="hero-section">
+            <div class="hero-badge"><span class="dot"></span> AI-Powered Health Assistant</div>
+            <h1 class="hero-title">Your Personal<br /><em>Health AI</em> Assistant</h1>
+            <p class="hero-sub">Get instant health guidance, medical research, and wellness advice — powered by advanced
+              AI. Available 24/7.</p>
+
+            <div class="feature-card" onclick="goToChat('general')">
+              <div class="card-icon">🤖</div>
+              <div class="card-title">HealthCare AI Assistant</div>
+              <div class="card-desc">Your intelligent health companion — ask about symptoms, research medical topics,
+                get personalized wellness advice, and receive emergency guidance. Powered by advanced AI with real-time
+                medical knowledge.</div>
+              <div class="card-cta">
+                Start Chatting
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+
+            <div class="stats-row">
+              <div class="stat-item">
+                <div class="stat-num">24/7</div>
+                <div class="stat-lbl">Available</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-num">4+</div>
+                <div class="stat-lbl">AI Agents</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-num">100%</div>
+                <div class="stat-lbl">Private</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHAT PAGE -->
+        <div id="chatPage">
+          <!-- Chat topbar -->
+          <div class="chat-bar">
+            <span id="chatModeLabel">💬 General</span>
+            <div style="flex:1"></div>
+            <div class="chat-bar-btns">
+              <button class="icon-btn" onclick="clearChat()" title="Clear messages">🗑️</button>
+              <button class="icon-btn" onclick="newChat()" title="New chat">✏️</button>
+            </div>
+          </div>
+
+          <!-- Messages -->
+          <div id="messages"></div>
+
+          <!-- Input -->
+          <div class="input-area">
+            <div class="input-row">
+              <textarea id="msgInput" rows="1" placeholder="Ask me anything about your health..."></textarea>
+              <div class="input-btns">
+                <input type="file" id="chatFileInput" accept=".pdf,.jpg,.jpeg,.png,.bmp,.tiff,.doc,.docx,.txt" style="display:none;" onchange="handleAttachSelect(event)">
+                <button class="icon-btn" onclick="handleAttachClick()" title="Attach file">📎</button>
+                <button class="send-btn" onclick="sendMessage()" title="Send">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round">
+                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="input-hint">HealthCare AI may make mistakes. Always consult a qualified doctor.</div>
+          </div>
+        </div>
+
+      </div><!-- /content -->
+    </div><!-- /main-body -->
+  </div><!-- /app -->
+
+  <!-- AUTH MODAL -->
+  <div id="authModal">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div class="modal-logo">🏥</div>
+      <div class="modal-title">HealthCare AI</div>
+      <div class="modal-sub">Sign in to save your history</div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabLogin" onclick="showLogin()">Sign In</button>
+        <button class="auth-tab" id="tabReg" onclick="showReg()">Register</button>
+      </div>
+
+      <!-- Login Form -->
+      <div id="loginView">
+        <div class="form-group">
+          <label class="form-lbl">Username</label>
+          <input class="form-inp" id="li-user" type="text" placeholder="Enter username" />
+        </div>
+        <div class="form-group">
+          <label class="form-lbl">Password</label>
+          <input class="form-inp" id="li-pass" type="password" placeholder="Enter password"
+            onkeydown="if(event.key==='Enter') doLogin()" />
+        </div>
+        <div class="err-msg" id="li-err"></div>
+        <button class="btn-modal" onclick="doLogin()">Sign In →</button>
+        <div class="modal-divider">or</div>
+        <button class="btn-guest" onclick="guestMode()">Continue as Guest 👋</button>
+      </div>
+
+      <!-- Register Form -->
+      <div id="regView" style="display:none">
+        <div class="form-group">
+          <label class="form-lbl">Username</label>
+          <input class="form-inp" id="rg-user" type="text" placeholder="Choose username" />
+        </div>
+        <div class="form-group">
+          <label class="form-lbl">Email</label>
+          <input class="form-inp" id="rg-email" type="email" placeholder="your@email.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-lbl">Password</label>
+          <input class="form-inp" id="rg-pass" type="password" placeholder="Min 6 characters" />
+        </div>
+        <div class="err-msg" id="rg-err"></div>
+        <button class="btn-modal" onclick="doRegister()">Create Account →</button>
+        <div class="modal-divider">or</div>
+        <button class="btn-guest" onclick="guestMode()">Continue as Guest 👋</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Upload Modal Component -->
+  <div id="uploadModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h3 style="font-family:var(--font-d);color:var(--g800);font-size:1.5rem;">📄 Upload Medical Report</h3>
+        <button onclick="closeUploadModal()" style="font-size:1.5rem;color:var(--gray400);">&times;</button>
+      </div>
+      
+      <div style="margin-bottom:20px;">
+        <div style="border:2px dashed var(--g300);border-radius:12px;padding:32px;text-align:center;cursor:pointer;" 
+             ondragover="event.preventDefault();this.style.borderColor='var(--g500)'" 
+             ondragleave="this.style.borderColor='var(--g300)'" 
+             ondrop="handleDrop(event)"
+             onclick="document.getElementById('fileInput').click()">
+          <div style="font-size:3rem;margin-bottom:12px;">📋</div>
+          <p style="color:var(--gray600);margin-bottom:8px;">Drag & drop your report here</p>
+          <p style="color:var(--gray400);font-size:0.9rem;">or click to browse</p>
+          <p style="color:var(--gray400);font-size:0.8rem;margin-top:12px;">Supports: PDF, JPEG, PNG (Max 10MB)</p>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.bmp,.tiff" style="display:none;" onchange="handleFileSelect(event)">
+      </div>
+      
+      <div id="uploadProgress" style="display:none;margin-bottom:20px;">
+        <div style="background:var(--g100);border-radius:8px;overflow:hidden;height:8px;">
+          <div id="progressBar" style="background:var(--g500);height:100%;width:0%;transition:width 0.3s;"></div>
+        </div>
+        <p id="progressText" style="text-align:center;color:var(--gray600);font-size:0.9rem;margin-top:8px;">Uploading...</p>
+      </div>
+      
+      <div id="uploadResult" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Reports Panel -->
+  <div id="reportsPanel" style="position:fixed;right:-400px;top:0;width:380px;height:100%;background:white;box-shadow:-4px 0 24px rgba(0,0,0,0.15);z-index:999;transition:right 0.3s;overflow-y:auto;">
+    <div style="padding:24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h3 style="font-family:var(--font-d);color:var(--g800);font-size:1.4rem;">📊 My Reports</h3>
+        <button onclick="closeReportsPanel()" style="font-size:1.5rem;color:var(--gray400);">&times;</button>
+      </div>
+      
+      <button onclick="openUploadModal()" style="width:100%;background:var(--g500);color:white;padding:12px 16px;border-radius:8px;font-weight:600;margin-bottom:20px;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <span>📤</span> Upload New Report
+      </button>
+      
+      <div id="reportsList">
+        <p style="text-align:center;color:var(--gray400);padding:40px 20px;">Loading reports...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Link your existing script.js — ALL functions preserved! -->
+  <script src="/static/script.js?v={{ script_js_version }}"></script>
+  <!-- Medical Report Upload Functions -->
+  <script src="/static/upload.js?v={{ upload_js_version }}"></script>
+  <script>
+    // ── Extra bridge functions needed by new HTML ──────────────────────────────
+
+    // Tab switching for auth modal
+    function showLogin() {
+      document.getElementById('loginView').style.display = 'block';
+      document.getElementById('regView').style.display = 'none';
+      document.getElementById('tabLogin').classList.add('active');
+      document.getElementById('tabReg').classList.remove('active');
+    }
+    function showReg() {
+      document.getElementById('loginView').style.display = 'none';
+      document.getElementById('regView').style.display = 'block';
+      document.getElementById('tabLogin').classList.remove('active');
+      document.getElementById('tabReg').classList.add('active');
+    }
+
+    // Guest mode — just closes modal and enters chat
+    function guestMode() {
+      closeModal();
+      showChatPage();
+      showToast('Welcome Guest! 👋 Start chatting!');
+    }
+  </script>
+</body>
+
+</html>

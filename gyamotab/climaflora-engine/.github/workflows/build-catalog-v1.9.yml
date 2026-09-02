@@ -1,0 +1,233 @@
+name: Build ClimaFlora catalog v1.9 edaphic consolidation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - edaphic-v1.9-consolidation
+    paths:
+      - '.github/workflows/build-catalog-v1.9.yml'
+      - '.github/tools/build_edaphic_v1_9.py'
+      - 'docs/EDAPHIC_PIPELINE_V1_9.md'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-catalog-v1.9-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      V18_PUBLIC_URL: https://shugoan.com/climaflora/data/climaflora_global_plants_v1_8.sqlite.zst
+      V18_ZST_SHA256: 5ad8726fdb22af9f325d3b724a7d32ccf92077a38c6fb245e612d0bb95fe5e07
+      V18_SQLITE_SHA256: d9632aea3d9d37195884d7d3beffc48147f5e51b1c3490606d6d0fae3be51722
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reclaim runner disk space
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean || true
+          df -h /
+
+      - name: Ensure zstd is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v zstd >/dev/null || {
+            sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update
+            sudo timeout 180 apt-get install -y zstd
+          }
+          zstd --version
+
+      - name: Download and validate immutable v1.8 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 6 --retry-all-errors --connect-timeout 30 --max-time 1800 \
+            "$V18_PUBLIC_URL" -o climaflora_global_plants_v1_8.sqlite.zst
+          echo "$V18_ZST_SHA256  climaflora_global_plants_v1_8.sqlite.zst" | sha256sum -c -
+          zstd -t climaflora_global_plants_v1_8.sqlite.zst
+          zstd -d -f climaflora_global_plants_v1_8.sqlite.zst -o climaflora_global_plants_v1_8.sqlite
+          echo "$V18_SQLITE_SHA256  climaflora_global_plants_v1_8.sqlite" | sha256sum -c -
+          python - <<'PY'
+          import sqlite3
+          with sqlite3.connect('climaflora_global_plants_v1_8.sqlite') as con:
+              assert con.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+              meta = dict(con.execute('SELECT key,value FROM climaflora_catalog_metadata'))
+              assert meta.get('catalog_version') == '1.8.0', meta
+              assert meta.get('scientific_ready') == 'true', meta
+              assert con.execute('SELECT COUNT(*) FROM plant_index').fetchone()[0] == 420532
+              assert con.execute('SELECT COUNT(*) FROM soil_geographic_prior WHERE scoring_enabled<>0').fetchone()[0] == 0
+          PY
+          rm climaflora_global_plants_v1_8.sqlite.zst
+          df -h /
+
+      - name: Build separate edaphic database and v1.9 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/build_edaphic_v1_9.py \
+            --base climaflora_global_plants_v1_8.sqlite \
+            --output climaflora_global_plants_v1_9.sqlite \
+            --build-db climaflora_edaphic_build.sqlite \
+            --report climaflora_global_plants_v1_9.report.json
+          df -h /
+
+      - name: Independently validate v1.9 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, sqlite3
+          from pathlib import Path
+          report = json.loads(Path('climaflora_global_plants_v1_9.report.json').read_text())
+          assert report['status'] == 'ready', report['validation']
+          assert report['source_catalog']['immutable'] is True
+          assert report['validation']['blocking_failures'] == 0, report['validation']
+          stats = report['stats']
+          assert stats['total_taxa'] == 420532
+          assert stats['taxa_with_any_soil_data'] >= 409000, stats
+          assert stats['coverage_any'] >= 0.97, stats
+          assert stats['occurrence_taxa_below_10'] > 0, stats
+          assert stats['occurrence_taxa_scoring_eligible'] >= 14000, stats
+          assert stats['categorical_rows_repaired'] > 0, stats
+          with sqlite3.connect('climaflora_global_plants_v1_9.sqlite') as con:
+              assert con.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+              meta = dict(con.execute('SELECT key,value FROM climaflora_catalog_metadata'))
+              assert meta.get('catalog_version') == '1.9.0', meta
+              assert meta.get('catalog_schema_version') == '1.9.0', meta
+              assert meta.get('scientific_ready') == 'true', meta
+              assert meta.get('edaphic_occurrence_min_n_for_scoring') == '10', meta
+              assert meta.get('edaphic_native_range_scoring_enabled') == 'false', meta
+              assert meta.get('edaphic_eive_physical_conversion') == 'false', meta
+              required = {
+                  'soil_source_envelope','soil_source_categorical_preference','soil_envelope','soil_sources',
+                  'soil_envelopes','soil_preferences','soil_evidence','soil_geographic_prior'
+              }
+              tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+              assert required <= tables, sorted(required - tables)
+              assert con.execute('SELECT COUNT(*) FROM soil_geographic_prior WHERE scoring_enabled<>0').fetchone()[0] == 0
+              assert con.execute('SELECT COUNT(*) FROM (SELECT taxon_id,variable,COUNT(*) c FROM soil_envelope GROUP BY 1,2 HAVING c>1)').fetchone()[0] == 0
+              assert con.execute("SELECT COUNT(*) FROM soil_envelope WHERE method<>'CLIMAFLORA_EDAPHIC_CONSOLIDATION'").fetchone()[0] == 0
+              assert con.execute("SELECT COUNT(*) FROM soil_categorical_preference WHERE variable='salinity' AND (optimum_values_json LIKE '%\"m)\"%' OR accepted_values_json LIKE '%\"m)\"%')").fetchone()[0] == 0
+              assert con.execute("SELECT COUNT(*) FROM soil_categorical_preference WHERE variable='drainage' AND (optimum_values_json LIKE '%\"excessive (dry\"%' OR accepted_values_json LIKE '%\"moderately dry)\"%')").fetchone()[0] == 0
+          with sqlite3.connect('climaflora_edaphic_build.sqlite') as con:
+              assert con.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+              assert con.execute('SELECT COUNT(*) FROM edaphic_sources').fetchone()[0] >= 6
+              assert con.execute('SELECT COUNT(*) FROM edaphic_native_range_stats').fetchone()[0] >= 2800000
+              assert con.execute('SELECT COUNT(*) FROM edaphic_occurrence_stats').fetchone()[0] >= 140000
+          print(json.dumps({'stats': stats, 'validation': report['validation']}, indent=2))
+          PY
+
+      - name: Hash and compress scientific artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum climaflora_global_plants_v1_9.sqlite | tee climaflora_global_plants_v1_9.sqlite.sha256
+          sha256sum climaflora_edaphic_build.sqlite | tee climaflora_edaphic_build.sqlite.sha256
+          rm climaflora_global_plants_v1_8.sqlite
+          zstd -T0 -15 -f climaflora_global_plants_v1_9.sqlite -o climaflora_global_plants_v1_9.sqlite.zst
+          sha256sum climaflora_global_plants_v1_9.sqlite.zst | tee climaflora_global_plants_v1_9.sqlite.zst.sha256
+          rm climaflora_global_plants_v1_9.sqlite
+          zstd -T0 -12 -f climaflora_edaphic_build.sqlite -o climaflora_edaphic_build_v1_9.sqlite.zst
+          sha256sum climaflora_edaphic_build_v1_9.sqlite.zst | tee climaflora_edaphic_build_v1_9.sqlite.zst.sha256
+          rm climaflora_edaphic_build.sqlite
+          ls -lh *.zst *.json *.sha256
+          df -h /
+
+      - name: Upload v1.9 candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: climaflora-global-plants-v1.9-candidate
+          compression-level: 0
+          retention-days: 14
+          path: |
+            climaflora_global_plants_v1_9.sqlite.zst
+            climaflora_global_plants_v1_9.report.json
+            climaflora_global_plants_v1_9.sqlite.sha256
+            climaflora_global_plants_v1_9.sqlite.zst.sha256
+            climaflora_edaphic_build.sqlite.sha256
+            climaflora_edaphic_build_v1_9.sqlite.zst
+            climaflora_edaphic_build_v1_9.sqlite.zst.sha256
+
+      - name: Record successful v1.9 candidate
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          r = json.loads(Path('climaflora_global_plants_v1_9.report.json').read_text())
+          out = {
+            'status': 'ready',
+            'run_id': os.environ.get('GITHUB_RUN_ID'),
+            'commit': os.environ.get('GITHUB_SHA'),
+            'branch': os.environ.get('GITHUB_REF_NAME'),
+            'catalog_version': '1.9.0',
+            'base_catalog_version': '1.8.0',
+            'sqlite_sha256': Path('climaflora_global_plants_v1_9.sqlite.sha256').read_text().split()[0],
+            'zst_sha256': Path('climaflora_global_plants_v1_9.sqlite.zst.sha256').read_text().split()[0],
+            'build_sqlite_sha256': Path('climaflora_edaphic_build.sqlite.sha256').read_text().split()[0],
+            'build_zst_sha256': Path('climaflora_edaphic_build_v1_9.sqlite.zst.sha256').read_text().split()[0],
+            'stats': r['stats'],
+            'validation': r['validation'],
+            'source_catalog': r['source_catalog'],
+            'limitations': r['limitations'],
+          }
+          Path('/tmp/catalog-v1.9-status.json').write_text(json.dumps(out, indent=2, ensure_ascii=False) + '\n')
+          PY
+          BRANCH="$GITHUB_REF_NAME"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$BRANCH" && git reset --hard "origin/$BRANCH"
+            cp /tmp/catalog-v1.9-status.json .github/catalog-v1.9-status.json
+            git add .github/catalog-v1.9-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record ClimaFlora v1.9 edaphic candidate [skip ci]'
+            git push origin "HEAD:$BRANCH" && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1
+
+      - name: Record failed v1.9 candidate
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/catalog-v1.9-status.json <<EOF
+          {
+            "status":"failed",
+            "run_id":"$GITHUB_RUN_ID",
+            "commit":"$GITHUB_SHA",
+            "branch":"$GITHUB_REF_NAME",
+            "catalog_version":"1.9.0"
+          }
+          EOF
+          BRANCH="$GITHUB_REF_NAME"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$BRANCH" && git reset --hard "origin/$BRANCH"
+            cp /tmp/catalog-v1.9-status.json .github/catalog-v1.9-status.json
+            git add .github/catalog-v1.9-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record failed ClimaFlora v1.9 candidate [skip ci]'
+            git push origin "HEAD:$BRANCH" && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

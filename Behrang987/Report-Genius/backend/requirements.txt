@@ -1,0 +1,76 @@
+# v2 backend runtime dependencies.
+# Pinned with lower bounds to match the existing app/ environment (see pyproject.toml).
+
+# Web framework
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+
+# LLM (OpenAI + Gemini for evaluation Structured Outputs)
+# >=2.0.0: OpenAI Structured Outputs via client.chat.completions.parse
+openai>=2.0.0
+# Gemini Structured Outputs (evaluation judges; google-genai SDK)
+google-genai>=1.0.0
+
+# Embeddings: local jina-embeddings-v3 by default, OpenAI optional.
+# >=3.1.0 adds the encode(task=...) LoRA-adapter kwarg used by jina-embeddings-v3.
+sentence-transformers>=3.1.0
+# jina-embeddings-v3 (embedder) and jina-reranker-v3 (reranker) both ship custom
+# architectures loaded via trust_remote_code, plus einops. Upper bound <5: the
+# jina-embeddings-v3 remote code predates the transformers 5.0 weight-tying change
+# (models must set all_tied_weights_keys via post_init) and crashes on 5.x with
+# "XLMRobertaLoRA object has no attribute all_tied_weights_keys". The >=4.56 floor
+# provides the `dtype=` from_pretrained kwarg the reranker loader uses. Both jina
+# models verified on transformers 4.57.
+transformers>=4.56,<5
+einops>=0.7.0
+# accelerate backs transformers' low_cpu_mem_usage / .to() device paths;
+# psutil gives the RAM guard an accurate "available" reading.
+accelerate>=0.26.0
+psutil>=5.9.0
+langchain-huggingface>=0.1.0
+langchain-openai>=0.2.0
+langchain-core>=0.3.0
+langchain-community>=0.3.0
+
+# Vector store
+faiss-cpu>=1.8.0
+numpy>=1.26.0
+
+# Document parsing
+python-docx>=1.1.0
+pypdf>=4.0.0
+pymupdf>=1.24.0
+
+# Amazon Textract / S3 (scripts/pdf_textract_extract.py)
+boto3>=1.34.0
+
+# PII NER — en_core_web_sm is installed via wheel below (no separate download step).
+# Optional upgrades: python -m spacy download en_core_web_md
+#                    python -m spacy download en_core_web_trf
+spacy>=3.7.0
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+
+# Auth
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Settings / models
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+
+# Token audit (retrieval debug: embedder / reranker payload sizing)
+tiktoken>=0.7.0
+
+# Observability (LOCAL-ONLY, OPTIONAL). The per-call/per-report metrics sink is
+# pure-stdlib JSONL and always available. These packages are needed ONLY when
+# observability_tracing_enabled=true, which exports OpenTelemetry spans to a
+# local OTLP collector (e.g. Arize Phoenix, run separately via `pip install
+# arize-phoenix` + `phoenix serve`). Tracing is off by default and the code
+# no-ops cleanly when these are absent, so they stay optional.
+opentelemetry-sdk>=1.20.0
+opentelemetry-exporter-otlp-proto-http>=1.20.0
+
+# Dev / test
+pytest>=8.2.0
+httpx>=0.27.0

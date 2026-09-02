@@ -1,0 +1,516 @@
+<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<!-- OHAM EDGE — the minimal receiver, CPU integers end to end.
+
+     The etch word is the minimal generative content (THE_ETCHED_TOWER_LEDGER):
+     everything a frame is derives from its address set, so an edge device
+     needs exactly this and nothing else — fetch the addresses for the frame
+     in hand, derive the pixels through the wasm core (the same integer law
+     labs/tsb_live_v1/microdecode.py holds byte-exact at 6 ops/pixel), put
+     them on screen, and let them go. No GPU is asked for anything: no WebGL,
+     no ImageBitmap, no filters — one putImageData per shown frame, CSS does
+     the fitting. Holds the current frame plus at most three ahead; the wasm
+     record cache is capped at four; nothing else is retained.
+
+     THE THREE SCALES, kept separate (ledger W2/W3; OHAM §18/§21, G7): the
+     INSCRIPTION is native — the wire carries the full field. The
+     MATERIALIZATION manifests the PANEL's device pixels exactly (G7: the
+     masked-address resolve IS the exact box-average) — never below the
+     panel, never wastefully above it; `?fit=native` manifests the whole
+     field. Adaptivity is the cadence governor: even stride from measured
+     capacity, skip-don't-wait, LOCK=6 resync — panel sharpness is never
+     traded away.  -->
+<meta name="evs-base" content="https://storage.googleapis.com/framecore-etch-video/driving60q2z.tsb"><meta name="evs-mirrors" content="driving60q2z.tsb,https://framecore-etch-video.storage.googleapis.com/driving60q2z.tsb"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OHAM edge — CPU-only glyph receiver</title>
+<style>
+ html,body{margin:0;height:100%;background:#07070a;color:#cdd3df;
+   font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;overflow:hidden}
+ #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+ canvas{max-width:100vw;max-height:100vh;image-rendering:auto}
+ #bar{position:fixed;left:0;right:0;bottom:0;padding:6px 10px;
+   background:rgba(7,7,10,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ /* the bar is the truth instrument — on a phone one nowrap line ellipsizes the
+    capacity split (cpu · net), which is the one number that names the
+    bottleneck. A truth instrument the device cannot display is not one. */
+ @media (max-width:820px){ #bar{white-space:normal;overflow:visible;text-overflow:clip;font-size:11px} }
+ #bar b{color:#ffb454;font-weight:600}
+</style></head><body>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<div id="bar">opening…</div>
+<script>
+(async () => {
+  document.documentElement.lang = "en";
+  const bar = t => document.getElementById("bar").innerHTML = t;
+  const die = t => { bar("✕ " + t); throw new Error(t); };
+  const Q = new URLSearchParams(location.search);
+  const BASE = Q.get("src")
+            || document.querySelector('meta[name="evs-base"]')?.content
+            || die("no clip: pass ?src=…/clip.tsb");
+  if (!/\.tsb([?#]|$)/.test(BASE)) die("edge plays the sealed .tsb form only");
+
+  /* ── the 88-byte prelude, fail-closed — the same law as the main player ── */
+  const range = async (off, len) => {
+    const r = await fetch(BASE, {headers:{Range:`bytes=${off}-${off+len-1}`}, cache:"no-cache"});
+    if (!r.ok && r.status !== 206) die(`range ${r.status} on container`);
+    const b = await r.arrayBuffer();
+    return b.byteLength === len ? b : b.slice(off, off + len);
+  };
+  const pre = new DataView(await range(0, 88));
+  const magic = String.fromCharCode(pre.getUint8(0),pre.getUint8(1),pre.getUint8(2),pre.getUint8(3));
+  if (magic !== "TSB1") die(`not a .tsb (magic ${magic})`);
+  const VER = pre.getUint32(4, true);
+  if (VER !== 1 && VER !== 2) die("unknown .tsb version");
+  /* v2 = records raw-deflated ON THE WIRE (54.6% measured on this clip).
+     The inscription is untouched: workers inflate byte-exact (gate Z1)
+     before the receiver indexes a single unit — every downstream law sees
+     identical bytes. The wire simply stops carrying entropy it can shed. */
+  const ZREC = VER === 2;
+  const fpsN = pre.getUint32(8, true), fpsD = pre.getUint32(12, true);
+  if (!fpsN || !fpsD) die(".tsb declares no frame rate — refused");
+  if (pre.getUint32(16, true) || pre.getUint32(20, true)) die("reserved fields nonzero — refused");
+  const sec = i => ({off:Number(pre.getBigUint64(24+16*i,true)), len:Number(pre.getBigUint64(32+16*i,true))});
+  const [sevh, sevi, sevu, sevs] = [0,1,2,3].map(sec);
+  const RATE = fpsN / fpsD;
+
+  bar("fetching header + index");
+  const header = await range(sevh.off, sevh.len);
+  const index  = await range(sevi.off, sevi.len);
+  /* the unit sidecar makes a coarse rung a byte-range PREFIX of each record —
+     the segment law on the wire. Preload when small, lazy rows when large:
+     the same threshold the main player settled. */
+  let units = null, evuRange = null;
+  if (sevu.len && sevu.len <= (4 << 20)) units = await range(sevu.off, sevu.len);
+  else if (sevu.len) evuRange = {off: sevu.off, len: sevu.len};
+  const wasm   = await (await fetch("oham.wasm?v=1008e4792b", {cache:"no-cache"})).arrayBuffer();
+
+  /* ── two workers, alternating — decode the next while the current shows ── */
+  /* every core the host can spare: frames are independent by construction, so
+     decode throughput scales with workers until the device saturates */
+  const POOL = Math.max(2, Math.min(8,
+    +Q.get("pool") || Math.max(2, (navigator.hardwareConcurrency || 4) - 2)));
+  const ask = (w, m, tr) => new Promise(r => { w.onmessage = e => r(e.data); w.postMessage(m, tr || []); });
+  const pool = Array.from({length: POOL}, () => new Worker("decoder.js?v=1008e4792b"));
+  let ready;
+  for (let k = 0; k < POOL; k++) {
+    ready = await ask(pool[k], {cmd:"init", id:k, n:POOL, wasm, header, index,
+                                url:BASE, evsOff:sevs.off, evuRange, units, cache:4});
+    if (!ready.ok) die(ready.fatal || "receiver refused the container");
+  }
+  const {frames, w, h, bs, levels, bw} = ready;
+
+  /* PANEL-EXACT MANIFESTATION (G7: the masked-address resolve IS the exact
+     box-average). The INSCRIPTION stays native — the wire carries the full
+     field's addresses. The MATERIALIZATION manifests the panel's own device
+     pixels: the smallest rung whose output covers the panel, NEVER below it
+     (below-panel is loss and stays forbidden — ledger W2). The panel cannot
+     display more pixels than it has; manifesting native and letting a broken
+     GPU compositor box-filter 34 MB per frame was the measured fps ceiling
+     AND the jitter (main-thread paint stalls). `?fit=native` forces the full
+     field; `?level=` still pins a rung explicitly. */
+  const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  const pickRung = () => {
+    if (Q.get("level") !== null) return Math.max(0, Math.min(levels - 1, +Q.get("level")));
+    if (Q.get("fit") === "native") return 0;
+    const dpr = devicePixelRatio || 1;               // uncapped — the real panel
+    const panelW = Math.max(1, Math.min(innerWidth, innerHeight * (w / h)) * dpr);
+    let l2 = 0;
+    for (let l = levels - 1; l >= 0; l--) if (bw * (bs >> l) >= panelW) { l2 = l; break; }
+    return l2;
+  };
+  let L = pickRung();
+  /* THE RUNG FOLLOWS THE PANEL, live. Chosen once at load, a portrait rung
+     stays under a rotated landscape panel — below-panel, the forbidden
+     direction (W2). Rotation/resize re-picks; every ask carries the current
+     rung, and in-flight frames at the old rung simply flush through. */
+  addEventListener("resize", () => { L = pickRung(); });
+  /* WORK IN HAND = stored frames + asks in flight, bounded together. The
+     first cut bounded only stored frames, so all six workers passed the gate
+     at once, the buffer overran its bound (measured on-device: buf 4/2), and
+     a third of the decoded frames were dropped unshown — core-seconds burned
+     on frames the clock never saw. The bound is POOL+2: every worker can be
+     busy (that IS the parallelism) plus two completed frames for the clock
+     to draw from; the governor rate-matches so steady state stays small. */
+  /* mirror list parsed early because the buffer bound depends on it (below);
+     the striping machinery itself lives with the wire section */
+  const MIRRORS = [BASE];
+  {
+    const mm = Q.get("mirror") ?? (Q.get("src") ? null
+             : document.querySelector('meta[name="evs-mirrors"]')?.content);
+    if (mm && !/^off$/i.test(mm))
+      for (const u of mm.split(",")) {
+        const v = u.trim();
+        if (v) MIRRORS.push(new URL(v, location.href).href);
+      }
+  }
+  /* striped origins arrive with a latency SPREAD; the buffer is where that
+     spread gets reordered back into the schedule, so it needs slack for it */
+  const HOLD = Math.max(2, Math.min(16, +Q.get("ahead")
+             || (POOL + 2 + (MIRRORS.length > 1 ? 4 : 0))));
+
+  /* ── the cadence governor — fluidity is EVENNESS, not raw rate ──
+     An uneven 4..40 fps reads as stutter; a steady 20 reads as motion. So the
+     playhead advances by an even STRIDE chosen from the measured decode
+     throughput (stride = ceil(RATE / thru)), and the ask loop decodes ONLY the
+     ticks that will be shown — no core-second is spent on a frame the clock
+     will skip. The stride re-evaluates at full-return boundaries (60 ticks —
+     the orbit's own anchor), never mid-orbit, so the rhythm cannot wander. */
+  const buf = new Map();                 // tick -> {rgba, rw, rh, ms, bytes}
+  let nextAsk = 0, decN = 0, decMs = 0, lastBytes = 0;
+  /* CAPACITY, not arrival rate. Arrivals are throttled by the full buffer, so
+     measuring them locks the stride wherever it started (measured: 27 ms
+     frames pinned at stride 7 because the buffer paced arrivals to the
+     presentation rate). Capacity is what the pool could do flat out:
+     POOL / round-trip — measured from each ask's own wall time, which is real
+     work (fetch + unpack + resolve), never idle waiting. */
+  let stride = 1, rtEMA = 0, wantPrev = 0, netMsE = 0;
+  /* capacity = the SLOWER of the two decoupled stages: CPU (pool / decode
+     round-trip) and WIRE (concurrent fetch lanes / fetch round-trip). The
+     governor paces to whichever is the true ceiling; the bar shows both so a
+     reading names the bottleneck instead of guessing it. */
+  const cpuCap = () => rtEMA ? pool.length * 1000 / rtEMA : 0;
+  const netCap = () => netMsE ? NETC * 1000 / netMsE : 0;
+  const capacity = () => {
+    const c = cpuCap(), n = netCap();
+    if (readyN > 45 && c) return c;     // the orbit bank covers the wire's swings
+    return c && n ? Math.min(c, n) : (c || n);
+  };
+  const restride = () => {
+    const cap = capacity();
+    if (!cap) return;
+    /* HEADROOM: target 90% of capacity, not 100% (the slip clock absorbs what the old 15% margin guarded). At exactly capacity the
+       buffer runs empty and presentation follows uneven arrivals — jitter.
+       Under it, the buffer stays fed and the clock owns the rhythm.
+       HYSTERESIS: a stride only changes when two consecutive anchor
+       evaluations agree, so a borderline capacity cannot flap the cadence
+       once a second. */
+    /* the ceiling is RATE, not 8: a device whose capacity is 3/s needs
+       stride 24 (an even 2.5 fps), and capping at 8 there makes the clock
+       outrun the schedule — a permanent LOCK-resync storm was the measured
+       result. Honest slow is even slow. */
+    const want = Math.max(1, Math.min(RATE, Math.ceil(RATE / (0.90 * cap))));
+    if (want !== stride && want === wantPrev) {
+      stride = want; nextAsk = Math.ceil(nextAsk / stride) * stride;
+    }
+    wantPrev = want;
+  };
+  /* ── BAND-SHARDED DECODE — the carrier's own parallel form (OHAM lecture):
+     "every window of a large carrier is a complete smaller carrier, times a
+     sign you can compute in advance", and the answers "compose by sitting
+     next to each other" — no coordination, no shared state. So ALL workers
+     take the SAME tick, each resolving one horizontal band of blocks through
+     the unit-granular win path (each fetches only its own tiles' units), and
+     the bands are put on the canvas side by side. Latency divides by the
+     pool; the cadence is a metronome because every tick completes as a unit. */
+  /* Band-sharding rides the unit-granular window path — the same machinery
+     the owner's device shows broken on the main page (1 fps/window, 0 B/s)
+     while the whole-record path runs. So bands are OPT-IN (?bands=1) until
+     that path is fixed on-device; the default is the proven whole-frame
+     pipeline. Owner: "what you deployed is frozen — don't keep that." */
+  const BANDS = Q.get("bands") === "1" && !ZREC;
+  if (Q.get("bands") === "1" && ZREC) console.warn("bands ignored: deflated container");
+  const bh2 = ready.bh;
+  const NB = BANDS ? Math.min(POOL, bh2) : 1;   // bands per tick
+  const bandOf = k => {
+    const per = Math.ceil(bh2 / NB);
+    return [Math.min(k * per, bh2), Math.min((k + 1) * per, bh2)];
+  };
+  /* each tick expands to NB band-jobs on one shared queue; workers pull —
+     order-free, no shared state beyond the queue itself */
+  const jobs = [];
+  const refill = () => {
+    while (jobs.length < NB && buf.size < HOLD) {
+      nextAsk = Math.ceil(nextAsk / stride) * stride;
+      for (let b = 0; b < NB; b++) {
+        const [y0, y1] = bandOf(b);
+        if (y0 < y1) jobs.push({ a: nextAsk, y0, y1 });
+      }
+      nextAsk += stride;
+    }
+  };
+
+  /* ── THE WIRE, DECOUPLED FROM THE DECODERS (owner: "it feels like it's
+     trying to go faster and being slowed") ──
+     Measured on-device: decode 43 ms, ask round-trip ~430 ms — every decode
+     sat behind its own record fetch, so CPU capacity was throttled to wire
+     latency, and uneven arrivals fed straight to the screen (buf 0 = the
+     stutter). Now the MAIN thread runs its own fetch lanes (NETC concurrent
+     range requests along the stride schedule), hands each record to a free
+     worker as transferred bytes, and the workers only decode. Nothing is held
+     beyond the lanes + the small frame buffer; nothing is fetched that the
+     schedule will not show. */
+  const NETC = Math.max(2, Math.min(14, +Q.get("net") || 10));
+  /* ── MULTI-ORIGIN LANES — §14: "parallelise the transport freely; audit it
+     exactly." Ten fetch lanes to ONE HTTP/2 origin are ten streams inside ONE
+     TCP connection — one congestion window, which on a real phone RTT can sit
+     far below the radio. Records are order-invariant (trans-synthesis: any t,
+     any order, same cost), so striping the lanes across genuinely separate
+     origins multiplies wire throughput with zero coordination. The audit is
+     the existing one: a record of the wrong length never installs (the
+     receiver indexes or rejects it), and a mirror that fails 3 straight is
+     benched. Header/index/units always come from the primary. `?mirror=` adds
+     origins (comma-separated, resolved against the page); `?mirror=off`
+     disables the deployed list; a `?src=` override ignores the deployed list. */
+  const mFail = MIRRORS.map(() => 0);
+  const mMs = MIRRORS.map(() => 0);        // per-origin latency EMA
+  const mInF = MIRRORS.map(() => 0);       // per-origin in-flight
+  const pickMirror = () => {
+    let best = 0, bestCost = Infinity;
+    for (let i = 0; i < MIRRORS.length; i++) {
+      if (i !== 0 && mFail[i] >= 3) continue;      // benched — the primary never is
+      const cost = (mInF[i] + 1) * (mMs[i] || 1);  // unmeasured explores as fast
+      if (cost < bestCost) { bestCost = cost; best = i; }
+    }
+    return best;
+  };
+  const idxDV = new DataView(index);
+  const recSpan = t => [sevs.off + Number(idxDV.getBigUint64(t * 12, true)),
+                        idxDV.getUint32(t * 12 + 8, true)];
+  const recQ = new Map();                 // absolute tick -> {b: bytes|null}
+  const inDec = new Set();                // ticks currently inside a worker
+  const ORBIT = 240;                      // the clock's own orbit = the wire bank depth
+  let netInFlight = 0, netB = 0, readyN = 0;
+  /* presentation state, declared BEFORE the loops that read it: prefetch()
+     runs synchronously inside the worker loops below, so a later `let` here
+     is a temporal-dead-zone crash, not a style choice */
+  let t0 = null, shownTick = -1, shown = 0, fpsT = performance.now(), fpsN2 = 0, skipped = 0, lastSkip = 0;
+  /* nextAsk IS the fetch-schedule pointer and prefetch() is now the only
+     thing that advances it (the old refill() advanced it for the bands path,
+     which keeps its own copy of that behaviour) — the LOCK resync compares
+     the clock against this pointer, so it must move with the schedule */
+  const prefetch = () => {
+    let guard = 0;
+    while (netInFlight < NETC && recQ.size < ORBIT && guard++ < 300) {
+      nextAsk = Math.ceil(nextAsk / stride) * stride;
+      const a = nextAsk; nextAsk += stride;
+      if (recQ.has(a) || a <= shownTick) continue;
+      const e = { b: null };
+      recQ.set(a, e);
+      netInFlight++;
+      const [off, len] = recSpan(a % frames);
+      const mi = pickMirror();
+      mInF[mi]++;
+      const t1 = performance.now();
+      fetch(MIRRORS[mi], { headers: { Range: `bytes=${off}-${off + len - 1}` } })
+        .then(r => r.arrayBuffer())
+        .then(bb => {
+          const b = bb.byteLength === len ? bb : bb.slice(off, off + len);
+          netInFlight--; mInF[mi]--;
+          if (b.byteLength !== len) {           // wrong-length record: never install
+            mFail[mi]++;
+            if (recQ.get(a) === e) recQ.delete(a);   // re-fetched next pass, next mirror
+            return;
+          }
+          mFail[mi] = 0;
+          e.b = b; netB += len; readyN++;
+          const ms = performance.now() - t1;
+          netMsE = netMsE ? netMsE * 0.8 + ms * 0.2 : ms;
+          mMs[mi] = mMs[mi] ? mMs[mi] * 0.7 + ms * 0.3 : ms;
+        })
+        .catch(() => { mFail[mi]++; if (recQ.get(a) === e) recQ.delete(a); netInFlight--; mInF[mi]--; });
+    }
+  };
+
+  const runWorker = async wk => {
+    for (;;) {
+      if (wk._dead) { wk.terminate(); return; }   // reverted by grow(): exit clean
+      prefetch();
+      if (buf.size >= HOLD) { await new Promise(r => setTimeout(r, 4)); continue; }
+      let a = -1;
+      for (const [t, e] of recQ) {
+        if (!e.b) continue;                                    // still on the wire
+        if (t <= shownTick) { recQ.delete(t); readyN--; skipped++; continue; } // stale: drop, never decode
+        if (a < 0 || t < a) a = t;                             // earliest ready
+      }
+      if (a < 0) { await new Promise(r => setTimeout(r, 4)); continue; }
+      const rec = recQ.get(a).b;
+      recQ.delete(a); readyN--;                                // hold nothing twice
+      inDec.add(a);                                            // visible to the playhead
+      const t1 = performance.now();
+      const d = await ask(wk, {cmd:"rgbaBytes", t: a % frames, level:L, seq:a, rec, z: ZREC ? 1 : 0}, [rec]);
+      inDec.delete(a);
+      if (d && d.rgba) {
+        const rt = performance.now() - t1;                     // decode-only now
+        rtEMA = rtEMA ? rtEMA * 0.7 + rt * 0.3 : rt;
+        if (d.seq > shownTick)
+          buf.set(d.seq, { bands: [{ rgba: d.rgba, ww: d.rw, wh: d.rh, y: 0 }],
+                           got: 1, done: true, ms: d.ms || 0 });
+        else skipped++;                                        // abandoned while decoding
+        decN++; decMs += d.ms || 0;
+      }
+    }
+  };
+  if (!BANDS) pool.forEach(runWorker);
+  else pool.forEach(async wk => {
+    for (;;) {
+      refill();
+      const j = jobs.shift();
+      if (!j) { await new Promise(r => setTimeout(r, 4)); continue; }
+      const t1 = performance.now();
+      let d = await ask(wk, {cmd:"win", t: j.a % frames, level:L, id:j.y0,
+                             bx0:0, by0:j.y0, bx1:bw, by1:j.y1, seq:j.a,
+                             nextT:(j.a + stride) % frames});
+      if (d && d.pending) { jobs.push(j); await new Promise(r => setTimeout(r, 30)); continue; }
+      if (d && d.rgba && d.ww) {
+        const rt = performance.now() - t1;
+        rtEMA = rtEMA ? rtEMA * 0.7 + rt * 0.3 : rt;
+        let e = buf.get(d.seq);
+        if (!e) buf.set(d.seq, e = { bands: [], got: 0, ms: 0 });
+        e.bands.push({ rgba: d.rgba, ww: d.ww, wh: d.wh, y: j.y0 * (bs >> L) });
+        e.ms += d.ms || 0; e.got++;
+        if (e.got === NB) { decN++; decMs += e.ms; e.done = true; }
+      }
+    }
+  });
+
+  /* ── present on the host clock; skip, never wait; resync at one LOCK ── */
+  const LOCK = 6;
+  /* PRIME: the clock does not start until a few complete frames are banked.
+     Starting on the first arrival hands the screen to the wire's own jitter
+     (measured on-device: buf 0/8 — every frame shown the instant it landed,
+     which IS the "consistent jitter"). Three frames of slack lets the
+     governor own the rhythm from the first shown tick. */
+  const PRIME = Math.min(3, HOLD);
+  const show = e => {
+    /* the bands compose by sitting next to each other — one putImageData per
+       band at its own row offset; no assembly buffer, no merge protocol */
+    const W2 = e.bands[0].ww;
+    const H2 = Math.min(bh2 * (bs >> L), h >> L || bh2 * (bs >> L));
+    if (cv.width !== W2 || cv.height !== H2) { cv.width = W2; cv.height = H2; }
+    for (const b of e.bands)
+      ctx.putImageData(new ImageData(new Uint8ClampedArray(b.rgba.buffer), b.ww, b.wh), 0, b.y);
+    shown++; fpsN2++;
+  };
+  let spawning = false, growStop = false;
+  const grow = async () => {
+    if (spawning || growStop || BANDS || pool.length >= 8) return;
+    if (!rtEMA || !(netCap() > cpuCap() * 1.15)) return;  // grow only when cpu-bound
+    spawning = true;
+    const wk = new Worker("decoder.js?v=1008e4792b");
+    const r = await ask(wk, {cmd:"init", id:pool.length, n:pool.length + 1, wasm, header, index,
+                             url:BASE, evsOff:sevs.off, evuRange, units, cache:4});
+    if (r.ok) {
+      const before = cpuCap();
+      pool.push(wk); runWorker(wk);
+      setTimeout(() => {
+        if (cpuCap() < before * 1.05) {
+          /* no gain: REVERT, don't just stop — a kept little-core worker
+             drags the decode average and adds heat for nothing. The loop
+             sees _dead at its next pass; its in-flight frame still lands. */
+          growStop = true;
+          const w2 = pool.pop();
+          if (w2) w2._dead = true;
+        }
+      }, 2500);
+    } else growStop = true;
+    spawning = false;
+  };
+  let lastAnchor = -1, lastNow = performance.now(), slipMs = 0;
+  /* SLIP, THEN SKIP (owner: "it feels like it needs to buffer" — yes, in
+     TIME). When the playhead's next tick is late, dropping it and jumping is
+     what reads as stutter — and the frame usually arrives moments later,
+     wasted. Instead the clock SLIPS: t0 moves forward with the wall clock, so
+     `due` freezes and the whole timeline shifts a few ms while the frame
+     finishes its journey — inter-frame spacing stays even, which is the one
+     thing the eye actually measures. The slip is bounded (SLIP_MS per
+     starvation, reset on every shown frame); only when the budget is spent is
+     the tick skipped — the bounded last resort, never the rhythm. */
+  const SLIP_MS = 500;
+  const loop = now => {
+    const dt = now - lastNow; lastNow = now;
+    /* keep the wire lanes full even while every worker is mid-decode — the
+       worker loops also call prefetch(), but between their iterations the
+       lanes would otherwise idle for a whole decode duration */
+    if (!BANDS) prefetch();
+    if (t0 === null) {
+      /* PRIME THE STRIDE FROM THE MEASUREMENT before the clock starts. The
+         first cut started at stride 1 and annealed toward reality one anchor
+         at a time, on screen — the owner's "starts slow and speeds up". By
+         the time PRIME frames are banked, both EMAs exist; set the pace once
+         from them and begin AT it. Anchors still re-evaluate from there. */
+      const cap = capacity();
+      if (cap) stride = Math.max(1, Math.min(RATE, Math.ceil(RATE / (0.90 * cap))));
+      let done = 0;
+      for (const e of buf.values()) if (e.done) done++;
+      if (done >= PRIME && cap) t0 = now;
+    }
+    if (t0 !== null && buf.size) {
+      const due = Math.floor((now - t0) * RATE / 1000);
+      const anchor = Math.floor(due / 60);
+      if (anchor !== lastAnchor) { lastAnchor = anchor; restride(); grow(); }
+      /* ── PRESENT IN SCHEDULE ORDER (owner: "stuttering badly … it needs to
+         buffer but in a weird way" — correct on both counts). Order-invariance
+         belongs to the TRANSPORT; the clock is the one place order is law.
+         With two origins of different latency, later ticks routinely complete
+         before earlier ones, and the old rule — show the newest complete,
+         delete everything older — systematically discarded timely frames from
+         the slower origin: decode/s high, shown sequence full of gaps. Now the
+         playhead walks the stride grid: each tick gets shown in its own
+         window; a completed newer frame WAITS ITS TURN in the buffer; a tick
+         is skipped only when its moment has genuinely passed (one full stride
+         late), never because a neighbour finished first. */
+      /* THE PLAYHEAD WALKS WHAT EXISTS, OLDEST FIRST. A recomputed grid was
+         the deadlock: a stride change made the playhead demand ticks that
+         were never scheduled, while every fetched frame sat unshowable and
+         the full buffer blocked the decoders — the pipeline seized whole.
+         The stride shapes FETCHING only. Presentation asks one question:
+         what is the oldest tick anywhere in the pipeline beyond the
+         playhead — and shows it at its own due moment, slips while it is
+         genuinely in flight, abandons it (bounded) only when the grace is
+         spent. Order comes from the tick numbers, not from arithmetic. */
+      if (due > shownTick) {
+        let cand = -1;
+        for (const t of buf.keys())  if (t > shownTick && (cand < 0 || t < cand)) cand = t;
+        for (const t of recQ.keys()) if (t > shownTick && (cand < 0 || t < cand)) cand = t;
+        for (const t of inDec)       if (t > shownTick && (cand < 0 || t < cand)) cand = t;
+        if (BANDS) for (const j of jobs) if (j.a > shownTick && (cand < 0 || j.a < cand)) cand = j.a;
+        if (cand >= 0) {
+          const e = buf.get(cand);
+          if (e && e.done) {
+            if (due >= cand) {                   // its moment has arrived
+              buf.delete(cand);
+              for (const t of [...buf.keys()]) if (t < cand) buf.delete(t);
+              show(e);
+              shownTick = cand;
+              slipMs = 0;                        // rhythm held; grace restored
+            }                                    // else: early — hold for pacing
+          } else if (due - cand >= stride) {
+            if (slipMs < SLIP_MS) {              // late but coming: shift time
+              t0 += dt; slipMs += dt;
+            } else {                             // grace spent: abandon ONE tick
+              skipped++; shownTick = cand; slipMs = 0;
+            }
+          }
+        }
+      }
+      if (due - nextAsk > LOCK * stride) {     // a LOCK behind the clock: resync
+        nextAsk = Math.ceil(due / stride) * stride;
+        slipMs = 0;
+        if (BANDS) { buf.clear(); jobs.length = 0; }
+        /* prune, don't clear: records at or ahead of the new pointer are
+           still the schedule — discarding them (first cut did) turns one
+           latency spike into a fetch-again storm that never converges. */
+        else for (const t of [...recQ.keys()]) if (t < nextAsk) {
+          if (recQ.get(t).b) readyN--;
+          recQ.delete(t);
+        }
+      }
+    }
+    if (now - fpsT > 500) {
+      const s = (now - fpsT) / 1000;
+      /* the capacity split is the diagnosis: cap = min(cpu, net), so whichever
+         number is smaller IS the ceiling on this device — no more guessing
+         whether the wire or the cores cap the rate */
+      bar(`<b>OHAM edge</b> · <b>${(fpsN2/s).toFixed(0)}</b> fps shown / ${(decN/s).toFixed(0)} decode/s / skip ${((skipped-lastSkip)/s).toFixed(0)}`
+        + ` · cap ${capacity().toFixed(0)}/s (<b>cpu ${cpuCap().toFixed(0)} · net ${netCap().toFixed(0)}</b>)`
+        + ` · wire ${(netB/1048576/s).toFixed(1)} MB/s · ${decN ? (decMs/decN).toFixed(0) : "–"} ms/frame`
+        + ` · stride ${stride} · buf ${buf.size}/${HOLD} · bank ${BANDS ? jobs.length : readyN}/${ORBIT}${BANDS ? ` · bands ${NB}` : ""}`
+        + ` · field ${w}×${h} · manifest ${cv.width}×${cv.height}${L?` (panel-exact, G7 rung ${L})`:` (native)`}`
+        + ` · clock ${RATE.toFixed(2)} · pool ${pool.length}${MIRRORS.length > 1 ? ` · org ${MIRRORS.filter((_, i) => i === 0 || mFail[i] < 3).length}/${MIRRORS.length}` : ""} · CPU integers only${ZREC ? " · z-wire" : ""}`);
+      fpsT = now; fpsN2 = 0; decN = 0; decMs = 0; netB = 0; lastSkip = skipped;
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+})();
+</script></body></html>

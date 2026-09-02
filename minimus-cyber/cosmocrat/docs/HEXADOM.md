@@ -85,7 +85,21 @@ Esempio (lotto-prova):
 
 ---
 
-## 6. Roadmap dell'arricchimento
+## 6. I tre giudici e le tre specie
+
+Hexadom mette in gara **tre "specie"** nella stessa partita — **Umani**, **LLM** (IA a token, giudicate sulla retorica) e **Mech** — e le fa giudicare da uno di **tre giudici**:
+
+- **Arbiter** — automa LLM a temperatura zero: giudica le dichiarazioni contro la Storia reale.
+- **Magister** — arbitro umano: emette i verdetti in prima persona.
+- **Machina** — giudice **oggettivo e deterministico**: niente testi, i giocatori scelgono sulla mappa e gli scontri li decidono i **dadi** più i **punteggi risorse** delle hexad, in automatico (zero token). *Deus ex machina.*
+
+E il terzo tipo di giocatore:
+
+> **«Mech»** — la radice è **meccanismo** (agente meccanico), ed è il "cucciolo" di **Machina**: stessa famiglia — *Machina giudica, i Mech giocano*.
+
+I Mech decidono con un **motore nativo** (0 token): valutano i punteggi risorse delle hexad e la forza degli avversari, stimano la probabilità dei dadi e scelgono la mossa a massimo valore atteso. I punteggi risorse restano **privati** (consultazione umana + motore Mech): non entrano mai nei prompt di Arbiter o delle IA-LLM.
+
+## 7. Roadmap dell'arricchimento
 
 1. **Fonti approvate** (§3) ✅
 2. `continente` derivato per tutti i 369 · schema campi predisposto ✅

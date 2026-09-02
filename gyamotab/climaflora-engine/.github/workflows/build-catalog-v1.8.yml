@@ -1,0 +1,199 @@
+name: Build ClimaFlora catalog v1.8 functions-lifeform candidate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-catalog-v1.8.yml'
+      - '.github/tools/build_use_lifeform_v1_8.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-catalog-v1.8
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      V17_PUBLIC_URL: https://shugoan.com/climaflora/data/climaflora_global_plants_v1_7.sqlite.zst
+      V17_ZST_SHA256: df88b1dc8ef2e5eda2b6ced135319eb720944ee43ef984835ceba99c325e05ed
+      V17_SQLITE_SHA256: be5554f8d095427e63583f1bbc72927a7f681480bb45d0329c17946f4f9ea27e
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure zstd is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v zstd >/dev/null 2>&1; then
+            zstd --version
+            exit 0
+          fi
+          sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update
+          sudo timeout 180 apt-get install -y zstd
+
+      - name: Download and validate canonical v1.7
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 6 --retry-all-errors --connect-timeout 30 --max-time 1800 \
+            "$V17_PUBLIC_URL" -o climaflora_global_plants_v1_7.sqlite.zst
+          echo "$V17_ZST_SHA256  climaflora_global_plants_v1_7.sqlite.zst" | sha256sum -c -
+          zstd -t climaflora_global_plants_v1_7.sqlite.zst
+          zstd -d -f climaflora_global_plants_v1_7.sqlite.zst -o climaflora_global_plants_v1_7.sqlite
+          echo "$V17_SQLITE_SHA256  climaflora_global_plants_v1_7.sqlite" | sha256sum -c -
+          python - <<'PY'
+          import sqlite3
+          with sqlite3.connect('climaflora_global_plants_v1_7.sqlite') as con:
+              assert con.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+              meta=dict(con.execute('SELECT key,value FROM climaflora_catalog_metadata'))
+              assert meta.get('catalog_version')=='1.7.0', meta
+              assert meta.get('scientific_ready')=='true', meta
+              assert meta.get('image_identification_evidence')=='false', meta
+              assert con.execute('SELECT COUNT(*) FROM plant_index').fetchone()[0]==420532
+              assert con.execute('SELECT COUNT(*) FROM soil_geographic_prior WHERE scoring_enabled<>0').fetchone()[0]==0
+          PY
+          rm climaflora_global_plants_v1_7.sqlite.zst
+
+      - name: Build v1.8 exact functions and life-form candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/build_use_lifeform_v1_8.py \
+            --base climaflora_global_plants_v1_7.sqlite \
+            --output climaflora_global_plants_v1_8.sqlite \
+            --report climaflora_global_plants_v1_8.report.json
+          rm climaflora_global_plants_v1_7.sqlite
+
+      - name: Independently validate v1.8 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, sqlite3
+          from pathlib import Path
+          report=json.loads(Path('climaflora_global_plants_v1_8.report.json').read_text())
+          with sqlite3.connect('climaflora_global_plants_v1_8.sqlite') as con:
+              assert con.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+              meta=dict(con.execute('SELECT key,value FROM climaflora_catalog_metadata'))
+              assert meta.get('catalog_version')=='1.8.0', meta
+              assert meta.get('catalog_schema_version')=='1.8.0', meta
+              assert meta.get('scientific_ready')=='true', meta
+              assert meta.get('image_identification_evidence')=='false', meta
+              assert meta.get('geographic_priors_scoring_enabled')=='false', meta
+              assert 'no fuzzy matching' in meta.get('use_evidence_taxonomy_policy','').lower(), meta
+              assert 'not safety' in meta.get('use_evidence_interpretation','').lower(), meta
+              assert con.execute('SELECT COUNT(*) FROM plant_index').fetchone()[0]==420532
+              assert con.execute('SELECT COUNT(*) FROM soil_geographic_prior WHERE scoring_enabled<>0').fetchone()[0]==0
+              assert con.execute("SELECT COUNT(*) FROM plant_image_asset WHERE license LIKE '%NC%' OR license LIKE '%ND%'").fetchone()[0]==0
+              assert con.execute("SELECT COUNT(*) FROM plant_use WHERE taxonomy_match_method NOT IN ('IPNI_LSID_EXACT','SCIENTIFIC_NAME_EXACT')").fetchone()[0]==0
+              assert con.execute("SELECT COUNT(*) FROM plant_use WHERE taxonomy_match_confidence NOT IN ('A','B')").fetchone()[0]==0
+              assert con.execute("SELECT COUNT(*) FROM plant_use WHERE source_id<>'WCUPS2020' OR source_license<>'CC BY 4.0'").fetchone()[0]==0
+              assert con.execute("SELECT COUNT(*) FROM plant_trait_evidence WHERE trait_name='life_form' AND taxonomy_match_method NOT IN ('IPNI_LSID_EXACT','SCIENTIFIC_NAME_EXACT')").fetchone()[0]==0
+              use_taxa=con.execute('SELECT COUNT(DISTINCT taxon_id) FROM plant_use').fetchone()[0]
+              life_rows=con.execute("SELECT COUNT(*) FROM plant_trait_evidence WHERE trait_name='life_form'").fetchone()[0]
+              vern_taxa=con.execute('SELECT COUNT(DISTINCT taxon_id) FROM plant_vernacular_name').fetchone()[0]
+              media_taxa=con.execute('SELECT COUNT(DISTINCT taxon_id) FROM plant_image_asset').fetchone()[0]
+              assert vern_taxa>=39180, vern_taxa
+              assert media_taxa>=483, media_taxa
+          stats=report['stats']
+          assert use_taxa==stats['wcups_use_taxa'] and use_taxa>=39000, (use_taxa,stats)
+          assert stats['life_form_taxa_added']>=1000, stats
+          assert life_rows==stats['life_form_evidence_rows'], (life_rows,stats)
+          assert stats['scoring_enabled_geographic_priors']==0, stats
+          src=report['sources']['WCUPS2020']
+          assert str(src.get('license','')).upper()=='CC BY 4.0', src
+          print(json.dumps({'stats':stats,'vernacular_taxa':vern_taxa,'media_taxa':media_taxa},indent=2))
+          PY
+
+      - name: Compress v1.8 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum climaflora_global_plants_v1_8.sqlite | tee climaflora_global_plants_v1_8.sqlite.sha256
+          zstd -T0 -19 -f climaflora_global_plants_v1_8.sqlite -o climaflora_global_plants_v1_8.sqlite.zst
+          sha256sum climaflora_global_plants_v1_8.sqlite.zst | tee climaflora_global_plants_v1_8.sqlite.zst.sha256
+          ls -lh climaflora_global_plants_v1_8.sqlite.zst
+
+      - name: Upload v1.8 candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: climaflora-global-plants-v1.8-candidate
+          compression-level: 0
+          retention-days: 14
+          path: |
+            climaflora_global_plants_v1_8.sqlite.zst
+            climaflora_global_plants_v1_8.report.json
+            climaflora_global_plants_v1_8.sqlite.sha256
+            climaflora_global_plants_v1_8.sqlite.zst.sha256
+
+      - name: Record successful v1.8 candidate
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          r=json.loads(Path('climaflora_global_plants_v1_8.report.json').read_text())
+          out={
+            'status':'ready',
+            'run_id':os.environ.get('GITHUB_RUN_ID'),
+            'commit':os.environ.get('GITHUB_SHA'),
+            'catalog_version':'1.8.0',
+            'base_catalog_version':'1.7.0',
+            'sqlite_sha256':Path('climaflora_global_plants_v1_8.sqlite.sha256').read_text().split()[0],
+            'zst_sha256':Path('climaflora_global_plants_v1_8.sqlite.zst.sha256').read_text().split()[0],
+            'stats':r['stats'],
+            'sources':r['sources'],
+            'taxonomy_policy':'exact deterministic WCVP only; no fuzzy matching',
+            'images_identification_evidence':False,
+            'geographic_priors_scoring_enabled':False,
+          }
+          Path('/tmp/catalog-v1.8-status.json').write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main && git reset --hard origin/main
+            cp /tmp/catalog-v1.8-status.json .github/catalog-v1.8-status.json
+            git add .github/catalog-v1.8-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record ClimaFlora v1.8 functions-lifeform candidate [skip ci]'
+            git push origin HEAD:main && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1
+
+      - name: Record failed v1.8 candidate
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/catalog-v1.8-status.json <<EOF
+          {
+            "status":"failed",
+            "run_id":"$GITHUB_RUN_ID",
+            "commit":"$GITHUB_SHA",
+            "catalog_version":"1.8.0"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main && git reset --hard origin/main
+            cp /tmp/catalog-v1.8-status.json .github/catalog-v1.8-status.json
+            git add .github/catalog-v1.8-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record failed ClimaFlora v1.8 candidate [skip ci]'
+            git push origin HEAD:main && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

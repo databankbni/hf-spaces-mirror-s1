@@ -1312,7 +1312,17 @@ def predict_stock_v2(ticker: str, start_date: str, end_date: str,
 
     _io_workers = 5 + (1 if _fetch_fundamentals_enabled else 0) + 1  # +1 for live price
     _IO_TIMEOUT = 10  # single wall-clock cap for the whole set (not per-future)
-    with ThreadPoolExecutor(max_workers=_io_workers) as _pool:
+    # NOTE: do NOT use `with ThreadPoolExecutor(...) as _pool:` here — the context
+    # manager's __exit__ calls shutdown(wait=True), which blocks until every
+    # already-running task finishes (news_sentiment's LLM call can run far longer
+    # than _IO_TIMEOUT on provider failover/lock contention). That silently defeated
+    # the cap and wasted the extra wait, since _safe_result() below had already
+    # fallen back to the default by then — surfacing as "news failing" on the first
+    # watchlist check for a ticker (the straggler's result populates news_sentiment's
+    # own cache in the background, so the next check reads it correctly). Explicit
+    # executor + shutdown(wait=False) makes the timeout a true hard cap.
+    _pool = ThreadPoolExecutor(max_workers=_io_workers)
+    try:
         _f_news         = _pool.submit(_fetch_news_io)
         _f_fii          = _pool.submit(_fetch_fii_io)
         _f_intraday     = _pool.submit(_fetch_intraday_io)
@@ -1342,6 +1352,8 @@ def predict_stock_v2(ticker: str, start_date: str, end_date: str,
         earnings         = _safe_result(_f_earnings, {"in_blackout": False, "days_to_earnings": None})
         fund_data        = _safe_result(_f_fundamentals, None)
         _live_price      = _safe_result(_f_live, None)
+    finally:
+        _pool.shutdown(wait=False)
 
     # For production predictions, use live price as the AI's price anchor so the model
     # sees the current market level (not yesterday's close). Signals and stop-loss

@@ -1,0 +1,200 @@
+name: Verify exhaustive search production
+
+# Rerun marker after the 2026-08-22 frontend config cache fix.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-exhaustive-search-production.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: verify-exhaustive-search-production
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for ClimaFlora 0.9.46 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, time, urllib.request
+          url = 'https://gyamotab-climaflora-engine.hf.space/api/v1/health'
+          last = None
+          for attempt in range(180):
+              try:
+                  with urllib.request.urlopen(url, timeout=20) as response:
+                      payload = json.load(response)
+                  last = payload
+                  print('health', payload, flush=True)
+                  if payload.get('status') == 'ok' and payload.get('version') == '0.9.46':
+                      raise SystemExit(0)
+              except Exception as exc:
+                  last = f'{type(exc).__name__}: {exc}'
+                  print('health wait', attempt + 1, last, flush=True)
+              time.sleep(10)
+          raise SystemExit(f'ClimaFlora 0.9.46 did not become ready: {last}')
+          PY
+
+      - name: Verify exhaustive funnel, canonical facets, cache and OVH assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from collections import Counter
+          from datetime import datetime, timezone
+          import json
+          from pathlib import Path
+          import time
+          import urllib.parse
+          import urllib.request
+
+          API = 'https://gyamotab-climaflora-engine.hf.space/api/v1'
+          OVH = 'https://shugoan.com/climaflora/static'
+
+          def fetch_json(path, params, timeout=240):
+              url = API + path + '?' + urllib.parse.urlencode(params, doseq=True)
+              start = time.perf_counter()
+              with urllib.request.urlopen(url, timeout=timeout) as response:
+                  payload = json.load(response)
+              return payload, time.perf_counter() - start
+
+          def fetch_text(url, timeout=30):
+              req = urllib.request.Request(url, headers={'Cache-Control': 'no-cache'})
+              with urllib.request.urlopen(req, timeout=timeout) as response:
+                  return response.read().decode('utf-8', errors='replace')
+
+          broad_params = {
+              'lat': '47.16', 'lon': '-1.27', 'horizon': '2050', 'scenario': 'MEDIUM',
+              'life_form': 'TREE', 'offset': '0', 'limit': '50',
+          }
+          broad, cold_seconds = fetch_json('/recommendations/search', broad_params)
+          metrics = broad['metrics']
+          facets = broad['facets']
+          pagination = broad['pagination']
+
+          assert broad.get('alphabetical_prelimit') is False
+          assert broad.get('search_scope') == 'all_catalog_taxa_after_type_and_function'
+          assert broad.get('function_code_space') == 'canonical_public'
+          assert broad.get('life_form_mapping') == 'wcvp_normalized_v2'
+          assert broad.get('catalog_schema_version') == '2.0.0'
+          assert metrics['catalog_total'] == 420532, metrics
+          assert metrics['after_type'] == 42528, metrics
+          assert metrics['after_function'] == metrics['after_type']
+          assert metrics['evaluated_candidates'] == metrics['after_function']
+          assert metrics['total_results'] >= pagination['returned']
+          assert pagination['returned'] == len(broad['recommendations'])
+          assert sum(int(v) for v in facets['climate_status'].values()) == metrics['evaluated_candidates']
+          assert sum(int(v) for v in facets['soil_status'].values()) == metrics['evaluated_candidates']
+          assert sum(int(v) for v in facets['life_form'].values()) == metrics['catalog_total']
+          assert int(facets['life_form'].get('HERB', 0)) == 155841, facets['life_form']
+          assert int(facets['life_form'].get('PALM', 0)) == 2846, facets['life_form']
+          assert int(facets['functions'].get('FOOD_HUMAN', 0)) == 1907, facets['functions']
+
+          first_names = [item['scientific_name'] for item in broad['recommendations']]
+          initials = Counter(name[:1].upper() for name in first_names if name)
+          assert not (initials and set(initials) == {'A'}), f'alphabetic A bias remains: {initials}'
+
+          page2_params = dict(broad_params)
+          page2_params['offset'] = '50'
+          page2, cached_seconds = fetch_json('/recommendations/search', page2_params)
+          assert page2['pagination']['offset'] == 50
+          assert page2.get('cache_hit') is True
+          assert page2['metrics'] == broad['metrics']
+          assert page2['facets'] == broad['facets']
+
+          function_params = dict(broad_params)
+          function_params['function'] = ['FOOD_HUMAN']
+          function_params['limit'] = '20'
+          food, function_seconds = fetch_json('/recommendations/search', function_params)
+          assert food['metrics']['after_type'] == 42528, food['metrics']
+          assert food['metrics']['after_function'] == 1907, food['metrics']
+          assert food['metrics']['evaluated_candidates'] == 1907, food['metrics']
+          assert 'FOOD_HUMAN' in food['active_filters']['functions']
+          assert food.get('function_code_space') == 'canonical_public'
+
+          herb_params = dict(broad_params)
+          herb_params['life_form'] = 'HERB'
+          herb_params['limit'] = '10'
+          herb, herb_seconds = fetch_json('/recommendations/search', herb_params)
+          assert herb['metrics']['after_type'] == 155841, herb['metrics']
+          assert herb['metrics']['evaluated_candidates'] == 155841, herb['metrics']
+
+          assets = {}
+          expected = {
+              'config.js': ['search-v1.js?rev=20260822-2', 'funnel-v1.js?rev=20260822-2'],
+              'search-v1.js': ['recommendations/search', 'active-filter-chip', 'server-filter-group'],
+              'search-v1.css': ['server-filter-group', 'progress-row-five'],
+              'funnel-v1.js': ['Type de végétaux', 'Fonction documentée', 'Sol local'],
+          }
+          for attempt in range(20):
+              assets = {name: fetch_text(f'{OVH}/{name}?verify={int(time.time())}') for name in expected}
+              if all(all(token in assets[name] for token in tokens) for name, tokens in expected.items()):
+                  break
+              time.sleep(5)
+          else:
+              missing = {name: [token for token in tokens if token not in assets.get(name, '')] for name, tokens in expected.items()}
+              raise AssertionError(f'OVH exhaustive-search assets not current: {missing}')
+
+          report = {
+              'status': 'ready',
+              'verified_at': datetime.now(timezone.utc).isoformat(),
+              'runtime_version': '0.9.46',
+              'method_version': broad.get('method_version'),
+              'catalog_schema_version': broad.get('catalog_schema_version'),
+              'function_code_space': broad.get('function_code_space'),
+              'life_form_mapping': broad.get('life_form_mapping'),
+              'location': {'lat': 47.16, 'lon': -1.27, 'horizon': 2050, 'scenario': 'MEDIUM'},
+              'broad_tree_search': {
+                  'seconds_first_page': round(cold_seconds, 3),
+                  'seconds_cached_page_2': round(cached_seconds, 3),
+                  'metrics': metrics,
+                  'life_form_facets': facets['life_form'],
+                  'function_facets': facets['functions'],
+                  'climate_status_facets': facets['climate_status'],
+                  'soil_status_facets': facets['soil_status'],
+                  'top50_initials': dict(sorted(initials.items())),
+                  'first_20_scientific_names': first_names[:20],
+                  'page_2_cache_hit': page2.get('cache_hit'),
+              },
+              'tree_food_human_search': {'seconds_first_page': round(function_seconds, 3), 'metrics': food['metrics']},
+              'herb_search': {'seconds_first_page': round(herb_seconds, 3), 'metrics': herb['metrics']},
+              'frontend': {
+                  'ovh_assets_verified': True,
+                  'active_filter_chips': True,
+                  'collapsible_server_facets': True,
+                  'explicit_funnel': ['location', 'life_form', 'documented_function', 'climate', 'soil'],
+                  'legacy_comparison_wording_cleanup': True,
+              },
+          }
+          Path('/tmp/exhaustive-search-production-status.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(report, ensure_ascii=False, indent=2), flush=True)
+          PY
+
+      - name: Persist production verification report
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/exhaustive-search-production-status.json .github/exhaustive-search-production-status.json
+            git add .github/exhaustive-search-production-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m "Record exhaustive search production verification [skip ci]"
+            git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1

@@ -1,0 +1,457 @@
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║           HEALTHCARE AI CHATBOT - COMPLETE PROJECT DOCUMENTATION           ║
+║                    D:\HealthCare AI Modal                                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1: PROJECT OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is a full-stack AI Healthcare Chatbot built using:
+- LangChain + LangGraph for multi-agent AI routing
+- Groq API for fast free LLM responses
+- NLU (Natural Language Understanding) for intent classification
+- FastAPI for backend REST API
+- SQLite for data storage
+- HTML/CSS/JS for frontend website
+
+Architecture:
+User → Website (HTML/JS) → FastAPI Backend → NLU Classifier → LangGraph
+→ Groq LLM → Response → Save to SQLite DB → Show to User
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2: ALL LIBRARIES USED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌─────────────────────┬──────────────────────────────────────────────────────┐
+│ Library             │ Purpose                                              │
+├─────────────────────┼──────────────────────────────────────────────────────┤
+│ langchain           │ Core AI framework - connects LLMs with tools         │
+│ langgraph           │ Multi-agent workflow - routes between agents         │
+│ langchain-groq      │ Connects LangChain to Groq API                       │
+│ langchain-google    │ Connects LangChain to Google Gemini API              │
+│ langchain-community │ Extra tools and utilities for LangChain              │
+│ langchain-core      │ Core messages and base classes                       │
+│ fastapi             │ Web framework for REST API backend                   │
+│ uvicorn             │ ASGI server to run FastAPI                           │
+│ sqlalchemy          │ Database ORM (Object Relational Mapper)              │
+│ sqlite3             │ Built-in Python database (no install needed)         │
+│ python-jose         │ JWT token creation for authentication                │
+│ passlib             │ Password hashing utilities                           │
+│ bcrypt              │ Secure password encryption algorithm                 │
+│ python-multipart    │ Handle form data in FastAPI                          │
+│ scikit-learn        │ Machine learning - NLU intent classifier             │
+│ nltk                │ Natural Language Toolkit - text processing           │
+│ python-dotenv       │ Load API keys from .env file                         │
+│ aiofiles            │ Async file operations                                │
+│ websockets          │ Real-time communication support                      │
+│ requests            │ HTTP requests library                                │
+│ pydantic            │ Data validation for FastAPI models                   │
+│ google-generativeai │ Google Gemini AI API client                          │
+└─────────────────────┴──────────────────────────────────────────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3: API KEYS USED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌───────────────────┬─────────────────────────────────────────────────────────┐
+│ API               │ Details                                                 │
+├───────────────────┼─────────────────────────────────────────────────────────┤
+│ GROQ_API_KEY      │ Primary LLM - configurable via GROQ_MODEL              │
+│ GROQ_MODEL        │ Default: openai/gpt-oss-20b                            │
+│                   │ Website: https://console.groq.com                       │
+│                   │ Free tier: 14,400 requests/day                          │
+│                   │ Speed: Very fast (fastest free LLM)                     │
+│                   │ Used for: All AI responses                              │
+├───────────────────┼─────────────────────────────────────────────────────────┤
+│ GOOGLE_API_KEY    │ Backup LLM - gemini-2.0-flash-lite                      │
+│                   │ Website: https://aistudio.google.com                    │
+│                   │ Free tier: Limited daily requests                       │
+│                   │ Used for: Backup when Groq fails                        │
+├───────────────────┼─────────────────────────────────────────────────────────┤
+│ OPENROUTER_KEY    │ Third backup - mistral-7b-instruct:free                 │
+│                   │ Website: https://openrouter.ai                          │
+│                   │ Free tier: Unlimited free models                        │
+│                   │ Used for: Last resort backup                            │
+├───────────────────┼─────────────────────────────────────────────────────────┤
+│ SECRET_KEY        │ JWT token signing key (your own secret string)          │
+│                   │ Used for: User authentication security                  │
+└───────────────────┴─────────────────────────────────────────────────────────┘
+
+Model Rotation Logic:
+1st → Try Groq (fastest and free)
+2nd → Try Gemini (if Groq fails)
+3rd → Try OpenRouter (always available)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4: NLU (NATURAL LANGUAGE UNDERSTANDING)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What is NLU?
+NLU is a local AI model that INSTANTLY detects what the user wants
+WITHOUT calling any API. It runs on your computer for free.
+
+How it works:
+User types message → NLU checks intent → Routes to correct agent
+Example: "I have chest pain" → NLU detects "emergency" in 0.001 seconds
+
+Algorithm Used:
+1. TF-IDF Vectorizer
+   - Converts text into numbers (vectors)
+   - ngram_range=(1,2) means it looks at 1 and 2 word combinations
+   - Example: "chest pain" is treated as one feature
+
+2. Logistic Regression Classifier
+   - Learns patterns from training data
+   - Predicts which intent matches the input
+   - Returns confidence score (0.0 to 1.0)
+
+3. Pipeline
+   - Combines TF-IDF + Logistic Regression
+   - Trained once, saved as model.pkl
+   - Loads instantly when needed
+
+Intents Trained:
+┌───────────────┬────────────────────────────────────────────────────────────┐
+│ Intent        │ Example Patterns                                            │
+├───────────────┼────────────────────────────────────────────────────────────┤
+│ emergency     │ chest pain, stroke, heart attack, cant breathe             │
+│ research      │ AI in healthcare, machine learning, telemedicine           │
+│ lifestyle     │ tired, diet, sleep, exercise, nutrition, wellness          │
+│ greeting      │ hello, hi, hey, what can you do                            │
+│ goodbye       │ bye, goodbye, thanks, exit                                 │
+└───────────────┴────────────────────────────────────────────────────────────┘
+
+Training Data Location:  D:\HealthCare AI Modal\nlu\intents.json
+Trained Model Location:  D:\HealthCare AI Modal\nlu\model.pkl
+Training Script:         D:\HealthCare AI Modal\nlu\train.py
+Classifier Script:       D:\HealthCare AI Modal\nlu\classifier.py
+
+How to Add More Training Data:
+1. Open nlu/intents.json
+2. Add more patterns to existing intents
+3. Or add new intent with tag and patterns
+4. Run: py -3.11 nlu/train.py
+5. Model is retrained and saved automatically
+
+NLU vs LLM Comparison:
+┌────────────────┬──────────────────────────┬──────────────────────────┐
+│ Feature        │ NLU (Local)              │ LLM (Groq)               │
+├────────────────┼──────────────────────────┼──────────────────────────┤
+│ Speed          │ Instant (0.001 sec)      │ 2-5 seconds              │
+│ Cost           │ FREE forever             │ API calls                │
+│ Internet       │ Not needed               │ Required                 │
+│ Accuracy       │ Good for routing         │ Excellent for answers    │
+│ Use Case       │ Intent detection only    │ Generate responses       │
+└────────────────┴──────────────────────────┴──────────────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5: LANGGRAPH MULTI-AGENT SYSTEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What is LangGraph?
+LangGraph is a framework for building multi-agent AI systems.
+It creates a workflow (graph) where different agents handle different tasks.
+
+Agents in This Project:
+┌──────────────┬──────────────────────────────────────────────────────────────┐
+│ Agent        │ Role                                                          │
+├──────────────┼──────────────────────────────────────────────────────────────┤
+│ Triage Node  │ Router - detects intent and routes to correct agent          │
+│              │ Handles emergencies directly                                  │
+├──────────────┼──────────────────────────────────────────────────────────────┤
+│ Researcher   │ Academic AI healthcare researcher                             │
+│ Node         │ Searches web, gives formal academic responses                │
+│              │ Saves findings to files in artifacts folder                   │
+├──────────────┼──────────────────────────────────────────────────────────────┤
+│ Lifestyle    │ Personal health and wellness coach                            │
+│ Node         │ Gives friendly advice on diet, sleep, exercise               │
+│              │ Searches web for tips and recipes                             │
+├──────────────┼──────────────────────────────────────────────────────────────┤
+│ General      │ Handles greetings and general questions                       │
+│ Node         │ Friendly introduction and general health info                 │
+└──────────────┴──────────────────────────────────────────────────────────────┘
+
+Graph Flow:
+Message → Triage Node → router() function
+   If emergency → respond directly → END
+   If research  → Researcher Node → END
+   If lifestyle → Lifestyle Node  → END
+   If general   → General Node    → END
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6: GROQ LLM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What is Groq?
+Groq is a cloud AI service that runs Large Language Models (LLMs)
+at extremely high speed using custom hardware called LPUs.
+
+Default Model: openai/gpt-oss-20b
+- Configurable through the GROQ_MODEL environment variable
+- Selected from models available to the deployed Groq project
+- Replaces Groq's retired Llama 3.x developer-tier models
+
+Why Groq?
+- Fastest free LLM available
+- 14,400 requests/day free tier
+- No credit card needed
+- Works perfectly with LangChain
+
+How it is used in this project:
+from langchain_groq import ChatGroq
+llm = ChatGroq(model=os.getenv("GROQ_MODEL", "openai/gpt-oss-20b"), api_key=GROQ_KEY)
+response = llm.invoke([SystemMessage(...), HumanMessage(...)])
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 7: FASTAPI BACKEND
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What is FastAPI?
+FastAPI is a modern Python web framework for building REST APIs.
+It connects the website frontend to the AI backend.
+
+API Endpoints:
+┌────────────────────┬──────────┬──────────────────────────────────────────────┐
+│ Endpoint           │ Method   │ Purpose                                      │
+├────────────────────┼──────────┼──────────────────────────────────────────────┤
+│ /                  │ GET      │ Serve main website page                      │
+│ /api/register      │ POST     │ Create new user account                      │
+│ /api/login         │ POST     │ Login and get JWT token                      │
+│ /api/chat          │ POST     │ Send message, get AI response                │
+│ /api/history       │ GET      │ Get user chat history                        │
+│ /api/clear         │ POST     │ Clear user chat history                      │
+│ /api/health        │ GET      │ Check if server is running                   │
+└────────────────────┴──────────┴──────────────────────────────────────────────┘
+
+Authentication:
+- Uses JWT (JSON Web Tokens) for secure login
+- Tokens expire after 7 days
+- Passwords hashed with bcrypt (cannot be reversed)
+- Guest users can chat without login
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 8: DATABASE (SQLite)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Database File: D:\HealthCare AI Modal\healthcare.db
+
+Tables:
+┌──────────────┬─────────────────────────────────────────────────────────────┐
+│ Table        │ Columns                                                      │
+├──────────────┼─────────────────────────────────────────────────────────────┤
+│ users        │ id, username, email, password, created_at                   │
+│ chat_history │ id, user_id, message, response, intent, timestamp           │
+└──────────────┴─────────────────────────────────────────────────────────────┘
+
+WAL Mode enabled for concurrent access without locking issues.
+
+View Data:
+Open healthcare.db with SQLite Viewer extension in VS Code
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 9: WEB SEARCH (DuckDuckGo)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+No API key needed! Uses DuckDuckGo HTML search.
+Fallback to Bing if DuckDuckGo fails.
+HTML is cleaned (tags removed) before sending to LLM.
+First 2000 characters of results used to avoid token limits.
+
+Trusted Medical Sources for fetch_website tool:
+- https://www.who.int       (World Health Organization)
+- https://www.cdc.gov       (Centers for Disease Control)
+- https://www.nih.gov       (National Institutes of Health)
+- https://pubmed.ncbi.nlm.nih.gov  (Medical Research Papers)
+- https://www.mayoclinic.org       (Mayo Clinic)
+- https://www.webmd.com            (WebMD)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 10: PROJECT FILE STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+D:\HealthCare AI Modal\
+│
+├── .venv\                      Virtual environment (Python packages)
+│
+├── healthcare\                 AI Agent System
+│   ├── __init__.py             Package init file
+│   ├── models.py               Smart model rotation (Groq/Gemini/OpenRouter)
+│   ├── tools.py                Web search and file tools
+│   ├── nodes.py                AI agent nodes (Triage/Researcher/Lifestyle)
+│   └── graph.py               LangGraph workflow definition
+│
+├── nlu\                        NLU Intent Classifier
+│   ├── intents.json            Training data (patterns per intent)
+│   ├── train.py               Training script
+│   ├── classifier.py          Intent prediction
+│   └── model.pkl              Trained model (created after training)
+│
+├── website\                    Web Application
+│   ├── app.py                 FastAPI backend (routes and API)
+│   ├── database.py            SQLite database operations
+│   ├── auth.py                JWT authentication
+│   └── templates\
+│       └── index.html         Main website page
+│
+├── static\                     Frontend Assets
+│   ├── style.css              All CSS styling
+│   └── script.js              JavaScript (chat, voice, auth)
+│
+├── artifacts\                  Saved Research Files
+│   └── *.txt                  Files saved by research agent
+│
+├── healthcare.db               SQLite database (users + chat history)
+├── .env                        API keys (GROQ, GEMINI, OPENROUTER, SECRET)
+└── main.py                     Start the server
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 11: IMPORTANT COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌─────┬────────────────────────────────────────────────────────────────────────┐
+│ No  │ Command + Purpose                                                      │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│  1  │ .venv\Scripts\activate                                               │
+│     │ PURPOSE: Activate virtual environment before doing anything            │
+│     │ Run this every time you open a new terminal                            │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│  2  │ py -3.11 main.py                                                       │
+│     │ PURPOSE: Start the chatbot website server                              │
+│     │ Opens at http://localhost:8000                                          │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│  3  │ py -3.11 -m uvicorn website.app:app --host 0.0.0.0 --port 8000        │
+│     │ PURPOSE: Alternative way to start server (more reliable)               │
+│     │ Use this if main.py does not work                                       │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│  4  │ py -3.11 nlu/train.py                                                  │
+│     │ PURPOSE: Train the NLU intent classifier                               │
+│     │ Run this after adding new patterns to intents.json                     │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│  5  │ py -3.11 -c "from healthcare.graph import chat; print(chat('hello'))"  │
+│     │ PURPOSE: Test if AI agents are working from terminal                   │
+│     │ Quick check before starting server                                      │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│  6  │ py -3.11 -c "from nlu.classifier import classify_intent;               │
+│     │              print(classify_intent('I have chest pain'))"              │
+│     │ PURPOSE: Test if NLU is classifying intents correctly                  │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│  7  │ Get-ChildItem "D:\HealthCare AI Modal\artifacts"                     │
+│     │ PURPOSE: See all research files saved by the AI agent                  │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│  8  │ Get-Content "D:\HealthCare AI Modal\artifacts\filename.txt"         │
+│     │ PURPOSE: Read content of a saved research file                         │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│  9  │ py -3.11 -m pip install package_name                                   │
+│     │ PURPOSE: Install a new Python package                                  │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│ 10  │ py -3.11 -m pip list                                                   │
+│     │ PURPOSE: See all installed packages and versions                       │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│ 11  │ py -3.11 -c "import sqlite3; conn=sqlite3.connect('healthcare.db');    │
+│     │ c=conn.cursor(); c.execute('SELECT * FROM users');                     │
+│     │ print(c.fetchall()); conn.close()"                                     │
+│     │ PURPOSE: View all users in the database from terminal                  │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│ 12  │ py -3.11 -c "import sqlite3; conn=sqlite3.connect('healthcare.db');    │
+│     │ c=conn.cursor(); c.execute('SELECT COUNT(*) FROM chat_history');       │
+│     │ print('Total chats:', c.fetchone()[0]); conn.close()"                  │
+│     │ PURPOSE: Count total chat messages stored in database                  │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│ 13  │ Get-Content .env                                                        │
+│     │ PURPOSE: View your API keys in .env file                               │
+│     │ WARNING: Never share these keys with anyone!                           │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│ 14  │ py -3.11 --version                                                     │
+│     │ PURPOSE: Check Python version is 3.11                                  │
+├─────┼────────────────────────────────────────────────────────────────────────┤
+│ 15  │ py -3.11 -c "from healthcare.models import get_llm;                    │
+│     │              llm=get_llm(); print('Model OK')"                         │
+│     │ PURPOSE: Test if API keys are working and model loads                  │
+└─────┴────────────────────────────────────────────────────────────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 12: DAILY WORKFLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every time you want to use the chatbot:
+
+Step 1: Open VS Code
+Step 2: Open Terminal (Ctrl + `)
+Step 3: Activate environment:
+        .venv\Scripts\activate
+Step 4: Start server:
+        py -3.11 -m uvicorn website.app:app --host 0.0.0.0 --port 8000
+Step 5: Open browser:
+        http://localhost:8000
+Step 6: Use the chatbot!
+Step 7: Stop server when done:
+        Press Ctrl + C in terminal
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 13: TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌──────────────────────────────┬─────────────────────────────────────────────┐
+│ Error                        │ Solution                                    │
+├──────────────────────────────┼─────────────────────────────────────────────┤
+│ 429 RESOURCE_EXHAUSTED       │ Groq/Gemini quota full. Wait until midnight  │
+│                              │ or check OpenRouter as backup               │
+├──────────────────────────────┼─────────────────────────────────────────────┤
+│ Database is locked           │ Close other terminal using the DB           │
+│                              │ WAL mode in database.py fixes this          │
+├──────────────────────────────┼─────────────────────────────────────────────┤
+│ No API key found             │ Check .env file has correct keys            │
+│                              │ Run: Get-Content .env                       │
+├──────────────────────────────┼─────────────────────────────────────────────┤
+│ Module not found             │ Activate venv first:                        │
+│                              │ .venv\Scripts\activate                    │
+├──────────────────────────────┼─────────────────────────────────────────────┤
+│ Connection refused           │ Server not running. Start with:             │
+│                              │ py -3.11 -m uvicorn website.app:app         │
+├──────────────────────────────┼─────────────────────────────────────────────┤
+│ Login not working            │ Check database initialized:                 │
+│                              │ py -3.11 -c "from website.database          │
+│                              │ import init_db; init_db()"                  │
+└──────────────────────────────┴─────────────────────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        END OF DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+c.execute('SELECT user_id, message, response, intent, timestamp FROM chat_history ORDER BY timestamp DESC')
+chats = c.fetchall()
+if chats:
+    for ch in chats:
+        print(f'UserID: {ch[0]} | Intent: {ch[3]} | Time: {ch[4][:16]}')
+        print(f'Q: {ch[1][:60]}')
+        print(f'A: {ch[2][:60]}')
+        print('-'*40)
+else:
+    print('No chat history found')
+
+print()
+print('='*60)
+print('SUMMARY')
+print('='*60)
+c.execute('SELECT COUNT(*) FROM users')
+print(f'Total Users: {c.fetchone()[0]}')
+c.execute('SELECT COUNT(*) FROM chat_history')
+print(f'Total Chats: {c.fetchone()[0]}')
+conn.close()
+"
+
+py -3.11 -m uvicorn website.app:app --host 0.0.0.0 --port 8000

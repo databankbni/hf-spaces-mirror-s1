@@ -166,7 +166,7 @@ def global_search_dialog(
     q = st.text_input(
         "Search",
         key="global_search_query",
-        placeholder="Company name (Georgian or English), IdCode, or an owner…",
+        placeholder="Company or brand name (Georgian or English), IdCode, or an owner…",
         label_visibility="collapsed",
     )
     ql = (q or "").strip().lower()
@@ -191,11 +191,37 @@ def global_search_dialog(
         # hits rank *after* direct name/IdCode hits, largest-revenue first.
         # The snippet shows why it matched — a blurb may merely *mention* the
         # query (e.g. "bank of georgia" also surfaces competitors' blurbs).
+        _direct = {labels_to_idcode.get(lbl, "") for lbl in matches}
+        # Trade names, BEFORE descriptions. A brand hit identifies the company;
+        # a description hit only means the blurb mentions the word (querying
+        # "bank of georgia" surfaces competitors' blurbs too). The match is
+        # phonetic across scripts, because bia stores brands as Georgian
+        # phonetics of English words — "Carrefour" has to find `კარფური`.
+        brand_hits: list[tuple[str, str]] = []
+        if db_path:
+            from lib.bia_brand import search_trade_names as _gs_search_brands
+            from lib.cache import trade_name_index as _gs_brand_index
+            brand_hits = [
+                (idc, name)
+                for idc, name, _score in _gs_search_brands(
+                    _gs_brand_index(db_path), ql, limit=5, exclude=_direct)
+                if idc in idcode_to_label
+            ]
+        if brand_hits:
+            st.caption("TRADES AS")
+            for _idc, _name in brand_hits:
+                _lbl = idcode_to_label[_idc]
+                if st.button(_lbl, key=safe_key("gs_brand", _lbl),
+                             use_container_width=True):
+                    _go_company(_lbl)
+                st.caption(f"trades as {_name}  ·  bia.ge")
         desc_hits: list[tuple[str, str, int]] = []
         if db_path:
-            _direct = {labels_to_idcode.get(lbl, "") for lbl in matches}
             desc_hits = _description_matches(
-                ql, description_search_rows(db_path), _direct, idcode_to_label
+                ql,
+                description_search_rows(db_path),
+                _direct | {i for i, _ in brand_hits},
+                idcode_to_label,
             )
         if desc_hits:
             st.caption("MATCHED IN DESCRIPTION")
@@ -259,7 +285,7 @@ def global_search_dialog(
                     st.session_state["mode"] = "Compare"
                     st.query_params["mode"] = "compare"
                     st.rerun()
-        if not matches and not desc_hits and not people_hits and not sec_matches:
+        if not (matches or brand_hits or desc_hits or people_hits or sec_matches):
             st.caption("No matches.")
     else:
         # Empty query → show recently viewed as quick links.

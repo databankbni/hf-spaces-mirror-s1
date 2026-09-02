@@ -1,0 +1,42 @@
+# Versiones fijadas a wheels manylinux disponibles para Python 3.11 x86_64,
+# coherentes con el tier free de Render (512 MB RAM).
+numpy==1.26.4
+scipy==1.13.1
+pandas==2.2.2
+matplotlib==3.9.0
+reportlab==4.2.0
+Flask==3.0.3
+gunicorn==22.0.0
+# Opcional: si el Space tiene secrets GEE_SERVICE_ACCOUNT_JSON + GEE_PROJECT_ID,
+# se usan datos reales de NASADEM/HydroBASINS/ESA WorldCover; sin secret, el
+# pipeline cae a la estimación sintética y este paquete queda inactivo.
+earthengine-api>=0.1.394
+# Persistencia de telemetría en HF Datasets (HYDROFRA Open Dataset).
+# Requiere HF_TOKEN (secret del HF Space) con permiso "Write" sobre datasets.
+# Sin token o sin red, el sync falla silencioso y queda el CSV local.
+huggingface_hub>=0.24
+# DEM ALOS PALSAR 12.5 m vía ASF (Alaska Satellite Facility). Requiere
+# secrets EARTHDATA_USER + EARTHDATA_PASS (o EARTHDATA_TOKEN) en el Space.
+# Sin credenciales el módulo cae a NASADEM/SRTM 30 m vía GEE.
+# asf_search busca + descarga tiles. NO usamos rasterio (requería
+# libexpat/libgdal nativos no instalados en python:3.11-slim); el
+# downscaling de COP-DEM lo hace scipy.ndimage.zoom directamente.
+asf-search>=8.0
+# tifffile: lector pure-Python de TIFFs float32 (lo que viene en
+# COP-DEM via GEE). PIL/imageio interpretaban mal el dtype y devolvían
+# valores absurdos (-1.1M m a +1.1M m). tifffile es ~1 MB, sin GDAL.
+tifffile>=2024.2
+# openpyxl: exportar el dataset de telemetría a Excel (.xlsx) para el
+# backup diario automático por email (/dataset.xlsx).
+openpyxl>=3.1
+# h5py: lector pure-Python de los HDF de resultados de HEC-RAS (WSE,
+# velocidad, caudal). Ligero, wheel manylinux autocontenido, sin GDAL.
+# Es el backend garantizado del módulo hec_commander.
+h5py>=3.10
+# ras-commander (CLB Engineering): backend enriquecido para leer resultados
+# de HEC-RAS y (en escritorio Windows con HEC instalado) automatizar los
+# motores. Trae geopandas/rasterio (wheels manylinux autocontenidos). El
+# import es perezoso y protegido: si falla, hec_commander cae a h5py, así que
+# la app arranca igual. NOTA: en hosts de 512 MB (Render free) su import bajo
+# demanda puede ser pesado; el Space HF (16 GB) lo maneja sin problema.
+ras-commander>=0.99

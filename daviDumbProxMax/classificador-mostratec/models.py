@@ -6,6 +6,7 @@ from sqlalchemy import (
     Text,
     TIMESTAMP,
     ForeignKey,
+    JSON,
     func
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -78,6 +79,7 @@ class Mensagem(Base):
     )
     remetente = Column(String(20), nullable=False)  # 'user' ou 'assistant'
     conteudo = Column(Text, nullable=False)
+    fontes = Column(JSON, nullable=True)
     horario = Column(TIMESTAMP, server_default=func.now())
 
     conversa = relationship("Conversa", back_populates="mensagens")

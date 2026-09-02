@@ -1,0 +1,588 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>2026-08-09 — MolmoAct2, in depth: AI2 built a VLA on our trunk&#x27;s family (owner request) - Fontaine — Bijou research log</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-e96d0476.css">
+        <link rel="stylesheet" href="../css/chrome-d279d366.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-91504666.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-fce102de.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Fontaine — Bijou research log</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/mcobzarenco/flow-matching/tree/fontaine" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="molmoact2-in-depth-ai2-built-a-vla-on-our-trunks-family--here-is-everything-in-it"><a class="header" href="#molmoact2-in-depth-ai2-built-a-vla-on-our-trunks-family--here-is-everything-in-it">MolmoAct2, in depth: AI2 built a VLA on our trunk’s family — here is everything in it</a></h1>
+<p><em>2026-08-09, owner-requested deep dive (steering 20:49Z: “there’s
+already a molmo2 VLA — write a super in-depth piece on it”).
+Sources: the paper
+(<a href="https://arxiv.org/abs/2605.02881">2605.02881</a>, v2 2026-05-08,
+51 pp), the <a href="https://github.com/allenai/molmoact2">github.com/allenai/molmoact2</a>
+repo (Apache-2.0, training + deployment code), the HF model/dataset
+cards, and the <a href="https://allenai.org/blog/molmoact2">AI2 announcement</a>.
+Four parallel research tracks, every claim below traced to one of
+them. Written to be readable start-to-finish; the “what this means
+for us” section at the end is the part that feeds our program.</em></p>
+<p><strong>In plain words.</strong> MolmoAct2 is the Allen Institute’s second-
+generation open robot model: a ~5B-parameter system that looks at
+cameras, reads an instruction, and produces one second of robot
+motion at a time. Version 1 (2025) was a language model that
+“thought out loud” about the scene — predicting depth and sketching
+a trajectory as tokens before acting, slowly. Version 2 keeps the
+thinking machinery but moves the actual motion generation into a
+separate flow-matching “action expert” that reads the language
+model’s internal attention state at every layer, which makes it
+~37× faster to act and noticeably better everywhere. It is trained
+on three new open datasets AI2 built for it — including 720+ hours
+of two-armed robot data and a cleaned-up 184-hour pool distilled
+from 1,222 community SO-100/101 uploads on the LeRobot hub — and
+everything is released: weights, data, code, even the action
+tokenizer. For us this is the closest thing to a published
+production version of our own stack: the backbone is literally
+Molmo2, the trunk we train on.</p>
+<h2 id="1-why-this-paper-is-personal"><a class="header" href="#1-why-this-paper-is-personal">1. Why this paper is personal</a></h2>
+<p>Our whole program runs flow-matching action experts on a frozen
+<strong>Molmo2-4B</strong> trunk, trained on SO-101 LeRobot data. MolmoAct2 is
+AI2 (the Molmo2 authors) building the same class of system at
+production polish: a Molmo2-derived backbone, a flow-matching
+action expert grafted onto it, trained on (among other things) a
+curated version of the same community SO-100/101 pool our
+<code>community_curated_v0</code> came from — and shipping a checkpoint for
+our exact arm. Almost every design decision they made is a measured
+answer to a question somewhere in our ledger: how big the expert,
+where it reads the trunk, whether the trunk stays frozen, whether
+knowledge insulation matters, what the discrete-token pathway is
+still for.</p>
+<h2 id="2-the-system-at-a-glance"><a class="header" href="#2-the-system-at-a-glance">2. The system at a glance</a></h2>
+<p>Total ≈ <strong>5.06B parameters</strong> in four pieces:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Piece</th><th>Size</th><th>What it is</th></tr>
+</thead>
+<tbody>
+<tr><td>Vision encoder</td><td>380M</td><td>SigLIP2 ViT, 384×384, patch 14</td></tr>
+<tr><td>V/L connector</td><td>57M</td><td>attention-pooling 2×2 patches→token (3×3 for video)</td></tr>
+<tr><td>LLM</td><td>4.0B</td><td>Molmo2’s language trunk (Qwen3-4B base): 36 layers, d 2560, 32Q/8KV heads</td></tr>
+<tr><td>Action expert</td><td>621M</td><td>non-causal DiT, 36 blocks, d 768, flow matching</td></tr>
+</tbody>
+</table>
+</div>
+<p>Released (all Apache-2.0 code, ~22 GB checkpoints on HF):
+<code>MolmoAct2</code> (post-trained), <code>MolmoAct2-Think</code> (depth reasoning),
+<code>MolmoAct2-Pretrain</code> (discrete-only), <code>Molmo2-ER</code> (the backbone),
+per-embodiment finetunes (<code>-DROID</code>, <code>-BimanualYAM</code>,
+<strong><code>-SO100_101</code></strong>, <code>-LIBERO</code>), the <code>MolmoAct2-FAST-Tokenizer</code>
+(“OpenFAST” — π’s FAST tokenizer, reimplemented with open weights
+<em>and</em> open training data), and all three new datasets in LeRobot
+v3. Since v0.6.0, <strong>upstream LeRobot ships MolmoAct2 as a
+first-class policy</strong> (finetune/eval/rollout lifecycle), and HF’s
+own port re-trained the LIBERO checkpoint to <strong>98.25% vs the
+paper’s 97.20%</strong> — the closest thing to an independent replication
+that exists so far.</p>
+<h3 id="what-changed-since-molmoact-1"><a class="header" href="#what-changed-since-molmoact-1">What changed since MolmoAct 1</a></h3>
+<p>Five axes, per the paper: (1) backbone Molmo-7B → <strong>Molmo2-ER</strong>
+(smaller, stronger, embodied-specialized); (2) three new open
+datasets (v1 trained on ~22 h of robot data; v2 on ~30× that);
+(3) the closed FAST tokenizer dependency replaced by <strong>OpenFAST</strong>;
+(4) v1’s purely autoregressive depth→trace→action pipeline
+replaced by the <strong>flow-matching expert</strong> — depth tokens survive
+only in the optional Think variant, and visual traces demote from
+mandatory pipeline stage to optional steering input; (5) adaptive
+depth re-prediction instead of re-predicting the full depth grid
+every step. Net deployment effect: ~6,700 ms per action call →
+~180 ms (base) / ~790 ms (Think).</p>
+<h2 id="3-architecture"><a class="header" href="#3-architecture">3. Architecture</a></h2>
+<h3 id="31-molmo2-er-the-backbone-is-our-trunk-specialized"><a class="header" href="#31-molmo2-er-the-backbone-is-our-trunk-specialized">3.1 Molmo2-ER: the backbone is our trunk, specialized</a></h3>
+<p>The backbone is not a new model — it is <strong>Molmo2-4B finetuned into
+an embodied-reasoning specialist</strong> (“Molmo2-ER”) via a two-stage
+recipe AI2 calls <strong>specialize-then-rehearse</strong>:</p>
+<ul>
+<li><em>Specialize</em>: 20k steps on a 3.3M-sample embodied-reasoning
+corpus (spatial QA, pointing, detection, video QA, ego-exo
+multi-view, abstract spatial puzzles) + 8% Tulu-3 text.</li>
+<li><em>Rehearse</em>: 1.5k steps re-interleaving Molmo2’s original
+mid-training data with the ER corpus (best mix: 50/50 of the
+non-text share) at long context (16,384) — the stage that stops
+the specialist from forgetting it is a VLM.</li>
+</ul>
+<p>The payoff is measured twice. As a VLM: <strong>63.8% average over 13
+embodied-reasoning benchmarks</strong> — above GPT-5 (57.9), Gemini 2.5
+Pro (57.1), and Gemini Robotics ER 1.5 Thinking (61.3), and a
++17.0 jump over base Molmo2. As a policy substrate: swapping
+Molmo2 → Molmo2-ER under an otherwise identical discrete VLA lifts
+LIBERO-Long <strong>77.6 → 83.6%</strong> — the reasoning specialization
+transfers to action prediction. That second number is the cleanest
+published evidence we’ve seen that <em>what the trunk was finetuned on
+matters to the policy built on it</em>, at fixed architecture and data.</p>
+<h3 id="32-the-token-interface"><a class="header" href="#32-the-token-interface">3.2 The token interface</a></h3>
+<p>Robot episodes are rendered into the LLM’s world as text-plus-
+special-tokens: a <code>&lt;setup&gt;</code> string (“bimanual yam robotic arms…”),
+a <code>&lt;control&gt;</code> string (“absolute joint pose” / “delta end-effector
+pose”), the robot state as <strong>256 discretized state tokens embedded
+in the prompt</strong>, and — for the discrete pathway — 2,048 action
+tokens produced by their reimplementation of π’s FAST tokenizer
+(DCT + BPE, trained on 1M action sequences across 5 embodiments,
+weights and training data released). Heterogeneous action
+“dialects” (absolute joint vs delta-EE) are deliberately <strong>not
+unified</strong> — the prompt disambiguates, and the model learns both.</p>
+<p>Actions are 1-second chunks at the dataset’s native control rate
+(30 steps @30 Hz for YAM and SO-100/101, 15 @15 Hz DROID), padded
+to a shared 32-D width covering single-arm and bimanual layouts.</p>
+<h3 id="33-the-action-expert-per-layer-kv-conditioning"><a class="header" href="#33-the-action-expert-per-layer-kv-conditioning">3.3 The action expert: per-layer KV conditioning</a></h3>
+<p>The continuous pathway — the deployment default — is a <strong>621M
+non-causal DiT</strong> doing conditional flow matching (linear path,
+masked MSE, 10 Euler steps at inference from Gaussian noise). The
+architectural bet is <em>where it reads the trunk</em>: the expert has
+<strong>36 blocks, one per VLM layer</strong>, and each block cross-attends to
+that same-depth VLM layer’s keys/values (through learned linear
+adapters), between its own self-attention and MLP. Not final
+hidden states — the trunk’s full attention state at every depth.</p>
+<p>Their conditioning ablation (LIBERO): final-hidden-state 94.0 &lt;
+per-head per-layer KV 94.8 &lt; <strong>flattened per-layer KV 95.9</strong>. The
+gap between “read the top” and “read every layer” is ~2 points at
+the benchmark ceiling — real but not dramatic; the deeper read is
+the architecture’s identity.</p>
+<p><em>(Parameter accounting: the paper’s “621M” and the HF export’s
+measured 577,564,448 are the same expert under two counting
+conventions. Instantiated, the module is 620,677,664 params; the
+exports omit the 36 frozen/inactive per-block <code>cross_attn.kv_proj</code>
+adapters (42,522,624) and the identity-injected <code>state_encoder</code>
+(590,592), both re-created by the loader. Measured on the first-class
+port — <code>outputs/probe_molmoact2_param_count.py</code>, pinned in
+<code>tests/test_molmoact2_action_expert.py</code>.)</em></p>
+<p>Training the expert: flow loss with <strong>K=4 noise samples per chunk
+in post-training, K=8 in finetuning</strong> (their K ablation is
+monotone: 94.15/95.05/95.15/95.90 for K=1/2/4/8), and — in
+post-training only — <strong>knowledge insulation</strong> à la π0.5: the KV
+conditioning is detached so flow gradients never touch the VLM.
+At finetune time they <em>drop</em> insulation (“no consistent gain from
+detaching”) and let flow gradients flow into the trunk. More on
+what that means for us in §7.</p>
+<h3 id="34-molmoact2-think-adaptive-depth-reasoning"><a class="header" href="#34-molmoact2-think-adaptive-depth-reasoning">3.4 MolmoAct2-Think: adaptive depth reasoning</a></h3>
+<p>The v1 inheritance. Before acting, Think autoregressively predicts
+a <strong>10×10 grid of depth codes</strong> (128-entry VQ-VAE codebook over
+Depth-Anything-V2 monocular depth) for the primary camera — then
+the action. V2’s twist is <em>adaptivity</em>: a grid cell is re-predicted
+only if its RGB patch changed (cosine &lt; 0.996 vs previous frame);
+unchanged cells replay from cache. A learned per-layer gate
+(sigmoid, bias init −4) controls how much depth-token K/V the
+expert actually consumes. Think buys <strong>+0.9 LIBERO average
+(97.2 → 98.1, +2.2 on Long)</strong> at <strong>4.4× the latency</strong> — a thin
+margin at benchmark ceiling, unreported on real robots, and the
+adaptive-vs-full-reprediction speedup is never measured
+head-to-head against v1. The honest read: depth reasoning is now
+an optional, gated accessory, not the engine.</p>
+<h2 id="4-training-pipeline"><a class="header" href="#4-training-pipeline">4. Training pipeline</a></h2>
+<p>Three stages after Molmo2-ER exists (all AdamW, cosine to 10%,
+LRs: ViT/connector 5e-6, LLM 1e-5, expert 5e-5 — constant across
+stages):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Stage</th><th>What trains</th><th>Steps</th><th>Data</th><th>Compute</th></tr>
+</thead>
+<tbody>
+<tr><td>Pre-train</td><td>discrete tokens only, no expert</td><td>200k</td><td>90% robot / 10% multimodal</td><td>64×H100, 90 h (~5.8k GPU-h)</td></tr>
+<tr><td>Post-train</td><td>+ expert, knowledge-insulated</td><td>100k</td><td>robot, K=4 flow samples</td><td>64×H100, 36 h (~2.3k GPU-h)</td></tr>
+<tr><td>Fine-tune</td><td>everything, insulation off</td><td>100k</td><td>per embodiment, K=8</td><td>32–64×H100, ~36 h</td></tr>
+</tbody>
+</table>
+</div>
+<p>Robot mixture within pre-train: YAM 30%, SO-100/101 30%, DROID
+30%, 10% legacy (Bridge/RT-1/BC-Z/v1 data). The whole main line is
+order 10k H100-hours — production scale, but not extreme.</p>
+<p>The finetune-design ablation is one of the paper’s most useful
+tables (LIBERO): <strong>full FT + discrete co-training, no insulation =
+97.20</strong> (their recipe) &gt; insulation on 97.05 &gt; no co-training
+96.95 &gt; LoRA 96.25 (−2.8 on Long) &gt; <strong>expert-only 93.05</strong> — the
+one clear failure mode. Keeping the discrete-token loss as a rider
+during continuous finetuning helps; freezing everything but the
+expert costs 4 points.</p>
+<h2 id="5-the-data-story"><a class="header" href="#5-the-data-story">5. The data story</a></h2>
+<p>Three new open datasets, all LeRobot v3:</p>
+<ul>
+<li><strong>BimanualYAM</strong>: 34.5k demos, <strong>720+ hours</strong>, 28+ tasks
+(folding, cable untangling, table bussing, grocery scanning…),
+collected in 2 months by Cortex AI on a &lt;$6,000 dual-YAM rig —
+the largest open bimanual dataset by an order of magnitude.</li>
+<li><strong>MolmoAct2-SO100/101</strong>: the community-hub distillation —
+<strong>1,660 candidate LeRobot repos → 1,222 kept (438 rejected),
+38,059 episodes / 19.8M frames / 183.6 h</strong> from 377 contributors.
+Four-stage filter: structural validity → drop eval-style repos →
+license eligibility → a <strong>learned quality gate</strong> (TOPReward mean
+over final episodes must beat a threshold calibrated on
+human-audited sets). All 6-D action/state, mostly 30 fps. A
+detail the cards reveal that the paper doesn’t: the released HF
+“dataset” is a <strong>3.46 MB annotations manifest</strong>, not raw data —
+<code>repo_list.json</code> names every kept <code>user/repo</code> verbatim, plus
+per-repo <code>tasks_annotated.parquet</code> files keyed by episode index.
+The hub repos themselves are the storage.</li>
+<li><strong>MolmoAct2-DROID</strong>: 74.6k successful episodes, idle-frame
+filtered, with the community’s 3-instructions-per-episode
+annotations.</li>
+</ul>
+<p>Plus <strong>language re-annotation at scale</strong>: Qwen3.5-27B watches 12
+frames per episode and writes instructions (5–25 words); unique
+instructions across the mix go <strong>71k (22%) → 146k (46%)</strong>;
+SO-100/101 goes 707 unique → 16,205. This is the “re-annotated
+instructions we could port to episodes we already have” opportunity
+flagged in yesterday’s dataset survey, quantified.</p>
+<h2 id="6-results-honestly-grouped"><a class="header" href="#6-results-honestly-grouped">6. Results, honestly grouped</a></h2>
+<p><strong>Zero-shot (the DROID-finetuned model, out of the box):</strong> real
+Franka kitchen, unseen objects, random camera poses: <strong>87.1% avg
+vs π0.5-DROID’s 45.2</strong> (15 trials/task — wide CIs, but the gap is
+huge). Real SO-100 zero-shot: <strong>56.7 vs 45.3</strong> for their own π0
+finetune (partial credit; SmolVLA scores 2.3). Sim (MolmoSpaces):
+37.7 vs π0.5’s 34.5 — with a glaring weak spot: articulated “Open”
+tasks at <strong>9.5%, worst of all baselines</strong>.</p>
+<p><strong>Finetuned:</strong> LIBERO <strong>97.2</strong> (Think 98.1) — above GR00T N1.7
+(97.0) and π0.5 (96.9). RoboEval bimanual: 44.3 vs π0.5’s 40.5,
+with ~2× shorter joint paths (their trajectories are notably less
+wasteful). Real bimanual YAM, 8 tasks × 50 trials: <strong>50.6 vs
+OpenVLA-OFT 35.5, π0.5 32.2</strong> — evaluated, caveat loudly, by the
+same org that collected the training data. OOD on YAM: 50.7 vs
+OpenVLA-OFT’s 39.9, weakest axis spatial (26.3%).</p>
+<p><strong>Latency (H100, LIBERO):</strong> continuous expert <strong>55.8 Hz effective
+with CUDA graphs</strong> (23.0 without caching tricks); the discrete
+pathway 14.2 Hz; Think 12.7 Hz. Blog numbers for deployment: ~180
+ms per action call (~16 GB bf16), vs 6,700 ms for v1 — the 37×.
+Important framing from the paper’s own limitations: these are
+amortized chunk-throughput numbers, <strong>open-loop within each
+1-second chunk</strong>, no cross-chunk continuity loss (they admit the
+seam discontinuities), no within-chunk reactivity.</p>
+<p><strong>The ablation ledger</strong> (all LIBERO): backbone ER-ization +6.0 on
+Long; per-layer KV over hidden-state +1.9; K=8 over K=1 +1.75;
+full-FT over expert-only +4.15; co-training rider +0.25;
+insulation at finetune −0.15 (i.e. nothing); Think +0.9 at 4.4×
+cost.</p>
+<p><strong>Independent signal: still thin.</strong> Three months post-release the
+outside evidence is HF’s LeRobot LIBERO replication (98.25%), the
+AI2-commissioned Cortex AI eval (0.51 vs OpenVLA-OFT 0.36 — run by
+the org that collected the training data), and ~80 community
+finetunes on the hub. A deliberate search found <strong>no independent
+hobbyist “I ran it on my SO-100” reports</strong> and no adversarial
+third-party eval; the press coverage relays AI2’s claims. The
+numbers deserve the standard treat-as-directional caveat until
+someone with matching hardware reproduces the real-robot tables.</p>
+<h2 id="7-what-this-means-for-our-program"><a class="header" href="#7-what-this-means-for-our-program">7. What this means for our program</a></h2>
+<p><strong>The trunk question got a production answer — and a new lever.</strong>
+They did not use base Molmo2: they spent ~20k steps making it an
+embodied-reasoning specialist first, and measured +6.0 LIBERO-Long
+from that alone at fixed everything-else. Molmo2-ER is <em>released</em>.
+For us this opens a concrete, cheap arm: swap our frozen Molmo2-4B
+trunk for frozen Molmo2-ER under the identical F recipe and read
+the panel delta. It is the same class of question our tiny-expert
+capacity rung answers for width — but on the axis their ablation
+says matters more (+6.0 vs their +1.9 conditioning gain). This
+slots straight into #17 as the highest-priority trunk arm we’ve
+ever had externally priced.</p>
+<p><strong>The attachment-seam ledger gets its most relevant entry yet
+(#4).</strong> Their staging is exactly our debate, at scale: post-train
+the expert <strong>with knowledge insulation on a working trunk</strong> (=our
+F, philosophically), then at finetune <strong>unfreeze everything</strong> —
+and their ablation says expert-only finetuning costs 4.15 points
+while insulation-at-finetune is a wash. Two readings, both
+honest: (a) this is the strongest joint-pole vote in the ledger —
+a production system measured frozen-vs-joint at its final stage
+and chose joint; (b) the setting differs from our seam screen —
+their “expert-only” starts from a <em>jointly post-trained</em> system,
+not a converged frozen-trunk expert like our F, and their
+benchmark is at ceiling. It does not overturn the frozen decision
+memo; it sharpens what the fjoint rung is testing and predicts
+fjoint &gt; F2 if their result transfers.</p>
+<p><strong>Conditioning surface (#4/#17):</strong> per-layer KV cross-attention
+beats final-hidden-state by ~2 points at ceiling. Our stride-3
+12-tap residual surface is a coarser cousin of “read every layer.”
+Their result says the deep-read direction is right and prices the
+remaining headroom as small-but-real.</p>
+<p><strong>Expert capacity (the tiny10k rung, live tonight):</strong> their expert
+is <strong>621M for a 4B trunk</strong> (15.5%); our F is 367.5M (9.2%) and
+tiny is 86.8M (2.2%). A production system landed near our F’s
+ratio, not our tiny’s — a weak prior for tonight’s Δ_capacity
+read, and a useful anchor either way.</p>
+<p><strong>The SO-101 shortcut is real and bigger than the survey knew.</strong>
+<code>MolmoAct2-SO100_101</code> is a released 5B checkpoint <em>already trained
+on our embodiment</em> (absolute joint-pose, chunk 30 @30 Hz, 6-D
+state, ~12.1 GiB bf16 with CUDA graphs, ~180 ms/call) — and
+zero-shot rollout on SO-100/101 is an <em>officially documented
+LeRobot path</em> (<code>lerobot-rollout</code>, 2 cameras), with one gotcha the
+docs are explicit about: the checkpoint bakes in pre-0.5.0 LeRobot
+joint conventions, so without the documented <code>joint_signs</code>/
+<code>joint_offsets</code> remap the arm moves the wrong way. Their SO-100
+zero-shot score (56.7% partial credit) sets expectations:
+plausible demo, not a working product. Finetuning economics from
+the LeRobot docs: <strong>action-expert-only 16.5 GiB</strong> (fits the local
+H100 with room to spare), LoRA-VLM ~20 GiB, full FT 48–60 GiB —
+the 8-GPU recipes in their own repo are not the floor. Separately,
+their 183.6 h curated SO-100/101 pool + 16,205 re-annotated
+instructions are the corpus-delta opportunity from yesterday’s
+survey, now <em>mechanized</em>: <code>repo_list.json</code> names every kept repo,
+so the intersection with <code>community_curated_v0</code> is a set
+operation, not a re-crawl; the per-episode instruction parquets
+join onto our copies directly (verify episode counts per repo
+first — re-uploads shift indices); and membership in their list is
+a free external quality signal on our own corpus (their TOPReward
+gate is the quality filter our re-crawl was missing).</p>
+<p><strong>The AR side (#19) gets an open tokenizer.</strong> Their FAST
+reimplementation (weights + 1M-sequence training mix, released)
+removes a dependency that made π-style discrete baselines awkward
+to reproduce. And their measured discrete-vs-continuous deployment
+gap (14.2 vs 55.8 Hz at equal quality ceiling) is the production
+version of our flow-vs-AR panel gap.</p>
+<p><strong>What we should NOT over-read.</strong> Real-robot Ns are small (15
+trials; 5/cell for OOD); the YAM eval was run by the data vendor;
+the SO-100 baselines are their own finetunes plus a near-zero
+SmolVLA; articulated objects and spatial OOD are genuinely weak;
+Think’s value is thin and un-validated on hardware; single model
+size, no scaling study, no data-mixture ablation of the 90/10
+robot ratio.</p>
+<h2 id="8-cheat-sheet-running-it-here"><a class="header" href="#8-cheat-sheet-running-it-here">8. Cheat sheet: running it here</a></h2>
+<ul>
+<li>Zero-shot on the rig: <code>allenai/MolmoAct2-SO100_101</code> via upstream
+LeRobot (<code>lerobot-rollout</code>, <code>norm_tag="so100_so101_molmoact2"</code>,
+continuous mode, 10 Euler steps, CUDA graphs for ~2×), ~12.1 GiB
+bf16 — fits the local H100 trivially, and <strong>remember the
+joint_signs/joint_offsets remap</strong> or the arm mirrors.</li>
+<li>Finetune on <code>community_curated_v0</code>: register a mixture entry
+(repo_ids, camera keys, <code>setup_type</code>/<code>control_mode</code> free-text,
+horizon 30), then <code>train_lerobot.py</code> from the SO checkpoint;
+their repo documents 8-GPU recipes but the LeRobot numbers say
+action-expert-only (<code>--ft_vlm=false</code>, LR 5e-5, 16.5 GiB) is a
+single-GPU job.</li>
+<li>Their depth-annotation generator
+(<code>scripts/generate_depth_annotation.py</code>) runs on any LeRobot
+dataset — the Think pathway is retrofittable to our data if we
+ever want the depth-reasoning rider.</li>
+</ul>
+<p>*Everything above is from the four research tracks (paper PDF, repo</p>
+<ul>
+<li>configs, HF cards, AI2 blog + community sweep); numbers are the
+paper’s own tables except where marked as blog claims. Follow-up
+arms (Molmo2-ER frozen-trunk swap, SO100_101 corpus diff, zero-shot
+rig eval) are owner-decision items — none are queued yet.*</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../posts/2026-08-09-trajectory-datasets-survey.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../posts/2026-08-09-prereg-molmo2-er-60k.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../posts/2026-08-09-trajectory-datasets-survey.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../posts/2026-08-09-prereg-molmo2-er-60k.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-09f2665d.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

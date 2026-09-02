@@ -1,0 +1,509 @@
+<div class="transfer-heatmap"></div>
+<style>
+  .transfer-heatmap {
+    width: 100%;
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  .transfer-heatmap svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .transfer-heatmap .axes path,
+  .transfer-heatmap .axes line {
+    stroke: var(--axis-color, var(--text-color));
+  }
+  .transfer-heatmap .axes text {
+    fill: var(--tick-color, var(--muted-color));
+    font-size: 11px;
+  }
+  .transfer-heatmap .axis-title {
+    fill: var(--text-color);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .transfer-heatmap .cell-rect {
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .transfer-heatmap .cell-rect:hover {
+    opacity: 0.8;
+  }
+  .transfer-heatmap .cell-text {
+    font-size: 12px;
+    font-weight: 600;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .transfer-heatmap .cell-delta {
+    font-size: 9px;
+    font-weight: 500;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .transfer-heatmap .diagonal-border {
+    fill: none;
+    stroke-width: 2.5;
+    pointer-events: none;
+  }
+  .transfer-heatmap .colorbar-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .transfer-heatmap .colorbar-label {
+    font-size: 10px;
+    color: var(--muted-color);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .transfer-heatmap .colorbar-gradient {
+    width: 200px;
+    height: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+  }
+  .transfer-heatmap .baseline-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted-color);
+    margin-top: 8px;
+  }
+  .transfer-heatmap .d3-tooltip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(-9999px, -9999px);
+    pointer-events: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    border: 1px solid var(--border-color);
+    background: var(--surface-bg);
+    color: var(--text-color);
+    box-shadow: 0 4px 24px rgba(0,0,0,.18);
+    opacity: 0;
+    transition: opacity .12s ease;
+    z-index: 10;
+    max-width: 280px;
+  }
+  .transfer-heatmap .d3-tooltip__inner {
+    text-align: left;
+  }
+  .transfer-heatmap .d3-tooltip__inner .tt-header {
+    font-weight: 700;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .transfer-heatmap .d3-tooltip__inner .tt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .transfer-heatmap .d3-tooltip__inner .tt-label {
+    color: var(--muted-color);
+  }
+  .transfer-heatmap .d3-tooltip__inner .tt-value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .transfer-heatmap .d3-tooltip__inner .tt-delta-pos {
+    color: oklch(0.55 0.18 145);
+  }
+  .transfer-heatmap .d3-tooltip__inner .tt-delta-neg {
+    color: oklch(0.55 0.22 25);
+  }
+  @media (max-width: 500px) {
+    .transfer-heatmap .cell-text { font-size: 10px; }
+    .transfer-heatmap .cell-delta { font-size: 7px; }
+    .transfer-heatmap .axes text { font-size: 9px; }
+  }
+</style>
+<script>
+  (() => {
+    if (window.transferHeatmapInitialized) return;
+    window.transferHeatmapInitialized = true;
+
+    const ensureD3 = (cb) => {
+      if (window.d3 && typeof window.d3.select === 'function') return cb();
+      let s = document.getElementById('d3-cdn-script');
+      if (!s) {
+        s = document.createElement('script');
+        s.id = 'd3-cdn-script';
+        s.src = 'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js';
+        document.head.appendChild(s);
+      }
+      const onReady = () => { if (window.d3 && typeof window.d3.select === 'function') cb(); };
+      s.addEventListener('load', onReady, { once: true });
+      if (window.d3) onReady();
+    };
+
+    const bootstrap = () => {
+      const scriptEl = document.currentScript;
+      let container = scriptEl ? scriptEl.previousElementSibling : null;
+      if (!(container && container.classList && container.classList.contains('transfer-heatmap'))) {
+        const cs = Array.from(document.querySelectorAll('.transfer-heatmap'))
+          .filter(el => !(el.dataset && el.dataset.mounted === 'true'));
+        container = cs[cs.length - 1] || null;
+      }
+      if (!container) return;
+      if (container.dataset) {
+        if (container.dataset.mounted === 'true') return;
+        container.dataset.mounted = 'true';
+      }
+
+      container.style.position = container.style.position || 'relative';
+
+      // Tooltip
+      let tip = container.querySelector('.d3-tooltip');
+      let tipInner;
+      if (!tip) {
+        tip = document.createElement('div');
+        tip.className = 'd3-tooltip';
+        Object.assign(tip.style, {
+          position: 'absolute', top: '0px', left: '0px',
+          transform: 'translate(-9999px, -9999px)', pointerEvents: 'none',
+          padding: '10px 14px', borderRadius: '8px', fontSize: '12px', lineHeight: '1.5',
+          border: '1px solid var(--border-color)', background: 'var(--surface-bg)',
+          color: 'var(--text-color)', boxShadow: '0 4px 24px rgba(0,0,0,.18)',
+          opacity: '0', transition: 'opacity .12s ease', zIndex: '10', maxWidth: '280px'
+        });
+        tipInner = document.createElement('div');
+        tipInner.className = 'd3-tooltip__inner';
+        tipInner.style.textAlign = 'left';
+        tip.appendChild(tipInner);
+        container.appendChild(tip);
+      } else {
+        tipInner = tip.querySelector('.d3-tooltip__inner') || tip;
+      }
+
+      const d3 = window.d3;
+
+      // SVG
+      const svg = d3.select(container).append('svg');
+      const gRoot = svg.append('g');
+      const gCells = gRoot.append('g').attr('class', 'cells');
+      const gAxes = gRoot.append('g').attr('class', 'axes');
+
+      // Colorbar container (HTML below SVG)
+      const colorbarDiv = document.createElement('div');
+      colorbarDiv.className = 'colorbar-container';
+      container.appendChild(colorbarDiv);
+
+      // Baseline note
+      const noteDiv = document.createElement('div');
+      noteDiv.className = 'baseline-note';
+      container.appendChild(noteDiv);
+
+      let rawData = null;
+
+      const targetKeys = ['mmlu', 'mmlupro', 'bbq_disambig', 'bbq_ambig'];
+      const targetLabels = {
+        mmlu: 'MMLU',
+        mmlupro: 'MMLU-Pro',
+        bbq_disambig: 'BBQ Disambig',
+        bbq_ambig: 'BBQ Ambig'
+      };
+
+      async function loadData() {
+        const paths = [
+          '/data/transferability.json',
+          './data/transferability.json',
+          '../assets/data/transferability.json',
+          '/assets/data/transferability.json'
+        ];
+        for (const p of paths) {
+          try {
+            const res = await fetch(p);
+            if (res.ok) {
+              rawData = await res.json();
+              render();
+              return;
+            }
+          } catch (_) {}
+        }
+        console.warn('transfer-heatmap: could not load transferability.json');
+      }
+
+      function chooseTextColor(bgR, bgG, bgB) {
+        const srgb = [bgR, bgG, bgB].map(v => Math.max(0, Math.min(255, v)) / 255);
+        const linear = srgb.map(c => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+        const L = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+        return L < 0.45 ? '#ffffff' : '#1a1a2e';
+      }
+
+      function render() {
+        if (!rawData) return;
+
+        const baseline = rawData.baseline;
+        const transfers = rawData.transfers;
+        const nRows = transfers.length;
+        const nCols = targetKeys.length;
+
+        const containerWidth = container.clientWidth || 500;
+        const margin = { top: 60, right: 20, bottom: 50, left: 100 };
+        const innerSize = Math.min(containerWidth - margin.left - margin.right, 420);
+        const cellSize = innerSize / nCols;
+        const width = margin.left + innerSize + margin.right;
+        const height = margin.top + nRows * cellSize + margin.bottom;
+
+        svg
+          .attr('viewBox', `0 0 ${width} ${height}`)
+          .attr('preserveAspectRatio', 'xMidYMid meet');
+
+        gRoot.attr('transform', `translate(${margin.left},${margin.top})`);
+
+        // Compute deltas
+        const flatData = [];
+        let minDelta = Infinity, maxDelta = -Infinity;
+
+        transfers.forEach((row, r) => {
+          targetKeys.forEach((key, c) => {
+            const val = row[key];
+            const base = baseline[key];
+            const delta = val - base;
+            if (delta < minDelta) minDelta = delta;
+            if (delta > maxDelta) maxDelta = delta;
+            // Diagonal: source row index matches target column index
+            const isDiag = r === c;
+            flatData.push({
+              r, c, val, base, delta, isDiag,
+              source: row.source,
+              target: targetLabels[key]
+            });
+          });
+        });
+
+        // Symmetric domain for diverging scale
+        const absMax = Math.max(Math.abs(minDelta), Math.abs(maxDelta), 1);
+
+        // Color scale: diverging green (positive) / red (negative)
+        const colorScale = d3.scaleDiverging()
+          .domain([-absMax, 0, absMax])
+          .interpolator(t => {
+            // t: 0 = min (red), 0.5 = zero (neutral), 1 = max (green)
+            if (t < 0.5) {
+              // Red range: interpolate from saturated red to neutral
+              const s = t / 0.5; // 0 to 1
+              const r = Math.round(200 + (220 - 200) * s);
+              const g = Math.round(60 + (215 - 60) * s);
+              const b = Math.round(60 + (220 - 60) * s);
+              return `rgb(${r},${g},${b})`;
+            } else {
+              // Green range: interpolate from neutral to saturated green
+              const s = (t - 0.5) / 0.5; // 0 to 1
+              const r = Math.round(220 - (220 - 60) * s);
+              const g = Math.round(215 - (215 - 170) * s);
+              const b = Math.round(220 - (220 - 80) * s);
+              return `rgb(${r},${g},${b})`;
+            }
+          });
+
+        // Parse rgb to get text color contrast
+        function parseBgColor(delta) {
+          const t = (delta + absMax) / (2 * absMax);
+          if (t < 0.5) {
+            const s = t / 0.5;
+            return [Math.round(200 + 20 * s), Math.round(60 + 155 * s), Math.round(60 + 160 * s)];
+          } else {
+            const s = (t - 0.5) / 0.5;
+            return [Math.round(220 - 160 * s), Math.round(215 - 45 * s), Math.round(220 - 140 * s)];
+          }
+        }
+
+        // Clear
+        gCells.selectAll('*').remove();
+        gAxes.selectAll('*').remove();
+
+        // Cells
+        flatData.forEach(d => {
+          const x = d.c * cellSize;
+          const y = d.r * cellSize;
+          const pad = 2;
+          const [bgR, bgG, bgB] = parseBgColor(d.delta);
+          const textFill = chooseTextColor(bgR, bgG, bgB);
+
+          // Cell background
+          gCells.append('rect')
+            .attr('class', 'cell-rect')
+            .attr('x', x + pad)
+            .attr('y', y + pad)
+            .attr('width', cellSize - 2 * pad)
+            .attr('height', cellSize - 2 * pad)
+            .attr('rx', 4)
+            .attr('ry', 4)
+            .attr('fill', colorScale(d.delta))
+            .on('mousemove', (event) => {
+              const [px, py] = d3.pointer(event, container);
+              const sign = d.delta >= 0 ? '+' : '';
+              const deltaClass = d.delta >= 0 ? 'tt-delta-pos' : 'tt-delta-neg';
+              tipInner.innerHTML =
+                `<div class="tt-header">${d.source} &rarr; ${d.target}</div>` +
+                `<div class="tt-row"><span class="tt-label">Accuracy</span><span class="tt-value">${d.val.toFixed(2)}%</span></div>` +
+                `<div class="tt-row"><span class="tt-label">Baseline</span><span class="tt-value">${d.base.toFixed(2)}%</span></div>` +
+                `<div class="tt-row"><span class="tt-label">Delta</span><span class="tt-value ${deltaClass}">${sign}${d.delta.toFixed(2)}</span></div>` +
+                (d.isDiag ? '<div style="margin-top:4px;font-size:10px;color:var(--muted-color);">Self-transfer (diagonal)</div>' : '');
+              const tipW = tip.offsetWidth || 220;
+              const tipH = tip.offsetHeight || 100;
+              let tx = px + 14;
+              let ty = py - tipH / 2;
+              if (tx + tipW > containerWidth) tx = px - tipW - 14;
+              if (ty < 0) ty = 4;
+              tip.style.transform = `translate(${tx}px, ${ty}px)`;
+              tip.style.opacity = '1';
+            })
+            .on('mouseleave', () => {
+              tip.style.opacity = '0';
+              tip.style.transform = 'translate(-9999px, -9999px)';
+            });
+
+          // Diagonal highlight border
+          if (d.isDiag) {
+            gCells.append('rect')
+              .attr('class', 'diagonal-border')
+              .attr('x', x + pad + 1)
+              .attr('y', y + pad + 1)
+              .attr('width', cellSize - 2 * pad - 2)
+              .attr('height', cellSize - 2 * pad - 2)
+              .attr('rx', 4)
+              .attr('ry', 4)
+              .attr('stroke', 'var(--text-color)')
+              .attr('stroke-width', 2.5)
+              .attr('fill', 'none');
+          }
+
+          // Accuracy value
+          gCells.append('text')
+            .attr('class', 'cell-text')
+            .attr('x', x + cellSize / 2)
+            .attr('y', y + cellSize / 2 - 4)
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .attr('fill', textFill)
+            .text(d.val.toFixed(1));
+
+          // Delta value below
+          const sign = d.delta >= 0 ? '+' : '';
+          gCells.append('text')
+            .attr('class', 'cell-delta')
+            .attr('x', x + cellSize / 2)
+            .attr('y', y + cellSize / 2 + 12)
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .attr('fill', textFill)
+            .attr('opacity', 0.75)
+            .text(`(${sign}${d.delta.toFixed(1)})`);
+        });
+
+        // Column labels (top)
+        targetKeys.forEach((key, i) => {
+          gAxes.append('text')
+            .attr('x', i * cellSize + cellSize / 2)
+            .attr('y', -12)
+            .attr('text-anchor', 'middle')
+            .attr('fill', 'var(--text-color)')
+            .attr('font-size', '11px')
+            .attr('font-weight', '600')
+            .text(targetLabels[key]);
+        });
+
+        // "Target Task" label
+        gAxes.append('text')
+          .attr('class', 'axis-title')
+          .attr('x', innerSize / 2)
+          .attr('y', -32)
+          .attr('text-anchor', 'middle')
+          .attr('fill', 'var(--text-color)')
+          .attr('font-size', '12px')
+          .attr('font-weight', '700')
+          .text('Target Task');
+
+        // Row labels (left)
+        transfers.forEach((row, i) => {
+          gAxes.append('text')
+            .attr('x', -12)
+            .attr('y', i * cellSize + cellSize / 2)
+            .attr('text-anchor', 'end')
+            .attr('dominant-baseline', 'middle')
+            .attr('fill', 'var(--text-color)')
+            .attr('font-size', '11px')
+            .attr('font-weight', '600')
+            .text(row.source);
+        });
+
+        // "Source Task" label
+        gAxes.append('text')
+          .attr('class', 'axis-title')
+          .attr('x', 0)
+          .attr('y', 0)
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'middle')
+          .attr('fill', 'var(--text-color)')
+          .attr('font-size', '12px')
+          .attr('font-weight', '700')
+          .attr('transform', `translate(${-70}, ${innerSize / 2}) rotate(-90)`)
+          .text('Source Task');
+
+        // Colorbar
+        const gradientId = 'transfer-heatmap-gradient';
+        let defs = svg.select('defs');
+        if (defs.empty()) defs = svg.append('defs');
+        defs.selectAll('*').remove();
+
+        const lg = defs.append('linearGradient')
+          .attr('id', gradientId)
+          .attr('x1', '0%').attr('y1', '0%')
+          .attr('x2', '100%').attr('y2', '0%');
+
+        const nStops = 11;
+        for (let i = 0; i <= nStops; i++) {
+          const t = i / nStops;
+          const val = -absMax + t * 2 * absMax;
+          lg.append('stop')
+            .attr('offset', `${(t * 100).toFixed(1)}%`)
+            .attr('stop-color', colorScale(val));
+        }
+
+        colorbarDiv.innerHTML =
+          `<span class="colorbar-label">${(-absMax).toFixed(1)}</span>` +
+          `<div class="colorbar-gradient" style="background: linear-gradient(to right, ${colorScale(-absMax)}, ${colorScale(0)}, ${colorScale(absMax)})"></div>` +
+          `<span class="colorbar-label">+${absMax.toFixed(1)}</span>`;
+
+        noteDiv.textContent = `Baseline: MMLU ${baseline.mmlu}%, MMLU-Pro ${baseline.mmlupro}%, BBQ Disambig ${baseline.bbq_disambig}%, BBQ Ambig ${baseline.bbq_ambig}%`;
+      }
+
+      // Responsive
+      const rerender = () => render();
+      if (window.ResizeObserver) {
+        new ResizeObserver(rerender).observe(container);
+      } else {
+        window.addEventListener('resize', rerender);
+      }
+
+      // Dark mode MutationObserver
+      const themeTarget = document.documentElement;
+      const observer = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+          if (m.type === 'attributes' && m.attributeName === 'data-theme') {
+            render();
+            break;
+          }
+        }
+      });
+      observer.observe(themeTarget, { attributes: true, attributeFilter: ['data-theme'] });
+
+      loadData();
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => ensureD3(bootstrap), { once: true });
+    } else {
+      ensureD3(bootstrap);
+    }
+  })();
+</script>

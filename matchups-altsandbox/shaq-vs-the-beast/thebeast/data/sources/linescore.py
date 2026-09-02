@@ -42,6 +42,12 @@ class GameSituation:
     on_third: bool = False
     batter: Optional[str] = None
     pitcher: Optional[str] = None
+    # Who is coming, not just who is up. The pitch forecast is for the at-bat
+    # that hasn't started yet, so the on-deck hitter is the one it's about —
+    # forecasting the batter already in the box means forecasting from 0-0 a
+    # count that has moved on.
+    on_deck: Optional[str] = None
+    in_hole: Optional[str] = None
 
 
 @dataclass
@@ -106,6 +112,8 @@ class MLBLinescoreSource:
             on_third="third" in offense,
             batter=(offense.get("batter") or {}).get("fullName"),
             pitcher=(defense.get("pitcher") or {}).get("fullName"),
+            on_deck=(offense.get("onDeck") or {}).get("fullName"),
+            in_hole=(offense.get("inHole") or {}).get("fullName"),
         )
 
         return GameLinescore(

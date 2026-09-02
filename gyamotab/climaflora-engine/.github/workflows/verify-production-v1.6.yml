@@ -1,0 +1,153 @@
+name: Verify ClimaFlora production v1.6
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-production-v1.6.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: verify-production-v1.6
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      HF_API: https://gyamotab-climaflora-engine.hf.space/api/v1
+      FRONTEND: https://shugoan.com/climaflora/
+      EXPECTED_APP_VERSION: '0.9.19'
+      EXPECTED_CATALOG_VERSION: '1.6.0'
+      EXPECTED_CATALOG_FILE: climaflora_global_plants_v1_6.sqlite
+      EXPECTED_SQLITE_SHA256: aea9ce8577d93ff7e4350f0f8f7c36a067df3014d60a7e751ce23d046202ebdb
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for Hugging Face deployment and v1.6 bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f /tmp/health.json /tmp/meta.json /tmp/readiness.json /tmp/master.json
+          for attempt in $(seq 1 50); do
+            echo "Verification attempt $attempt/50"
+            if curl -fsSL --connect-timeout 20 --max-time 60 "$HF_API/health" -o /tmp/health.json \
+              && curl -fsSL --connect-timeout 20 --max-time 60 "$HF_API/meta" -o /tmp/meta.json \
+              && curl -fsSL --connect-timeout 20 --max-time 60 "$HF_API/readiness" -o /tmp/readiness.json \
+              && curl -fsSL --connect-timeout 20 --max-time 60 "$HF_API/master/status" -o /tmp/master.json; then
+              if python - <<'PY'
+          import json, os
+          from pathlib import Path
+          h=json.loads(Path('/tmp/health.json').read_text())
+          m=json.loads(Path('/tmp/meta.json').read_text())
+          r=json.loads(Path('/tmp/readiness.json').read_text())
+          s=json.loads(Path('/tmp/master.json').read_text())
+          assert h.get('status') == 'ok'
+          assert h.get('version') == os.environ['EXPECTED_APP_VERSION']
+          assert m.get('version') == os.environ['EXPECTED_APP_VERSION']
+          assert m.get('catalog',{}).get('filename') == os.environ['EXPECTED_CATALOG_FILE']
+          assert m.get('catalog',{}).get('catalog_version') == os.environ['EXPECTED_CATALOG_VERSION']
+          assert r.get('catalog_schema_version') == os.environ['EXPECTED_CATALOG_VERSION']
+          assert r.get('ready') is True
+          assert r.get('scientific_ready') is True
+          assert r.get('plants',{}).get('scientific_ready') is True
+          assert s.get('ready') is True
+          assert s.get('phase') == 'ready'
+          print('backend v1.6 ready')
+          PY
+              then
+                exit 0
+              fi
+            fi
+            sleep 30
+          done
+          echo 'Production backend did not reach validated v1.6 readiness in time.'
+          echo 'health:'; cat /tmp/health.json 2>/dev/null || true
+          echo 'meta:'; cat /tmp/meta.json 2>/dev/null || true
+          echo 'readiness:'; cat /tmp/readiness.json 2>/dev/null || true
+          echo 'master:'; cat /tmp/master.json 2>/dev/null || true
+          exit 1
+
+      - name: Verify public frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --connect-timeout 20 --max-time 60 "$FRONTEND" -o /tmp/frontend.html
+          test -s /tmp/frontend.html
+          grep -qi 'ClimaFlora' /tmp/frontend.html
+
+      - name: Record production verification
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          meta=json.loads(Path('/tmp/meta.json').read_text())
+          readiness=json.loads(Path('/tmp/readiness.json').read_text())
+          master=json.loads(Path('/tmp/master.json').read_text())
+          out={
+            'status':'ready',
+            'verified_at':datetime.now(timezone.utc).isoformat(),
+            'app_version':meta.get('version'),
+            'catalog_filename':meta.get('catalog',{}).get('filename'),
+            'catalog_version':meta.get('catalog',{}).get('catalog_version'),
+            'catalog_schema_version':readiness.get('catalog_schema_version'),
+            'scientific_ready':readiness.get('scientific_ready'),
+            'master_phase':master.get('phase'),
+            'master_ready':master.get('ready'),
+            'expected_sqlite_sha256':'aea9ce8577d93ff7e4350f0f8f7c36a067df3014d60a7e751ce23d046202ebdb',
+            'hf_api':'https://gyamotab-climaflora-engine.hf.space/api/v1',
+            'frontend':'https://shugoan.com/climaflora/'
+          }
+          Path('/tmp/production-v1.6-status.json').write_text(json.dumps(out, indent=2)+'\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/production-v1.6-status.json .github/production-v1.6-status.json
+            git add .github/production-v1.6-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record verified ClimaFlora v1.6 production status [skip ci]'
+            git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1
+
+      - name: Record failed production verification
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/production-v1.6-status.json <<EOF
+          {
+            "status": "failed",
+            "verified_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "expected_app_version": "$EXPECTED_APP_VERSION",
+            "expected_catalog_version": "$EXPECTED_CATALOG_VERSION",
+            "expected_catalog_filename": "$EXPECTED_CATALOG_FILE"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/production-v1.6-status.json .github/production-v1.6-status.json
+            git add .github/production-v1.6-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record failed ClimaFlora v1.6 production verification [skip ci]'
+            git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1

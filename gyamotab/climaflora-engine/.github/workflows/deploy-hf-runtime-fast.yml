@@ -1,0 +1,242 @@
+name: Deploy ClimaFlora runtime to Hugging Face
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '!app/static/**'
+      - 'pyproject.toml'
+      - 'Dockerfile'
+      - '.github/workflows/deploy-hf-runtime-fast.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-huggingface
+  cancel-in-progress: false
+
+jobs:
+  deploy-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    outputs:
+      failed_stage: ${{ steps.summary.outputs.failed_stage }}
+      expected_version: ${{ steps.version.outputs.expected_version }}
+      production_report: ${{ steps.verify.outputs.production_report }}
+    env:
+      HF_SPACE_ID: gyamotab/climaflora-engine
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Hugging Face token
+        id: token
+        run: test -n "$HF_TOKEN" || (echo 'HF_TOKEN secret is missing' && exit 1)
+
+      - name: Install Hugging Face CLI
+        id: install
+        run: python -m pip install --upgrade 'huggingface_hub>=0.34,<1'
+
+      - name: Synchronize Search v0.10 production variables
+        id: variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ['HF_TOKEN'])
+          for key, value in {
+              'CLIMAFLORA_SEARCH_VECTOR_ENABLED': 'true',
+              'CLIMAFLORA_SEARCH_VECTOR_FALLBACK_ENABLED': 'true',
+              'CLIMAFLORA_SEARCH_VECTOR_CACHE_MB': '192',
+              'CLIMAFLORA_SUPABASE_URL': 'https://haclvcuxadvuigtefeqz.supabase.co',
+              'CLIMAFLORA_SUPABASE_ANON_KEY': 'sb_publishable_nmZ0ruh9PieRqbP3oJll6g_fDZzaIYe',
+              'CLIMAFLORA_STRIPE_PRICE_PLUS_MONTHLY': 'price_1U7ssA7pMOezeNU3ZX3Txwu7',
+              'CLIMAFLORA_STRIPE_PRICE_PLUS_YEARLY': 'price_1U7srv7pMOezeNU3OeoGXz7L',
+              'CLIMAFLORA_STRIPE_PRICE_PRO_MONTHLY': 'price_1U7ss77pMOezeNU34I3KrzuV',
+              'CLIMAFLORA_STRIPE_PRICE_PRO_YEARLY': 'price_1U7ss17pMOezeNU3kTXFBHMG',
+              'CLIMAFLORA_BILLING_ENABLED': 'true',
+          }.items():
+              api.add_space_variable(repo_id=os.environ['HF_SPACE_ID'], key=key, value=value)
+          print('Search and ClimaFlora billing variables synchronized; production billing enabled.')
+          PY
+
+      - name: Resolve expected runtime version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(python -c 'from app.version import APP_VERSION; print(APP_VERSION)')"
+          echo "EXPECTED_VERSION=$version" >> "$GITHUB_ENV"
+          echo "expected_version=$version" >> "$GITHUB_OUTPUT"
+          echo "Expected ClimaFlora runtime: $version"
+
+      - name: Publish runtime without touching production data
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          hf upload "$HF_SPACE_ID" . . \
+            --repo-type space \
+            --exclude '.git*' \
+            --exclude '.github/**' \
+            --exclude 'data/**' \
+            --commit-message "Deploy ClimaFlora runtime ${EXPECTED_VERSION} from GitHub ${GITHUB_SHA}"
+
+      - name: Wait for deployed runtime health
+        id: health
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, time, urllib.request
+          expected = os.environ['EXPECTED_VERSION']
+          url = 'https://gyamotab-climaflora-engine.hf.space/api/v1/health'
+          last = None
+          for attempt in range(120):
+              try:
+                  req = urllib.request.Request(url, headers={'Cache-Control': 'no-cache'})
+                  with urllib.request.urlopen(req, timeout=20) as response:
+                      payload = json.load(response)
+                  last = payload
+                  print(f'health {attempt + 1}/120', payload, flush=True)
+                  if payload.get('status') == 'ok' and payload.get('version') == expected:
+                      print(f'ClimaFlora runtime {expected} is live.', flush=True)
+                      raise SystemExit(0)
+              except Exception as exc:
+                  last = f'{type(exc).__name__}: {exc}'
+                  print(f'health wait {attempt + 1}/120: {last}', flush=True)
+              time.sleep(10)
+          raise SystemExit(f'Runtime {expected} did not become healthy: {last}')
+          PY
+
+      - name: Verify Search v0.10 production engine and cache
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, time, urllib.parse, urllib.request
+          base = 'https://gyamotab-climaflora-engine.hf.space/api/v1/recommendations/search'
+          def fetch(params):
+              url = base + '?' + urllib.parse.urlencode(params, doseq=True)
+              last = None
+              for attempt in range(5):
+                  try:
+                      req = urllib.request.Request(url, headers={'Cache-Control': 'no-cache'})
+                      with urllib.request.urlopen(req, timeout=120) as response:
+                          return json.load(response)
+                  except Exception as exc:
+                      last = exc
+                      print(f'search attempt {attempt + 1}/5 failed: {type(exc).__name__}: {exc}', flush=True)
+                      time.sleep(5)
+              raise last
+          common = {'lat':47.16,'lon':-1.27,'horizon':'2050','scenario':'MEDIUM','limit':1}
+          tree = fetch({**common, 'life_form':'TREE'})
+          assert tree['search_runtime']['engine'] == 'vector-v0.10', tree['search_runtime']
+          assert tree['metrics']['catalog_total'] == 420532
+          assert tree['metrics']['after_type'] == 42528
+          tree_food = fetch({**common, 'life_form':'TREE','function':['FOOD_HUMAN']})
+          assert tree_food['metrics']['after_function'] == 1907
+          hits = tree_food['search_runtime']['vector']['cache_hits']
+          assert hits == {'climate':True,'soil':True,'ranking':True}, hits
+          assert not any('repli automatique' in w for w in tree_food.get('warnings', []))
+          report = {
+              'engine': tree_food['search_runtime']['engine'],
+              'catalog_total': tree_food['metrics']['catalog_total'],
+              'tree_after_type': tree['metrics']['after_type'],
+              'tree_food_after_function': tree_food['metrics']['after_function'],
+              'cache_hits': hits,
+              'vector_request_seconds': tree_food['search_runtime']['vector']['request_runtime_seconds'],
+          }
+          print(json.dumps(report, separators=(',',':')))
+          with open('/tmp/search-v010-production-report.json','w',encoding='utf-8') as f:
+              json.dump(report,f)
+          PY
+          report="$(cat /tmp/search-v010-production-report.json)"
+          echo "production_report=$report" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize deployment outcome
+        id: summary
+        if: always()
+        shell: bash
+        run: |
+          failed=''
+          for pair in \
+            "checkout:${{ steps.checkout.outcome }}" \
+            "token:${{ steps.token.outcome }}" \
+            "install:${{ steps.install.outcome }}" \
+            "variables:${{ steps.variables.outcome }}" \
+            "version:${{ steps.version.outcome }}" \
+            "publish:${{ steps.publish.outcome }}" \
+            "health:${{ steps.health.outcome }}" \
+            "verify:${{ steps.verify.outcome }}"; do
+            stage="${pair%%:*}"; outcome="${pair#*:}"
+            echo "$stage=$outcome"
+            if [ -z "$failed" ] && [ "$outcome" = 'failure' ]; then failed="$stage"; fi
+          done
+          echo "failed_stage=$failed" >> "$GITHUB_OUTPUT"
+
+  persist-status:
+    if: always()
+    needs: deploy-runtime
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Write and persist production status
+        env:
+          DEPLOY_RESULT: ${{ needs.deploy-runtime.result }}
+          FAILED_STAGE: ${{ needs.deploy-runtime.outputs.failed_stage }}
+          EXPECTED_VERSION: ${{ needs.deploy-runtime.outputs.expected_version }}
+          PRODUCTION_REPORT: ${{ needs.deploy-runtime.outputs.production_report }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from app.version import APP_VERSION, METHOD_VERSION, CATALOG_SCHEMA_VERSION
+          raw = os.environ.get('PRODUCTION_REPORT','').strip()
+          try: report = json.loads(raw) if raw else None
+          except Exception: report = {'raw': raw}
+          payload = {
+              'status': 'ready' if os.environ.get('DEPLOY_RESULT') == 'success' else 'failed',
+              'run_id': os.environ.get('GITHUB_RUN_ID'),
+              'commit': os.environ.get('GITHUB_SHA'),
+              'branch': 'main',
+              'app_version': APP_VERSION,
+              'method_version': METHOD_VERSION,
+              'catalog_schema_version': CATALOG_SCHEMA_VERSION,
+              'deploy_result': os.environ.get('DEPLOY_RESULT'),
+              'failed_stage': os.environ.get('FAILED_STAGE') or None,
+              'expected_version': os.environ.get('EXPECTED_VERSION') or None,
+              'production_report': report,
+          }
+          Path('/tmp/status.json').write_text(json.dumps(payload,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps(payload,indent=2))
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/status.json .github/search-v010-production-status.json
+            git add .github/search-v010-production-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m "Record Search v0.10 production status [skip ci]"
+            git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1

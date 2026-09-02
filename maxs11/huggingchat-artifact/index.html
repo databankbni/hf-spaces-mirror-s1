@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Менеджер задач</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-light: #334155;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -1px rgba(0,0,0,0.2);
+        }
+        body.light {
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --surface-light: #e2e8f0;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+            transition: background 0.3s, color 0.3s;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        h1 { font-size: 1.75rem; font-weight: 700; }
+        .theme-btn {
+            background: var(--surface);
+            border: 1px solid var(--surface-light);
+            color: var(--text);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .theme-btn:hover { background: var(--surface-light); }
+        
+        .progress-bar {
+            background: var(--surface);
+            border-radius: 9999px;
+            height: 8px;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            height: 100%;
+            width: 0%;
+            border-radius: 9999px;
+            transition: width 0.4s ease;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        input[type="text"], select {
+            background: var(--surface);
+            border: 1px solid var(--surface-light);
+            color: var(--text);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus, select:focus { border-color: var(--primary); }
+        input[type="text"] { flex: 1; }
+        select { cursor: pointer; }
+        
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .btn:hover { background: var(--primary-hover); }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-small {
+            padding: 0.4rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        
+        .filters {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .filter-btn {
+            background: var(--surface);
+            border: 1px solid var(--surface-light);
+            color: var(--text-muted);
+            padding: 0.4rem 0.9rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .filter-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .filter-btn:hover:not(.active) {
+            background: var(--surface-light);
+            color: var(--text);
+        }
+        
+        .task-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .task-item {
+            background: var(--surface);
+            border: 1px solid var(--surface-light);
+            border-radius: 0.5rem;
+            padding: 0.875rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .task-item:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+        .task-item.completed .task-text {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+        .task-checkbox {
+            width: 1.25rem;
+            height: 1.25rem;
+            cursor: pointer;
+            accent-color: var(--success);
+            flex-shrink: 0;
+        }
+        .task-text {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+        .task-priority {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .priority-high { background: rgba(239,68,68,0.15); color: var(--danger); }
+        .priority-medium { background: rgba(245,158,11,0.15); color: var(--warning); }
+        .priority-low { background: rgba(16,185,129,0.15); color: var(--success); }
+        
+        .delete-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.25rem;
+            line-height: 1;
+            padding: 0.25rem;
+            transition: color 0.2s;
+        }
+        .delete-btn:hover { color: var(--danger); }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-muted);
+        }
+        .empty-state h3 { margin-bottom: 0.5rem; color: var(--text); }
+        
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--surface-light);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 Мои задачи</h1>
+            <button class="theme-btn" onclick="toggleTheme()">🌙 Тема</button>
+        </header>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        
+        <div class="stats">
+            <span id="totalTasks">Всего: 0</span>
+            <span id="completedTasks">Выполнено: 0</span>
+        </div>
+
+        <div class="input-group">
+            <input type="text" id="taskInput" placeholder="Что нужно сделать?" onkeypress="if(event.key==='Enter') addTask()">
+            <select id="prioritySelect">
+                <option value="low">Низкий</option>
+                <option value="medium" selected>Средний</option>
+                <option value="high">Высокий</option>
+            </select>
+            <button class="btn" onclick="addTask()">Добавить</button>
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active" onclick="setFilter('all')">Все</button>
+            <button class="filter-btn" onclick="setFilter('active')">Активные</button>
+            <button class="filter-btn" onclick="setFilter('completed')">Выполненные</button>
+        </div>
+
+        <ul class="task-list" id="taskList">
+            <li class="empty-state">
+                <h3>Нет задач</h3>
+                <p>Добавьте свою первую задачу выше</p>
+            </li>
+        </ul>
+
+        <div class="actions" id="actionsFooter" style="display: none;">
+            <span style="color: var(--text-muted); font-size: 0.875rem;">Нажмите Enter для добавления</span>
+            <button class="btn btn-small btn-danger" onclick="clearCompleted()">Удалить выполненные</button>
+        </div>
+    </div>
+
+    <script>
+        let tasks = [];
+        let filter = 'all';
+        let isLight = false;
+
+        function toggleTheme() {
+            isLight = !isLight;
+            document.body.classList.toggle('light', isLight);
+            document.querySelector('.theme-btn').textContent = isLight ? '☀️ Тема' : '🌙 Тема';
+        }
+
+        function addTask() {
+            const input = document.getElementById('taskInput');
+            const priority = document.getElementById('prioritySelect').value;
+            const text = input.value.trim();
+            
+            if (!text) return;
+            
+            tasks.push({
+                id: Date.now(),
+                text,
+                priority,
+                completed: false,
+                createdAt: new Date()
+            });
+            
+            input.value = '';
+            render();
+        }
+
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                render();
+            }
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            render();
+        }
+
+        function clearCompleted() {
+            tasks = tasks.filter(t => !t.completed);
+            render();
+        }
+
+        function setFilter(f) {
+            filter = f;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === getFilterLabel(f));
+            });
+            render();
+        }
+
+        function getFilterLabel(f) {
+            if (f === 'all') return 'Все';
+            if (f === 'active') return 'Активные';
+            if (f === 'completed') return 'Выполненные';
+        }
+
+        function getPriorityClass(p) {
+            if (p === 'high') return 'priority-high';
+            if (p === 'medium') return 'priority-medium';
+            return 'priority-low';
+        }
+
+        function getPriorityText(p) {
+            if (p === 'high') return 'Высокий';
+            if (p === 'medium') return 'Средний';
+            return 'Низкий';
+        }
+
+        function render() {
+            const list = document.getElementById('taskList');
+            const filtered = tasks.filter(t => {
+                if (filter === 'active') return !t.completed;
+                if (filter === 'completed') return t.completed;
+                return true;
+            });
+
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.completed).length;
+            const progress = total === 0 ? 0 : (completed / total) * 100;
+
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('totalTasks').textContent = `Всего: ${total}`;
+            document.getElementById('completedTasks').textContent = `Выполнено: ${completed}`;
+            
+            const footer = document.getElementById('actionsFooter');
+            footer.style.display = total > 0 ? 'flex' : 'none';
+
+            if (filtered.length === 0) {
+                list.innerHTML = `
+                    <li class="empty-state">
+                        <h3>${total === 0 ? 'Нет задач' : 'Нет задач в этой категории'}</h3>
+                        <p>${total === 0 ? 'Добавьте свою первую задачу выше' : 'Попробуйте другой фильтр или добавьте задачу'}</p>
+                    </li>
+                `;
+                return;
+            }
+
+            list.innerHTML = filtered.map(task => `
+                <li class="task-item ${task.completed ? 'completed' : ''}">
+                    <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
+                    <span class="task-text">${escapeHtml(task.text)}</span>
+                    <span class="task-priority ${getPriorityClass(task.priority)}">${getPriorityText(task.priority)}</span>
+                    <button class="delete-btn" onclick="deleteTask(${task.id})" title="Удалить">×</button>
+                </li>
+            `).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        render();
+    </script>
+</body>
+</html>
+<script data-huggingchat-badge="script">
+(function () {
+	try {
+		if (document.querySelector("[data-huggingchat-badge]:not(script)")) return;
+		var host = document.createElement("div");
+		host.setAttribute("data-huggingchat-badge", "");
+		var styles = [["all","initial"],["position","fixed"],["right","12px"],["bottom","12px"],["z-index","2147483647"],["display","block"],["visibility","visible"],["opacity","1"],["pointer-events","auto"],["width","auto"],["height","auto"],["margin","0"],["padding","0"],["max-width","none"],["max-height","none"],["transform","none"],["filter","none"],["clip-path","none"],["color-scheme","light"]];
+		for (var i = 0; i < styles.length; i++) {
+			host.style.setProperty(styles[i][0], styles[i][1], "important");
+		}
+		host.attachShadow({ mode: "closed" }).innerHTML = "<style>\n:host { all: initial; }\na {\n  display: flex;\n  align-items: center;\n  gap: 5px;\n  box-sizing: border-box;\n  height: 26px;\n  padding: 0 9px 0 7px;\n  border-radius: 999px;\n  border: 1px solid rgba(0, 0, 0, 0.07);\n  background: rgba(255, 255, 255, 0.92);\n  -webkit-backdrop-filter: saturate(180%) blur(8px);\n  backdrop-filter: saturate(180%) blur(8px);\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);\n  color: #111827;\n  font: 500 11px/1 ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  letter-spacing: 0.01em;\n  text-decoration: none;\n  white-space: nowrap;\n  opacity: 0.72;\n  transition: opacity 0.15s ease, transform 0.15s ease;\n}\na:hover, a:focus-visible { opacity: 1; transform: translateY(-1px); }\nsvg { width: 14px; height: 14px; flex: none; }\n@media print { a { display: none; } }\n<\/style><a href=\"https://huggingface.co/chat\" target=\"_blank\" rel=\"noopener noreferrer nofollow\"><svg viewBox=\"0 0 32 32\" fill=\"none\" aria-hidden=\"true\"><path d=\"M16.0006 25.9992C13.8266 25.999 11.7118 25.2901 9.97686 23.9799C8.2419 22.6698 6.98127 20.8298 6.38599 18.7388C5.79071 16.6478 5.89323 14.4198 6.678 12.3923C7.46278 10.3648 8.88705 8.64837 10.735 7.50308C12.5829 6.35779 14.7538 5.84606 16.9187 6.04544C19.0837 6.24481 21.1246 7.14442 22.7323 8.60795C24.34 10.0715 25.4268 12.0192 25.8281 14.1559C26.2293 16.2926 25.9232 18.5019 24.9561 20.449C24.7703 20.8042 24.7223 21.2155 24.8211 21.604L25.4211 23.8316C25.4803 24.0518 25.4805 24.2837 25.4216 24.5039C25.3627 24.7242 25.2468 24.925 25.0856 25.0862C24.9244 25.2474 24.7235 25.3633 24.5033 25.4222C24.283 25.4811 24.0512 25.4809 23.831 25.4217L21.6034 24.8217C21.2172 24.7248 20.809 24.7729 20.4558 24.9567C19.0683 25.6467 17.5457 26.0068 16.0006 26.0068V25.9992Z\" fill=\"currentColor\"/><path d=\"M9.62598 16.0013C9.62598 15.3799 10.1294 14.8765 10.7508 14.8765C11.3721 14.8765 11.8756 15.3799 11.8756 16.0013C11.8756 17.0953 12.3102 18.1448 13.0838 18.9184C13.8574 19.692 14.9069 20.1266 16.001 20.1267C17.095 20.1267 18.1445 19.692 18.9181 18.9184C19.6918 18.1448 20.1264 17.0953 20.1264 16.0013C20.1264 15.3799 20.6299 14.8765 21.2512 14.8765C21.8725 14.8765 22.3759 15.3799 22.3759 16.0013C22.3759 17.6921 21.7046 19.3137 20.509 20.5093C19.3134 21.7049 17.6918 22.3762 16.001 22.3762C14.3102 22.3762 12.6885 21.7049 11.4929 20.5093C10.2974 19.3137 9.62598 17.6921 9.62598 16.0013Z\" fill=\"#fff\"/><\/svg><span>Made with HuggingChat<\/span><\/a>";
+		function attach() {
+			var parent = document.body || document.documentElement;
+			if (parent && host.parentNode !== parent) parent.appendChild(host);
+		}
+		attach();
+		// Artifacts that rewrite document.body wholesale would drop the badge.
+		if (document.body && typeof MutationObserver === "function") {
+			new MutationObserver(attach).observe(document.body, { childList: true });
+		} else {
+			document.addEventListener("DOMContentLoaded", attach);
+		}
+	} catch (e) {}
+})();
+</script>

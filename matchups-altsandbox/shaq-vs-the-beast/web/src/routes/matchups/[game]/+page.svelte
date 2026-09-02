@@ -15,7 +15,8 @@
 		type GameLinescore,
 		type GameBoxscore,
 		type TeamBoxscore,
-		type BatterBoxLine
+		type BatterBoxLine,
+		type NextAtBat
 	} from '$lib/api';
 	import { ensureSim } from '$lib/simstore';
 	import { statusLabel, doubleheaderGame } from '$lib/gameStatus';
@@ -103,12 +104,59 @@
 		}
 	}
 
+	// The pitch-by-pitch forecast for the at-bat that hasn't started yet.
+	// Refreshed on the same poll as everything else in the live area, because
+	// the hitter it's about changes the moment the current one is out.
+	let nextAtBat = $state<NextAtBat | null>(null);
+	let nextAtBatLoading = $state(true);
+	// Its own timer, faster than the rest of the live area. The count moves
+	// between pitches, so a twenty-second refresh is stale for most of its
+	// life; the box score and the score line change far more slowly and would
+	// be wasted work at this rate. The server caches the payload for two
+	// seconds, so polling this hard costs one call to MLB every couple of
+	// seconds however many people are watching.
+	const AT_BAT_POLL_MS = 4_000;
+	let atBatTimer: ReturnType<typeof setTimeout> | null = null;
+	let atBatGen = 0;
+
+	async function refreshAtBat() {
+		const gen = ++atBatGen;
+		try {
+			const n = await api.nextAtBat(gameId);
+			// A slow response must never overwrite a fresher one — at four
+			// seconds a request can easily still be in flight when the next
+			// fires, and out-of-order writes would show a count that has
+			// already moved on.
+			if (gen === atBatGen) nextAtBat = n;
+		} catch (e) {
+			console.warn('next-at-bat fetch failed', e);
+		} finally {
+			if (gen === atBatGen) nextAtBatLoading = false;
+		}
+	}
+
+	function scheduleAtBatPoll() {
+		stopAtBatPoll();
+		if (liveGame?.status !== 'Live') return;
+		atBatTimer = setTimeout(async () => {
+			await refreshAtBat();
+			scheduleAtBatPoll();
+		}, AT_BAT_POLL_MS);
+	}
+
+	function stopAtBatPoll() {
+		if (atBatTimer !== null) {
+			clearTimeout(atBatTimer);
+			atBatTimer = null;
+		}
+	}
+
 	// Live game state (score/inning/status) — polled while the game is in progress.
 	let liveGame = $state<GameSchedule | null>(null);
 	let linescore = $state<GameLinescore | null>(null);
 	let linescoreLoading = $state(true);
 	let boxscore = $state<GameBoxscore | null>(null);
-	let livePollTimer: ReturnType<typeof setInterval> | null = null;
+	let livePollTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// "Live" while in progress, "Game Recap" once final; hidden for games that
 	// haven't started (Preview) or never got live data (odds/API unreachable).
@@ -191,18 +239,38 @@
 		// to show there — but only on this first load, and only if the user
 		// hasn't already clicked a tab themselves in the meantime.
 		if (!userPickedMode && liveTabLabel) mode = 'live';
-		livePollTimer = setInterval(() => {
-			// Only an in-progress game has anything left to refresh.
-			if (liveGame?.status === 'Live') refreshLiveGame();
-			else stopLivePolling();
-		}, 20_000);
+		scheduleLivePoll();
 	});
 
-	onDestroy(stopLivePolling);
+	onDestroy(() => {
+		stopLivePolling();
+		// A four-second timer left running after navigation is the kind of
+		// thing that quietly polls forever in a background tab.
+		stopAtBatPoll();
+	});
+
+	// Keeps watching before first pitch, not only during the game. The old
+	// version stopped the moment it saw a game that wasn't already Live, so a
+	// page opened pregame never noticed first pitch — it sat on Preview until
+	// someone reloaded it, and the Live tab it should have grown never appeared.
+	function scheduleLivePoll() {
+		stopLivePolling();
+		if (liveGame?.status === 'Final') return;
+		// Twenty seconds in-game so the score keeps up; a minute before it
+		// starts, where the only thing that can change is that it has.
+		const wait = liveGame?.status === 'Live' ? 20_000 : 60_000;
+		livePollTimer = setTimeout(async () => {
+			const wasFinal = liveGame?.status === 'Final';
+			await refreshLiveGame();
+			// The moment it goes final it can be graded against what happened.
+			if (!wasFinal && liveGame?.status === 'Final') loadAccuracy();
+			scheduleLivePoll();
+		}, wait);
+	}
 
 	function stopLivePolling() {
 		if (livePollTimer !== null) {
-			clearInterval(livePollTimer);
+			clearTimeout(livePollTimer);
 			livePollTimer = null;
 		}
 	}
@@ -256,6 +324,16 @@
 					})
 					.catch((e) => console.warn('boxscore fetch failed', e))
 			];
+			// The at-bat forecast runs on its own faster timer rather than
+			// riding this one — see `scheduleAtBatPoll`. Kicked here so it
+			// starts the moment the game is known to be live, and so a game
+			// that goes live mid-session picks it up.
+			if (game.status === 'Live' && atBatTimer === null) {
+				refreshAtBat();
+				scheduleAtBatPoll();
+			} else if (game.status !== 'Live') {
+				stopAtBatPoll();
+			}
 			await Promise.all(tasks);
 			// Keep the live projection tracking the game when auto-run is on.
 			if (game.status === 'Live' && liveSimAuto && !liveSimRunning) runLiveSim();
@@ -1111,12 +1189,245 @@
 								{#if linescore.situation.pitcher}
 									<div class="sit-line"><span class="sit-key">Pitching</span> {linescore.situation.pitcher}</div>
 								{/if}
+								{#if linescore.situation.on_deck}
+									<div class="sit-line"><span class="sit-key">On deck</span> {linescore.situation.on_deck}</div>
+								{/if}
 							</div>
 						</div>
 					</div>
 				{/if}
 			</div>
 		</details>
+
+		<!-- The at-bat that hasn't happened yet. Sits directly under the live
+		     situation because that's the state it's forecasting *from* — the
+		     hitter on deck against the pitcher currently on the mound.
+
+		     Everything here is a probability, and the panel is built so that it
+		     cannot be read as anything else: every row carries how likely it is
+		     to exist at all, and the single most likely exact sequence is
+		     printed with its own (small) odds so the rows can't be mistaken for
+		     a script of what is about to happen. -->
+		{#if liveGame?.status === 'Live'}
+			<details class="block" id="next-at-bat" open>
+				<summary>
+					{nextAtBat?.subject === 'on_deck' ? 'Next at-bat' : 'This at-bat'}
+					<span class="muted-inline">· pitch by pitch</span>
+				</summary>
+				<div class="block-body">
+					{#if nextAtBatLoading && !nextAtBat}
+						<div class="loading">Working out the next at-bat…</div>
+					{:else if !nextAtBat?.available}
+						<div class="loading">{nextAtBat?.reason ?? 'Nothing to forecast yet.'}</div>
+					{:else if nextAtBat.forecast}
+						{@const f = nextAtBat.forecast}
+						<div class="nab-head">
+							<div class="nab-who">
+								<span class="nab-label"
+									>{nextAtBat.subject === 'on_deck' ? 'Up next' : 'At the plate'}</span
+								>
+								<span class="nab-batter">{nextAtBat.batter}</span>
+								<span class="nab-vs">vs</span>
+								<span class="nab-pitcher">{nextAtBat.pitcher}</span>
+								<span class="nab-hands">
+									{nextAtBat.forecast.batter_hand}HB · {nextAtBat.forecast.pitcher_hand}HP
+								</span>
+								<!-- The count is part of who this forecast is about, not
+								     background detail: the same hitter at 0-0 and at 1-2 is
+								     two different propositions. -->
+								<span class="nab-oncount">on {f.start_count}</span>
+								<!-- Marked on the header rather than only in the note
+								     underneath: about a fifth of hitters on a night have no
+								     season line, and a baseline forecast that looks identical
+								     to a real one is the wrong kind of quiet. -->
+								{#if nextAtBat.batter_profile === 'league' || nextAtBat.pitcher_profile === 'league'}
+									<span class="nab-standin" title="No season line for this player yet">
+										league profile
+									</span>
+								{/if}
+							</div>
+							{#if nextAtBat.on_deck}
+								<div class="nab-sub">
+									On deck: {nextAtBat.on_deck}{#if nextAtBat.in_hole}
+										· in the hole: {nextAtBat.in_hole}{/if}
+								</div>
+							{/if}
+						</div>
+
+						<!-- The whole panel: how many more pitches, and how sure.
+						     A single expectation with no spread looks authoritative and
+						     says nothing — an at-bat that averages four pitches is very
+						     rarely four pitches — so the scale is not decoration. -->
+						<div class="nab-estimate">
+							<span class="nab-est-n">{f.likely_pitches}</span>
+							<span class="nab-est-t">
+								{f.start_count === '0-0' ? 'pitches' : 'more pitches'}
+								<span class="nab-est-sub">
+									{f.expected_pitches.toFixed(1)} average{#if f.started_expected_pitches !== null}
+										· {f.started_expected_pitches.toFixed(1)} at 0-0{/if}
+								</span>
+							</span>
+						</div>
+
+						<!-- More / exactly / fewer, as one bar. Neutral colours on
+						     purpose: a long at-bat is good news for one dugout and bad
+						     for the other, and nothing here should take a side. -->
+						<div class="nab-scale">
+							<div class="nab-scale-bar" aria-hidden="true">
+								<span class="scale fewer" style="width:{f.fewer_pct}%"></span>
+								<span class="scale same" style="width:{f.same_pct}%"></span>
+								<span class="scale more" style="width:{f.more_pct}%"></span>
+							</div>
+							<div class="nab-scale-keys">
+								<span class="k fewer"
+									>Fewer than {f.likely_pitches}<b>{f.fewer_pct.toFixed(0)}%</b></span
+								>
+								<span class="k same">Exactly {f.likely_pitches}<b>{f.same_pct.toFixed(0)}%</b></span>
+								<span class="k more"
+									>More than {f.likely_pitches}<b>{f.more_pct.toFixed(0)}%</b></span
+								>
+							</div>
+						</div>
+
+						<!-- The full shape behind those three numbers. -->
+						{@const peak = Math.max(...f.distribution.map((d) => d.pct), 1)}
+						<div class="nab-dist">
+							{#each f.distribution as d (d.n)}
+								<div class="nab-dbar" class:at={d.n === f.likely_pitches}>
+									<span class="nab-dv">{d.pct >= 5 ? d.pct.toFixed(0) : ''}</span>
+									<!-- The fill sits in its own fixed-height track. Without it
+									     the value label above only exists on some columns, and
+									     the bars stop sharing a baseline — which turns a
+									     distribution into a staircase. -->
+									<span class="nab-dtrack">
+										<span class="nab-dfill" style="height:{(d.pct / peak) * 100}%"
+										></span>
+									</span>
+									<span class="nab-dn">{d.n}{d.plus ? '+' : ''}</span>
+								</div>
+							{/each}
+						</div>
+						<div class="nab-dist-cap">
+							chance the at-bat ends on that pitch
+						</div>
+
+						<!-- How it ends, for context on why the length is what it is.
+						     A strikeout takes at least three pitches; a ball in play can
+						     take one. -->
+						<div class="nab-outcomes">
+							{#each [{ k: 'In play', v: f.in_play_pct, was: f.started_in_play_pct, c: 'ip' }, { k: 'Strikeout', v: f.strikeout_pct, was: f.started_strikeout_pct, c: 'k' }, { k: 'Walk', v: f.walk_pct, was: f.started_walk_pct, c: 'bb' }] as o (o.k)}
+								<div class="nab-out {o.c}">
+									<span class="nab-out-v">{o.v.toFixed(0)}%</span>
+									<span class="nab-out-k">{o.k}</span>
+									{#if o.was !== null && o.was !== undefined && Math.abs(o.v - o.was) >= 1}
+										<span class="nab-was">
+											{o.v > o.was ? '▲' : '▼'}
+											{Math.abs(o.v - o.was).toFixed(0)} from {o.was.toFixed(0)}%
+										</span>
+									{/if}
+								</div>
+							{/each}
+						</div>
+
+						{#each [...f.notes, ...nextAtBat.notes] as n}
+							<p class="nab-note">{n}</p>
+						{/each}
+					{/if}
+
+					<!-- The game-level countdown. Deliberately outside the branches
+					     above: it needs only the inning, so it survives a batter or
+					     a reliever we hold no profile for — and that reliever is
+					     exactly when somebody wants the number. -->
+					{#if nextAtBat?.team_pitches?.length}
+						<div class="tpc">
+							<div class="tpc-head">
+								Team pitches remaining
+								{#if nextAtBat.extra_innings}
+									<span class="tpc-extra">extras — current half only</span>
+								{/if}
+							</div>
+							<div class="tpc-teams">
+								{#each nextAtBat.team_pitches as t (t.side)}
+									<div class="tpc-team" class:on={t.is_pitching} class:over={t.over_estimate > 0}>
+										<div class="tpc-top">
+											<TeamLogo abbr={t.team} size={16} />
+											<span class="tpc-abbr">{t.team}</span>
+											{#if t.is_pitching}<span class="tpc-now">on the mound</span>{/if}
+										</div>
+										<!-- The estimate and the real count side by side. The
+										     estimate alone reads as arithmetic on the innings —
+										     which is what it was — so the number actually thrown
+										     sits next to it rather than in the small print.
+
+										     Past the estimate the left-hand figure stops counting
+										     down and starts counting up: insisting on a countdown
+										     once it has run out shows a zero that means nothing,
+										     when what you want is how far over they are. -->
+										<div class="tpc-nums">
+											<span class="tpc-fig">
+												{#if t.over_estimate > 0}
+													<span class="tpc-n over">+{t.over_estimate}</span>
+													<span class="tpc-nlab">over</span>
+												{:else}
+													<span class="tpc-n">{t.expected_remaining}</span>
+													<span class="tpc-nlab">{t.complete ? 'left' : 'more'}</span>
+												{/if}
+											</span>
+											{#if t.thrown !== null}
+												<span class="tpc-fig actual">
+													<span class="tpc-n thrown">{t.thrown}</span>
+													<span class="tpc-nlab">thrown</span>
+												</span>
+											{/if}
+										</div>
+										<!-- The bar is what makes it read as a countdown rather
+										     than as one more statistic. It fills red past the
+										     estimate rather than draining. -->
+										<div class="tpc-bar" aria-hidden="true">
+											{#if t.over_estimate > 0}
+												<span
+													class="over"
+													style="width:{Math.min(
+														100,
+														(t.over_estimate / t.expected_total) * 100
+													)}%"
+												></span>
+											{:else}
+												<span style="width:{Math.min(100, t.pct_remaining)}%"></span>
+											{/if}
+										</div>
+										<div class="tpc-sub">
+											{#if t.complete}
+												staff done
+											{:else}
+												{t.outs_remaining} out{t.outs_remaining === 1 ? '' : 's'} left
+											{/if}
+											{#if t.projected_total !== null}
+												· ~{t.projected_total} projected
+											{:else}
+												· ~{t.expected_total} typical
+											{/if}
+											{#if t.outs_recorded > 0 && t.thrown !== null}
+												<!-- Their own rate tonight, which is what the
+												     projection is actually built on. The league is
+												     5.4; a staff reading 6.8 is having a long night
+												     and the number to its left follows it. -->
+												· {t.pace.toFixed(1)}/out
+											{/if}
+										</div>
+									</div>
+								{/each}
+							</div>
+							<p class="nab-note tpc-note">
+								Each staff's own pitches per out so far, eased towards the league's
+								5.4 while the sample is small, against the outs they still have to
+								record. Not a per-pitcher projection — the arms change.
+							</p>
+						</div>
+					{/if}
+				</div>
+			</details>
+		{/if}
 
 		{#if awayLeaders.length || homeLeaders.length}
 			<details class="block" id="live-leaders" open>
@@ -1151,7 +1462,6 @@
 				</div>
 			</details>
 		{/if}
-
 		{#if boxscore && (boxscore.away.batters.length || boxscore.home.batters.length)}
 			<details class="block" id="live-boxscore" open>
 				<summary>Box score <span class="muted-inline">· full lineup, this game</span></summary>
@@ -1645,13 +1955,24 @@
 					<table class="stat-table">
 						<thead>
 							<tr>
-								<th class="name-col">Player</th><th>PA</th><th>H</th><th>HR</th><th>RBI</th><th>BB</th><th>K</th>
+								<th class="name-col">Player</th><th class="pos-col">Pos</th><th>PA</th><th>H</th><th>HR</th><th>RBI</th><th>BB</th><th>K</th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each boxLines as p (p.player_id)}
 								<tr>
 									<td class="name-col"><a class="player-link" href={`/players/${p.player_id}`}>{p.name}</a></td>
+									<!-- Blank rather than a dash when unknown: an empty cell reads as
+									     "not recorded", a placeholder reads as a position. Dimmed when
+									     it's his usual position rather than tonight's card — the DH
+									     only exists on the card, so without that distinction a lineup
+									     of nine fielders looks like a posted one. -->
+									<td
+										class="pos-col"
+										class:pos-usual={p.position_source === 'roster'}
+										title={p.position_source === 'roster'
+											? 'Usual position — MLB has not posted this lineup yet, so the DH is not assigned'
+											: undefined}>{p.position ?? ''}</td>
 									<td class="ro-cell">{(p.pa as number).toFixed(1)}</td>
 									{#each ['hits', 'home_runs'] as stat}
 										<td class="edit-cell">
@@ -2845,6 +3166,391 @@
 		color: var(--text);
 		font-weight: 900;
 	}
+	/* ── Next at-bat ──────────────────────────────────────────────────────
+	   Three colours do all the work and they map to the three things that can
+	   happen to a count, not to good/bad: strike, ball, ball in play. Nothing
+	   here should suggest an outcome is desirable — the same pitch is good
+	   news for one dugout and bad for the other. */
+	.nab-head {
+		margin-bottom: 0.8rem;
+	}
+	.nab-who {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0.45rem;
+	}
+	.nab-label {
+		font-size: 0.6rem;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--text-label);
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		padding: 0.1rem 0.45rem;
+	}
+	.nab-batter,
+	.nab-pitcher {
+		font-size: 0.95rem;
+		font-weight: 600;
+	}
+	.nab-vs {
+		color: var(--text-dim);
+		font-size: 0.75rem;
+	}
+	.nab-hands {
+		font-size: 0.65rem;
+		color: var(--text-label);
+	}
+	.nab-sub {
+		margin-top: 0.25rem;
+		font-size: 0.7rem;
+		color: var(--text-dim);
+	}
+	/* The count, treated as part of the subject line rather than as detail —
+	   the same hitter at 0-0 and at 1-2 is two different propositions. */
+	.nab-oncount {
+		font-size: 0.7rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: var(--text-dim);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		padding: 0.05rem 0.35rem;
+	}
+	/* A forecast built on a league baseline rather than this player's own line.
+	   Caveat-coloured so it reads as a qualification of the number beside it,
+	   not as another fact about the matchup. */
+	.nab-standin {
+		font-size: 0.58rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--caveat);
+		border: 1px solid var(--caveat);
+		border-radius: 4px;
+		padding: 0.05rem 0.3rem;
+		opacity: 0.85;
+	}
+	/* What the count has already done. Neutral in colour on purpose: a rising
+	   strikeout chance is good news for one dugout and bad for the other, and
+	   nothing here should take a side. */
+	.nab-was {
+		font-size: 0.58rem;
+		color: var(--text-label);
+		font-variant-numeric: tabular-nums;
+		margin-top: 0.15rem;
+	}
+	.nab-outcomes {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin-bottom: 0.9rem;
+	}
+	.nab-out {
+		flex: 1 1 5.5rem;
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		padding: 0.45rem 0.55rem;
+		background: var(--bg-badge);
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+	}
+	.nab-out-v {
+		font-size: 1.05rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+	}
+	.nab-out-k {
+		font-size: 0.62rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--text-label);
+	}
+	.nab-out.ip {
+		border-left: 2px solid #4a9d6f;
+	}
+	.nab-out.k {
+		border-left: 2px solid #c2604a;
+	}
+	.nab-out.bb {
+		border-left: 2px solid #5b7fc4;
+	}
+	.nab-out.hbp,
+	.nab-out.pitches {
+		border-left: 2px solid var(--border);
+	}
+	/* How long the at-bat runs, as a count of pitches rather than one more
+	   percentage. It sat in the tile row before and read as a probability. */
+	.nab-estimate {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+		padding: 0.5rem 0.7rem;
+		margin-bottom: 0.6rem;
+		border: 1px solid var(--border);
+		border-left: 2px solid var(--accent-pred);
+		border-radius: 6px;
+		background: var(--bg-badge);
+	}
+	.nab-est-n {
+		font-size: 1.5rem;
+		font-weight: 600;
+		line-height: 1;
+		font-variant-numeric: tabular-nums;
+	}
+	.nab-est-t {
+		font-size: 0.72rem;
+		color: var(--text-dim);
+	}
+	.nab-est-sub {
+		color: var(--text-label);
+		font-size: 0.66rem;
+	}
+	/* ── The scale ────────────────────────────────────────────────────────
+	   Fewer / exactly / more, as one bar. Neutral by design: a long at-bat is
+	   good news for one dugout and bad for the other, so nothing here reads as
+	   a verdict. The middle band is the lightest because "exactly" is the
+	   least interesting of the three. */
+	.nab-scale {
+		margin-bottom: 0.9rem;
+	}
+	.nab-scale-bar {
+		display: flex;
+		height: 0.65rem;
+		border-radius: 4px;
+		overflow: hidden;
+		background: var(--bg-surface);
+	}
+	.scale.fewer {
+		background: #4a7fa5;
+	}
+	.scale.same {
+		background: #6b7280;
+	}
+	.scale.more {
+		background: #a57a4a;
+	}
+	.nab-scale-keys {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.5rem;
+		margin-top: 0.35rem;
+		font-size: 0.66rem;
+		color: var(--text-label);
+	}
+	.nab-scale-keys .k {
+		display: flex;
+		flex-direction: column;
+	}
+	.nab-scale-keys .k:nth-child(2) {
+		text-align: center;
+	}
+	.nab-scale-keys .k:last-child {
+		text-align: right;
+	}
+	.nab-scale-keys b {
+		font-size: 0.95rem;
+		color: var(--text);
+		font-variant-numeric: tabular-nums;
+	}
+	.nab-scale-keys .k.fewer b {
+		color: #7fb0d4;
+	}
+	.nab-scale-keys .k.more b {
+		color: #d4a97f;
+	}
+
+	/* The full shape behind those three numbers. Small on purpose — it is the
+	   evidence for the scale above, not a second thing to read. */
+	.nab-dist {
+		display: flex;
+		align-items: stretch;
+		gap: 3px;
+		height: 4.4rem;
+	}
+	.nab-dbar {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+	/* Fixed height whether or not it holds a number, so every column's track
+	   starts at the same line and the bars can be compared by eye. */
+	.nab-dv {
+		height: 0.8rem;
+		font-size: 0.55rem;
+		color: var(--text-label);
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+	}
+	.nab-dtrack {
+		flex: 1;
+		width: 100%;
+		display: flex;
+		align-items: flex-end;
+	}
+	.nab-dfill {
+		width: 100%;
+		background: #3c5878;
+		border-radius: 2px 2px 0 0;
+		min-height: 1px;
+	}
+	.nab-dbar.at .nab-dfill {
+		background: #6b7280;
+	}
+	.nab-dbar.at .nab-dn {
+		color: var(--text);
+		font-weight: 600;
+	}
+	.nab-dn {
+		font-size: 0.6rem;
+		color: var(--text-label);
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+	}
+	/* ── Team pitch countdown ─────────────────────────────────────────────
+	   A game-level number sitting under an at-bat-level one, so it is fenced
+	   off with a rule rather than left to look like more of the same. */
+	.tpc {
+		margin-top: 0.9rem;
+		padding-top: 0.8rem;
+		border-top: 1px solid var(--border-faint);
+	}
+	.tpc-head {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+		font-size: 0.62rem;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--text-label);
+		margin-bottom: 0.5rem;
+	}
+	.tpc-extra {
+		text-transform: none;
+		letter-spacing: 0;
+		color: var(--caveat);
+	}
+	.tpc-teams {
+		display: flex;
+		gap: 0.5rem;
+	}
+	.tpc-team {
+		flex: 1;
+		border: 1px solid var(--border-faint);
+		border-radius: 6px;
+		padding: 0.5rem 0.6rem;
+		background: var(--bg-badge);
+	}
+	/* The staff actually on the mound. Marked, because its number is the one
+	   moving while you watch and the other is standing still. */
+	.tpc-team.on {
+		border-color: var(--border);
+		background: var(--bg-surface);
+	}
+	.tpc-top {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+	}
+	.tpc-abbr {
+		font-size: 0.72rem;
+		font-weight: 600;
+	}
+	.tpc-now {
+		margin-left: auto;
+		font-size: 0.56rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--accent-vegas);
+	}
+	/* Estimate on the left, real count on the right. The real one is the
+	   quieter of the two by design — it is context for the projection, not a
+	   rival headline — but it is present, which the estimate alone was not. */
+	.tpc-nums {
+		display: flex;
+		align-items: baseline;
+		gap: 0.75rem;
+	}
+	.tpc-fig {
+		display: flex;
+		align-items: baseline;
+		gap: 0.25rem;
+	}
+	.tpc-fig.actual {
+		margin-left: auto;
+	}
+	.tpc-n {
+		font-size: 1.6rem;
+		font-weight: 600;
+		line-height: 1.1;
+		font-variant-numeric: tabular-nums;
+	}
+	.tpc-n.thrown {
+		font-size: 1.15rem;
+		color: var(--text-dim);
+	}
+	.tpc-nlab {
+		font-size: 0.58rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--text-label);
+	}
+	.tpc-bar {
+		height: 0.3rem;
+		border-radius: 2px;
+		background: var(--bg-surface);
+		overflow: hidden;
+		margin: 0.2rem 0 0.25rem;
+	}
+	.tpc-team.on .tpc-bar {
+		background: var(--slate);
+	}
+	.tpc-bar span {
+		display: block;
+		height: 100%;
+		background: #4a7fa5;
+		border-radius: 2px;
+	}
+	/* Past the estimate. Warm rather than alarming — a long night for a
+	   bullpen is information, not a fault, and it reads the same whichever
+	   dugout you're sitting in. */
+	.tpc-team.over {
+		border-color: #6b4a3a;
+	}
+	.tpc-n.over,
+	.tpc-bar span.over {
+		color: #d99a6c;
+	}
+	.tpc-bar span.over {
+		background: #b5763f;
+	}
+	.tpc-sub {
+		font-size: 0.62rem;
+		color: var(--text-label);
+		font-variant-numeric: tabular-nums;
+	}
+	.tpc-note {
+		margin-top: 0.55rem;
+		color: var(--text-label);
+	}
+
+	.nab-dist-cap {
+		margin-top: 0.3rem;
+		margin-bottom: 0.9rem;
+		font-size: 0.62rem;
+		color: var(--text-label);
+	}
+
+	.nab-note {
+		margin: 0.4rem 0 0;
+		font-size: 0.66rem;
+		line-height: 1.45;
+		color: var(--caveat);
+		max-width: 62ch;
+	}
+
 	.situation-card {
 		border: 1px solid var(--border);
 		background: #0c1428;
@@ -3363,6 +4069,21 @@
 	}
 	.name-col {
 		text-align: left !important;
+	}
+	/* Narrow and quiet — it labels the name beside it rather than competing
+	   with the numbers, and every entry is two or three characters. */
+	.pos-col {
+		width: 2.6rem;
+		color: var(--text-label);
+		font-size: 0.72rem;
+		letter-spacing: 0.02em;
+		white-space: nowrap;
+	}
+	/* A usual position, not tonight's assignment — held at arm's length so it
+	   doesn't read as a posted card. */
+	.pos-usual {
+		opacity: 0.55;
+		font-style: italic;
 	}
 	.edit-hint {
 		color: var(--text-label);

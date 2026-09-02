@@ -15,28 +15,54 @@ from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 import uvicorn
 import threading
+from pymongo import MongoClient
 
-# সেটিংস (আপনার দেওয়া মানসমূহ)
+# সেটিংস
 API_ID = 23971860
 API_HASH = "cca89c8922958dd72c5ed1aec14049c3"
 SESSION_STRING = os.getenv("SESSION_STRING")
 SOURCE_CHANNEL_ID = -1001840799956
+MONGO_URI = os.getenv("MONGO_URI")
 
-# ডেস্টিনেশন গ্রুপ ও ফাইল ম্যানেজমেন্ট
-DEST_FILE = "destinations.json"
-JOINED_CHANNELS_FILE = "joined_channels.json"
+# MongoDB কানেকশন সেটআপ (কনফ্লিক্ট ফিক্স করা হয়েছে)
+db = None
+destinations_collection = None
 
-DEFAULT_DESTINATIONS = [
-    -1003487235934, -1003408214872, -1002300221011, -1003228142826, 
-    "@All_Free_Promote_Here", "@Free_Promotion_V2", "@Free_Promotions_Hero", 
-    "@free_promotion_group_21", "@freepromotionchannal", "@freepromotion_2026"
-]
+if MONGO_URI:
+    try:
+        final_uri = MONGO_URI.strip()
+        if "?" in final_uri:
+            if "tlsAllowInvalidCertificates" not in final_uri and "tlsInsecure" not in final_uri:
+                final_uri += "&tls=true&tlsAllowInvalidCertificates=true"
+        else:
+            final_uri += "?tls=true&tlsAllowInvalidCertificates=true"
+
+        mongo_client = MongoClient(final_uri, serverSelectionTimeoutMS=5000)
+        mongo_client.admin.command('ping')
+        db = mongo_client["telegram_bot_db"]
+        destinations_collection = db["destinations"]
+        print("✅ MongoDB-এর সাথে সফলভাবে কানেক্ট হয়েছে!")
+    except Exception as e:
+        print(f"❌ সঠিক MongoDB Error: {str(e)}")
 
 INTERVAL = 1700 
 
-app = FastAPI()
+def load_destinations():
+    db_list = []
+    if destinations_collection is not None:
+        try:
+            docs = list(destinations_collection.find({}, {"_id": 0, "target": 1}))
+            db_list = [d["target"] for d in docs]
+        except Exception as e:
+            print(f"Database read error: {e}")
+    return db_list
 
-# লাইভ লগ রাখার জন্য ডেটা স্ট্রাকচার (সর্বশেষ ১০০টি লগ রাখবে)
+JOINED_CHANNELS_FILE = "joined_channels.json"
+if not os.path.exists(JOINED_CHANNELS_FILE):
+    with open(JOINED_CHANNELS_FILE, "w") as f:
+        json.dump({}, f)
+
+app = FastAPI()
 live_logs = deque(maxlen=100)
 
 def log_event(message):
@@ -45,31 +71,19 @@ def log_event(message):
     print(formatted_msg)
     live_logs.append(formatted_msg)
 
-def load_destinations():
-    if not os.path.exists(DEST_FILE):
-        save_destinations(DEFAULT_DESTINATIONS)
-        return DEFAULT_DESTINATIONS
-    try:
-        with open(DEST_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return DEFAULT_DESTINATIONS
-
-def save_destinations(dest_list):
-    with open(DEST_FILE, "w") as f:
-        json.dump(dest_list, f, indent=4)
-
 def add_destination(new_target):
-    dest_list = load_destinations()
-    # সংখ্যা বা ইউজারনেম টাইপ সঠিক করতে ভ্যালিডেশন
     clean_target = int(new_target) if str(new_target).lstrip('-').isdigit() else str(new_target).strip()
     
-    # ডুপ্লিকেট চেক (স্ট্রিং ও ইন্টিজার সঠিকভাবে মেলানোর জন্য)
-    str_list = [str(x).lower() for x in dest_list]
-    if str(clean_target).lower() not in str_list:
-        dest_list.append(clean_target)
-        save_destinations(dest_list)
-        return True
+    if destinations_collection is not None:
+        try:
+            existing = destinations_collection.find_one({"target": clean_target})
+            if not existing:
+                destinations_collection.insert_one({"target": clean_target})
+                return True
+            return False
+        except Exception as e:
+            print(f"Database write error: {e}")
+            return False
     return False
 
 def load_joined_data():
@@ -82,15 +96,21 @@ def load_joined_data():
         return {}
 
 def save_joined_data(data):
-    with open(JOINED_CHANNELS_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+    try:
+        with open(JOINED_CHANNELS_FILE, "w") as f:
+            json.dump(data, f, indent=4)
+    except Exception as e:
+        print(f"Joined file write error: {e}")
 
-# ব্রাউজারে লাইভ লগ ও কন্ট্রোল দেখার ওয়েব পেজ
-@app.get("/logs", response_class=HTMLResponse)
+# UptimeRobot-এর জন্য পিং এন্ডপয়েন্ট যোগ করা হয়েছে
+@app.get("/ping", include_in_schema=False)
+def ping_server():
+    return {"status": "Alive", "time": datetime.datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")}
+
+@app.get("/logs", response_class=HTMLResponse, include_in_schema=False)
 def get_logs(msg: str = None, err: str = None):
     log_html = "".join([f"<p style='font-family: monospace; margin: 5px 0; border-bottom: 1px solid #222; padding-bottom: 3px;'>{log}</p>" for log in reversed(live_logs)])
     
-    # নোটিফিকেশন অ্যালার্ট
     notification = ""
     if msg == "success":
         notification = "<div style='background-color: #1b5e20; color: #fff; padding: 12px; border-radius: 5px; margin-bottom: 15px; font-weight: bold;'>✅ নতুন গ্রুপ/চ্যানেল সফলভাবে যোগ করা হয়েছে!</div>"
@@ -99,7 +119,7 @@ def get_logs(msg: str = None, err: str = None):
     elif msg == "error":
         notification = f"<div style='background-color: #b71c1c; color: #fff; padding: 12px; border-radius: 5px; margin-bottom: 15px; font-weight: bold;'>❌ ভুল হয়েছে: {err}</div>"
 
-    return f"""
+    html_content = f"""
     <html>
         <head>
             <title>Auto-Forwarder Control Panel</title>
@@ -121,7 +141,6 @@ def get_logs(msg: str = None, err: str = None):
             
             {notification}
             
-            <!-- নতুন গ্রুপ যোগ করার ফর্ম -->
             <div class="form-box">
                 <h3 style="color: #fff; margin-top: 0; margin-bottom: 12px;">➕ নতুন ডেস্টিনেশন গ্রুপ/চ্যানেল যোগ করুন</h3>
                 <form action="/add-web-group" method="post" style="display: flex; gap: 10px;">
@@ -137,12 +156,10 @@ def get_logs(msg: str = None, err: str = None):
         </body>
     </html>
     """
+    return HTMLResponse(content=html_content, status_code=200)
 
-@app.post("/add-web-group")
+@app.post("/add-web-group", include_in_schema=False)
 def api_add_web_group(target: str = Form(...)):
-    """
-    ওয়েব ফর্ম থেকে ডাটা রিসিভ করে ডুপ্লিকেট চেক করার ফাংশন
-    """
     try:
         added = add_destination(target)
         if added:
@@ -153,31 +170,16 @@ def api_add_web_group(target: str = Form(...)):
     except Exception as e:
         return RedirectResponse(url=f"/logs?msg=error&err={str(e)}", status_code=303)
 
-@app.get("/")
-@app.api_route("/", methods=["GET", "HEAD"])
+@app.get("/", include_in_schema=False)
 def read_root():
     return RedirectResponse(url="/logs")
-
-@app.post("/add-group")
-def api_add_group(target: str):
-    try:
-        added = add_destination(target)
-        if added:
-            return {"status": "Success", "message": f"'{target}' সফলভাবে যোগ করা হয়েছে।"}
-        else:
-            return {"status": "Exists", "message": f"'{target}' ইতিমধ্যে লিস্টে বিদ্যমান রয়েছে।"}
-    except Exception as e:
-        return {"status": "Error", "message": str(e)}
 
 def extract_telegram_target(link_or_text):
     if not link_or_text:
         return None
-        
     link = link_or_text.strip().rstrip(".,;!)[]{}")
-    
     if link.startswith("@"):
         return f"@{link.lstrip('@')}"
-        
     if "+" in link or "joinchat/" in link:
         match = re.search(r"(?:\+|joinchat/)([a-zA-Z0-9_-]+)", link)
         if match:
@@ -188,23 +190,19 @@ def extract_telegram_target(link_or_text):
             username = match.group(1)
             if username.lower() not in ["share", "addstickers", "joinchat", "s", "c"]:
                 return f"@{username}"
-                
     return None
 
 def extract_targets_from_message(chat_msg):
     targets = set()
     text = chat_msg.text or ""
-    
     usernames = re.findall(r"@([a-zA-Z0-9_]+)", text)
     for u in usernames:
         targets.add(f"@{u}")
-        
     links = re.findall(r"(?:https?://)?(?:t\.me|telegram\.me|telegram\.dog)/\S+", text)
     for link in links:
         parsed = extract_telegram_target(link)
         if parsed:
             targets.add(parsed)
-            
     if chat_msg.buttons:
         for row in chat_msg.buttons:
             for btn in row:
@@ -216,75 +214,70 @@ def extract_targets_from_message(chat_msg):
                     btn_usernames = re.findall(r"@([a-zA-Z0-9_]+)", btn.text)
                     for u in btn_usernames:
                         targets.add(f"@{u}")
-                        
     if chat_msg.entities:
         for entity in chat_msg.entities:
             if isinstance(entity, MessageEntityTextUrl):
                 parsed = extract_telegram_target(entity.url)
                 if parsed:
                     targets.add(parsed)
-                    
     return targets
 
 def is_mentioned_in_message(chat_msg, my_info):
-    """
-    মেসেজে আপনার অ্যাকাউন্টের নাম, আইডি বা ইউজারনেম মেনশন করা আছে কি না যাচাই করার জন্য বিশেষ ফিল্টার
-    """
     text = (chat_msg.text or "").lower()
     my_id = str(my_info["id"])
-    
-    # ১. সরাসরি আইডি টেক্সট চেক
     if my_id in text:
         return True
-        
-    # ২. টেলিগ্রাম ইন্টারনাল মেনশন সত্ত্বা (Entity) চেক
     if chat_msg.entities:
         for entity in chat_msg.entities:
             if isinstance(entity, MessageEntityMentionName) and str(entity.user_id) == my_id:
                 return True
-                
-    # ৩. ইমোজি বা অন্যান্য স্পেশাল ক্যারেক্টার ছাড়া নামের মূল অংশ চেক
+            if isinstance(entity, MessageEntityTextUrl) and f"id={my_id}" in (entity.url or ""):
+                return True
     first_name = my_info["first_name"] or ""
     clean_first = re.sub(r'[^\w\s]', '', first_name).strip().lower()
     if clean_first and clean_first in text:
         return True
-        
-    # নামের একাধিক শব্দ থাকলে বড় শব্দগুলো চেক করা
     if clean_first:
         words = [w for w in clean_first.split() if len(w) > 2]
         for w in words:
             if w in text:
                 return True
-                
-    # ৪. ইউজারনেম চেক
     username = my_info["username"].lower() if my_info["username"] else ""
     if username and username in text:
         return True
-        
     return False
 
-def is_warning_message(chat_msg, my_info):
-    """
-    গ্রুপের মেসেজটি আমাদের উদ্দেশ্যে পাঠানো জয়েনিং ওয়ার্নিং কি না তা ডিটেক্ট করা
-    """
+async def is_warning_message(chat_msg, my_info):
     if chat_msg.sender_id == my_info["id"]:
         return False
-        
-    # আমরা মেনশনড না থাকলে এটি অন্যদের সাধারণ বিজ্ঞাপন পোস্ট, কোনো ওয়ার্নিং নয়
     if not is_mentioned_in_message(chat_msg, my_info):
         return False
-        
+
+    is_safe_sender = False
+    try:
+        sender = await chat_msg.get_sender()
+        if sender:
+            if hasattr(sender, 'bot') and sender.bot:
+                is_safe_sender = True
+            elif hasattr(sender, 'broadcast') or hasattr(sender, 'megagroup'):
+                is_safe_sender = True
+    except Exception as e:
+        print(f"Error checking message sender safety: {e}")
+        return False
+
+    if not is_safe_sender:
+        return False
+
     text = (chat_msg.text or "").lower()
     
-    # সাবস্ক্রিপশন ওয়ার্নিং-এর সাধারণ কিওয়ার্ডসমূহ
-    keywords = ["subscribe", "join", "channels", "write in", "to write", "fsub", "force", "promotion", "group", "সদস্য", "জয়েন", "বাধ্যতামূলক", "সাবস্ক্রাইব"]
+    keywords = [
+        "subscribe", "join", "channels", "write in", "to write", "fsub", "force", "promotion", "group", "সদস্য", "জয়েন", "বাধ্যতামূলক", "সাবস্ক্রাইব",
+        "подписаться", "подпишитесь", "канал", "канала", "писать", "вступить", "вступите", "внимание"
+    ]
     has_keyword = any(kw in text for kw in keywords)
-    
     has_buttons = True if chat_msg.buttons else False
-    
     if has_keyword and (has_buttons or "@" in text or "t.me" in text):
         return True
-        
     return False
 
 async def join_target(client, target):
@@ -304,7 +297,7 @@ async def join_target(client, target):
             return True
     except UserAlreadyParticipantError:
         log_event(f"ℹ️ ইতিমধ্যে {target} চ্যানেলে জয়েন করা আছেন।")
-        return False  # ইতিমধ্যে জয়েনড থাকলে False যাতে ডাবল পোস্টিং লুপ ট্রিগার না হয়
+        return False
     except Exception as e:
         log_event(f"❌ জয়েন করতে ব্যর্থ {target}: {e}")
         return False
@@ -318,15 +311,11 @@ async def leave_channel_safely(client, channel_target):
                 await client(LeaveChannelRequest(entity))
                 log_event(f"🧹 ৭ দিন পূর্ণ হওয়ায় প্রাইভেট চ্যানেল থেকে লিভ নেওয়া হয়েছে: {channel_target}")
                 return True
-            except Exception as e_res:
-                try:
-                    entity = await client.get_entity(f"https://t.me/+{invite_hash}")
-                    await client(LeaveChannelRequest(entity))
-                    log_event(f"🧹 ৭ দিন পূর্ণ হওয়ায় প্রাইভেট চ্যানেল থেকে লিভ নেওয়া হয়েছে: {channel_target}")
-                    return True
-                except Exception as e_link:
-                    log_event(f"❌ প্রাইভেট চ্যানেল থেকে লিভ নিতে সম্পূর্ণ ব্যর্থ: {e_link}")
-                    return False
+            except Exception:
+                entity = await client.get_entity(f"https://t.me/+{invite_hash}")
+                await client(LeaveChannelRequest(entity))
+                log_event(f"🧹 ৭ দিন পূর্ণ হওয়ায় প্রাইভেট চ্যানেল থেকে লিভ নেওয়া হয়েছে: {channel_target}")
+                return True
         else:
             username = channel_target.lstrip('@')
             entity = await client.get_entity(username)
@@ -343,37 +332,29 @@ async def check_and_leave_old_channels(client):
             joined_data = load_joined_data()
             current_time = time.time()
             updated_data = {}
-            
             for channel, join_time in joined_data.items():
-                if current_time - join_time >= 604800: # ৭ দিন
+                if current_time - join_time >= 604800:
                     success = await leave_channel_safely(client, channel)
                     if not success:
                         updated_data[channel] = join_time
                 else:
                     updated_data[channel] = join_time
-                    
             save_joined_data(updated_data)
         except Exception as e:
             log_event(f"Cleanup error: {e}")
-            
         await asyncio.sleep(86400)
 
 async def scan_and_join_required_channels(client, group_id, my_info):
     log_event(f"🔍 {group_id} গ্রুপে কোনো ফোর্স-জয়েন নির্দেশিকা আছে কিনা স্ক্যান করা হচ্ছে...")
     joined_any = False
-    
-    # গ্রুপের সর্বশেষ ১০টি মেসেজ স্ক্যান করা হচ্ছে
     async for chat_msg in client.iter_messages(group_id, limit=10):
-        if is_warning_message(chat_msg, my_info):
+        if await is_warning_message(chat_msg, my_info):
             targets = extract_targets_from_message(chat_msg)
-            
-            # সোর্স আইডি, গ্রুপ আইডি বা নিজের ইউজারনেম ফিল্টার করা
             filtered_targets = []
             for target in targets:
                 clean_t = target.lower()
                 if clean_t not in [str(SOURCE_CHANNEL_ID).lower(), str(group_id).lower(), f"@{my_info['username'].lower()}"]:
                     filtered_targets.append(target)
-            
             if filtered_targets:
                 log_event(f"⚠️ {group_id}-এ ফোর্স-জয়েন লিংক সনাক্ত হয়েছে: {filtered_targets}")
                 for target in filtered_targets:
@@ -385,7 +366,6 @@ async def scan_and_join_required_channels(client, group_id, my_info):
                         save_joined_data(joined_data)
                         await asyncio.sleep(3)
                 break 
-                
     return joined_any
 
 async def start_repeater():
@@ -403,13 +383,12 @@ async def start_repeater():
         return
         
     if not await client.is_user_authorized():
-        log_event("❌ সেশন অথরাইজড নয়! আপনার SESSION_STRING মেয়াদোত্তীর্ণ বা ভুল। দয়া করে নতুন সেশন জেনারেট করে বসান।")
+        log_event("❌ সেশন অথরাইজড নয়! আপনার SESSION_STRING মেয়াদোত্তীর্ণ বা ভুল।")
         return
         
     log_event("⚙️ গ্রুপ এবং ডায়ালগগুলো লোড করা হচ্ছে...")
     await client.get_dialogs() 
     
-    # অ্যাকাউন্টের ইনফো লোড
     me = await client.get_me()
     my_info = {
         "id": me.id,
@@ -426,6 +405,11 @@ async def start_repeater():
         try:
             DESTINATION_GROUP_IDS = load_destinations()
             
+            if not DESTINATION_GROUP_IDS:
+                log_event("⚠️ ডাটাবেসে কোনো ডেস্টিনেশন গ্রুপ বা চ্যানেল পাওয়া যায়নি! ওয়েব প্যানেল থেকে নতুন গ্রুপ যোগ করুন।")
+                await asyncio.sleep(30)
+                continue
+
             last_msg = None
             async for message in client.iter_messages(SOURCE_CHANNEL_ID, limit=1):
                 last_msg = message
@@ -435,8 +419,16 @@ async def start_repeater():
                 for group_id in DESTINATION_GROUP_IDS:
                     try:
                         log_event(f"📨 মেসেজ পাঠানো হচ্ছে: {group_id}")
-                        await client.forward_messages(group_id, last_msg)
-                        log_event(f"✅ মেসেজ পাঠানো হয়েছে: {group_id}")
+                        try:
+                            await client.forward_messages(group_id, last_msg)
+                        except Exception as fw_err:
+                            log_event(f"⚠️ ফরোয়ার্ড করা যায়নি, সরাসরি মেসেজ পাঠানোর চেষ্টা করা হচ্ছে: {fw_err}")
+                            if last_msg.media:
+                                await client.send_file(group_id, last_msg.media, caption=last_msg.text or "")
+                            else:
+                                await client.send_message(group_id, last_msg.text or "")
+                        
+                        log_event(f"✅ মেসেজ পাঠানো সফল হয়েছে: {group_id}")
                         
                         await asyncio.sleep(4)
                         
@@ -444,7 +436,13 @@ async def start_repeater():
                         if joined:
                             log_event(f"🔄 প্রয়োজনীয় চ্যানেলে জয়েন সম্পন্ন! {group_id}-এ আবার মেসেজ পাঠানো হচ্ছে...")
                             await asyncio.sleep(3)
-                            await client.forward_messages(group_id, last_msg)
+                            try:
+                                await client.forward_messages(group_id, last_msg)
+                            except:
+                                if last_msg.media:
+                                    await client.send_file(group_id, last_msg.media, caption=last_msg.text or "")
+                                else:
+                                    await client.send_message(group_id, last_msg.text or "")
                             log_event(f"✅ পুনরায় মেসেজ পাঠানো সফল হয়েছে: {group_id}")
                         
                         await asyncio.sleep(5)
@@ -458,12 +456,18 @@ async def start_repeater():
                             if joined:
                                 try:
                                     await asyncio.sleep(5)
-                                    await client.forward_messages(group_id, last_msg)
+                                    try:
+                                        await client.forward_messages(group_id, last_msg)
+                                    except:
+                                        if last_msg.media:
+                                            await client.send_file(group_id, last_msg.media, caption=last_msg.text or "")
+                                        else:
+                                            await client.send_message(group_id, last_msg.text or "")
                                     log_event(f"✅ জয়েন করার পর মেসেজ সফলভাবে রি-ফরোয়ার্ড হয়েছে: {group_id}")
                                 except Exception as retry_err:
                                     log_event(f"❌ পুনরায় পাঠাতে ব্যর্থ {group_id}: {retry_err}")
             
-            log_event(f"💤 পরবর্তী ফরোয়ার্ডের জন্য {INTERVAL} SECOND অপেক্ষা করা হচ্ছে...")
+            log_event(f"💤 পরবর্তী ফরোয়ার্ডের জন্য {INTERVAL} সেকেন্ড অপেক্ষা করা হচ্ছে...")
             await asyncio.sleep(INTERVAL)
             
         except Exception as e:

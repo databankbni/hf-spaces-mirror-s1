@@ -10,11 +10,18 @@ Markets covered, in the two families the UI shows side by side:
   pitcher_prop strikeouts, outs, hits/walks/earned runs allowed
   batter_prop  hits, total bases, HR, RBI, walks, strikeouts, singles/doubles
 
+Prices come from PrizePicks, which is the only prop feed this app reads.
+PrizePicks posts no odds on a pick — the payout is on the slip — so its props
+arrive priced at the break-even a power play needs; that assumption travels onto
+the report as `pricing_note` so a page can say where its percentages came from
+rather than presenting them as quotes.
+
 Game lines — moneyline, run line, total — are deliberately not priced. The only
 feed reachable for them served a pregame number all game long, so a live price
 could not be told apart from a stale one; rather than keep shipping a figure
-that looked actionable and wasn't, they were removed outright. Sleeper carries
-no team markets, so there is nothing to put in their place.
+that looked actionable and wasn't, they were removed outright. PrizePicks is a
+player-props product and carries no team markets, so there is nothing to put in
+their place.
 
 Each family carries both pregame plays and plays on games already in progress.
 A live one is priced off a simulation that resumes from the current inning,
@@ -36,10 +43,6 @@ import numpy as np
 
 from .edge import evaluate_market
 from .odds import american_to_implied
-
-# The only source props come from — never the game-line book ESPN attributed
-# this game's moneyline/total to, which is a different feed entirely.
-_PROPS_BOOK = "Sleeper"
 
 PROPS_NOTE = (
     "No player props were priced: the props feed returned nothing reachable "
@@ -89,6 +92,10 @@ class BestBet:
     # Set on player props only; None on the game markets above.
     player: Optional[str] = None
     stat: Optional[str] = None
+    # The player's own club, from the prop feed. Carried so a card can say who
+    # it is without a second lookup — the game markets have away/home, but a
+    # prop needs to name which of the two the player is on.
+    team: Optional[str] = None
 
 
 @dataclass
@@ -100,6 +107,32 @@ class BestBetsReport:
     bets: list[dict] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     props_available: bool = False
+    # Which feed these prices came from, and — where the feed posts no prices
+    # at all — what the implied percentages were derived from instead. Carried
+    # on the report rather than left to the UI, so a page can never label a
+    # board with a source it wasn't built from.
+    book: str = ""
+    pricing_note: str = ""
+    # Prop accounting, so "PrizePicks clearly offers this and you don't show it"
+    # is answerable from the page instead of by reading the parser. Every
+    # place a prop can be lost has opposite-looking causes and identical
+    # symptoms: the feed never sent it, we couldn't map the market, or the
+    # player isn't in a lineup we simulated.
+    # What PrizePicks actually quoted, before anything of ours ran.
+    props_quoted: int = 0
+    # What survived the market mapping — i.e. markets we simulate.
+    props_offered: int = 0
+    props_unmatched: int = 0
+    prop_drops: dict = field(default_factory=dict)
+    # Per "side/stat": how many mapped props existed, and how many were on a
+    # player no lineup we simulated contains. A whole-board total can't answer
+    # "PrizePicks has six home-run props and you show one"; this can.
+    offered_by_stat: dict = field(default_factory=dict)
+    unmatched_by_stat: dict = field(default_factory=dict)
+    # {"<game_id>|<side>/<stat>": count}. Board-wide coverage is misleading the
+    # moment a game filter is on, and the game filter is how anyone actually
+    # compares this page to the app.
+    offered_by_game_stat: dict = field(default_factory=dict)
     live_games: int = 0
     # {category: how many plays cleared the bar}, so the UI can tell "nothing
     # qualified" apart from "this market family wasn't available at all".
@@ -264,6 +297,16 @@ def _smooth(p: float, n: int) -> float:
     return (p * n + 1.0) / (n + 2.0)
 
 
+def _by_stat(props_by_key: dict) -> dict:
+    """{"side/stat": count} over a bag of props, for the accounting panel."""
+    out: dict = {}
+    for props in props_by_key.values():
+        for pr in props:
+            key = f"{pr.side}/{pr.stat}"
+            out[key] = out.get(key, 0) + 1
+    return dict(sorted(out.items()))
+
+
 def _prop_category(side: str) -> str:
     return "pitcher_prop" if side == "pitcher" else "batter_prop"
 
@@ -328,10 +371,11 @@ def build_best_bets(
     can't run unbounded on a small host; whatever was priced before the budget
     ran out is returned.
     """
-    from ..data.sources.sleeper import SleeperPropsSource
+    from ..data.sources.prizepicks import BOOK, PrizePicksSource, pricing_note
     from ..pipeline import ensure_lineups, simulate_live_remainder
     from ..simcache import simulate_cached
 
+    props_book = BOOK
     deadline = time.monotonic() + budget_seconds
     notes: list[str] = []
     games = list(repo.get_schedule(day))
@@ -407,18 +451,38 @@ def build_best_bets(
     props_by_key: dict[tuple[bool, str, str], list] = {}
     props_fetched = 0
     props_live = 0
+    prop_drops: dict = {}
+    # A prop names the player's club, and a club is on exactly one game, so a
+    # prop can be attributed to a game before anything tries to match it to a
+    # lineup. That is what lets coverage be reported per game — and a
+    # board-wide "1 of 16" is worse than useless once a game filter is on.
+    team_game: dict[str, str] = {}
+    for g in games:
+        for t in (getattr(g, "home_team_id", None), getattr(g, "away_team_id", None)):
+            if t:
+                team_game[str(t).upper()] = g.game_id
+    offered_by_game: dict[str, int] = {}
     if props:
         try:
-            for pr in SleeperPropsSource().fetch_props():
+            for pr in PrizePicksSource().fetch_props(drops=prop_drops):
                 props_fetched += 1
                 props_live += 1 if pr.is_live else 0
                 props_by_key.setdefault(
                     (pr.is_live, pr.side, pr.player_key), []).append(pr)
+                gid = team_game.get(str(pr.team or "").upper())
+                if gid:
+                    ck = f"{gid}|{pr.side}/{pr.stat}"
+                    offered_by_game[ck] = offered_by_game.get(ck, 0) + 1
         except Exception:
             props_by_key = {}
 
     bets: list[BestBet] = []
     props_priced = 0
+    # Prop keys that found a player in some simulated lineup. The ones that
+    # never do are the quiet loss: PrizePicks quotes a bench bat or someone we
+    # projected out of the card, and the prop simply isn't on the board with
+    # nothing anywhere saying why.
+    matched_keys: set = set()
 
     # ── 3. Compare ───────────────────────────────────────────────────────────
     for g in games:
@@ -443,13 +507,14 @@ def build_best_bets(
         common = dict(
             game_id=gid, away=g.away_team_id, home=g.home_team_id,
             first_pitch=str(fp) if fp else None,
-            book=_PROPS_BOOK,
+            book=props_book,
             lineups_confirmed=confirmed,
         )
 
         def add(market: str, selection: str, p: float, n_sims: int,
                 price: int, line: Optional[float], player: Optional[str] = None,
-                stat: Optional[str] = None, category: str = "batter_prop") -> None:
+                stat: Optional[str] = None, category: str = "batter_prop",
+                team: Optional[str] = None) -> None:
             p = _smooth(p, n_sims)
             e = evaluate_market(gid, market, p, n_sims, price, kelly_fraction)
             bets.append(BestBet(
@@ -461,7 +526,7 @@ def build_best_bets(
                 kelly_pct=round(e.recommended_stake_pct * 100, 2),
                 ci_low=round(e.confidence_interval_95[0], 4),
                 ci_high=round(e.confidence_interval_95[1], 4),
-                n_sims=n_sims, player=player, stat=stat,
+                n_sims=n_sims, player=player, stat=stat, team=team,
                 category=category, is_live=is_live, **common,
             ))
 
@@ -470,6 +535,8 @@ def build_best_bets(
         if props_by_key:
             targets = _prop_targets(repo, raw, season)
             for (side, key), target in targets.items():
+                if (is_live, side, key) in props_by_key:
+                    matched_keys.add((is_live, side, key))
                 for prop in props_by_key.get((is_live, side, key), ()):
                     hist = target[1].get(prop.stat)
                     if not hist:
@@ -498,11 +565,11 @@ def build_best_bets(
                     if prop.over_price is not None:
                         add("prop_over", f"{who} Over {prop.line:g} {label}",
                             p_over, pn, prop.over_price, prop.line, who, prop.stat,
-                            category=cat)
+                            category=cat, team=prop.team)
                     if prop.under_price is not None:
                         add("prop_under", f"{who} Under {prop.line:g} {label}",
                             p_under, pn, prop.under_price, prop.line, who, prop.stat,
-                            category=cat)
+                            category=cat, team=prop.team)
                     props_priced += 1
 
     # ── 4. Rank, within each family ──────────────────────────────────────────
@@ -538,12 +605,17 @@ def build_best_bets(
     if props_priced:
         notes.append(f"{props_priced} player props priced against our per-player "
                      f"simulated distributions ({props_fetched} quoted by "
-                     f"{_PROPS_BOOK}).")
+                     f"{props_book}).")
     elif props:
         notes.append(PROPS_NOTE)
     notes.append(
-        f"Player props only, from {_PROPS_BOOK}. Team markets are not priced: "
+        f"Player props only, from {props_book}. Team markets are not priced: "
         "the endpoint serving them has not been identified.")
+    # Where the implied percentages come from, when they aren't quoted odds.
+    # A pick'em board's "needs 57.7%" is an assumption of ours and has to read
+    # as one, not as a price somebody posted.
+    if (pn := pricing_note()):
+        notes.append(pn)
     if live_count:
         notes.append(f"{live_count} game(s) in progress priced off a simulation of "
                      f"the remaining innings ({props_live} live props quoted).")
@@ -562,6 +634,17 @@ def build_best_bets(
         bets=[asdict(b) for b in ranked],
         notes=notes,
         props_available=props_priced > 0,
+        book=props_book,
+        pricing_note=pricing_note(),
+        props_quoted=props_fetched + sum(prop_drops.values()),
+        props_offered=props_fetched,
+        props_unmatched=sum(len(v) for k, v in props_by_key.items()
+                            if k not in matched_keys),
+        prop_drops=dict(sorted(prop_drops.items(), key=lambda kv: -kv[1])[:20]),
+        offered_by_stat=_by_stat(props_by_key),
+        offered_by_game_stat=offered_by_game,
+        unmatched_by_stat=_by_stat({k: v for k, v in props_by_key.items()
+                                    if k not in matched_keys}),
         live_games=live_count,
         counts=counts,
         priced_counts=priced_counts,

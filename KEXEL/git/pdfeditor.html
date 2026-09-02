@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced PDF Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .pdf-container {
+            position: relative;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .canvas-container {
+            margin: 0 auto;
+            text-align: center;
+            position: relative;
+        }
+        .annotation {
+            position: absolute;
+            border: 2px dashed #3b82f6;
+            background-color: rgba(59, 130, 246, 0.2);
+            cursor: move;
+        }
+        .annotation.selected {
+            border: 2px solid #ef4444;
+            z-index: 100;
+        }
+        .annotation-text {
+            width: 100%;
+            height: 100%;
+            padding: 5px;
+            resize: none;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-family: Arial, sans-serif;
+        }
+        .tooltip {
+            position: absolute;
+            background: #1f2937;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        .tooltip.active {
+            opacity: 0.9;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 flex items-center">
+                <i class="fas fa-file-pdf text-red-500 mr-3"></i>
+                Advanced PDF Editor
+            </h1>
+            <p class="text-gray-600 mt-2">Upload, annotate, and modify your PDF documents with ease</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Tools Panel -->
+            <div class="bg-white rounded-lg shadow p-4 lg:col-span-1">
+                <h2 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <i class="fas fa-tools mr-2"></i> Tools
+                </h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Upload PDF</label>
+                        <div class="relative">
+                            <input type="file" id="pdf-upload" accept=".pdf" class="hidden">
+                            <label for="pdf-upload" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-4 rounded border border-blue-200 flex items-center justify-center cursor-pointer transition">
+                                <i class="fas fa-cloud-upload-alt mr-2"></i>
+                                Choose File
+                            </label>
+                            <div id="file-name" class="text-xs text-gray-500 mt-1 truncate"></div>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-gray-200">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Annotation Tools</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button id="text-tool" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded flex flex-col items-center justify-center tool-btn active" data-tool="text">
+                                <i class="fas fa-font mb-1"></i>
+                                <span class="text-xs">Text</span>
+                            </button>
+                            <button id="highlight-tool" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded flex flex-col items-center justify-center tool-btn" data-tool="highlight">
+                                <i class="fas fa-highlighter mb-1"></i>
+                                <span class="text-xs">Highlight</span>
+                            </button>
+                            <button id="rectangle-tool" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded flex flex-col items-center justify-center tool-btn" data-tool="rectangle">
+                                <i class="fas fa-square mb-1"></i>
+                                <span class="text-xs">Rectangle</span>
+                            </button>
+                            <button id="freehand-tool" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded flex flex-col items-center justify-center tool-btn" data-tool="freehand">
+                                <i class="fas fa-pen mb-1"></i>
+                                <span class="text-xs">Freehand</span>
+                            </button>
+                            <button id="stamp-tool" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded flex flex-col items-center justify-center tool-btn" data-tool="stamp">
+                                <i class="fas fa-stamp mb-1"></i>
+                                <span class="text-xs">Stamp</span>
+                            </button>
+                            <button id="eraser-tool" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded flex flex-col items-center justify-center tool-btn" data-tool="eraser">
+                                <i class="fas fa-eraser mb-1"></i>
+                                <span class="text-xs">Eraser</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-gray-200">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Properties</label>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Color</label>
+                                <input type="color" id="color-picker" value="#3b82f6" class="w-full h-8 cursor-pointer">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Opacity</label>
+                                <input type="range" id="opacity-slider" min="10" max="100" value="50" class="w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Font Size</label>
+                                <select id="font-size" class="w-full border border-gray-200 rounded p-1 text-sm">
+                                    <option value="12">12px</option>
+                                    <option value="14">14px</option>
+                                    <option value="16" selected>16px</option>
+                                    <option value="18">18px</option>
+                                    <option value="20">20px</option>
+                                    <option value="24">24px</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-gray-200">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Pages</label>
+                        <div id="page-thumbnails" class="space-y-2 max-h-40 overflow-y-auto">
+                            <div class="text-center text-gray-500 py-4">
+                                <i class="fas fa-file-upload text-2xl mb-2"></i>
+                                <p class="text-sm">Upload a PDF to view pages</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Editor Area -->
+            <div class="bg-white rounded-lg shadow p-4 lg:col-span-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-gray-700 flex items-center">
+                        <i class="fas fa-edit mr-2"></i> Editor
+                    </h2>
+                    <div class="flex space-x-2">
+                        <button id="zoom-in" class="bg-gray-100 hover:bg-gray-200 text-gray-800 p-2 rounded">
+                            <i class="fas fa-search-plus"></i>
+                        </button>
+                        <button id="zoom-out" class="bg-gray-100 hover:bg-gray-200 text-gray-800 p-2 rounded">
+                            <i class="fas fa-search-minus"></i>
+                        </button>
+                        <button id="download-pdf" class="bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-4 rounded border border-blue-200 flex items-center">
+                            <i class="fas fa-file-download mr-2"></i>
+                            Download
+                        </button>
+                    </div>
+                </div>
+
+                <div id="pdf-container" class="pdf-container h-[70vh] bg-gray-100 rounded-lg flex items-center justify-center">
+                    <div id="pdf-placeholder" class="text-center p-8">
+                        <i class="fas fa-file-pdf text-5xl text-gray-300 mb-4"></i>
+                        <h3 class="text-xl font-medium text-gray-500 mb-2">No PDF Loaded</h3>
+                        <p class="text-gray-400 mb-4">Upload a PDF file to start editing</p>
+                        <label for="pdf-upload" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-6 rounded cursor-pointer inline-block">
+                            <i class="fas fa-cloud-upload-alt mr-2"></i>
+                            Select PDF File
+                        </label>
+                    </div>
+                    <div id="pdf-viewer" class="hidden w-full h-full relative overflow-auto">
+                        <div id="canvas-container" class="canvas-container"></div>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <button id="prev-page" class="bg-gray-100 hover:bg-gray-200 text-gray-800 p-2 rounded disabled:opacity-50" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span id="page-info" class="text-sm text-gray-600">Page: 0/0</span>
+                        <button id="next-page" class="bg-gray-100 hover:bg-gray-200 text-gray-800 p-2 rounded disabled:opacity-50" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        <span id="zoom-level">100%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 bg-white rounded-lg shadow p-4">
+            <h2 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                <i class="fas fa-history mr-2"></i> Recent Actions
+            </h2>
+            <div id="action-history" class="text-sm text-gray-600">
+                <div class="text-center text-gray-400 py-4">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    No actions recorded yet
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        // Initialize PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+        
+        // Variables
+        let pdfDoc = null;
+        let pageNum = 1;
+        let pageRendering = false;
+        let pageNumPending = null;
+        let scale = 1.0;
+        let canvas = null;
+        let ctx = null;
+        let currentTool = 'text';
+        let annotations = [];
+        let selectedAnnotation = null;
+        let isDragging = false;
+        let startX, startY;
+        let currentPage = 1;
+        let pdfName = '';
+        let actionHistory = [];
+        
+        // DOM Elements
+        const pdfUpload = document.getElementById('pdf-upload');
+        const pdfViewer = document.getElementById('pdf-viewer');
+        const pdfPlaceholder = document.getElementById('pdf-placeholder');
+        const canvasContainer = document.getElementById('canvas-container');
+        const pageInfo = document.getElementById('page-info');
+        const prevPage = document.getElementById('prev-page');
+        const nextPage = document.getElementById('next-page');
+        const zoomIn = document.getElementById('zoom-in');
+        const zoomOut = document.getElementById('zoom-out');
+        const zoomLevel = document.getElementById('zoom-level');
+        const downloadPdf = document.getElementById('download-pdf');
+        const toolButtons = document.querySelectorAll('.tool-btn');
+        const colorPicker = document.getElementById('color-picker');
+        const opacitySlider = document.getElementById('opacity-slider');
+        const fontSizeSelect = document.getElementById('font-size');
+        const pageThumbnails = document.getElementById('page-thumbnails');
+        const actionHistoryContainer = document.getElementById('action-history');
+        const fileNameDisplay = document.getElementById('file-name');
+        const tooltip = document.getElementById('tooltip');
+        
+        // Event Listeners
+        pdfUpload.addEventListener('change', handleFileSelect);
+        prevPage.addEventListener('click', onPrevPage);
+        nextPage.addEventListener('click', onNextPage);
+        zoomIn.addEventListener('click', () => changeZoom(0.2));
+        zoomOut.addEventListener('click', () => changeZoom(-0.2));
+        downloadPdf.addEventListener('click', downloadModifiedPdf);
+        
+        // Tool buttons
+        toolButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                toolButtons.forEach(btn => btn.classList.remove('active', 'bg-blue-100', 'border-blue-300'));
+                button.classList.add('active', 'bg-blue-100', 'border-blue-300');
+                currentTool = button.dataset.tool;
+                addActionToHistory(`Switched to ${button.dataset.tool} tool`);
+            });
+        });
+        
+        // Initialize first tool as active
+        document.getElementById('text-tool').classList.add('active', 'bg-blue-100', 'border-blue-300');
+        
+        // Functions
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file && file.type === 'application/pdf') {
+                pdfName = file.name;
+                fileNameDisplay.textContent = file.name;
+                
+                const fileReader = new FileReader();
+                fileReader.onload = function() {
+                    const typedArray = new Uint8Array(this.result);
+                    loadPdf(typedArray);
+                };
+                fileReader.readAsArrayBuffer(file);
+                
+                addActionToHistory(`Uploaded PDF: ${file.name}`);
+            } else {
+                alert('Please select a valid PDF file.');
+            }
+        }
+        
+        function loadPdf(data) {
+            pdfjsLib.getDocument(data).promise.then(function(pdfDoc_) {
+                pdfDoc = pdfDoc_;
+                pageInfo.textContent = `Page: 1/${pdfDoc.numPages}`;
+                
+                // Enable/disable buttons
+                prevPage.disabled = true;
+                nextPage.disabled = pdfDoc.numPages <= 1;
+                
+                // Show PDF viewer and hide placeholder
+                pdfViewer.classList.remove('hidden');
+                pdfPlaceholder.classList.add('hidden');
+                
+                // Render first page
+                renderPage(1);
+                
+                // Generate thumbnails
+                generateThumbnails();
+            }).catch(function(error) {
+                console.error('Error loading PDF:', error);
+                alert('Error loading PDF. Please try another file.');
+            });
+        }
+        
+        function renderPage(num) {
+            pageRendering = true;
+            currentPage = num;
+            
+            // Update page display
+            pageInfo.textContent = `Page: ${num}/${pdfDoc.numPages}`;
+            
+            // Update button states
+            prevPage.disabled = num <= 1;
+            nextPage.disabled = num >= pdfDoc.numPages;
+            
+            // Clear previous canvas
+            canvasContainer.innerHTML = '';
+            
+            // Create new canvas
+            canvas = document.createElement('canvas');
+            canvas.className = 'pdf-page';
+            canvasContainer.appendChild(canvas);
+            ctx = canvas.getContext('2d');
+            
+            // Get page
+            pdfDoc.getPage(num).then(function(page) {
+                const viewport = page.getViewport({ scale: scale });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                // Render PDF page into canvas context
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+                
+                const renderTask = page.render(renderContext);
+                
+                renderTask.promise.then(function() {
+                    pageRendering = false;
+                    if (pageNumPending !== null) {
+                        renderPage(pageNumPending);
+                        pageNumPending = null;
+                    }
+                    
+                    // Render annotations for this page
+                    renderAnnotations();
+                });
+            });
+            
+            // Highlight current page in thumbnails
+            highlightCurrentThumbnail(num);
+        }
+        
+        function onPrevPage() {
+            if (pageNum <= 1) {
+                return;
+            }
+            pageNum--;
+            queueRenderPage(pageNum);
+            addActionToHistory(`Navigated to page ${pageNum}`);
+        }
+        
+        function onNextPage() {
+            if (pageNum >= pdfDoc.numPages) {
+                return;
+            }
+            pageNum++;
+            queueRenderPage(pageNum);
+            addActionToHistory(`Navigated to page ${pageNum}`);
+        }
+        
+        function queueRenderPage(num) {
+            if (pageRendering) {
+                pageNumPending = num;
+            } else {
+                renderPage(num);
+            }
+        }
+        
+        function changeZoom(delta) {
+            const newScale = scale + delta;
+            if (newScale >= 0.2 && newScale <= 3.0) {
+                scale = newScale;
+                zoomLevel.textContent = `${Math.round(scale * 100)}%`;
+                queueRenderPage(pageNum);
+                addActionToHistory(`Zoom changed to ${Math.round(scale * 100)}%`);
+            }
+        }
+        
+        function generateThumbnails() {
+            pageThumbnails.innerHTML = '';
+            
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const thumbContainer = document.createElement('div');
+                thumbContainer.className = 'relative cursor-pointer group';
+                thumbContainer.dataset.page = i;
+                
+                const thumbCanvas = document.createElement('canvas');
+                thumbCanvas.className = 'border border-gray-200 w-full';
+                
+                const pageNum = document.createElement('div');
+                pageNum.className = 'absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded';
+                pageNum.textContent = i;
+                
+                thumbContainer.appendChild(thumbCanvas);
+                thumbContainer.appendChild(pageNum);
+                
+                // Render thumbnail
+                pdfDoc.getPage(i).then(function(page) {
+                    const viewport = page.getViewport(0.2);
+                    thumbCanvas.height = viewport.height;
+                    thumbCanvas.width = viewport.width;
+                    
+                    page.render({
+                        canvasContext: thumbCanvas.getContext('2d'),
+                        viewport: viewport
+                    });
+                });
+                
+                // Click event to navigate to page
+                thumbContainer.addEventListener('click', function() {
+                    pageNum = parseInt(this.dataset.page);
+                    queueRenderPage(pageNum);
+                    addActionToHistory(`Navigated to page ${pageNum} via thumbnail`);
+                });
+                
+                // Hover effect
+                thumbContainer.addEventListener('mouseenter', function() {
+                    this.classList.add('ring-2', 'ring-blue-400');
+                });
+                
+                thumbContainer.addEventListener('mouseleave', function() {
+                    if (parseInt(this.dataset.page) !== currentPage) {
+                        this.classList.remove('ring-2', 'ring-blue-400');
+                    }
+                });
+                
+                pageThumbnails.appendChild(thumbContainer);
+            }
+        }
+        
+        function highlightCurrentThumbnail(pageNum) {
+            const thumbs = pageThumbnails.querySelectorAll('[data-page]');
+            thumbs.forEach(thumb => {
+                if (parseInt(thumb.dataset.page) === pageNum) {
+                    thumb.classList.add('ring-2', 'ring-blue-500');
+                } else {
+                    thumb.classList.remove('ring-2', 'ring-blue-500');
+                }
+            });
+        }
+        
+        // Annotation functions
+        function renderAnnotations() {
+            // Clear existing annotations
+            const existingAnnotations = canvasContainer.querySelectorAll('.annotation');
+            existingAnnotations.forEach(ann => ann.remove());
+            
+            // Filter annotations for current page
+            const pageAnnotations = annotations.filter(ann => ann.page === currentPage);
+            
+            // Render each annotation
+            pageAnnotations.forEach(annotation => {
+                const annElement = document.createElement('div');
+                annElement.className = 'annotation';
+                annElement.dataset.id = annotation.id;
+                
+                // Position and size
+                annElement.style.left = `${annotation.x}px`;
+                annElement.style.top = `${annotation.y}px`;
+                annElement.style.width = `${annotation.width}px`;
+                annElement.style.height = `${annotation.height}px`;
+                
+                // Style based on type
+                if (annotation.type === 'text') {
+                    const textarea = document.createElement('textarea');
+                    textarea.className = 'annotation-text';
+                    textarea.value = annotation.content || '';
+                    textarea.style.color = annotation.color;
+                    textarea.style.fontSize = `${annotation.fontSize}px`;
+                    textarea.style.opacity = annotation.opacity / 100;
+                    
+                    // Update annotation content when text changes
+                    textarea.addEventListener('input', function() {
+                        const ann = annotations.find(a => a.id === annotation.id);
+                        if (ann) ann.content = this.value;
+                    });
+                    
+                    annElement.appendChild(textarea);
+                } else if (annotation.type === 'highlight') {
+                    annElement.style.backgroundColor = annotation.color;
+                    annElement.style.opacity = annotation.opacity / 100;
+                } else if (annotation.type === 'rectangle') {
+                    annElement.style.border = `2px solid ${annotation.color}`;
+                    annElement.style.backgroundColor = 'transparent';
+                }
+                
+                // Selection
+                if (selectedAnnotation && selectedAnnotation.id === annotation.id) {
+                    annElement.classList.add('selected');
+                }
+                
+                // Event listeners for interaction
+                annElement.addEventListener('mousedown', startAnnotationDrag);
+                annElement.addEventListener('mouseup', stopAnnotationDrag);
+                annElement.addEventListener('dblclick', deleteAnnotation);
+                
+                canvasContainer.appendChild(annElement);
+            });
+        }
+        
+        function createAnnotation(e) {
+            if (!canvas || currentTool === 'eraser') return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const newAnnotation = {
+                id: Date.now().toString(),
+                type: currentTool,
+                page: currentPage,
+                x: x,
+                y: y,
+                width: currentTool === 'text' ? 200 : 100,
+                height: currentTool === 'text' ? 50 : 30,
+                color: colorPicker.value,
+                opacity: opacitySlider.value,
+                fontSize: fontSizeSelect.value,
+                content: ''
+            };
+            
+            annotations.push(newAnnotation);
+            selectedAnnotation = newAnnotation;
+            
+            renderAnnotations();
+            
+            // Focus textarea if it's a text annotation
+            if (currentTool === 'text') {
+                setTimeout(() => {
+                    const textarea = canvasContainer.querySelector('.annotation.selected textarea');
+                    if (textarea) textarea.focus();
+                }, 10);
+            }
+            
+            addActionToHistory(`Added ${currentTool} annotation`);
+        }
+        
+        function startAnnotationDrag(e) {
+            if (e.target.tagName === 'TEXTAREA') return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const annotationId = e.currentTarget.dataset.id;
+            selectedAnnotation = annotations.find(ann => ann.id === annotationId);
+            
+            // Update all annotations to show selected state
+            renderAnnotations();
+            
+            // Start drag
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            document.addEventListener('mousemove', dragAnnotation);
+            document.addEventListener('mouseup', stopAnnotationDrag);
+        }
+        
+        function dragAnnotation(e) {
+            if (!isDragging || !selectedAnnotation) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            
+            selectedAnnotation.x += dx;
+            selectedAnnotation.y += dy;
+            
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            renderAnnotations();
+        }
+        
+        function stopAnnotationDrag() {
+            isDragging = false;
+            document.removeEventListener('mousemove', dragAnnotation);
+            document.removeEventListener('mouseup', stopAnnotationDrag);
+            
+            if (selectedAnnotation) {
+                addActionToHistory(`Moved ${selectedAnnotation.type} annotation`);
+            }
+        }
+        
+        function deleteAnnotation(e) {
+            e.stopPropagation();
+            
+            const annotationId = e.currentTarget.dataset.id;
+            const annotationIndex = annotations.findIndex(ann => ann.id === annotationId);
+            
+            if (annotationIndex !== -1) {
+                const deletedAnnotation = annotations[annotationIndex];
+                annotations.splice(annotationIndex, 1);
+                selectedAnnotation = null;
+                
+                renderAnnotations();
+                addActionToHistory(`Deleted ${deletedAnnotation.type} annotation`);
+            }
+        }
+        
+        // Canvas click handler for creating new annotations
+        canvasContainer.addEventListener('mousedown', function(e) {
+            if (e.target === canvasContainer || e.target === canvas) {
+                createAnnotation(e);
+            }
+        });
+        
+        // Tooltip handling
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', function() {
+                const tooltipText = this.dataset.tooltip;
+                tooltip.textContent = tooltipText;
+                tooltip.classList.add('active');
+                
+                const rect = this.getBoundingClientRect();
+                tooltip.style.left = `${rect.left + rect.width / 2 - tooltip.offsetWidth / 2}px`;
+                tooltip.style.top = `${rect.top - tooltip.offsetHeight - 5}px`;
+            });
+            
+            el.addEventListener('mouseleave', function() {
+                tooltip.classList.remove('active');
+            });
+        });
+        
+        // Download modified PDF
+        function downloadModifiedPdf() {
+            if (!pdfDoc) {
+                alert('No PDF loaded');
+                return;
+            }
+            
+            addActionToHistory('Initiated PDF download');
+            
+            // In a real implementation, you would use jsPDF or similar to create a new PDF
+            // with the annotations. This is a simplified version that just alerts.
+            
+            alert('In a full implementation, this would download the modified PDF with all annotations.');
+            
+            // For demonstration, we'll create a simple download of the original file
+            if (pdfUpload.files.length > 0) {
+                const file = pdfUpload.files[0];
+                const url = URL.createObjectURL(file);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `modified_${file.name}`;
+                document.body.appendChild(a);
+                a.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 0);
+            }
+        }
+        
+        // Action history
+        function addActionToHistory(action) {
+            const timestamp = new Date().toLocaleTimeString();
+            actionHistory.unshift({ action, timestamp });
+            
+            if (actionHistory.length > 10) {
+                actionHistory.pop();
+            }
+            
+            updateActionHistoryDisplay();
+        }
+        
+        function updateActionHistoryDisplay() {
+            if (actionHistory.length === 0) {
+                actionHistoryContainer.innerHTML = `
+                    <div class="text-center text-gray-400 py-4">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        No actions recorded yet
+                    </div>
+                `;
+                return;
+            }
+            
+            actionHistoryContainer.innerHTML = '';
+            
+            actionHistory.forEach(item => {
+                const actionElement = document.createElement('div');
+                actionElement.className = 'flex justify-between items-center py-2 border-b border-gray-100';
+                
+                const actionText = document.createElement('span');
+                actionText.textContent = item.action;
+                actionText.className = 'text-gray-700';
+                
+                const actionTime = document.createElement('span');
+                actionTime.textContent = item.timestamp;
+                actionTime.className = 'text-gray-500 text-xs';
+                
+                actionElement.appendChild(actionText);
+                actionElement.appendChild(actionTime);
+                actionHistoryContainer.appendChild(actionElement);
+            });
+        }
+    </script>
+</body>
+</html>

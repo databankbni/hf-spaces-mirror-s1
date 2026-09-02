@@ -23,6 +23,37 @@ from raagafinder.features.pitch_utils import hz_to_cents, voiced_mask
 # and blending them would be worse than not blending at all.
 MIN_CLASS_OVERLAP = 0.8
 
+# How many windows of a section the sequence model scores before averaging.
+#
+# Cost is linear in this and accuracy is not. Measured over 329 recordings,
+# every third one of the corpus, comparing the shipped model against itself:
+#
+#     windows   top-1    top-3
+#          12   0.8267   0.9301
+#           8   0.8359   0.9271
+#           6   0.8267   0.9179
+#           4   0.7872   0.9119
+#
+# Flat down to six and falling from four. Eight is a third cheaper than the
+# twelve this used to be, with top-1 and top-3 both inside a recording or two
+# of it, and it keeps a margin above the point where the curve turns. Six
+# would halve the cost but gives up a point of top-3, which the app shows.
+#
+# Most of those recordings were in the model's training set, which makes the
+# absolute numbers optimistic and does NOT undermine the comparison: the
+# question is how much the later windows add, and the model is being asked
+# about itself at both settings. The one fold it never trained on agrees on
+# the shape -- 0.818 at twelve, 0.808 at eight, 0.828 at six, 0.737 at four.
+#
+# One inconsistency this leaves, stated rather than hidden: the out-of-fold
+# matrices the blend weight and the temperature were fitted on were produced
+# at twelve windows, so the calibration is very slightly tuned for a
+# distribution the app no longer produces. Averaging eight samples instead of
+# twelve leaves a marginally less smooth distribution, which a temperature
+# absorbs almost entirely. It resolves itself at the next full refit and does
+# not justify one on its own.
+DEFAULT_WINDOWS = 8
+
 
 class ClassAlignment:
     """Union class space for two models with overlapping-but-unequal classes.
@@ -78,8 +109,46 @@ class LstmComponent:
         # (scripts/fit_shortclip_blend.py; the within-model analog of
         # section corroboration)
         self.short_agree_min: float = float(m.get("short_agree_min", 0.6))
+        # Post-hoc correction for the corpus's long tail: divide by the
+        # training frequency raised to tail_tau (scripts/fit_logit_adjust.py).
+        # Zero when absent, so a sidecar written before this existed keeps
+        # behaving exactly as it did.
+        self.tail_tau: float = float(m.get("tail_tau", 0.0))
+        self.class_counts: dict = m.get("class_counts", {})
+        self._prior: np.ndarray | None = None
+        # Class prototypes: the mean pooled embedding of each class's
+        # recordings, mixed into this stage's output before the ensemble
+        # blend. The head and the prototypes fail on different
+        # recordings, so mixing recovers disagreement rather than
+        # averaging two correlated opinions; measured out-of-fold at
+        # +2.5 points end to end, at a temperature and weight chosen on
+        # a different model's surface. Absent from older sidecars, in
+        # which case this stage behaves exactly as it did before.
+        self.proto: np.ndarray | None = None
+        self.proto_tau: float = float(m.get("prototype_tau", 0.05))
+        self.proto_w: float = float(m.get("prototype_w", 0.0))
+        pf = Path(meta_path).with_suffix("").with_suffix(".protos.npy")
+        if self.proto_w > 0 and pf.exists():
+            p = np.load(pf).astype(np.float32)
+            if p.shape == (len(self.classes), 768):
+                self.proto = p
+        self._emb_name: str | None = None
         # set by pipeline._lstm_component once the ensemble is known
         self.align: ClassAlignment | None = None
+
+    def tail_prior(self) -> np.ndarray:
+        """Training frequency of each union class, in alignment order.
+
+        Built here rather than stored as a vector because the union order is
+        decided at load time by align_classes and the sidecar cannot know it.
+        A class the sidecar has no count for is floored at one recording,
+        which places it at the rare end instead of dividing by zero.
+        """
+        if self._prior is None:
+            c = np.array([max(int(self.class_counts.get(k, 1)), 1)
+                          for k in self.align.classes], dtype=np.float64)
+            self._prior = c / c.sum()
+        return self._prior
 
     def mix(self, ens_probs: np.ndarray, lstm_probs: np.ndarray, w=None):
         """The union-space blend, before calibration.
@@ -103,6 +172,13 @@ class LstmComponent:
         p = np.zeros(len(a.classes))
         p[a.scatter] = lstm_probs
         blend = np.where(a.both, w * e + (1.0 - w) * p, e + p)
+        # The tail correction goes here, inside the function the weight is
+        # fitted through, so that the temperature and the uncertain thresholds
+        # are fitted against the distribution that actually ships. Applying it
+        # further downstream would leave both calibrated for a blend the app
+        # no longer produces.
+        if self.tail_tau:
+            blend = blend / self.tail_prior() ** self.tail_tau
         return blend / blend.sum()
 
     def combine(self, ens_probs: np.ndarray, lstm_probs: np.ndarray):
@@ -129,7 +205,8 @@ class LstmComponent:
         return tok
 
     def probs(self, f0_hz: np.ndarray, hop_s: float, tonic_hz: float,
-              max_windows: int = 12, return_agreement: bool = False):
+              max_windows: int = DEFAULT_WINDOWS,
+              return_agreement: bool = False):
         """Mean softmax over evenly spaced SEQ_LEN windows with enough voiced
         content. None if nothing usable (too short / mostly unvoiced).
         With return_agreement, returns (probs, fraction of windows whose
@@ -150,11 +227,32 @@ class LstmComponent:
                 wins.append(x)
         if not wins:
             return None
-        logits = self.sess.run(
-            ["logits"], {"tokens": np.stack(wins).astype(np.int64)}
-        )[0]
+        feed = {"tokens": np.stack(wins).astype(np.int64)}
+        if self.proto is None:
+            logits = self.sess.run(["logits"], feed)[0]
+            emb = None
+        else:
+            # the pooled context vector is an internal node, so ask for it
+            # by name once and remember whether this graph exposes it; a
+            # model exported before prototypes existed simply will not,
+            # and the stage falls back to the head alone
+            if self._emb_name is None:
+                names = {o.name for o in self.sess.get_outputs()}
+                self._emb_name = ("embedding" if "embedding" in names
+                                  else "")
+            if self._emb_name:
+                logits, emb = self.sess.run(["logits", self._emb_name], feed)
+            else:
+                logits, emb = self.sess.run(["logits"], feed)[0], None
         e = np.exp(logits - logits.max(axis=1, keepdims=True))
         pw = e / e.sum(axis=1, keepdims=True)
+        if emb is not None:
+            v = emb / (np.linalg.norm(emb, axis=1, keepdims=True) + 1e-9)
+            s = (v @ self.proto.T) / self.proto_tau
+            s -= s.max(axis=1, keepdims=True)
+            ps = np.exp(s)
+            ps /= ps.sum(axis=1, keepdims=True)
+            pw = (1.0 - self.proto_w) * pw + self.proto_w * ps
         p = pw.mean(axis=0)
         if return_agreement:
             agree = float(np.mean(pw.argmax(axis=1) == int(p.argmax())))

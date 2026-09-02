@@ -5,7 +5,7 @@ import hashlib
 
 from app.config import Settings
 from app.frontmatter import serialise
-from app.hub import HubIdentity, ListedFile, OrgMemberRole
+from app.hub import HubIdentity, ListedFile, OrgMemberRole, PRComment, PRThread, PullRequest
 from app.naming import SourceURI, parse_source_uri
 
 
@@ -37,6 +37,19 @@ class FakeHub:
         self.org_member_role_by_email_fails = False
         self.org_member_roles_calls = 0
         self.org_member_role_by_email_calls = 0
+        # ── dataset PR simulation (curation) ──
+        # {repo: {path: bytes}} = each dataset's main branch.
+        self.datasets: dict[str, dict[str, bytes]] = {}
+        # {num: {...}} = open/closed/merged PRs across datasets.
+        self._prs: dict[int, dict] = {}
+        self._pr_seq = 0
+        self.merged_prs: list[int] = []
+        self.closed_prs: list[int] = []
+        self.pr_comments_posted: list[tuple[int, str]] = []
+        self.dataset_uploads: list[tuple[str, str]] = []
+        # Every dataset file read, in order — lets a test assert that a caller
+        # consulted the tree instead of probing for files that aren't there.
+        self.dataset_reads: list[str] = []
 
     # ── helpers ──────────────────────────────────────────────────────
     def _central(self) -> dict[str, bytes]:
@@ -192,6 +205,101 @@ class FakeHub:
         if self.org_member_roles_fails:
             raise RuntimeError("members lookup failed")
         return {u.lower(): r for u, r in self.org_roles.items()}
+
+
+    # ── dataset PR surface (curation) ────────────────────────────────
+    def seed_dataset_file(self, repo: str, path: str, data: bytes | str) -> None:
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+        self.datasets.setdefault(repo, {})[path] = data
+
+    def add_pr(
+        self, repo: str, *, author: str, description: str, title: str = "",
+        files: dict | None = None, removes: list[str] | None = None,
+        comments: list[tuple[str, str]] | None = None, conflicts: list[str] | None = None,
+    ) -> int:
+        self.datasets.setdefault(repo, {})
+        self._pr_seq += 1
+        num = self._pr_seq
+        added = {p: (d.encode("utf-8") if isinstance(d, str) else d)
+                 for p, d in (files or {}).items()}
+        # PR description is the first comment on the thread.
+        thread = [(author, description)] + list(comments or [])
+        self._prs[num] = {
+            "repo": repo, "author": author, "title": title or f"PR #{num}",
+            "description": description, "added": added, "removed": list(removes or []),
+            "comments": thread, "status": "open", "conflicts": list(conflicts or []),
+        }
+        return num
+
+    def comment_on_pr(self, num: int, author: str, text: str) -> None:
+        self._prs[num]["comments"].append((author, text))
+
+    def list_dataset_prs(self, repo: str, status: str = "open") -> list[PullRequest]:
+        out = []
+        for num, pr in sorted(self._prs.items()):
+            if pr["repo"] != repo:
+                continue
+            if status and pr["status"] != status:
+                continue
+            out.append(PullRequest(num=num, title=pr["title"], author=pr["author"],
+                                   status=pr["status"]))
+        return out
+
+    def get_pr_thread(self, repo: str, num: int) -> PRThread:
+        pr = self._prs[num]
+        comments = [PRComment(author=a, text=t) for a, t in pr["comments"]]
+        return PRThread(description=pr["description"], comments=comments,
+                        conflicting_files=list(pr["conflicts"]))
+
+    def _pr_files(self, num: int) -> dict[str, bytes]:
+        pr = self._prs[num]
+        files = dict(self.datasets.get(pr["repo"], {}))
+        files.update(pr["added"])
+        for p in pr["removed"]:
+            files.pop(p, None)
+        return files
+
+    def list_dataset_tree(self, repo: str, revision: str = "main") -> dict[str, str]:
+        if revision.startswith("refs/pr/"):
+            num = int(revision.rsplit("/", 1)[-1])
+            files = self._pr_files(num)
+        else:
+            files = self.datasets.get(repo, {})
+        return {p: hashlib.sha256(d).hexdigest() for p, d in files.items()}
+
+    def read_dataset_bytes(self, repo: str, path: str, revision: str = "main") -> bytes | None:
+        self.dataset_reads.append(path)
+        if revision.startswith("refs/pr/"):
+            return self._pr_files(int(revision.rsplit("/", 1)[-1])).get(path)
+        return self.datasets.get(repo, {}).get(path)
+
+    def merge_pr(self, repo: str, num: int, comment: str | None = None) -> bool:
+        pr = self._prs[num]
+        if pr["conflicts"]:
+            return False
+        main = self.datasets.setdefault(repo, {})
+        main.update(pr["added"])
+        for p in pr["removed"]:
+            main.pop(p, None)
+        pr["status"] = "merged"
+        self.merged_prs.append(num)
+        return True
+
+    def close_pr(self, repo: str, num: int) -> bool:
+        self._prs[num]["status"] = "closed"
+        self.closed_prs.append(num)
+        return True
+
+    def comment_pr(self, repo: str, num: int, comment: str) -> bool:
+        self._prs[num]["comments"].append(("merge-bot", comment))
+        self.pr_comments_posted.append((num, comment))
+        return True
+
+    def upload_dataset_file(self, repo: str, path_in_repo: str, data: bytes, message: str) -> bool:
+        self.datasets.setdefault(repo, {})[path_in_repo] = data
+        self.dataset_uploads.append((repo, path_in_repo))
+        return True
 
 
 class FakeJobRunner:

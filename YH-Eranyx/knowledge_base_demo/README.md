@@ -14,6 +14,24 @@ pinned: false
 
 Upload a PDF and ask questions grounded in that document.
 
+## Website embed (16:9 hero)
+
+Use the Space's direct `*.hf.space` URL (or `?embed=true`) so Hugging Face chrome stays out of the iframe:
+
+```html
+<div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:16px;overflow:hidden;">
+  <iframe
+    src="https://YOUR-USERNAME-YOUR-SPACE.hf.space"
+    title="RAG Knowledge Base"
+    style="position:absolute;inset:0;width:100%;height:100%;border:0;"
+    allow="clipboard-write"
+    loading="lazy"
+  ></iframe>
+</div>
+```
+
+The app is scrollable, so the full RAG explainer sits under the chat UI in both the Space page and the website iframe.
+
 ## Secrets / Variables
 
 - `GROQ_API_KEY` (secret): required

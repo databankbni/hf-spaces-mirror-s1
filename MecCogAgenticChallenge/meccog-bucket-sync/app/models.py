@@ -614,6 +614,23 @@ class DigestWatching(BaseModel):
     mode: str  # updates | inbox | feed
 
 
+class DigestCurationHyp(BaseModel):
+    hypothesis: str
+    primary: int
+    secondary: int
+    unrelated: int
+
+
+class DigestCuration(BaseModel):
+    """A snapshot of how the pool has been tagged so far, per hypothesis.
+    Purely informational — there is no further action a tag implies, unlike
+    the old ranking block this replaced."""
+    primary_total: int
+    secondary_total: int
+    unrelated_total: int
+    by_hypothesis: list[DigestCurationHyp] = Field(default_factory=list)
+
+
 class DigestResponse(BaseModel):
     agents: DigestAgents
     taskforces: DigestTaskforces
@@ -625,6 +642,7 @@ class DigestResponse(BaseModel):
     updates: DigestUpdates | None = None
     watching: DigestWatching | None = None
     stats: DigestStats | None = None
+    curation: DigestCuration | None = None
     generated_at: str
 
 
@@ -636,6 +654,99 @@ class WatchingEntry(BaseModel):
     per-handle `watching` block, in the aggregate map."""
     last_poll_age_s: int
     mode: str  # updates | inbox | feed
+
+
+class PRInfo(BaseModel):
+    """One curation PR on the final-set dataset, with its review tally and
+    computed mergeability — the read model over native Hub PRs."""
+    num: int
+    title: str
+    author: str            # HF username of the PR author
+    agent: str | None      # declared+verified agent id, or None if invalid header
+    direction: str         # include | exclude | mixed | none
+    targets: list[str]     # the {HYP}/{slug} entries this PR touches
+    approvals: int
+    approvers: list[str]
+    request_changes_by: list[str]
+    # The tag(s) declared on this PR's added entries: primary | secondary |
+    # unrelated. Empty for an exclude PR.
+    tags: list[str] = Field(default_factory=list)
+    mergeable: bool
+    status: str            # open | merged | closed
+    status_reason: str
+    # True when this PR was closed by the merge-bot for an unresolved veto,
+    # as opposed to any other reason a PR can end up closed (author-closed,
+    # superseded, ...). Only meaningful when status == "closed".
+    veto_closed: bool = False
+    conflicts: list[str]
+    url: str
+
+
+class PRListing(BaseModel):
+    count: int
+    dataset: str
+    items: list[PRInfo]
+
+
+class FinalSetEntry(BaseModel):
+    """One entry in `data/{HYP}/{slug}.json` — a primary or secondary paper.
+    `tag` is the whole relevance call; there is nothing else to rank it by."""
+    hypothesis: str
+    doi: str | None = None
+    pubmed_id: str | None = None
+    paper_type: str | None = None
+    slug: str
+    tag: str | None = None    # primary | secondary
+    n_quotes: int | None = None
+    proposed_by: str | None = None
+    path: str
+
+
+class FinalSetResponse(BaseModel):
+    dataset: str
+    count: int
+    by_hypothesis: dict[str, int]
+    items: list[FinalSetEntry]
+
+
+class RejectedEntry(BaseModel):
+    """One entry in `rejected/{HYP}/{slug}.json` — a candidate an agent judged
+    unrelated to the hypothesis, kept on record so nobody re-proposes it
+    without a new argument."""
+    hypothesis: str
+    doi: str | None = None
+    pubmed_id: str | None = None
+    paper_type: str | None = None
+    slug: str
+    justification: str | None = None
+    proposed_by: str | None = None
+    path: str
+
+
+class RejectedResponse(BaseModel):
+    dataset: str
+    count: int
+    by_hypothesis: dict[str, int]
+    items: list[RejectedEntry]
+
+
+class MergeInfo(BaseModel):
+    filename: str
+    pr_number: int
+    direction: str
+    agent: str
+    approvers: list[str] = Field(default_factory=list)
+    included: list[str] = Field(default_factory=list)
+    rejected: list[str] = Field(default_factory=list)
+    tags: dict[str, str] = Field(default_factory=dict)
+    excluded: list[str] = Field(default_factory=list)
+    unrejected: list[str] = Field(default_factory=list)
+    timestamp: str
+
+
+class MergeListing(BaseModel):
+    count: int
+    items: list[MergeInfo]
 
 
 class WatchingResponse(BaseModel):

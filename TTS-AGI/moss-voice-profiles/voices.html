@@ -1,0 +1,235 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voice profiles — listen</title>
+<style>
+:root{--bg:#fbfaf8;--fg:#1c1b19;--mut:#6b6862;--line:#e3e0da;--card:#fff;--acc:#7c3aed}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#14131a;--fg:#e9e7e4;--mut:#9a968e;--line:#2c2a33;--card:#1b1a22;--acc:#a78bfa}}
+:root[data-theme=dark]{--bg:#14131a;--fg:#e9e7e4;--mut:#9a968e;--line:#2c2a33;--card:#1b1a22;--acc:#a78bfa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:44px 18px 90px}
+h1{font-size:2rem;margin:0 0 .25em;letter-spacing:-.02em}
+h2{font-size:1.25rem;margin:2.3em 0 .5em;border-bottom:1px solid var(--line);padding-bottom:.3em}
+.sub{color:var(--mut);font-size:1.04rem;margin:0 0 1.8em}
+.c{display:block;background:var(--card);border:1px solid var(--line);border-radius:12px;
+padding:18px 20px;margin:14px 0;text-decoration:none;color:inherit}
+.c:hover{border-color:var(--acc)}
+.c b{display:block;font-size:1.06rem;color:var(--acc);margin-bottom:5px}
+.c span{font-size:.93rem;color:var(--mut)}
+.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);
+border-radius:11px;padding:15px 18px;margin:1.3em 0}
+table{border-collapse:collapse;width:100%;font-size:.9rem;margin:1em 0}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{font-size:.76rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+a{color:var(--acc)} code{background:var(--card);border:1px solid var(--line);padding:1px 5px;border-radius:4px;font-size:.87em}
+</style>
+<div class="wrap">
+<p><a href="index.html">&larr; overview</a></p>
+<h1>Voice profiles &mdash; listen</h1>
+<p class="sub">One reference voice, rendered through all 832 conditions, three different ways.
+Every clip below is the take that won its group, with the scores that made it win.</p>
+
+<div class="note"><b>What a "voice profile" is.</b> Take one reference speaker. Ask the model to
+say something as that speaker in every combination of a large grid: 40 emotions &times; {intense,
+moderate} &times; {freely expressed, held in}, 57 voice-quality dimensions &times; 4 levels, plus
+screams, laughter, crying, a sports commentator and more &mdash; each in English <b>and</b> German,
+from the same sentence. That grid is 832 groups. A profile is all of them for one voice.</div>
+
+<a class="c" href="profile_a.html"><b>Profile A &mdash; translation-corpus sentences &rarr;</b>
+<span>The baseline. Sentences drawn from the FineTranslations corpus and used as-is. No Mediathek
+LoRA. This is what the pipeline produced before the text-rewrite experiment.</span></a>
+
+<a class="c" href="profile_b.html"><b>Profile B &mdash; the same, plus 25 % Mediathek LoRA &rarr;</b>
+<span>Identical sentences and conditions, with a real-speech adapter merged at &lambda;=0.25. A
+<a href="mediathek_sweep.html">later dose sweep</a> found this to be a null result &mdash; kept
+published so you can hear that for yourself rather than take it on trust.</span></a>
+
+<a class="c" href="profile_rw.html"><b>Profile RW &mdash; sentences rewritten to carry the emotion &rarr;</b>
+<span>Same voice, same 832 conditions, but every sentence rewritten so its content gives the
+speaker a reason to feel the target emotion. Emotion strength +22 %, genuineness +27 %, blend
++39 %, audio quality flat, word error rate down 12 %.</span></a>
+
+<!--RANKEXPLAIN-->
+<style>
+.rx{margin:1.4em 0}
+.rx details{background:var(--card);border:1px solid var(--line);border-radius:10px;
+padding:10px 14px;margin:7px 0}
+.rx details[open]{padding-bottom:14px}
+.rx summary{cursor:pointer;font-weight:600;font-size:.94rem;list-style:none}
+.rx summary::-webkit-details-marker{display:none}
+.rx summary::before{content:"▸ ";color:var(--acc);font-weight:700}
+.rx details[open] summary::before{content:"▾ "}
+.rx .fml{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 12px;
+margin:9px 0;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto}
+.rx p,.rx li{font-size:.9rem}
+.rx table{font-size:.83rem;margin:.7em 0}
+.rx .why{color:var(--mut);font-size:.85rem;border-left:3px solid var(--line);padding-left:10px;
+margin:.7em 0}
+</style>
+<div class="rx">
+<h2 id="ranking">How were these takes ranked?</h2>
+<p>Every group generated many candidates. All of them were scored and stored; the one you hear is
+whichever scored highest. Nothing is discarded — re-ranking never needs regeneration.</p>
+
+<details><summary>The formula, in one place</summary>
+<div class="fml">reward = (genuineness + w<sub>blend</sub>·blend + 1.25·<b>target</b>) · (1 − WER)
+score  = reward · durationFloor · lengthCeiling · identityRank · floorPenalty</div>
+<p>Four sensors produce the inputs, all automatic:</p>
+<ul>
+<li><b>genuineness</b> — does it sound felt rather than performed</li>
+<li><b>blend</b> — how naturally non-speech sounds (breaths, laughs, sobs) sit inside the line</li>
+<li><b>target</b> — <em>this is the part that changes per dimension</em>; see below</li>
+<li><b>WER</b> — word error rate of an ASR pass against the script, so an unintelligible take
+cannot win by being dramatic</li>
+</ul>
+<p class="why"><b>Why multiply by (1 − WER) rather than divide by (1 + WER)?</b> The project manual
+specifies the dividing form. Measured over 28,698 candidates it is too lenient: a take that rambles
+past the written line keeps accumulating emotional content, so genuineness, blend and strength all
+rise while ÷(1+0.79) only scales it by 0.56. One 28-second take of a 20-word line — whose
+transcript wanders into "meant in staying in the dist…" — outranked an 8-second take of the same
+line with a quarter of the word errors. Switching to ×(1−WER) moved 28 of 808 winners.</p>
+</details>
+
+<details><summary>Why raw scores and not z-scores — and what that cost</summary>
+<p>An earlier version z-scored each term <em>within the group</em>. That sounds fairer but has a
+flaw: normalising inside a group means a group whose takes are <em>all</em> badly blended still
+hands its best one a good z-score. Blend then stops competing across groups, and the whole corpus
+drifts toward flat delivery.</p>
+<p>Switching to raw values, measured on the same 28,698 candidates:</p>
+<div class="scroll"><table>
+<tr><th>metric (median winner)</th><th>z-scored</th><th>raw</th><th>change</th></tr>
+<tr><td>vocal-burst blend</td><td>3.65</td><td>4.74</td><td class="up">+30 %</td></tr>
+<tr><td>target strength</td><td>1.78</td><td>1.87</td><td class="up">+5 %</td></tr>
+<tr><td>genuineness</td><td>0.738</td><td>0.626</td><td class="dn">−15 %</td></tr>
+</table></div>
+<p class="why">The genuineness loss is a real trade, not an oversight: blend and strength are bought
+with it. It is recorded here rather than buried, because a reader comparing this corpus against
+another on genuineness alone would otherwise reach the wrong conclusion.</p>
+</details>
+
+<details><summary><b>Emotions — intense conditions (A, B)</b></summary>
+<div class="fml">target = emotion_strength   <span style="color:var(--mut)">// as measured, higher is better</span></div>
+<p>The straightforward case: the emotion classifier's reading of that emotion, and more is better.
+Condition A is <em>intense and freely expressed</em>, B is <em>intense but held in</em>.</p>
+<p class="why">B additionally gets the containment treatment described under moderate/contained
+below — being intense and being contained are independent axes here.</p>
+</details>
+
+<details><summary><b>Emotions — moderate conditions (C, D)</b></summary>
+<div class="fml">target = band_fit(emotion_strength, lo, hi)
+       = 1.0 inside the band, decaying linearly outside it</div>
+<p>This is the one people find counter-intuitive. A "moderate sadness" group is <b>not</b> scored
+for being as sad as possible — it is scored for <b>landing in a band</b>. Maximising is what the
+intense conditions are for. A take that overshoots into full grief is as wrong for this cell as one
+that is flat.</p>
+</details>
+
+<details><summary><b>Contained conditions (C, D) — the two extra terms</b></summary>
+<div class="fml">w<sub>blend</sub> = 0.6   (instead of 1.0)
+reward += 0.5 · z(−vulnerability)</div>
+<p>Two adjustments, both because <em>containment is the opposite of letting it out</em>:</p>
+<ul>
+<li><b>Blend is weighted down to 0.6.</b> An audible burst is the emotion escaping, which is
+precisely what a contained take should not do. Rewarding blend at full weight here would select
+against the condition.</li>
+<li><b>A containment term is added</b>: how far <em>below</em> this group's own mean the take's
+vulnerability sits. This one stays on the z-scale deliberately — "below the group mean" has no
+meaning as a raw number.</li>
+</ul>
+</details>
+
+<details><summary><b>VoiceNet dimensions (tempo, breathiness, vocal fry, …)</b></summary>
+<div class="fml">target = sign · dim_target,   sign = +1 for "high" cells, −1 for "low" cells</div>
+<p>Here the target is the <b>dimension being steered</b>, not an emotion. The sign flips for the
+low end, so an "extremely low tempo" cell is rewarded for being <em>slower</em>, using the same
+formula as the high end rather than a separate rule.</p>
+<p class="why">Without the sign flip, every low cell would be ranked by how much of the dimension it
+had — i.e. ranked backwards.</p>
+</details>
+
+<details><summary><b>Character clusters — the emotion term is switched OFF</b></summary>
+<div class="fml">target = 0
+reward reduces to (genuineness + blend) · (1 − WER) · identity · duration</div>
+<p>A character group's target is a <b>voice</b>, not a feeling, and there is no per-character
+classifier to score against. If the emotion term were left on, the twelve character clusters would
+be ranked by whichever emotion happened to leak into each take — <b>the dragon would be represented
+by its angriest reading rather than its most draconic one</b>.</p>
+<p class="why">So the term is zeroed and the ranking asks only: clean, in character, long enough,
+and not accidentally emoting.</p>
+</details>
+
+<details><summary><b>Edge cases (screams, sobs, groans) — and why WER is computed differently</b></summary>
+<p>These rank like intense emotions, with one important difference in how WER is measured: inline
+burst tags such as <code>&lt;sobs&gt;</code> are <b>stripped from the reference before WER is
+computed</b>.</p>
+<p class="why">This was a real bug. The code emitted <code>&lt;sobs&gt;</code> while the stripper
+matched only round brackets, so the tag stayed in the reference text and every burst-carrying take
+was charged word errors for failing to <em>pronounce the word "sobs"</em>. The ranker was
+selecting <b>against</b> exactly the takes the bursts were meant to improve. After the fix, bursts
+win: emotion 2.532 → 2.788, vulnerability 4.666 → 5.085.</p>
+</details>
+
+<details><summary>The four multipliers, and the failures each one prevents</summary>
+<div class="scroll"><table>
+<tr><th>multiplier</th><th style="text-align:left">what it does</th></tr>
+<tr><td><b>duration floor</b></td><td style="text-align:left">
+<code>(dur / MIN_DUR)²</code>, capped at 1. Nothing else in the score preferred a longer take, so a
+group could be represented by a 1.8-second fragment that scored well <em>because</em> it was short:
+few words means few chances to misread, so WER goes to zero and the other terms are computed over a
+near-silent clip. Short takes are crushed rather than banned, so a group where every candidate is
+short still resolves to its best member.</td></tr>
+<tr><td><b>length ceiling</b></td><td style="text-align:left">
+expected duration is <code>words / 2.8</code> words-per-second; nothing is penalised up to 1.6× that,
+beyond which the score falls off quadratically. This is the explicit fix for runaway takes that
+×(1−WER) alone did not catch — takes over 2.5× expected length dropped from 14 to 7.</td></tr>
+<tr><td><b>identity rank</b></td><td style="text-align:left">
+<code>0.81 + 0.19 · similarity</code>. Speaker similarity is <b>ranked, never gated high</b>, at
+19 % weight. The reason is measured: among listener-confirmed same-speaker pairs the median
+similarity was 0.632 and <b>55 % fell below the old 0.68 gate</b> — gating there would have thrown
+away more than half of genuinely correct takes.</td></tr>
+<tr><td><b>floor penalty</b></td><td style="text-align:left">
+×0.25 below a hard 0.40 similarity floor. Not a ban: a take that far off is almost certainly a
+different speaker, but the group still needs a representative.</td></tr>
+</table></div>
+</details>
+
+<details><summary>Why A and B subsets are ranked separately</summary>
+<p>Subset A is 32 <em>different</em> sentences; subset B is 16 <em>shared</em> ones rendered across
+all four sub-conditions. They answer different questions, so a single ranking would let whichever
+subset happened to draw easier sentences crowd the other out of the top slot the page shows. Ranks
+are computed within subset; the z-scores stay group-wide so both remain on one scale.</p>
+</details>
+
+<details><summary>What this ranking does <em>not</em> tell you</summary>
+<p>Every number above comes from automatic sensors. Their agreement with a human listener on spoken
+material is only about <b>ρ ≈ +0.21</b>. Treat the ranking as useful, not authoritative.</p>
+<p class="why">This project has produced four separate cases of a scorer confidently rewarding
+broken audio: a genuineness gain that turned out to be a generator running to its length cap; an
+aesthetics head scoring a model 4.12 while human-facing judges scored it 0/30; the WER stripper
+described above; and a caption model whose "improvement" tracked a label-noise artefact. Where a
+number here surprises you, listening is the tie-break, not the score.</p>
+</details>
+</div><h2>The comparison worth making</h2>
+<p>Open <a href="profile_a.html#emotions">A</a> and <a href="profile_rw.html#emotions">RW</a> side
+by side and listen to <b>Bitterness</b>, <b>Contempt</b> or <b>Disappointment</b> in the
+"intense &middot; free" column. Same voice, same adapter, same settings &mdash; only the words
+differ.</p>
+<table>
+<tr><th>emotion</th><th>A (corpus sentences)</th><th>RW (rewritten)</th></tr>
+<tr><td>Bitterness</td><td>&minus;0.005</td><td>0.613</td></tr>
+<tr><td>Contempt</td><td>0.041</td><td>0.842</td></tr>
+<tr><td>Disappointment</td><td>0.028</td><td>1.499</td></tr>
+<tr><td>Hope / Enthusiasm</td><td>&minus;0.001</td><td>1.390</td></tr>
+<tr><td>Astonishment / Surprise</td><td>0.039</td><td>2.347</td></tr>
+</table>
+<p class="sub">Emotion-head score on the winning take. Full analysis:
+<a href="text_effect.html">Does the text carry the emotion?</a></p>
+
+<h2>Audio quality</h2>
+<div class="note"><b>Profile RW is now 48 kHz at 160 kbps</b> — regenerated at the model's native
+rate. Profiles A and B remain 16 kHz mono at ~97 kbps: the pipeline used to resample to 16 kHz
+before storing, band-limiting everything to 8 kHz, and that ceiling is baked into their data.
+<br><br>Because of that, <b>do not A/B profile RW against profile A on this page to judge the
+text rewrite</b> — you would be hearing the bandwidth as much as the words. The
+<a href="demo_compare.html">side-by-side demo grid</a> deliberately keeps <em>both</em> columns at
+16 kHz so the only difference there is the text.</div>
+</div>

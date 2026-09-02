@@ -39,7 +39,15 @@ class ProtocolSimulator:
             response = requests.post(self.url, json=data, headers=headers, timeout=120)
 
             if response.status_code != 200:
-                return f"Simulation Error: {response.text}"
+                body = response.text.strip()
+                if body.lstrip().startswith("<!") or "text/html" in (
+                    response.headers.get("content-type") or ""
+                ):
+                    return (
+                        f"Simulator unavailable: HTTP {response.status_code} HTML response "
+                        f"from {self.url} (check HUGGINGFACE_API_KEY access and SIMULATOR_URL)"
+                    )
+                return f"Simulation Error: {body}"
 
             response_data = response.json()
 

@@ -1,0 +1,36 @@
+<!-- django_app/hf_space/templates/hf_space/dashboard.html -->
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="dashboard-module">
+    <div class="query-interface">
+        <h2>Data Request: {{ service_name|title }}</h2>
+        <form method="POST">
+            {% csrf_token %}
+            <!-- Dynamic Form Injection -->
+            {% if service_name == 'copernicus' %}
+                {% include 'core/partials/forms/copernicus_form.html' %}
+            {% elif service_name == 'earth_engine' %}
+                {% include 'core/partials/forms/earth_engine_form.html' %}
+            {% else %}
+                {{ form.as_p }}
+            {% endif %}
+            <button type="submit">Submit Request</button>
+        </form>
+    </div>
+
+    <div class="output-interface">
+        <h2>Execution Output</h2>
+        {% if output_data %}
+            <!-- Dynamic Output Rendering -->
+            {% if output_format == 'raster' %}
+                {% include 'core/partials/outputs/raster_output.html' %}
+            {% elif output_format == 'tabular' %}
+                {% include 'core/partials/outputs/tabular_output.html' %}
+            {% endif %}
+        {% else %}
+            <p>System initialized. Awaiting query execution.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

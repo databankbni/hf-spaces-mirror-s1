@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     https://github.com/yt-dlp/yt-dlp/archive/master.zip
 
 # חשיפת הפורט הפנימי של השרת
-EXPOSE 7860
+EXPOSE 5060
 
 # פקודת ההרצה של הבוט במצב Unbuffered (כמו ה-u-) כדי שהלוגים יזרמו בזמן אמת
-CMD ["python", "-u", "main.py"]
+CMD ["python", "-u", "bot.py"]

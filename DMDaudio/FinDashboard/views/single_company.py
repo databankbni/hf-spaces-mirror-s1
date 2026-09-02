@@ -8,6 +8,7 @@ sections carry the IFRS-16 toggle, charts, and exports.
 """
 from __future__ import annotations
 
+import html
 import json
 from dataclasses import dataclass, field
 
@@ -16,9 +17,11 @@ import streamlit as st
 
 from lib.cache import (
     audit_engagements as _audit_engagements_cache,
+    nace_codes_for as _nace_codes_cache,
     bs_sections as _bs_sections_cache,
     cf_sections as _cf_sections_cache,
     company_ownership as _company_ownership_cache,
+    bia_directory as _bia_directory_cache,
     ownership_edges as _ownership_edges_cache,
     consolidated_idcodes as _consolidated_idcodes_cache,
     individual_basis_idcodes as _individual_basis_idcodes_cache,
@@ -27,6 +30,7 @@ from lib.cache import (
     years as _years_cache,
     company_description,
     company_sector,
+    company_taxonomy,
     dividends as _dividends_cache,
     filing_meta as _filing_meta_cache,
     latest_filing_meta as _latest_filing_meta_cache,
@@ -38,6 +42,7 @@ from lib.cache import (
     ratios,
 )
 from lib import ownership as _ownership
+from lib.bia_brand import trade_names as _bia_trade_names
 from lib.auditors import (
     audit_chip_icon as _audit_chip_icon,
     audit_chip_label as _audit_chip_label,
@@ -66,6 +71,7 @@ from lib.ratios import build_ratios_table
 from lib.theme import chart_theme
 from lib.ui import (
     NAVY as _BRAND_NAVY,
+    description_source_links,
     render_grouped_ratios,
     render_is_chart,
     render_reportal_pdf_caption,
@@ -76,6 +82,11 @@ from lib.format import fmt_k_gel, fmt_pct
 
 from views.shared import ViewContext, render_ifrs_controls
 
+
+# How many bia.ge trade names the tearsheet lists before collapsing the tail into
+# a "+N more" hover. A long trademark list is usually an asset register rather
+# than a brand set (Energo-Pro Generation lists 15 hydro plants).
+_MAX_TRADE_NAMES_SHOWN = 4
 
 # Left-rail sections (Capital-IQ-style). Order = display order.
 SECTIONS = (
@@ -407,6 +418,28 @@ def render(ctx: ViewContext) -> None:
             st.caption(":material/verified_user: **Insurance regulatory return** — source: insurance.gov.ge 12-month statistical filing (replaces reportal data for this insurer). Premiums, claims, underwriting result, and KPIs (loss / expense / combined ratio).")
         elif is_insurer:
             st.caption(":material/verified_user: **Insurance reporting format** — premiums, claims, underwriting result, and KPIs (loss / expense / combined ratio).")
+        # Official NACE activity classification — the codes the company itself
+        # filed (RMS NACE dataset). Deliberately a SEPARATE display from our
+        # curated Sector tag (user decision 2026-08-05): NACE is the filer's own
+        # statutory classification, Sector is our analytical taxonomy. Shown for
+        # every company that has codes, banks/insurers included; degrades to
+        # invisible on a DB without the table.
+        _nace_rows = _nace_codes_cache(ctx.db_path, idcode)
+        if _nace_rows:
+            _n_inline = 2
+            _ncap = " · ".join(
+                f"{r['code']} — {r['name']}" for r in _nace_rows[:_n_inline]
+            )
+            if len(_nace_rows) > _n_inline:
+                _ncap += f" · +{len(_nace_rows) - _n_inline} more"
+            _ntip = (
+                "Official NACE Rev.2 activity classification from the company's "
+                f"own FY{_nace_rows[0]['year']} filing (reportal RMS). Independent "
+                "of the dashboard's Sector tag. "
+                + " | ".join(
+                    f"{r['code']} {r['name']} ({r['main']})" for r in _nace_rows)
+            )
+            st.caption(f":material/category: **NACE:** {_ncap}", help=_ntip)
 
     # --- Section navigator — on-page tabs (was a sidebar radio) -------------
     # A Capital-IQ-style tab rail directly under the company header drives which
@@ -1106,48 +1139,78 @@ def _render_tearsheet(
     basis: str = "Consolidated",
 ) -> None:
     """Summary 'tearsheet': curated description, headline KPI cards, ownership pie."""
-    # --- Curated company description (when present) ---
-    _desc_row = company_description(ctx.db_path, idcode)
-    if _desc_row and _desc_row.get("description"):
-        _src_links = ""
+    # --- Curated company description + bia.ge trade names (either alone shows) ---
+    #
+    # The trade name is the fact the filing never carries: `შპს მემო` tells you
+    # nothing, but it trades as `უნივერსამი` — a grocery supermarket chain.
+    # It is DISPLAYED from the bia_directory scrape rather than folded into the
+    # curated Description, so a bia refresh refreshes this line and no curated
+    # prose is ever overwritten. `lib.bia_brand` decides which of bia's
+    # trademarks are genuinely distinct from the legal name.
+    _desc_row = company_description(ctx.db_path, idcode) or {}
+    _desc_text = str(_desc_row.get("description") or "").strip()
+    _brands = _bia_trade_names(company_name, _bia_directory_cache(ctx.db_path, idcode))
+    # Taxonomy chips come from `companies` directly, NOT from the description
+    # row: a company can be classified with no write-up at all (the sub-sector
+    # seeders fill SubSector without touching Description), and the chips must
+    # not vanish just because nobody has written a blurb.
+    _sector, _sub_sector = company_taxonomy(ctx.db_path, idcode)
+    if _desc_text or _brands or _sector or _sub_sector:
         try:
             _sources = json.loads(_desc_row.get("sources") or "[]")
-            if _sources:
-                _src_links = (
-                    " · "
-                    + " · ".join(
-                        f'<a href="{u}" target="_blank" rel="noopener" style="color:#888;">src {i+1}</a>'
-                        for i, u in enumerate(_sources[:5])
-                    )
-                )
         except (ValueError, TypeError):
-            pass
+            _sources = []
+        _src_links = description_source_links(_sources) if _desc_text else ""
         _updated = _desc_row.get("updated_at") or ""
-        _sector = _desc_row.get("sector") or ""
-        _sub_sector = _desc_row.get("sub_sector") or ""
         _chip_parts: list[str] = []
         if _sector:
             _chip_parts.append(
                 f'<span style="display:inline-block;padding:2px 8px;margin-right:6px;'
                 f'background:{_BRAND_NAVY};color:#fff;border-radius:10px;font-size:11px;'
                 f'font-weight:600;letter-spacing:0.3px;text-transform:uppercase;">'
-                f'{_sector}</span>'
+                f'{html.escape(_sector)}</span>'
             )
         if _sub_sector:
             _chip_parts.append(
                 f'<span style="display:inline-block;padding:2px 8px;margin-right:6px;'
                 f'background:#fff;color:{_BRAND_NAVY};border:1px solid {_BRAND_NAVY};'
                 f'border-radius:10px;font-size:11px;font-weight:600;letter-spacing:0.3px;'
-                f'text-transform:uppercase;">{_sub_sector}</span>'
+                f'text-transform:uppercase;">{html.escape(_sub_sector)}</span>'
             )
         _sector_chip = "".join(_chip_parts) + "<br/>" if _chip_parts else ""
+        # A long trademark list is usually an asset register, not a brand set
+        # (Energo-Pro Generation lists 15 hydro plants), so cap the line and put
+        # the remainder in the hover title rather than flooding the tearsheet.
+        _shown = _brands[:_MAX_TRADE_NAMES_SHOWN]
+        _brand_chips = "".join(
+            f'<span style="display:inline-block;padding:1px 7px;margin:0 4px 2px 0;'
+            f'background:#fff;color:#7a5a00;border:1px solid #d8b34a;border-radius:3px;'
+            f'font-size:12.5px;font-weight:600;">{html.escape(b)}</span>'
+            for b in _shown
+        )
+        if len(_brands) > len(_shown):
+            _brand_chips += (
+                f'<span title="{html.escape(", ".join(_brands))}" '
+                f'style="color:#999;font-size:12px;">'
+                f'+{len(_brands) - len(_shown)} more</span>'
+            )
+        _brand_line = (
+            f'<div style="margin:0 0 6px 0;">'
+            f'<span style="color:#8a8a8a;font-size:11px;font-weight:600;'
+            f'letter-spacing:0.4px;text-transform:uppercase;margin-right:6px;">'
+            f'Trades as</span>{_brand_chips}'
+            f'<span style="color:#b0b0b0;font-size:11px;margin-left:2px;">bia.ge</span>'
+            f'</div>'
+        ) if _brands else ""
+        _desc_html = (
+            f'<span style="color:#444;">{html.escape(_desc_text)}</span>'
+            f'<span style="color:#999;font-size:12px;display:block;margin-top:4px;">'
+            f'_curated {_updated}{_src_links}_</span>'
+        ) if _desc_text else ""
         st.markdown(
             f'<div style="padding:10px 14px;margin:6px 0;border-left:3px solid {_BRAND_NAVY};'
             f'background:rgba(17,58,63,0.04);border-radius:4px;font-size:14px;line-height:1.5;">'
-            f'{_sector_chip}'
-            f'<span style="color:#444;">{_desc_row["description"]}</span>'
-            f'<span style="color:#999;font-size:12px;display:block;margin-top:4px;">'
-            f'_curated {_updated}{_src_links}_</span>'
+            f'{_sector_chip}{_brand_line}{_desc_html}'
             f'</div>',
             unsafe_allow_html=True,
         )

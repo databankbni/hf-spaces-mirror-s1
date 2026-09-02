@@ -1,0 +1,164 @@
+<!doctype html><meta charset=utf-8><title>Status 12 &mdash; notation, ranking, the missing block</title><style>
+:root{--bg:#0e1117;--fg:#e6edf3;--mut:#9aa7b4;--line:#26303b;--card:#161c24;--ok:#3fb950;--warn:#d29922;--bad:#f85149}
+*{box-sizing:border-box}
+body{font-family:system-ui,Segoe UI,Arial;background:var(--bg);color:var(--fg);margin:0 auto;
+padding:32px 22px;max-width:1080px;line-height:1.62}
+h1{font-size:1.9em;margin:0 0 .1em;line-height:1.2}
+h2{margin:2.2em 0 .5em;padding-top:.7em;border-top:1px solid var(--line);font-size:1.32em}
+h3{margin:1.5em 0 .4em;font-size:1.06em;color:#cbd5e1}
+.sub{color:var(--mut);margin:0 0 1.6em}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.93em}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:#1b2530;font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+code{background:#1b2530;padding:1px 5px;border-radius:4px;font-size:.9em}
+pre{background:#11161d;border:1px solid var(--line);padding:12px;border-radius:7px;overflow-x:auto}
+.scroll{overflow-x:auto}
+a{color:#58a6ff}
+.win{color:var(--ok);font-weight:600}
+.neg{color:var(--bad);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:14px 18px;margin:1.1em 0}
+.big{font-size:1.5em;font-weight:700}
+ul{padding-left:1.15em}
+</style>
+<h1>Status 12 &mdash; notation, ranking, and a block that was never generated</h1>
+<p class=sub>Round 3 of the voice-profile corpus. Six complaints from the listening pass; five correct as stated, one a symptom of something worse.</p>
+<div class=card>
+<p><b>The finding that matters most:</b> the page was serving audio from a
+<b>different run</b> than the scores it displayed. All <span class=big>89</span> regenerated
+groups played their <b>pre-regeneration</b> take underneath a &ldquo;NEW, improved&rdquo; badge.
+One group whose metadata said 5.76&nbsp;s shipped a <b>0.24&nbsp;s</b> clip.</p>
+<p>So the report that <i>&ldquo;intoxication is still too low&rdquo;</i> and
+<i>&ldquo;the disfluency levels are not clearly different&rdquo;</i> was a report about the
+<b>old audio</b>. The regeneration had never actually been heard.</p></div>
+<h2>1. The publishing bug</h2>
+<p>The exporter matched each group's winning take by <code>audio_key</code>, which
+is only <code>&lt;gid&gt;.cNNN.mp3</code> &mdash; <b>not unique across runs</b>.
+<code>rewritten/</code>, <code>rewritten48/</code> and <code>regen/</code> all mint the same names
+and two of them share the profile tag <code>PRW</code>, so whichever tar was scanned first won.</p>
+<table>
+<tr><th>&nbsp;</th><th class=n>before</th><th class=n>after</th></tr>
+<tr><td>regenerated groups serving the wrong take</td><td class=n><span class=neg>89 / 89</span></td><td class=n><span class=win>0</span></td></tr>
+<tr><td>clips exported</td><td class=n>808 (6 stale)</td><td class=n>808 / 808</td></tr>
+<tr><td>sample rate</td><td class=n>mixed</td><td class=n>48 kHz throughout</td></tr>
+<tr><td>median top-1 duration</td><td class=n>7.12 s</td><td class=n>7.68 s</td></tr>
+<tr><td>clips under 3 s</td><td class=n>12</td><td class=n>1</td></tr>
+<tr><td>regenerated groups, median duration</td><td class=n>2.4 s</td><td class=n>8.96 s</td></tr>
+</table>
+<p>Fixed by matching on <code>(source_dir, audio_key)</code>, clearing the output directory before
+writing, and asserting each exported file's byte size is consistent with its metadata duration.</p>
+<p><b>Second trap:</b> <code>rewritten/</code> is 16&nbsp;kHz and <code>rewritten48/</code> is the
+same takes at 48&nbsp;kHz. Picking the &ldquo;newest&rdquo; directory silently downgrades the
+published audio. Choose by sample rate, not mtime.</p>
+<h2>2. Notation &mdash; and how it corrupted the scoring</h2>
+<p>Round brackets carry delivery cues <i>and</i> vocal bursts; square brackets carry
+pauses; tags are lowercase because a capitalised token is spelled out letter by letter.</p>
+<pre>GENERAL: &lt;standing description of voice and situation&gt;
+SCRIPT:
+(delivery cue) "the line, (sobs) with tags inline, [pause] and pauses in squares"</pre>
+<p>Our pipeline emitted <code>&lt;sobs&gt;</code>. The WER reference stripped
+<code>\([^)]*\)</code> &mdash; round brackets only &mdash; so an angle-bracket tag stayed
+<b>in the reference string</b> and every burst-tagged take was charged word error for failing to
+pronounce &ldquo;sobs&rdquo;. Reward is multiplied by <code>(1&nbsp;&minus;&nbsp;WER)</code>:
+<b>the ranker was selecting against exactly the takes the tags were added to help.</b></p>
+<p>This invalidates the round-2 conclusion that inline tags win on only 6 of 12 edge cases. That
+ablation ran with the broken stripper. It has been re-run &mdash; see &sect;5.</p>
+<p><b>Verified in generation:</b> <code>[pause]</code> is not spoken. ASR of takes containing it
+returns clean text with no &ldquo;pause&rdquo; token.</p>
+<h2>3. Ranking &mdash; re-derived on 28,698 stored candidates</h2>
+<p>Two failure modes, in opposite directions. Short takes had a perverse advantage
+(fewer words &rarr; fewer chances to misread &rarr; WER near zero over a nearly silent clip). And
+nothing stopped a <b>runaway</b>: one 28&nbsp;s rendering of a 20-word line, whose ASR wanders into
+<i>&ldquo;meant in staying in the dist&hellip;&rdquo;</i>, outranked an 8&nbsp;s take of the same
+line at a quarter of the word error, because rambling accumulates emotional content.</p>
+<table>
+<tr><th>ranking</th><th class=n>med dur</th><th class=n>&lt;3 s</th><th class=n>&gt;2.5&times; len</th>
+<th class=n>blend</th><th class=n>emo</th><th class=n>genu</th><th class=n>WER</th></tr>
+<tr><td>current: z-scored, &times;(1&minus;WER)</td><td class=n>7.56</td><td class=n>1</td><td class=n>14</td><td class=n>3.65</td><td class=n>1.780</td><td class=n>0.738</td><td class=n>0.068</td></tr>
+<tr><td>raw, /(1+WER), floor</td><td class=n>7.40</td><td class=n>0</td><td class=n>18</td><td class=n>4.67</td><td class=n>1.790</td><td class=n>0.633</td><td class=n>0.086</td></tr>
+<tr><td><b>raw, &times;(1&minus;WER), floor + ceiling</b></td><td class=n>7.44</td><td class=n>1</td><td class=n><span class=win>7</span></td><td class=n><span class=win>4.67</span></td><td class=n>1.793</td><td class=n>0.626</td><td class=n>0.080</td></tr>
+<tr><td>z-scored, &times;(1&minus;WER), floor + ceiling</td><td class=n>7.52</td><td class=n>1</td><td class=n>3</td><td class=n>3.67</td><td class=n>1.781</td><td class=n>0.725</td><td class=n>0.068</td></tr>
+</table>
+<ul>
+<li><b>Raw beats z-scored, and that is where the whole effect is.</b> z-scoring normalises blend
+<i>within</i> a group, so blend stops competing across groups. Going raw moves median winner blend
+<b>3.65 &rarr; 4.67 (+28&nbsp;%)</b>. Swapping the WER form alone moved only 28 of 808 winners.</li>
+<li><b>We do not adopt the manual's <code>/(1+WER)</code>.</b> The per-emotion pages specify
+<code>(genu + blend + 1.25&middot;emo) / (1+WER)</code>. Measured, the inverse form is too lenient
+to hold a runaway down and made runaways <i>more</i> common (18 vs 14). The harsher
+<code>&times;(1&minus;WER)</code> is kept &mdash; a deliberate deviation, with the numbers for it.</li>
+<li><b>The length-fit ceiling is the real fix.</b> Expected duration = words / 2.8; free up to
+1.6&times;, quadratic falloff beyond. Runaways <b>14 &rarr; 7</b> with the blend gain kept.</li>
+<li><b>The cost is genuineness: 0.738 &rarr; 0.626 (&minus;15&nbsp;%).</b> A real trade, stated
+rather than buried.</li>
+<li>The duration floor alone changed <b>zero</b> of 808 winners under the old score. It is a safety
+net, not a fix &mdash; it matters only once raw scoring is in play (sub-3&nbsp;s winners 9 &rarr; 0).</li>
+</ul>
+<p><b>Character groups</b> had the emotion term switched off: their target is a <i>voice</i>, not a
+feeling, and falling through to <code>emo_strength</code> would represent the dragon by its angriest
+reading rather than its most draconic one.</p>
+<h2>4. The missing character block &mdash; 808 &ne; 832</h2>
+<p>The plan advertises 832 groups per voice; the matrix built 808. The missing 24 are
+<code>12 character LoRAs &times; {EN, DE}</code>, absent for a reason that leaves no error message:
+the repo had been fetched with <code>allow_patterns</code> that pulled every
+<code>adapter_config.json</code> but only <b>one</b> <code>adapter_model.safetensors</code>. A
+config-only directory looks resolvable to any check that stops at the config, so the block passed
+pre-flight and then vanished.</p>
+<p>Fetched 12 slugs &times; <code>ep3</code>. <b>All 169 distinct adapter keys across the full
+832-group matrix now resolve</b> &mdash; 13 character, 40 emotion, 114 VoiceNet, explicit, sports.
+Lines are hand-written <b>in character</b>: every other block steers delivery over a neutral
+sentence on purpose so the sentence is a control, but here the line is part of the condition.</p>
+<table><tr><th>character block</th><th class=n>value</th></tr>
+<tr><td>groups generated</td><td class=n>24</td></tr>
+<tr><td>median take length</td><td class=n>8.16 s</td></tr>
+<tr><td>under 3 s</td><td class=n>0</td></tr>
+<tr><td>median WER</td><td class=n>0.017</td></tr>
+<tr><td>median speaker similarity</td><td class=n>0.488</td></tr>
+<tr><td>median genuineness</td><td class=n>0.508</td></tr></table>
+<h3>Per character (EN)</h3><div class=scroll><table><tr><th class="">character</th><th class="n">duration s</th><th class="n">WER</th><th class="n">spk sim</th></tr><tr><td class="">abyssal-tyrant</td><td class="n">9.2</td><td class="n">0.0</td><td class="n">0.618</td></tr><tr><td class="">crow</td><td class="n">6.32</td><td class="n">0.0</td><td class="n">0.544</td></tr><tr><td class="">dragon</td><td class="n">7.36</td><td class="n">0.0</td><td class="n">0.815</td></tr><tr><td class="">granite-titan</td><td class="n">8.4</td><td class="n">0.0</td><td class="n">0.557</td></tr><tr><td class="">gravelly-orc-warlord</td><td class="n">6.08</td><td class="n">0.103</td><td class="n">0.533</td></tr><tr><td class="">guttural-imp</td><td class="n">7.36</td><td class="n">0.034</td><td class="n">0.479</td></tr><tr><td class="">murloc</td><td class="n">7.2</td><td class="n">0.042</td><td class="n">0.674</td></tr><tr><td class="">resonant-iron-commander</td><td class="n">8.24</td><td class="n">0.077</td><td class="n">0.542</td></tr><tr><td class="">screeching-impish-crone</td><td class="n">6.0</td><td class="n">0.034</td><td class="n">0.528</td></tr><tr><td class="">seasoned-merchant</td><td class="n">7.2</td><td class="n">0.0</td><td class="n">0.525</td></tr><tr><td class="">sprightly-pixie</td><td class="n">8.08</td><td class="n">0.037</td><td class="n">0.177</td></tr><tr><td class="">undead</td><td class="n">7.84</td><td class="n">0.0</td><td class="n">0.556</td></tr></table></div>
+<h2>5. Measured arms</h2>
+<h3>Disfluency &mdash; which notation drives the head, at a fixed break count</h3><div class=scroll><table><tr><th class="">arm</th><th class="n">ladder</th><th class="n">span</th><th class="n">top level</th><th class="n">WER</th><th class="n">dur s</th></tr><tr><td class="">both</td><td class="n">0.635</td><td class="n">1.85</td><td class="n">2.154</td><td class="n">0.198</td><td class="n">9.68</td></tr><tr><td class="">ell</td><td class="n">0.608</td><td class="n">1.537</td><td class="n">1.876</td><td class="n">0.238</td><td class="n">9.23</td></tr><tr><td class="">pause</td><td class="n">0.526</td><td class="n">1.067</td><td class="n">1.396</td><td class="n">0.122</td><td class="n">8.35</td></tr><tr><td class="">base</td><td class="n">0.337</td><td class="n">0.351</td><td class="n">0.669</td><td class="n">0.005</td><td class="n">7.15</td></tr></table></div>
+<h3>Intoxication &mdash; the listener's headline complaint</h3><div class=scroll><table><tr><th class="">arm</th><th class="n">emotion</th><th class="n">genuineness</th><th class="n">DFLU</th><th class="n">WER</th><th class="n">dur s</th></tr><tr><td class="">both</td><td class="n">0.582</td><td class="n">2.257</td><td class="n">2.222</td><td class="n">0.464</td><td class="n">14.25</td></tr><tr><td class="">ell</td><td class="n">0.545</td><td class="n">2.204</td><td class="n">2.02</td><td class="n">0.393</td><td class="n">16.97</td></tr><tr><td class="">pause</td><td class="n">0.278</td><td class="n">1.957</td><td class="n">2.029</td><td class="n">0.449</td><td class="n">15.39</td></tr><tr><td class="">base</td><td class="n">0.068</td><td class="n">1.607</td><td class="n">1.552</td><td class="n">0.212</td><td class="n">11.65</td></tr></table></div>
+<h3>Explicitness dimension &mdash; vulgar / insulting register</h3><div class=scroll><table><tr><th class="">arm</th><th class="n">ladder</th><th class="n">span</th><th class="n">WER</th><th class="n">dur s</th></tr><tr><td class="">vulgar2</td><td class="n">0.17</td><td class="n">0.261</td><td class="n">0.064</td><td class="n">6.7</td></tr><tr><td class="">base</td><td class="n">0.097</td><td class="n">0.146</td><td class="n">0.159</td><td class="n">4.66</td></tr></table></div>
+<h3>Explicitness LoRA &mdash; adult content, with and without bursts</h3><div class=scroll><table><tr><th class="">arm</th><th class="n">blend</th><th class="n">genuineness</th><th class="n">arousal</th><th class="n">WER</th><th class="n">dur s</th></tr><tr><td class="">adult_bursts</td><td class="n">6.77</td><td class="n">1.321</td><td class="n">1.331</td><td class="n">0.059</td><td class="n">9.17</td></tr><tr><td class="">adult_plain</td><td class="n">5.92</td><td class="n">1.095</td><td class="n">1.749</td><td class="n">0.091</td><td class="n">9.05</td></tr><tr><td class="">base</td><td class="n">1.72</td><td class="n">0.315</td><td class="n">3.02</td><td class="n">0.105</td><td class="n">4.73</td></tr></table></div>
+<h3>Edge cases &mdash; vulnerability dose &times; bursts</h3><div class=scroll><table><tr><th class="">arm</th><th class="n">emotion</th><th class="n">VULN</th><th class="n">blend</th><th class="n">genu</th><th class="n">spk sim</th><th class="n">WER</th><th class="n">dur s</th></tr><tr><td class="">v050_bursts</td><td class="n">2.88</td><td class="n">5.097</td><td class="n">5.76</td><td class="n">1.607</td><td class="n">0.413</td><td class="n">0.267</td><td class="n">8.44</td></tr><tr><td class="">v025_bursts</td><td class="n">2.784</td><td class="n">5.142</td><td class="n">6.53</td><td class="n">1.694</td><td class="n">0.411</td><td class="n">0.287</td><td class="n">8.73</td></tr><tr><td class="">v000_bursts</td><td class="n">2.788</td><td class="n">5.085</td><td class="n">6.39</td><td class="n">1.679</td><td class="n">0.426</td><td class="n">0.269</td><td class="n">8.95</td></tr><tr><td class="">v025_plain</td><td class="n">2.571</td><td class="n">4.804</td><td class="n">7.04</td><td class="n">1.492</td><td class="n">0.456</td><td class="n">0.26</td><td class="n">7.07</td></tr><tr><td class="">v050_plain</td><td class="n">2.555</td><td class="n">4.814</td><td class="n">6.7</td><td class="n">1.455</td><td class="n">0.46</td><td class="n">0.247</td><td class="n">6.98</td></tr><tr><td class="">v000_plain</td><td class="n">2.532</td><td class="n">4.666</td><td class="n">6.97</td><td class="n">1.529</td><td class="n">0.471</td><td class="n">0.267</td><td class="n">7.15</td></tr></table></div>
+<h3>GA genomes &mdash; bracket format and carrier length</h3><div class=scroll><table><tr><th class="">arm</th><th class="n">emotion</th><th class="n">blend</th><th class="n">genu</th><th class="n">WER</th><th class="n">dur s</th><th class="n">% under 3 s</th></tr><tr><td class="">round_long_bursts</td><td class="n">2.7</td><td class="n">3.89</td><td class="n">1.388</td><td class="n">0.354</td><td class="n">11.55</td><td class="n">2.1</td></tr><tr><td class="">round_long</td><td class="n">2.602</td><td class="n">3.77</td><td class="n">1.248</td><td class="n">0.308</td><td class="n">10.53</td><td class="n">1.6</td></tr><tr><td class="">angle</td><td class="n">2.535</td><td class="n">6.77</td><td class="n">1.6</td><td class="n">0.292</td><td class="n">4.8</td><td class="n">8.3</td></tr><tr><td class="">round</td><td class="n">2.603</td><td class="n">7.06</td><td class="n">1.731</td><td class="n">0.295</td><td class="n">4.66</td><td class="n">12.0</td></tr></table></div>
+<h3>The duration floor, measured on this run</h3><table>
+<tr><th>&nbsp;</th><th class=n>value</th></tr>
+<tr><td>groups</td><td class=n>124</td></tr>
+<tr><td>median top-1 duration</td><td class=n>7.92 s</td></tr>
+<tr><td>top-1 under 3 s</td><td class=n>5</td></tr>
+<tr><td>median candidate duration</td><td class=n>7.68 s</td></tr>
+<tr><td>candidates under 3 s</td><td class=n>3.6 %</td></tr></table>
+<h2>6. What was applied &mdash; and what was reverted</h2>
+<p>118 matrix groups were regenerated, but adoption is decided on
+<b>group means over all 32 candidates</b>, per <b>(recipe &times; language) cell</b>, not per
+group. Means because the ranking formula changed between rounds, so a top-1 comparison would
+measure the recipe and the ranker at once. Per cell because picking the better of two runs group
+by group selects on the same noise being measured, which manufactures an improvement out of
+nothing. <b>A cell that did not improve keeps the original take</b> &mdash; a recipe that lost is
+reverted, not shipped with a badge claiming it won.</p>
+<div class=scroll><table><tr><th class="">recipe &times; language</th><th class="n">groups</th><th class="n">before</th><th class="n">after</th><th class="n">&Delta; target</th><th class="n">WER</th><th class="n">duration</th><th class="n">decision</th></tr><tr><td class="">dflu:both <b>DE</b></td><td class="n">4</td><td class="n">0.398</td><td class="n">1.135</td><td class="n"><span class="win">+0.737</span></td><td class="n">0.004 &rarr; 0.285</td><td class="n">6.0 &rarr; 9.9 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">dflu:both <b>EN</b></td><td class="n">4</td><td class="n">0.479</td><td class="n">1.194</td><td class="n"><span class="win">+0.715</span></td><td class="n">0.017 &rarr; 0.239</td><td class="n">7.0 &rarr; 10.5 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">edge:bursts <b>DE</b></td><td class="n">4</td><td class="n">2.729</td><td class="n">2.651</td><td class="n"><span class="neg">-0.078</span></td><td class="n">0.363 &rarr; 0.379</td><td class="n">10.5 &rarr; 11.5 s</td><td class="n"><b class=neg>reverted</b></td></tr><tr><td class="">edge:bursts <b>EN</b></td><td class="n">4</td><td class="n">2.424</td><td class="n">2.534</td><td class="n"><span class="win">+0.110</span></td><td class="n">0.428 &rarr; 0.436</td><td class="n">8.4 &rarr; 9.4 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">edge:bursts+long <b>DE</b></td><td class="n">4</td><td class="n">2.704</td><td class="n">2.3</td><td class="n"><span class="neg">-0.405</span></td><td class="n">0.456 &rarr; 0.306</td><td class="n">5.5 &rarr; 11.7 s</td><td class="n"><b class=neg>reverted</b></td></tr><tr><td class="">edge:bursts+long <b>EN</b></td><td class="n">4</td><td class="n">2.638</td><td class="n">2.88</td><td class="n"><span class="win">+0.241</span></td><td class="n">0.377 &rarr; 0.325</td><td class="n">4.9 &rarr; 11.9 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">edge:bursts+vuln0.5 <b>DE</b></td><td class="n">4</td><td class="n">2.598</td><td class="n">2.511</td><td class="n"><span class="neg">-0.087</span></td><td class="n">0.298 &rarr; 0.327</td><td class="n">9.6 &rarr; 10.6 s</td><td class="n"><b class=neg>reverted</b></td></tr><tr><td class="">edge:bursts+vuln0.5 <b>EN</b></td><td class="n">4</td><td class="n">2.565</td><td class="n">2.579</td><td class="n"><span class="win">+0.014</span></td><td class="n">0.311 &rarr; 0.317</td><td class="n">8.4 &rarr; 9.1 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">edge:bursts+vuln0.5+long <b>DE</b></td><td class="n">2</td><td class="n">2.266</td><td class="n">2.522</td><td class="n"><span class="win">+0.256</span></td><td class="n">0.406 &rarr; 0.520</td><td class="n">4.6 &rarr; 11.1 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">edge:bursts+vuln0.5+long <b>EN</b></td><td class="n">2</td><td class="n">2.397</td><td class="n">2.195</td><td class="n"><span class="neg">-0.201</span></td><td class="n">0.130 &rarr; 0.484</td><td class="n">5.0 &rarr; 10.2 s</td><td class="n"><b class=neg>reverted</b></td></tr><tr><td class="">emotion_breaks:both:L2 <b>DE</b></td><td class="n">32</td><td class="n">0.838</td><td class="n">0.95</td><td class="n"><span class="win">+0.113</span></td><td class="n">0.151 &rarr; 0.476</td><td class="n">8.8 &rarr; 10.5 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">emotion_breaks:both:L2 <b>EN</b></td><td class="n">32</td><td class="n">1.043</td><td class="n">0.819</td><td class="n"><span class="neg">-0.225</span></td><td class="n">0.158 &rarr; 0.386</td><td class="n">6.8 &rarr; 7.7 s</td><td class="n"><b class=neg>reverted</b></td></tr><tr><td class="">emotion_breaks:both:L3 <b>DE</b></td><td class="n">4</td><td class="n">0.364</td><td class="n">1.04</td><td class="n"><span class="win">+0.676</span></td><td class="n">0.353 &rarr; 0.463</td><td class="n">16.0 &rarr; 17.6 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">emotion_breaks:both:L3 <b>EN</b></td><td class="n">4</td><td class="n">0.079</td><td class="n">0.66</td><td class="n"><span class="win">+0.581</span></td><td class="n">0.244 &rarr; 0.518</td><td class="n">11.5 &rarr; 13.5 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">expl:vulgar2 <b>DE</b></td><td class="n">4</td><td class="n">0.229</td><td class="n">0.372</td><td class="n"><span class="win">+0.144</span></td><td class="n">0.206 &rarr; 0.201</td><td class="n">4.0 &rarr; 11.7 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">expl:vulgar2 <b>EN</b></td><td class="n">4</td><td class="n">0.182</td><td class="n">0.743</td><td class="n"><span class="win">+0.560</span></td><td class="n">0.098 &rarr; 0.062</td><td class="n">3.8 &rarr; 6.9 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">expllora:adult_bursts <b>DE</b></td><td class="n">1</td><td class="n">1.958</td><td class="n">7.445</td><td class="n"><span class="win">+5.487</span></td><td class="n">0.082 &rarr; 0.132</td><td class="n">6.6 &rarr; 11.0 s</td><td class="n"><b class=win>adopted</b></td></tr><tr><td class="">expllora:adult_bursts <b>EN</b></td><td class="n">1</td><td class="n">1.759</td><td class="n">7.502</td><td class="n"><span class="win">+5.743</span></td><td class="n">0.122 &rarr; 0.066</td><td class="n">4.6 &rarr; 9.2 s</td><td class="n"><b class=win>adopted</b></td></tr></table></div>
+<p><b>13 of 18 cells adopted.</b> The headline reversals:</p>
+<ul>
+<li><b>The moderate broken-speech treatment (L2) is a negative result in English</b> &mdash;
+&minus;0.224 over 32 groups, and round 3's ellipsis-only version was flat against base too. Two
+rounds have now failed to make it work; those 32 groups keep their original take. It <i>does</i>
+work in German (+0.113), which is why the decision is per language.</li>
+<li><b>Edge-case bursts help in English (+0.11 to +0.24) and hurt in German</b>
+(&minus;0.08 to &minus;0.41). Adopted for EN, reverted for DE.</li>
+<li>Everything heavy won in both languages: disfluency <b>+0.72</b>, the L3 emotions
+(intoxication, grief, hesitancy) <b>+0.58 / +0.68</b>, and the explicitness LoRA <b>+5.5 blend</b>.</li>
+</ul>
+<p>Net: <b>72 groups updated, 46 reverted.</b> The page carries 72 <span class=win>NEW</span>
+badges, one per group that actually improved on the metric its recipe targets.</p>
+<h2>7. Links</h2><ul>
+<li><a href="https://tts-agi-moss-voice-profiles.static.hf.space/profile_rw.html">Voice profile &mdash; all conditions, correct audio</a></li>
+<li><a href="https://tts-agi-moss-voice-profiles.static.hf.space/levo2_genres.html">LeVo 2 genre grid</a></li>
+<li><a href="https://tts-agi-moss-voice-profiles.static.hf.space/genre_space.html">Genre space</a></li>
+<li><a href="https://laion-ai.github.io/moss-voiceacting-manual/site/recipes/prompt_notation.html">Manual &mdash; prompt notation (new)</a></li>
+<li><a href="https://laion-ai.github.io/moss-voiceacting-manual/site/recipes/text_carries_the_condition.html">Manual &mdash; text carries the condition</a></li>
+<li><a href="https://github.com/LAION-AI/Voice-Acting-Pipeline-WIP/blob/main/docs/23_notation_ranking_and_the_missing_block.md">WIP &mdash; document 23</a></li>
+</ul>
+<p class=sub style="margin-top:2.4em">Report 12 &middot; generated from
+<code>exp3_results.json</code>; no number on this page is typed by hand.</p>

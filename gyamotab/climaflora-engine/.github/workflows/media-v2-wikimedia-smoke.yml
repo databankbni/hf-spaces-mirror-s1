@@ -1,0 +1,87 @@
+name: Wikimedia Media v2.3 smoke
+
+on:
+  pull_request:
+    paths:
+      - '.github/tools/collect_wikimedia_media_v2.py'
+      - '.github/tools/media_ingest_wikimedia_v1_1.py'
+      - '.github/tools/extend_media_v2_wikimedia.py'
+      - '.github/workflows/media-v2-wikimedia-smoke.yml'
+      - 'app/services/media.py'
+      - 'frontend/static/media-v2.js'
+      - 'frontend/static/config.js'
+      - 'tests/test_media_wikimedia_v23.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  acer-nigrum:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CATALOG_URL: https://shugoan.com/climaflora/data/climaflora_global_plants_v2_0.sqlite.zst
+      CATALOG_ZST_SHA256: 1683c43c6fb1e68f9b6c6c4cd7f291642feba6c37a3691c3452b319856335c32
+      CATALOG_SQLITE_SHA256: 3e80f432ebe2b4b59fed1b76549d2fc7df4e9330f1c315ae804746b616baee55
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install probe dependencies
+        run: |
+          python -m pip install --upgrade 'httpx>=0.28,<1'
+          command -v zstd >/dev/null || (sudo apt-get update && sudo apt-get install -y zstd)
+
+      - name: Download canonical catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 --retry-all-errors --retry-delay 3 "$CATALOG_URL" -o /tmp/catalog.sqlite.zst
+          echo "$CATALOG_ZST_SHA256  /tmp/catalog.sqlite.zst" | sha256sum -c -
+          unzstd -f /tmp/catalog.sqlite.zst -o /tmp/catalog.sqlite
+          echo "$CATALOG_SQLITE_SHA256  /tmp/catalog.sqlite" | sha256sum -c -
+
+      - name: Create empty Media v2 baseline
+        run: |
+          python - <<'PY'
+          import sqlite3
+          conn=sqlite3.connect('/tmp/baseline.sqlite')
+          conn.execute('CREATE TABLE plant_image_asset(taxon_id TEXT)')
+          conn.commit()
+          conn.close()
+          PY
+
+      - name: Resolve Acer nigrum through Wikidata P225 + P18
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/collect_wikimedia_media_v2.py \
+            --catalog /tmp/catalog.sqlite \
+            --baseline /tmp/baseline.sqlite \
+            --taxon 'Acer nigrum' \
+            --output /tmp/acer_nigrum_media.json \
+            --report /tmp/acer_nigrum_report.json \
+            --batch-size 1 \
+            --request-delay-ms 100
+
+      - name: Validate open Commons image contract
+        run: |
+          python - <<'PY'
+          import json
+          payload=json.load(open('/tmp/acer_nigrum_media.json',encoding='utf-8'))
+          report=json.load(open('/tmp/acer_nigrum_report.json',encoding='utf-8'))
+          assert report['status']=='ready', report
+          assert report['eligible_unique_taxa']==1, report
+          assert len(payload['assets'])==1, payload
+          image=payload['assets'][0]
+          assert image['verified_taxon_name']=='Acer nigrum', image
+          assert image['source']=='wikimedia_commons', image
+          assert image['thumbnail_url'].startswith('https://upload.wikimedia.org/'), image
+          assert image['image_url'].startswith('https://upload.wikimedia.org/'), image
+          assert image['attribution_url'].startswith('https://commons.wikimedia.org/wiki/File:'), image
+          licence=image['license'].upper()
+          assert licence.startswith('CC0') or licence=='PUBLIC DOMAIN' or licence.startswith('CC BY ') or licence.startswith('CC BY-SA '), image
+          assert 'NC' not in licence and 'ND' not in licence, image
+          print(json.dumps(image,indent=2,ensure_ascii=False))
+          PY

@@ -1,19 +1,23 @@
 FROM python:3.11-slim
 
-# No system/GDAL deps needed: the runtime uses only wheel-installable packages
-# (dash, plotly, pandas, numpy, scipy, matplotlib, pyarrow). This keeps the
-# HuggingFace build fast and avoids the previous "Job timeout" build error.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install ALL app dependencies at BUILD time, system-wide (readable by every
+# user). This avoids any runtime permission problem when importing them.
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-COPY . .
+COPY start.py /app/start.py
 
-# HuggingFace Spaces runs as non-root user 1000
-RUN useradd -m -u 1000 appuser && chown -R appuser /app
-USER appuser
-
+ENV PORT=7860
 EXPOSE 7860
 
-CMD ["gunicorn", "app:server", "--bind", "0.0.0.0:7860", "--workers", "2", "--timeout", "120"]
+RUN useradd -m -u 1000 user
+USER user
+ENV HOME=/home/user PATH=/home/user/.local/bin:$PATH
+
+CMD ["python", "/app/start.py"]

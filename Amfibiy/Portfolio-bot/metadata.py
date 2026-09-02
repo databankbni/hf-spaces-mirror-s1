@@ -593,6 +593,16 @@ async def validate_metadata_with_gemini(extracted_data: dict, raw_text: str) -> 
                 value = next((v for v in value if v), None)
                 if value is None:
                     continue
+            # ВАЖНО: Gemini возвращает "сырое" значение из распознанного текста (особенно
+            # при плохом OCR), без приведения к единому формату. Без нормализации здесь
+            # group/author могут разойтись в написании с уже сохранёнными в базе версиями
+            # того же документа ("ПЕ-41Б" vs "ПЕ41Б", "Сыропятов АВ" vs "Сыропятов А.В.") —
+            # из-за этого find_exact_work перестаёт находить дубликат по точному совпадению
+            # строк, и в базе накапливаются две записи одной и той же работы.
+            if key == "group":
+                value = clean_group_name(value)
+            elif key == "author":
+                value = normalize_author_name(value)
             extracted_data[key] = value
 
         if validated.get('subject'):

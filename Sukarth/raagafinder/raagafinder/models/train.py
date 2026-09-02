@@ -217,8 +217,30 @@ def load_oof_order(model_name):
 
 
 def make_splits(mbids, labels, concerts, artists, n_splits=10, seed=42,
-                out_name="splits.json"):
-    """Frozen fold assignments for the parametric models."""
+                out_name="splits.json", absorb_probe=False):
+    """Frozen fold assignments for the parametric models.
+
+    The fresh-YouTube probe recordings are refused a fold unless
+    ``absorb_probe`` says otherwise. extend_splits.py has guarded against
+    absorbing them since the probe existed, but a from-scratch resplit ran
+    through this function and took all 67 silently -- that is how they
+    reached the v28 corpus. The guard belongs at the point where fold
+    assignment happens, not only in one of the two scripts that trigger it.
+    """
+    from raagafinder.models.youtube_probe import YOUTUBE_PROBE
+
+    if not absorb_probe:
+        probe = set(YOUTUBE_PROBE)
+        held = [m for m in mbids if m in probe]
+        if held:
+            keep = [i for i, m in enumerate(mbids) if m not in probe]
+            mbids = [mbids[i] for i in keep]
+            labels = np.asarray(labels)[keep]
+            concerts = [concerts[i] for i in keep]
+            artists = [artists[i] for i in keep]
+            print(f"make_splits: refusing a fold to {len(held)} fresh-"
+                  f"YouTube probe recording(s); pass absorb_probe=True to "
+                  f"end the source-gap measurement deliberately")
     out = {"seed": seed, "n_splits": n_splits}
     sgkf = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
     concert_folds = np.full(len(mbids), -1)

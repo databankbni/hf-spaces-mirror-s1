@@ -1,0 +1,195 @@
+name: Promote ClimaFlora catalog v1.8 to OVH staging-production
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/catalog-v1.8-status.json'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: promote-catalog-v1.8
+  cancel-in-progress: true
+
+jobs:
+  promote:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'failed ClimaFlora v1.8')
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+      OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+      OVH_SFTP_USER: ${{ secrets.OVH_SFTP_USER }}
+      OVH_SFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+      OVH_SFTP_REMOTE_DIR: ${{ secrets.OVH_SFTP_REMOTE_DIR }}
+      V18_REMOTE_PATH: data/climaflora_global_plants_v1_8.sqlite.zst
+      V18_PUBLIC_URL: https://shugoan.com/climaflora/data/climaflora_global_plants_v1_8.sqlite.zst
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read validated candidate status
+        id: status
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          s=json.loads(Path('.github/catalog-v1.8-status.json').read_text())
+          assert s['status']=='ready', s
+          assert s['catalog_version']=='1.8.0', s
+          assert s['base_catalog_version']=='1.7.0', s
+          assert s['taxonomy_policy'].startswith('exact deterministic'), s
+          assert s['images_identification_evidence'] is False, s
+          assert s['geographic_priors_scoring_enabled'] is False, s
+          assert s['stats']['scoring_enabled_geographic_priors']==0, s
+          assert s['stats']['wcups_use_taxa']>=39000, s
+          assert s['stats']['life_form_taxa_added']>=1000, s
+          print('run_id='+str(s['run_id']))
+          print('sqlite_sha='+s['sqlite_sha256'])
+          print('zst_sha='+s['zst_sha256'])
+          PY
+
+      - name: Download validated v1.8 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: climaflora-global-plants-v1.8-candidate
+          path: candidate
+          run-id: ${{ steps.status.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Ensure audit and SFTP utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v zstd
+          python -m pip install --disable-pip-version-check 'paramiko>=3.5,<5'
+
+      - name: Independently revalidate candidate
+        shell: bash
+        env:
+          SQLITE_SHA: ${{ steps.status.outputs.sqlite_sha }}
+          ZST_SHA: ${{ steps.status.outputs.zst_sha }}
+        run: |
+          set -euo pipefail
+          cd candidate
+          echo "$ZST_SHA  climaflora_global_plants_v1_8.sqlite.zst" | sha256sum -c -
+          zstd -t climaflora_global_plants_v1_8.sqlite.zst
+          zstd -d -f climaflora_global_plants_v1_8.sqlite.zst -o audit.sqlite
+          echo "$SQLITE_SHA  audit.sqlite" | sha256sum -c -
+          python - <<'PY'
+          import sqlite3
+          with sqlite3.connect('audit.sqlite') as con:
+              assert con.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+              meta=dict(con.execute('SELECT key,value FROM climaflora_catalog_metadata'))
+              assert meta.get('catalog_version')=='1.8.0', meta
+              assert meta.get('scientific_ready')=='true', meta
+              assert meta.get('image_identification_evidence')=='false', meta
+              assert meta.get('geographic_priors_scoring_enabled')=='false', meta
+              assert con.execute('SELECT COUNT(*) FROM plant_index').fetchone()[0]==420532
+              assert con.execute('SELECT COUNT(*) FROM soil_geographic_prior WHERE scoring_enabled<>0').fetchone()[0]==0
+              assert con.execute("SELECT COUNT(*) FROM plant_use WHERE taxonomy_match_method NOT IN ('IPNI_LSID_EXACT','SCIENTIFIC_NAME_EXACT')").fetchone()[0]==0
+              assert con.execute("SELECT COUNT(DISTINCT taxon_id) FROM plant_use").fetchone()[0]>=39000
+              assert con.execute("SELECT COUNT(*) FROM plant_trait_evidence WHERE trait_name='life_form'").fetchone()[0]>=1000
+              assert con.execute("SELECT COUNT(*) FROM plant_image_asset WHERE license LIKE '%NC%' OR license LIKE '%ND%'").fetchone()[0]==0
+          PY
+          rm audit.sqlite
+
+      - name: Upload v1.8 alongside rollback catalogs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in OVH_SFTP_HOST OVH_SFTP_USER OVH_SFTP_PASSWORD OVH_SFTP_REMOTE_DIR; do
+            test -n "${!name}"
+          done
+          python - <<'PY'
+          import os, posixpath
+          import paramiko
+          host=os.environ['OVH_SFTP_HOST']
+          port=int(os.environ.get('OVH_SFTP_PORT') or '22')
+          user=os.environ['OVH_SFTP_USER']
+          password=os.environ['OVH_SFTP_PASSWORD']
+          base=os.environ['OVH_SFTP_REMOTE_DIR'].rstrip('/')
+          remote_rel=os.environ['V18_REMOTE_PATH']
+          transport=paramiko.Transport((host,port))
+          transport.banner_timeout=30
+          transport.auth_timeout=30
+          transport.connect(username=user,password=password)
+          sftp=paramiko.SFTPClient.from_transport(transport)
+          def mkdir_p(path):
+              cur=''
+              for part in path.strip('/').split('/'):
+                  cur += '/' + part
+                  try:
+                      sftp.stat(cur)
+                  except FileNotFoundError:
+                      sftp.mkdir(cur)
+          remote=posixpath.join(base,remote_rel)
+          mkdir_p(posixpath.dirname(remote))
+          sftp.put('candidate/climaflora_global_plants_v1_8.sqlite.zst',remote)
+          sftp.close()
+          transport.close()
+          PY
+
+      - name: Verify public v1.8 object byte-for-byte
+        shell: bash
+        env:
+          ZST_SHA: ${{ steps.status.outputs.zst_sha }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 1200 "$V18_PUBLIC_URL" -o public-v1.8.zst; then
+              observed="$(sha256sum public-v1.8.zst | awk '{print $1}')"
+              if [ "$observed" = "$ZST_SHA" ]; then
+                echo "Public v1.8 verified: $observed"
+                exit 0
+              fi
+            fi
+            sleep $((attempt*5))
+          done
+          exit 1
+
+      - name: Record reversible v1.8 promotion
+        shell: bash
+        env:
+          RUN_ID: ${{ steps.status.outputs.run_id }}
+          SQLITE_SHA: ${{ steps.status.outputs.sqlite_sha }}
+          ZST_SHA: ${{ steps.status.outputs.zst_sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          s=json.loads(Path('.github/catalog-v1.8-status.json').read_text())
+          out={
+            'status':'uploaded_verified',
+            'catalog_version':'1.8.0',
+            'source_run_id':os.environ['RUN_ID'],
+            'sqlite_sha256':os.environ['SQLITE_SHA'],
+            'zst_sha256':os.environ['ZST_SHA'],
+            'public_url':'https://shugoan.com/climaflora/data/climaflora_global_plants_v1_8.sqlite.zst',
+            'stats':s['stats'],
+            'previous_catalogs_retained':['climaflora_global_plants_v1_7.sqlite.zst','climaflora_global_plants_v1_6.sqlite.zst','climaflora_global_plants_v1_2.sqlite.zst'],
+            'promoted_at':datetime.now(timezone.utc).isoformat(),
+          }
+          Path('/tmp/catalog-v1.8-promotion.json').write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main && git reset --hard origin/main
+            cp /tmp/catalog-v1.8-promotion.json .github/catalog-v1.8-promotion.json
+            git add .github/catalog-v1.8-promotion.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record verified ClimaFlora v1.8 OVH promotion [skip ci]'
+            git push origin HEAD:main && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

@@ -1,0 +1,256 @@
+<!doctype html>
+<!-- OHAM EDGE — the minimal receiver, CPU integers end to end.
+
+     The etch word is the minimal generative content (THE_ETCHED_TOWER_LEDGER):
+     everything a frame is derives from its address set, so an edge device
+     needs exactly this and nothing else — fetch the addresses for the frame
+     in hand, derive the pixels through the wasm core (the same integer law
+     labs/tsb_live_v1/microdecode.py holds byte-exact at 6 ops/pixel), put
+     them on screen, and let them go. No GPU is asked for anything: no WebGL,
+     no ImageBitmap, no filters — one putImageData per shown frame, CSS does
+     the fitting. Holds the current frame plus at most three ahead; the wasm
+     record cache is capped at four; nothing else is retained.
+
+     THE THREE SCALES, kept separate (ledger W2/W3; OHAM §18/§21, G7): the
+     INSCRIPTION is native — the wire carries the full field. The
+     MATERIALIZATION manifests the PANEL's device pixels exactly (G7: the
+     masked-address resolve IS the exact box-average) — never below the
+     panel, never wastefully above it; `?fit=native` manifests the whole
+     field. Adaptivity is the cadence governor: even stride from measured
+     capacity, skip-don't-wait, LOCK=6 resync — panel sharpness is never
+     traded away.  -->
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="evs-base" content="https://storage.googleapis.com/framecore-etch-video/driving60q2z.tsb"><meta name="evs-mirrors" content="driving60q2z.tsb,https://framecore-etch-video.storage.googleapis.com/driving60q2z.tsb"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OHAM edge — CPU-only glyph receiver</title>
+<style>
+ html,body{margin:0;height:100%;background:#07070a;color:#cdd3df;
+   font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;overflow:hidden}
+ #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+ canvas{max-width:100vw;max-height:100vh;image-rendering:auto}
+ #bar{position:fixed;left:0;right:0;bottom:0;padding:6px 10px;
+   background:rgba(7,7,10,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ #bar b{color:#ffb454;font-weight:600}
+</style></head><body>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<div id="bar">opening…</div>
+<script>
+(async () => {
+  const bar = t => document.getElementById("bar").innerHTML = t;
+  const die = t => { bar("✕ " + t); throw new Error(t); };
+  const Q = new URLSearchParams(location.search);
+  const BASE = Q.get("src")
+            || document.querySelector('meta[name="evs-base"]')?.content
+            || die("no clip: pass ?src=…/clip.tsb");
+  if (!/\.tsb([?#]|$)/.test(BASE)) die("edge plays the sealed .tsb form only");
+
+  /* ── the 88-byte prelude, fail-closed — the same law as the main player ── */
+  const range = async (off, len) => {
+    const r = await fetch(BASE, {headers:{Range:`bytes=${off}-${off+len-1}`}, cache:"no-cache"});
+    if (!r.ok && r.status !== 206) die(`range ${r.status} on container`);
+    const b = await r.arrayBuffer();
+    return b.byteLength === len ? b : b.slice(off, off + len);
+  };
+  const pre = new DataView(await range(0, 88));
+  const magic = String.fromCharCode(pre.getUint8(0),pre.getUint8(1),pre.getUint8(2),pre.getUint8(3));
+  if (magic !== "TSB1") die(`not a .tsb (magic ${magic})`);
+  if (pre.getUint32(4, true) !== 1) die("unknown .tsb version");
+  const fpsN = pre.getUint32(8, true), fpsD = pre.getUint32(12, true);
+  if (!fpsN || !fpsD) die(".tsb declares no frame rate — refused");
+  if (pre.getUint32(16, true) || pre.getUint32(20, true)) die("reserved fields nonzero — refused");
+  const sec = i => ({off:Number(pre.getBigUint64(24+16*i,true)), len:Number(pre.getBigUint64(32+16*i,true))});
+  const [sevh, sevi, sevu, sevs] = [0,1,2,3].map(sec);
+  const RATE = fpsN / fpsD;
+
+  bar("fetching header + index");
+  const header = await range(sevh.off, sevh.len);
+  const index  = await range(sevi.off, sevi.len);
+  /* the unit sidecar makes a coarse rung a byte-range PREFIX of each record —
+     the segment law on the wire. Preload when small, lazy rows when large:
+     the same threshold the main player settled. */
+  let units = null, evuRange = null;
+  if (sevu.len && sevu.len <= (4 << 20)) units = await range(sevu.off, sevu.len);
+  else if (sevu.len) evuRange = {off: sevu.off, len: sevu.len};
+  const wasm   = await (await fetch("oham.wasm?v=1008e4792b", {cache:"no-cache"})).arrayBuffer();
+
+  /* ── two workers, alternating — decode the next while the current shows ── */
+  /* every core the host can spare: frames are independent by construction, so
+     decode throughput scales with workers until the device saturates */
+  const POOL = Math.max(2, Math.min(8,
+    +Q.get("pool") || Math.max(2, (navigator.hardwareConcurrency || 4) - 2)));
+  const ask = (w, m) => new Promise(r => { w.onmessage = e => r(e.data); w.postMessage(m); });
+  const pool = Array.from({length: POOL}, () => new Worker("decoder.js?v=1008e4792b"));
+  let ready;
+  for (let k = 0; k < POOL; k++) {
+    ready = await ask(pool[k], {cmd:"init", id:k, n:POOL, wasm, header, index,
+                                url:BASE, evsOff:sevs.off, evuRange, units, cache:4});
+    if (!ready.ok) die(ready.fatal || "receiver refused the container");
+  }
+  const {frames, w, h, bs, levels, bw} = ready;
+
+  /* PANEL-EXACT MANIFESTATION (G7: the masked-address resolve IS the exact
+     box-average). The INSCRIPTION stays native — the wire carries the full
+     field's addresses. The MATERIALIZATION manifests the panel's own device
+     pixels: the smallest rung whose output covers the panel, NEVER below it
+     (below-panel is loss and stays forbidden — ledger W2). The panel cannot
+     display more pixels than it has; manifesting native and letting a broken
+     GPU compositor box-filter 34 MB per frame was the measured fps ceiling
+     AND the jitter (main-thread paint stalls). `?fit=native` forces the full
+     field; `?level=` still pins a rung explicitly. */
+  const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  const dpr = devicePixelRatio || 1;                 // uncapped — the real panel
+  const panelW = Math.max(1, Math.min(innerWidth, innerHeight * (w / h)) * dpr);
+  let L = 0;
+  if (Q.get("fit") !== "native") {
+    for (let l = levels - 1; l >= 0; l--) if (bw * (bs >> l) >= panelW) { L = l; break; }
+  }
+  if (Q.get("level") !== null) L = Math.max(0, Math.min(levels - 1, +Q.get("level")));
+  /* WORK IN HAND = stored frames + asks in flight, bounded together. The
+     first cut bounded only stored frames, so all six workers passed the gate
+     at once, the buffer overran its bound (measured on-device: buf 4/2), and
+     a third of the decoded frames were dropped unshown — core-seconds burned
+     on frames the clock never saw. The bound is POOL+2: every worker can be
+     busy (that IS the parallelism) plus two completed frames for the clock
+     to draw from; the governor rate-matches so steady state stays small. */
+  const HOLD = Math.max(2, Math.min(12, +Q.get("ahead") || (POOL + 2)));
+
+  /* ── the cadence governor — fluidity is EVENNESS, not raw rate ──
+     An uneven 4..40 fps reads as stutter; a steady 20 reads as motion. So the
+     playhead advances by an even STRIDE chosen from the measured decode
+     throughput (stride = ceil(RATE / thru)), and the ask loop decodes ONLY the
+     ticks that will be shown — no core-second is spent on a frame the clock
+     will skip. The stride re-evaluates at full-return boundaries (60 ticks —
+     the orbit's own anchor), never mid-orbit, so the rhythm cannot wander. */
+  const buf = new Map();                 // tick -> {rgba, rw, rh, ms, bytes}
+  let nextAsk = 0, decN = 0, decMs = 0, lastBytes = 0;
+  /* CAPACITY, not arrival rate. Arrivals are throttled by the full buffer, so
+     measuring them locks the stride wherever it started (measured: 27 ms
+     frames pinned at stride 7 because the buffer paced arrivals to the
+     presentation rate). Capacity is what the pool could do flat out:
+     POOL / round-trip — measured from each ask's own wall time, which is real
+     work (fetch + unpack + resolve), never idle waiting. */
+  let stride = 1, rtEMA = 0, wantPrev = 0;
+  const capacity = () => rtEMA ? POOL * 1000 / rtEMA : 0;
+  const restride = () => {
+    const cap = capacity();
+    if (!cap) return;
+    /* HEADROOM: target 85% of capacity, not 100%. At exactly capacity the
+       buffer runs empty and presentation follows uneven arrivals — jitter.
+       Under it, the buffer stays fed and the clock owns the rhythm.
+       HYSTERESIS: a stride only changes when two consecutive anchor
+       evaluations agree, so a borderline capacity cannot flap the cadence
+       once a second. */
+    const want = Math.max(1, Math.min(8, Math.ceil(RATE / (0.85 * cap))));
+    if (want !== stride && want === wantPrev) {
+      stride = want; nextAsk = Math.ceil(nextAsk / stride) * stride;
+    }
+    wantPrev = want;
+  };
+  /* ── BAND-SHARDED DECODE — the carrier's own parallel form (OHAM lecture):
+     "every window of a large carrier is a complete smaller carrier, times a
+     sign you can compute in advance", and the answers "compose by sitting
+     next to each other" — no coordination, no shared state. So ALL workers
+     take the SAME tick, each resolving one horizontal band of blocks through
+     the unit-granular win path (each fetches only its own tiles' units), and
+     the bands are put on the canvas side by side. Latency divides by the
+     pool; the cadence is a metronome because every tick completes as a unit. */
+  /* Band-sharding rides the unit-granular window path — the same machinery
+     the owner's device shows broken on the main page (1 fps/window, 0 B/s)
+     while the whole-record path runs. So bands are OPT-IN (?bands=1) until
+     that path is fixed on-device; the default is the proven whole-frame
+     pipeline. Owner: "what you deployed is frozen — don't keep that." */
+  const BANDS = Q.get("bands") === "1";
+  const bh2 = ready.bh;
+  const NB = BANDS ? Math.min(POOL, bh2) : 1;   // bands per tick
+  const bandOf = k => {
+    const per = Math.ceil(bh2 / NB);
+    return [Math.min(k * per, bh2), Math.min((k + 1) * per, bh2)];
+  };
+  /* each tick expands to NB band-jobs on one shared queue; workers pull —
+     order-free, no shared state beyond the queue itself */
+  const jobs = [];
+  const refill = () => {
+    while (jobs.length < NB && buf.size < HOLD) {
+      nextAsk = Math.ceil(nextAsk / stride) * stride;
+      for (let b = 0; b < NB; b++) {
+        const [y0, y1] = bandOf(b);
+        if (y0 < y1) jobs.push({ a: nextAsk, y0, y1 });
+      }
+      nextAsk += stride;
+    }
+  };
+  pool.forEach(async wk => {
+    for (;;) {
+      refill();
+      const j = jobs.shift();
+      if (!j) { await new Promise(r => setTimeout(r, 4)); continue; }
+      const t1 = performance.now();
+      let d = BANDS
+        ? await ask(wk, {cmd:"win", t: j.a % frames, level:L, id:j.y0,
+                         bx0:0, by0:j.y0, bx1:bw, by1:j.y1, seq:j.a,
+                         nextT:(j.a + stride) % frames})
+        : await ask(wk, {cmd:"rgba", t: j.a % frames, level:L, seq:j.a});
+      if (d && d.pending) { jobs.push(j); await new Promise(r => setTimeout(r, 30)); continue; }
+      if (d && d.rgba && !d.ww) { d.ww = d.rw; d.wh = d.rh; }  // rgba reply -> band shape
+      if (d && d.rgba && d.ww) {
+        const rt = performance.now() - t1;
+        rtEMA = rtEMA ? rtEMA * 0.7 + rt * 0.3 : rt;   // band round-trip ≈ frame/NB
+        let e = buf.get(d.seq);
+        if (!e) buf.set(d.seq, e = { bands: [], got: 0, ms: 0 });
+        e.bands.push({ rgba: d.rgba, ww: d.ww, wh: d.wh, y: j.y0 * (bs >> L) });
+        e.ms += d.ms || 0; e.got++;
+        if (e.got === NB) { decN++; decMs += e.ms; e.done = true; }
+      }
+    }
+  });
+
+  /* ── present on the host clock; skip, never wait; resync at one LOCK ── */
+  const LOCK = 6;
+  let t0 = null, shownTick = -1, shown = 0, fpsT = performance.now(), fpsN2 = 0, skipped = 0;
+  const show = e => {
+    /* the bands compose by sitting next to each other — one putImageData per
+       band at its own row offset; no assembly buffer, no merge protocol */
+    const W2 = e.bands[0].ww;
+    const H2 = Math.min(bh2 * (bs >> L), h >> L || bh2 * (bs >> L));
+    if (cv.width !== W2 || cv.height !== H2) { cv.width = W2; cv.height = H2; }
+    for (const b of e.bands)
+      ctx.putImageData(new ImageData(new Uint8ClampedArray(b.rgba.buffer), b.ww, b.wh), 0, b.y);
+    shown++; fpsN2++;
+  };
+  let lastAnchor = -1;
+  const loop = now => {
+    if (buf.size) {
+      if (t0 === null) t0 = now;
+      const due = Math.floor((now - t0) * RATE / 1000);
+      const anchor = Math.floor(due / 60);
+      if (anchor !== lastAnchor) { lastAnchor = anchor; restride(); }
+      if (due > shownTick) {
+        /* newest COMPLETE tick not ahead of the clock — a backlog must never
+           become slow motion; everything older (complete or not) goes */
+        let key = -1;
+        for (const [t, e] of buf) if (e.done && t <= due && t > key) key = t;
+        if (key < 0) for (const [t, e] of buf) if (e.done && (key < 0 || t < key)) key = t;
+        if (key >= 0) {
+          const d = buf.get(key); buf.delete(key);
+          for (const t of [...buf.keys()]) if (t < key) { buf.delete(t); skipped++; }
+          show(d);
+          shownTick = due;
+          if (due - nextAsk > LOCK * stride) {   // a LOCK behind the clock: resync
+            nextAsk = Math.ceil(due / stride) * stride; buf.clear(); jobs.length = 0;
+          }
+        }
+      }
+    }
+    if (now - fpsT > 500) {
+      const s = (now - fpsT) / 1000;
+      bar(`<b>OHAM edge</b> · CPU integers only · field ${w}×${h} · manifest ${cv.width}×${cv.height}${L?` (panel-exact, G7 rung ${L})`:` (native)`}`
+        + ` · <b>${(fpsN2/s).toFixed(0)}</b> fps shown / ${(decN/s).toFixed(0)} decode/s`
+        + ` · ${decN ? (decMs/decN).toFixed(0) : "–"} ms/frame · bands ${Math.min(POOL, bh2)}`
+        + ` · stride ${stride} · cap ${capacity().toFixed(0)}/s · buf ${buf.size}/${HOLD} · q ${jobs.length} · clock ${RATE.toFixed(2)} · pool ${POOL}`);
+      fpsT = now; fpsN2 = 0; decN = 0; decMs = 0;
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+})();
+</script></body></html>

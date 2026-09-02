@@ -1,0 +1,153 @@
+name: Benchmark exhaustive search
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/services/exhaustive_search.py'
+      - 'app/services/funnel_metadata.py'
+      - 'app/routers/search.py'
+      - 'app/main.py'
+      - 'tests/test_exhaustive_search.py'
+      - 'tests/test_funnel_metadata.py'
+      - '.github/workflows/benchmark-exhaustive-search.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install package and zstd
+        run: |
+          python -m pip install --disable-pip-version-check -e .
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+
+      - name: Download verified production catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f /tmp/climaflora_global_plants_v2_0.sqlite.zst
+          curl --http1.1 -fL --retry 6 --retry-all-errors --retry-delay 3 \
+            --connect-timeout 20 \
+            -o /tmp/climaflora_global_plants_v2_0.sqlite.zst \
+            https://shugoan.com/climaflora/data/climaflora_global_plants_v2_0.sqlite.zst
+          echo '1683c43c6fb1e68f9b6c6c4cd7f291642feba6c37a3691c3452b319856335c32  /tmp/climaflora_global_plants_v2_0.sqlite.zst' | sha256sum -c -
+          zstd -d -f /tmp/climaflora_global_plants_v2_0.sqlite.zst -o /tmp/climaflora_global_plants_v2_0.sqlite
+
+      - name: Diagnose production funnel metadata
+        shell: bash
+        run: |
+          python - <<'PY' | tee /tmp/exhaustive-diagnostics.txt
+          import json
+          import sqlite3
+          db='/tmp/climaflora_global_plants_v2_0.sqlite'
+          with sqlite3.connect(db) as conn:
+              print('PLANT_PROFILE_LIFE_FORM_TOP')
+              for value, n in conn.execute("SELECT COALESCE(NULLIF(TRIM(life_form),''),'(missing)'),COUNT(*) FROM plant_profile GROUP BY 1 ORDER BY 2 DESC LIMIT 50"):
+                  print(json.dumps({'life_form': value, 'n': n}, ensure_ascii=False))
+              print('FUNCTIONS_JSON_TOP')
+              for value, n in conn.execute("SELECT jf.value,COUNT(DISTINCT p.taxon_id) FROM plant_index p,json_each(COALESCE(p.functions_json,'[]')) jf GROUP BY jf.value ORDER BY 2 DESC LIMIT 50"):
+                  print(json.dumps({'function': value, 'n': n}, ensure_ascii=False))
+          PY
+
+      - name: Run normalized exhaustive-search benchmarks
+        shell: bash
+        run: |
+          export CLIMAFLORA_FUNNEL_CACHE_DIR=/tmp/climaflora-funnel-benchmark
+          rm -rf "$CLIMAFLORA_FUNNEL_CACHE_DIR"
+          python - <<'PY' | tee /tmp/exhaustive-benchmark.txt
+          import json
+          import time
+          from app.services.funnel_metadata import (
+              canonical_function_counts,
+              install_exhaustive_metadata_patch,
+              warm_funnel_metadata,
+          )
+          install_exhaustive_metadata_patch()
+          from app.services.exhaustive_search import exhaustive_search
+
+          db = '/tmp/climaflora_global_plants_v2_0.sqlite'
+          climate = {'bio01': 13.95, 'bio05': 27.45, 'bio06': 3.75, 'bio12': 823.5, 'bio15': 26.0}
+          soil = {'ph': 6.5, 'clay_pct': 20.0, 'sand_pct': 45.0, 'silt_pct': 35.0, 'cec_cmol_kg': 14.0, 'coarse_fragments_pct': 5.0, 'soc_g_kg': 20.0, 'nitrogen_g_kg': 1.5, 'drainage': 'well_drained'}
+
+          t0 = time.perf_counter()
+          sidecar = warm_funnel_metadata(db)
+          metadata_warmup = time.perf_counter() - t0
+          t1 = time.perf_counter()
+          warm_funnel_metadata(db)
+          metadata_reuse = time.perf_counter() - t1
+          print('FUNNEL_METADATA=' + json.dumps({
+              'sidecar': str(sidecar),
+              'warmup_seconds': round(metadata_warmup, 3),
+              'reuse_seconds': round(metadata_reuse, 6),
+          }))
+
+          cases = [
+              ('all', 'ALL', []),
+              ('trees', 'TREE', []),
+              ('trees_food', 'TREE', ['FOOD_HUMAN']),
+              ('herbs', 'HERB', []),
+          ]
+          rows = []
+          for name, life_form, functions in cases:
+              t0 = time.perf_counter()
+              result = exhaustive_search(db, climate_variables=climate, soil_variables=soil, life_form=life_form, functions=functions, limit=50)
+              cold = time.perf_counter() - t0
+              t1 = time.perf_counter()
+              cached = exhaustive_search(db, climate_variables=climate, soil_variables=soil, life_form=life_form, functions=functions, offset=50, limit=50)
+              warm = time.perf_counter() - t1
+              t2 = time.perf_counter()
+              fn_counts = canonical_function_counts(db, life_form)
+              facet_seconds = time.perf_counter() - t2
+              row = {
+                  'case': name,
+                  'life_form': life_form,
+                  'functions': functions,
+                  'catalog_total': result['metrics']['catalog_total'],
+                  'after_type': result['metrics']['after_type'],
+                  'after_function': result['metrics']['after_function'],
+                  'evaluated_candidates': result['metrics']['evaluated_candidates'],
+                  'total_results': result['metrics']['total_results'],
+                  'cold_seconds_after_metadata_warmup': round(cold, 3),
+                  'cached_page_seconds': round(warm, 3),
+                  'canonical_facet_seconds': round(facet_seconds, 6),
+                  'cached_page_hit': cached['cache_hit'],
+                  'life_facets': result['facets']['life_form'],
+                  'function_facets_top': sorted(fn_counts.items(), key=lambda x: x[1], reverse=True)[:12],
+                  'climate_facets': result['facets']['climate_status'],
+                  'soil_facets': result['facets']['soil_status'],
+              }
+              rows.append(row)
+              print(json.dumps(row, ensure_ascii=False))
+          assert rows[2]['after_function'] > 0, rows[2]
+          assert rows[3]['after_type'] > 100000, rows[3]
+          assert dict(rows[1]['function_facets_top']).get('FOOD_HUMAN', 0) > 0, rows[1]
+          assert all(row['canonical_facet_seconds'] < 1.0 for row in rows), rows
+          print('BENCHMARK_SUMMARY=' + json.dumps({
+              'metadata_warmup_seconds': round(metadata_warmup, 3),
+              'metadata_reuse_seconds': round(metadata_reuse, 6),
+              'cases': rows,
+          }, ensure_ascii=False))
+          PY
+
+      - name: Upload benchmark report
+        uses: actions/upload-artifact@v6
+        with:
+          name: exhaustive-search-benchmark
+          path: |
+            /tmp/exhaustive-benchmark.txt
+            /tmp/exhaustive-diagnostics.txt
+          retention-days: 14

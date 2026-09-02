@@ -9,8 +9,8 @@ from aiogram.types import FSInputFile, InlineKeyboardMarkup, InlineKeyboardButto
 
 processing_queue = asyncio.Queue()
 
-ZIP_BATCH_IDLE_SECONDS = 30 
-ZIP_BATCH_REDUCED_SECONDS = 45 
+ZIP_BATCH_IDLE_SECONDS = 60
+ZIP_BATCH_REDUCED_SECONDS = 60
 ZIP_COUNTDOWN_STEP_SECONDS = 5
 
 # Отдельная, увеличенная задержка для сбора файлов работ через /add_work
@@ -112,6 +112,46 @@ class BotStateManager:
 
         # Хранилище фоновых задач (чтобы не терять ссылки)
         self._background_tasks = set()
+
+        # Активные asyncio-таски обработки (background_work_processing /
+        # background_scan_batch_processing) по user_id — нужно, чтобы кнопка/команда "Стоп"
+        # могла реально их отменить, а не просто перестать принимать новые файлы.
+        self.active_processing_tasks = {}
+
+        # user_id, запросившие остановку — background_work_processing и
+        # background_scan_batch_processing проверяют этот флаг в начале своей работы и
+        # сразу прерываются, если он установлен. Это ловит файлы, которые уже успели попасть
+        # в processing_queue (и их нельзя удалить из очереди напрямую), но обработка которых
+        # ещё не была реально запущена.
+        self.stop_requested = set()
+
+    def register_processing_task(self, user_id: int, task: asyncio.Task):
+        self.active_processing_tasks.setdefault(user_id, set()).add(task)
+        def _cleanup(t, uid=user_id):
+            tasks = self.active_processing_tasks.get(uid)
+            if tasks:
+                tasks.discard(t)
+                if not tasks:
+                    self.active_processing_tasks.pop(uid, None)
+        task.add_done_callback(_cleanup)
+
+    def request_stop(self, user_id: int) -> int:
+        """Помечает пользователя как запросившего остановку и отменяет все его активные
+        задачи обработки. Возвращает количество реально отменённых задач."""
+        self.stop_requested.add(user_id)
+        tasks = self.active_processing_tasks.get(user_id, set())
+        cancelled = 0
+        for t in list(tasks):
+            if not t.done():
+                t.cancel()
+                cancelled += 1
+        return cancelled
+
+    def is_stop_requested(self, user_id: int) -> bool:
+        return user_id in self.stop_requested
+
+    def clear_stop(self, user_id: int):
+        self.stop_requested.discard(user_id)
 
     def _track_task(self, coro):
         """Запускает задачу и сохраняет ссылку, чтобы избежать сборки мусора."""
@@ -224,7 +264,8 @@ class BotStateManager:
         kind_label = self._batch_kind_label(kind)
 
         markup = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📤 Отправить сейчас", callback_data=f"send_now_zip:{kind}")]
+            [InlineKeyboardButton(text="📤 Отправить сейчас", callback_data=f"send_now_zip:{kind}")],
+            [InlineKeyboardButton(text="❌ Отменить", callback_data=f"cancel_batch_btn:zip:{kind}")]
         ])
 
         async def update_timer_text(secs):
@@ -452,7 +493,8 @@ class BotStateManager:
 
         remaining = seconds
         markup = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📤 Распознать сейчас", callback_data="send_now_btn:scan")]
+            [InlineKeyboardButton(text="📤 Распознать сейчас", callback_data="send_now_btn:scan")],
+            [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_batch_btn:scan")]
         ])
 
         async def update_timer_text(secs):
@@ -593,7 +635,8 @@ class BotStateManager:
 
         remaining = seconds
         markup = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📤 Обработать сейчас", callback_data="send_now_btn:work")]
+            [InlineKeyboardButton(text="📤 Обработать сейчас", callback_data="send_now_btn:work")],
+            [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_batch_btn:work")]
         ])
 
         async def update_timer_text(secs):
@@ -704,6 +747,49 @@ class BotStateManager:
         batch["timer_task"] = self._track_task(
             self._run_work_countdown(bot, user_id, chat_id, seconds, generation)
         )
+
+    async def cancel_work_batch(self, bot: Bot, user_id: int, chat_id: int) -> int:
+        """Отменяет ещё не запущенную пачку /add_work: удаляет скачанные файлы и таймер.
+        Возвращает количество отменённых файлов (0, если пачки не было)."""
+        batch = self.pending_work_batches.pop(user_id, None)
+        if not batch:
+            return 0
+        if batch.get("timer_task") and not batch["timer_task"].done():
+            batch["timer_task"].cancel()
+        if batch.get("countdown_msg_id"):
+            self._track_task(self._fade_and_delete(bot, chat_id, batch["countdown_msg_id"], delay=0))
+        if batch.get("status_msg_id"):
+            self._track_task(self._fade_and_delete(bot, chat_id, batch["status_msg_id"], delay=0))
+        shutil.rmtree(batch["batch_dir"], ignore_errors=True)
+        return len(batch.get("files", []))
+
+    async def cancel_scan_batch(self, bot: Bot, user_id: int, chat_id: int) -> int:
+        """Отменяет ещё не запущенную пачку /add_scan: удаляет скачанные файлы и таймер."""
+        batch = self.pending_scan_batches.pop(user_id, None)
+        if not batch:
+            return 0
+        if batch.get("timer_task") and not batch["timer_task"].done():
+            batch["timer_task"].cancel()
+        if batch.get("countdown_msg_id"):
+            self._track_task(self._fade_and_delete(bot, chat_id, batch["countdown_msg_id"], delay=0))
+        if batch.get("status_msg_id"):
+            self._track_task(self._fade_and_delete(bot, chat_id, batch["status_msg_id"], delay=0))
+        shutil.rmtree(batch["batch_dir"], ignore_errors=True)
+        return len(batch.get("files", []))
+
+    async def cancel_zip_batch(self, bot: Bot, user_id: int, chat_id: int, kind: str = "work") -> int:
+        """Отменяет ещё не отправленную пачку /zip_build для указанного kind."""
+        key = (user_id, kind)
+        batch = self.pending_zip_batches.pop(key, None)
+        if not batch:
+            return 0
+        if batch.get("timer_task") and not batch["timer_task"].done():
+            batch["timer_task"].cancel()
+        if batch.get("countdown_msg_id"):
+            self._track_task(self._fade_and_delete(bot, chat_id, batch["countdown_msg_id"], delay=0))
+        if batch.get("batch_dir"):
+            shutil.rmtree(batch["batch_dir"], ignore_errors=True)
+        return len(batch.get("files", []))
 
     async def _flush_work_batch(self, bot: Bot, user_id: int, chat_id: int):
         batch = self.pending_work_batches.pop(user_id, None)

@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Тёмный склад</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0e14;
+      color: #e6edf3;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      touch-action: none;
+    }
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 12px;
+      background: radial-gradient(circle at 20% 20%, #141b24, #0a0e14);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 4px;
+      flex-shrink: 0;
+    }
+    .title {
+      font-weight: 700;
+      background: linear-gradient(135deg, #f5af19, #f12711);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-size: 1.6rem;
+      letter-spacing: 2px;
+    }
+    .spirit-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #1a212a;
+      border-radius: 30px;
+      padding: 4px 12px 4px 6px;
+      border: 1px solid #2d3a4a;
+    }
+    .spirit-fill {
+      width: 60px;
+      height: 8px;
+      background: #2d3a4a;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .spirit-fill-inner {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #f5af19, #f12711);
+      transition: width 0.6s ease;
+    }
+    .spirit-label {
+      font-size: 0.7rem;
+      color: #8b949e;
+      letter-spacing: 0.5px;
+    }
+    .challenge {
+      background: #1a212a;
+      border-left: 4px solid #f5af19;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: #f0f6fc;
+      margin: 8px 0;
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .challenge button {
+      background: #f5af19;
+      border: none;
+      color: #0a0e14;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+    .city-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      flex: 1;
+      padding: 8px 0;
+      align-content: start;
+    }
+    .building {
+      background: #141b24;
+      border-radius: 16px;
+      padding: 12px 6px;
+      text-align: center;
+      border: 1px solid #2d3a4a;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
+      position: relative;
+      cursor: pointer;
+      aspect-ratio: 1 / 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      touch-action: none;
+    }
+    .building:active {
+      transform: scale(0.95);
+    }
+    .building .icon {
+      font-size: 1.8rem;
+      margin-bottom: 4px;
+    }
+    .building .name {
+      font-size: 0.7rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .building .stock {
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .building .price {
+      font-size: 0.6rem;
+      color: #8b949e;
+    }
+    .building .zone-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      font-size: 0.6rem;
+      background: #2d3a4a;
+      padding: 2px 8px;
+      border-radius: 10px;
+      color: #e6edf3;
+    }
+    .building.green { background: #0f2a1a; border-color: #2ea043; }
+    .building.yellow { background: #2a2a0f; border-color: #d29922; }
+    .building.red { background: #2a0f0f; border-color: #da3633; }
+    .building.gray { background: #1a1a1a; border-color: #484f58; }
+    .building.sell-anim {
+      animation: sellPulse 0.4s ease;
+    }
+    @keyframes sellPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); box-shadow: 0 0 30px #f5af19; }
+      100% { transform: scale(1); }
+    }
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .voice-btn {
+      background: #2d3a4a;
+      border: none;
+      color: #e6edf3;
+      padding: 10px 16px;
+      border-radius: 30px;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .voice-btn:active { background: #f5af19; color: #0a0e14; }
+    .voice-btn.listening { background: #da3633; animation: pulse 1s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    .status-text {
+      font-size: 0.7rem;
+      color: #8b949e;
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-card {
+      background: #161b22;
+      border-radius: 24px;
+      padding: 24px;
+      max-width: 360px;
+      width: 100%;
+      border: 1px solid #2d3a4a;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+      position: relative;
+    }
+    .modal-card .close {
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: #8b949e;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    .modal-card h3 { margin-bottom: 8px; color: #f5af19; }
+    .modal-card .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #21262d;
+    }
+    .modal-card .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .modal-card .actions button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+      min-width: 60px;
+    }
+    .modal-card .actions .sell { background: #2ea043; color: #fff; }
+    .modal-card .actions .sell:active { background: #1e7a34; }
+    .modal-card .actions .down { background: #d29922; color: #0a0e14; }
+    .modal-card .actions .down:active { background: #b8860b; }
+    .modal-card .actions .close-btn { background: #2d3a4a; color: #e6edf3; }
+    .voice-indicator {
+      display: none;
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a212a;
+      padding: 12px 24px;
+      border-radius: 40px;
+      border: 1px solid #f5af19;
+      color: #f5af19;
+      font-weight: 600;
+      font-size: 1rem;
+      box-shadow: 0 8px 30px rgba(245,175,25,0.3);
+      z-index: 999;
+    }
+    .voice-indicator.active { display: block; }
+    @media (max-width: 500px) {
+      .city-grid { gap: 8px; }
+      .building .icon { font-size: 1.4rem; }
+      .building .name { font-size: 0.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <div class="header">
+    <span class="title">⟡ ТЁМНЫЙ СКЛАД</span>
+    <div class="spirit-bar">
+      <span class="spirit-label">Дух</span>
+      <div class="spirit-fill">
+        <div class="spirit-fill-inner" id="spiritFill" style="width:0%"></div>
+      </div>
+      <span id="spiritPercent" style="font-size:0.7rem;color:#8b949e;">0%</span>
+    </div>
+  </div>
+
+  <div class="challenge" id="challengeBox">
+    <span id="challengeText">📢 Продайте 2 товара за 5 минут</span>
+    <button id="challengeDone">✅ Готово</button>
+  </div>
+
+  <div class="city-grid" id="cityGrid"></div>
+
+  <div class="bottom-bar">
+    <button class="voice-btn" id="voiceBtn">🎤 Голос</button>
+    <span class="status-text" id="statusText">Готов</span>
+    <button class="voice-btn" id="refreshBtn" style="background:transparent;border:1px solid #2d3a4a;">⟳</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-card">
+    <button class="close" id="modalClose">✕</button>
+    <h3 id="modalName">Товар</h3>
+    <div id="modalDetails"></div>
+    <div class="actions">
+      <button class="sell" id="modalSell">Продать 1</button>
+      <button class="down" id="modalDown">Уценить -5%</button>
+      <button class="close-btn" id="modalCloseBtn">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="voice-indicator" id="voiceIndicator">🎤 Слушаю...</div>
+
+<script>
+// ==================================================================
+// 1. НАСТРОЙКИ (укажите URL ваших Workers)
+// ==================================================================
+const D1_WORKER_URL = 'https://phantom-d1-proxy.sharnshow01.workers.dev'; // ← замените
+
+// ==================================================================
+// 2. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ==================================================================
+function formatCurrency(val) {
+  if (val === undefined || val === null || isNaN(val)) return '0 ₽';
+  return Number(val).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' ₽';
+}
+
+async function queryD1(sql, params = null) {
+  const resp = await fetch(D1_WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sql, params })
+  });
+  const data = await resp.json();
+  if (!data.success) throw new Error(data.errors?.[0]?.message || 'Ошибка D1');
+  return data.result?.[0]?.results || [];
+}
+
+// ==================================================================
+// 3. ЗВУКИ (Web Audio)
+// ==================================================================
+let audioCtx = null;
+
+function playSound(type) {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    gain.gain.value = 0.15;
+    const now = audioCtx.currentTime;
+    if (type === 'sell') {
+      osc.frequency.setValueAtTime(800, now);
+      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.start(now);
+      osc.stop(now + 0.15);
+    } else if (type === 'down') {
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(300, now + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    } else if (type === 'reward') {
+      osc.frequency.setValueAtTime(523, now);
+      osc.frequency.setValueAtTime(659, now + 0.1);
+      osc.frequency.setValueAtTime(784, now + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+// ==================================================================
+// 4. СОСТОЯНИЕ
+// ==================================================================
+let products = [];
+let selectedProductId = null;
+let spirit = 0;
+const maxSpirit = 100;
+let challenge = null;
+let challengeProgress = 0;
+let challengeTarget = 0;
+
+// Эмодзи по умолчанию
+function getEmoji(name) {
+  const lower = name.toLowerCase();
+  if (lower.includes('кросс') || lower.includes('nike') || lower.includes('adidas')) return '👟';
+  if (lower.includes('курт') || lower.includes('пальто') || lower.includes('coat')) return '🧥';
+  if (lower.includes('смарт') || lower.includes('телефон') || lower.includes('iphone')) return '📱';
+  if (lower.includes('ноут') || lower.includes('mac')) return '💻';
+  if (lower.includes('часы') || lower.includes('watch')) return '⌚';
+  if (lower.includes('платье') || lower.includes('dress')) return '👗';
+  if (lower.includes('сумк') || lower.includes('bag')) return '👜';
+  if (lower.includes('шапк') || lower.includes('hat')) return '🧢';
+  if (lower.includes('туфл') || lower.includes('heel')) return '👠';
+  if (lower.includes('рюкз') || lower.includes('backpack')) return '🎒';
+  if (lower.includes('нос') || lower.includes('sock')) return '🧦';
+  if (lower.includes('шарф') || lower.includes('scarf')) return '🧣';
+  if (lower.includes('перчат') || lower.includes('glove')) return '🧤';
+  if (lower.includes('очк') || lower.includes('glasses')) return '👓';
+  if (lower.includes('кольц') || lower.includes('ring')) return '💍';
+  if (lower.includes('солнц') || lower.includes('sunglass')) return '🕶️';
+  return '📦';
+}
+
+// ==================================================================
+// 5. ЗАГРУЗКА И ОТРИСОВКА
+// ==================================================================
+async function loadProducts() {
+  try {
+    const data = await queryD1(`
+      SELECT p.id, p.name, p.sku, p.purchase_price, p.current_price, 
+             p.quantity, p.status, z.zone
+      FROM products p
+      LEFT JOIN inventory_zones z ON p.id = z.product_id
+      ORDER BY p.id
+    `);
+    products = data.map(p => ({
+      ...p,
+      zone: p.zone || '?',
+    }));
+    renderCity();
+    updateSpirit(0);
+    generateChallenge();
+  } catch (e) {
+    console.error('Ошибка загрузки:', e);
+    document.getElementById('statusText').textContent = '❌ Ошибка загрузки';
+  }
+}
+
+function renderCity() {
+  const grid = document.getElementById('cityGrid');
+  grid.innerHTML = '';
+  if (!products.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#8b949e;">Нет товаров. Добавьте их через старый интерфейс или загрузите Excel.</div>';
+    return;
+  }
+  products.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'building';
+    div.dataset.id = p.id;
+    if (p.zone === 'A') div.classList.add('green');
+    else if (p.zone === 'B') div.classList.add('yellow');
+    else if (p.zone === 'C') div.classList.add('red');
+    else div.classList.add('gray');
+
+    const emoji = getEmoji(p.name);
+    div.innerHTML = `
+      <span class="zone-badge">${p.zone || '?'}</span>
+      <div class="icon">${emoji}</div>
+      <div class="name">${p.name || '—'}</div>
+      <div class="stock">${p.quantity ?? 0} шт.</div>
+      <div class="price">${formatCurrency(p.current_price)}</div>
+    `;
+
+    // Жесты
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let isLongPress = false;
+    let longPressTimer = null;
+
+    div.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      touchStartY = touch.clientY;
+      touchStartTime = Date.now();
+      isLongPress = false;
+      longPressTimer = setTimeout(() => {
+        isLongPress = true;
+        handleLongPress(p.id);
+      }, 600);
+    }, { passive: true });
+
+    div.addEventListener('touchmove', (e) => {
+      const touch = e.touches[0];
+      const deltaY = touch.clientY - touchStartY;
+      if (Math.abs(deltaY) > 30) {
+        clearTimeout(longPressTimer);
+        if (deltaY < -30) {
+          handleSell(p.id);
+        } else if (deltaY > 30) {
+          handleDown(p.id);
+        }
+        touchStartY = touch.clientY;
+      }
+    }, { passive: true });
+
+    div.addEventListener('touchend', () => {
+      clearTimeout(longPressTimer);
+      if (!isLongPress) {
+        openModal(p.id);
+      }
+    }, { passive: true });
+
+    // Для мыши
+    div.addEventListener('mousedown', (e) => {
+      touchStartY = e.clientY;
+      touchStartTime = Date.now();
+      isLongPress = false;
+      longPressTimer = setTimeout(() => {
+        isLongPress = true;
+        handleLongPress(p.id);
+      }, 600);
+    });
+    div.addEventListener('mouseup', (e) => {
+      clearTimeout(longPressTimer);
+      if (!isLongPress) {
+        openModal(p.id);
+      }
+    });
+    div.addEventListener('mouseleave', () => {
+      clearTimeout(longPressTimer);
+    });
+
+    grid.appendChild(div);
+  });
+}
+
+// ==================================================================
+// 6. ДЕЙСТВИЯ
+// ==================================================================
+async function handleSell(id) {
+  const product = products.find(p => p.id === id);
+  if (!product) return;
+  if (product.quantity <= 0) {
+    document.getElementById('statusText').textContent = '❌ Нет в наличии';
+    return;
+  }
+  try {
+    await queryD1('INSERT INTO sales (product_id, sale_date, quantity, sale_price) VALUES (?, ?, ?, ?)',
+      [id, new Date().toISOString(), 1, product.current_price || 0]);
+    const newQty = product.quantity - 1;
+    if (newQty > 0) {
+      await queryD1('UPDATE products SET quantity = ? WHERE id = ?', [newQty, id]);
+    } else {
+      await queryD1('UPDATE products SET quantity = 0, status = "sold" WHERE id = ?', [id]);
+    }
+    product.quantity = newQty;
+    if (newQty === 0) product.status = 'sold';
+    playSound('sell');
+    document.getElementById('statusText').textContent = `✅ Продано ${product.name}`;
+    const el = document.querySelector(`.building[data-id="${id}"]`);
+    if (el) {
+      el.classList.remove('sell-anim');
+      void el.offsetWidth;
+      el.classList.add('sell-anim');
+    }
+    updateSpirit(5);
+    renderCity();
+    checkChallenge();
+  } catch (e) {
+    console.error(e);
+    document.getElementById('statusText').textContent = '❌ Ошибка продажи';
+  }
+}
+
+async function handleDown(id) {
+  const product = products.find(p => p.id === id);
+  if (!product) return;
+  const newPrice = Math.max(1, Math.round((product.current_price || 0) * 0.95));
+  if (newPrice === product.current_price) {
+    document.getElementById('statusText').textContent = '⚠️ Цена уже минимальна';
+    return;
+  }
+  try {
+    await queryD1('UPDATE products SET current_price = ? WHERE id = ?', [newPrice, id]);
+    product.current_price = newPrice;
+    playSound('down');
+    document.getElementById('statusText').textContent = `⬇️ Цена снижена до ${formatCurrency(newPrice)}`;
+    updateSpirit(3);
+    renderCity();
+  } catch (e) {
+    console.error(e);
+    document.getElementById('statusText').textContent = '❌ Ошибка уценки';
+  }
+}
+
+async function handleLongPress(id) {
+  const product = products.find(p => p.id === id);
+  if (!product) return;
+  const recommended = Math.max(1, Math.round((product.current_price || 0) * 0.9));
+  if (recommended === product.current_price) {
+    document.getElementById('statusText').textContent = '⚠️ Цена оптимальна';
+    return;
+  }
+  try {
+    await queryD1('UPDATE products SET current_price = ? WHERE id = ?', [recommended, id]);
+    product.current_price = recommended;
+    playSound('down');
+    document.getElementById('statusText').textContent = `💡 Уценено до ${formatCurrency(recommended)} (рекомендация)`;
+    updateSpirit(5);
+    renderCity();
+  } catch (e) {
+    console.error(e);
+    document.getElementById('statusText').textContent = '❌ Ошибка уценки';
+  }
+}
+
+// ==================================================================
+// 7. МОДАЛКА
+// ==================================================================
+function openModal(id) {
+  const product = products.find(p => p.id === id);
+  if (!product) return;
+  selectedProductId = id;
+  document.getElementById('modalName').textContent = product.name || 'Товар';
+  document.getElementById('modalDetails').innerHTML = `
+    <div class="detail-row"><span>SKU</span><span>${product.sku || '—'}</span></div>
+    <div class="detail-row"><span>Остаток</span><span>${product.quantity ?? 0} шт.</span></div>
+    <div class="detail-row"><span>Закупка</span><span>${formatCurrency(product.purchase_price)}</span></div>
+    <div class="detail-row"><span>Продажа</span><span>${formatCurrency(product.current_price)}</span></div>
+    <div class="detail-row"><span>Зона</span><span>${product.zone || '—'}</span></div>
+    <div class="detail-row"><span>Статус</span><span>${product.status === 'in_stock' ? '✅ В наличии' : '❌ Продан'}</span></div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+document.getElementById('modalClose').addEventListener('click', () => {
+  document.getElementById('modalOverlay').classList.remove('show');
+});
+document.getElementById('modalCloseBtn').addEventListener('click', () => {
+  document.getElementById('modalOverlay').classList.remove('show');
+});
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) document.getElementById('modalOverlay').classList.remove('show');
+});
+
+document.getElementById('modalSell').addEventListener('click', () => {
+  if (selectedProductId) {
+    handleSell(selectedProductId);
+    document.getElementById('modalOverlay').classList.remove('show');
+  }
+});
+document.getElementById('modalDown').addEventListener('click', () => {
+  if (selectedProductId) {
+    handleDown(selectedProductId);
+    document.getElementById('modalOverlay').classList.remove('show');
+  }
+});
+
+// ==================================================================
+// 8. БОЕВОЙ ДУХ
+// ==================================================================
+function updateSpirit(amount) {
+  spirit = Math.min(maxSpirit, spirit + amount);
+  const fill = document.getElementById('spiritFill');
+  const percent = Math.round((spirit / maxSpirit) * 100);
+  fill.style.width = percent + '%';
+  document.getElementById('spiritPercent').textContent = percent + '%';
+  if (spirit >= maxSpirit) {
+    spirit = 0;
+    playSound('reward');
+    document.getElementById('statusText').textContent = '🎉 БОНУС! Ты получил скидку от поставщика!';
+    applyBonus();
+  }
+}
+
+async function applyBonus() {
+  try {
+    await queryD1('UPDATE products SET purchase_price = purchase_price * 0.98 WHERE status = "in_stock"');
+    await queryD1('UPDATE products SET current_price = current_price * 0.98 WHERE status = "in_stock"');
+    products.forEach(p => {
+      if (p.status === 'in_stock') {
+        p.purchase_price = Math.round((p.purchase_price || 0) * 0.98);
+        p.current_price = Math.round((p.current_price || 0) * 0.98);
+      }
+    });
+    renderCity();
+  } catch (e) { console.warn('Бонус не применён:', e); }
+}
+
+// ==================================================================
+// 9. ВЫЗОВ ДНЯ
+// ==================================================================
+function generateChallenge() {
+  const types = [
+    { text: 'Продайте 2 товара', target: 2, action: 'sell' },
+    { text: 'Уцените 1 товар', target: 1, action: 'down' },
+    { text: 'Заработайте 5000 ₽', target: 5000, action: 'revenue' },
+  ];
+  const chosen = types[Math.floor(Math.random() * types.length)];
+  challenge = chosen;
+  challengeProgress = 0;
+  challengeTarget = chosen.target;
+  document.getElementById('challengeText').textContent = `📢 ${chosen.text}`;
+  document.getElementById('statusText').textContent = `🎯 Вызов: ${chosen.text}`;
+}
+
+function checkChallenge() {
+  // упрощённо – просто награда
+}
+
+document.getElementById('challengeDone').addEventListener('click', () => {
+  if (challenge) {
+    document.getElementById('statusText').textContent = '✅ Вызов принят! +10 духа';
+    updateSpirit(10);
+    generateChallenge();
+  }
+});
+
+// ==================================================================
+// 10. ГОЛОСОВОЕ УПРАВЛЕНИЕ
+// ==================================================================
+const voiceBtn = document.getElementById('voiceBtn');
+const voiceIndicator = document.getElementById('voiceIndicator');
+let recognition = null;
+let isListening = false;
+
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'ru-RU';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    isListening = true;
+    voiceBtn.classList.add('listening');
+    voiceIndicator.classList.add('active');
+    document.getElementById('statusText').textContent = '🎤 Слушаю...';
+  };
+  recognition.onend = () => {
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+    voiceIndicator.classList.remove('active');
+    document.getElementById('statusText').textContent = 'Готов';
+  };
+  recognition.onerror = (event) => {
+    document.getElementById('statusText').textContent = '❌ Ошибка распознавания';
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+    voiceIndicator.classList.remove('active');
+  };
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript.toLowerCase();
+    document.getElementById('statusText').textContent = `🗣️ "${transcript}"`;
+    handleVoiceCommand(transcript);
+  };
+} else {
+  voiceBtn.style.opacity = 0.5;
+  voiceBtn.title = 'Голосовое управление не поддерживается в этом браузере';
+}
+
+voiceBtn.addEventListener('click', () => {
+  if (!recognition) return;
+  if (isListening) {
+    recognition.stop();
+  } else {
+    try {
+      recognition.start();
+    } catch (e) { /* already started */ }
+  }
+});
+
+function handleVoiceCommand(text) {
+  let found = null;
+  for (let p of products) {
+    if (p.name && text.includes(p.name.toLowerCase())) {
+      found = p;
+      break;
+    }
+  }
+  if (text.includes('продай') || text.includes('продать')) {
+    if (found) handleSell(found.id);
+    else document.getElementById('statusText').textContent = '❌ Товар не найден';
+  } else if (text.includes('уцени') || text.includes('снизь')) {
+    if (found) handleDown(found.id);
+    else document.getElementById('statusText').textContent = '❌ Товар не найден';
+  } else if (text.includes('статус') || text.includes('сколько')) {
+    if (found) document.getElementById('statusText').textContent = `${found.name}: ${found.quantity} шт., цена ${formatCurrency(found.current_price)}`;
+    else document.getElementById('statusText').textContent = '❌ Товар не найден';
+  } else {
+    document.getElementById('statusText').textContent = '🤔 Не понял. Скажите "продай [товар]" или "уцени [товар]"';
+  }
+}
+
+// ==================================================================
+// 11. ОБНОВЛЕНИЕ И ЗАПУСК
+// ==================================================================
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  loadProducts();
+  document.getElementById('statusText').textContent = '🔄 Обновлено';
+});
+
+loadProducts();
+setInterval(loadProducts, 30000);
+
+document.addEventListener('touchstart', () => {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}, { once: true });
+</script>
+</body>
+</html>

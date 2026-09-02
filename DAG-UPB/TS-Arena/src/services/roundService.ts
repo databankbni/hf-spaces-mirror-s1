@@ -42,9 +42,7 @@ export async function getChallenges(filters?: ChallengeApiFilters): Promise<Chal
   
   const queryString = params.toString();
   const url = `/api/v1/rounds${queryString ? '?' + queryString : ''}`;
-  
-  console.log('Fetching challenges with filters:', url);
-  
+
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error('Failed to fetch challenges');
@@ -86,7 +84,6 @@ export async function getSeriesData(
     end_time: endTime,
   });
   const url = `/api/v1/rounds/${roundId}/series/${seriesId}/data?${params.toString()}`;
-  console.log('getSeriesData calling:', url);
   const response = await fetch(url);
   if (!response.ok) {
     const errorText = await response.text();
@@ -101,7 +98,6 @@ export async function getSeriesForecasts(
   seriesId: number
 ): Promise<ForecastsResponse> {
   const url = `/api/v1/rounds/${roundId}/series/${seriesId}/forecasts`;
-  console.log('getSeriesForecasts calling:', url);
   const response = await fetch(url);
   if (!response.ok) {
     const errorText = await response.text();

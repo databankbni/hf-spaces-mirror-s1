@@ -1,0 +1,194 @@
+name: Collect ClimaFlora edaphic v2 USDA synonyms
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [edaphic-v2.0-enrichment]
+    paths:
+      - '.github/workflows/collect-edaphic-v2-usda-synonyms.yml'
+      - '.github/tools/collect_edaphic_v2_usda_synonyms.py'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: collect-edaphic-v2-usda-synonyms
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    env:
+      V19_URL: https://shugoan.com/climaflora/data/climaflora_global_plants_v1_9.sqlite.zst
+      V19_ZST_SHA: 5851572bd48dea34d3b69e16a78126d1ac149c907e5db8fa7af1bc36812779dc
+      USDA_PLANT_LIST_URL: https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/plantlst.txt
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - name: Prepare shard runner
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+          python -m pip install --quiet requests
+
+      - name: Download immutable v1.9 and USDA index
+        run: |
+          set -euo pipefail
+          curl -fL --retry 6 --retry-all-errors "$V19_URL" -o v19.sqlite.zst
+          echo "$V19_ZST_SHA  v19.sqlite.zst" | sha256sum -c -
+          zstd -d -f v19.sqlite.zst -o climaflora_global_plants_v1_9.sqlite
+          curl -fL --retry 6 --retry-all-errors -A 'ClimaFlora scientific edaphic enrichment/2.0' "$USDA_PLANT_LIST_URL" -o usda_plantlst.txt
+
+      - name: Collect shard ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          python .github/tools/collect_edaphic_v2_usda_synonyms.py \
+            --catalog climaflora_global_plants_v1_9.sqlite \
+            --plant-list usda_plantlst.txt \
+            --output "usda_synonyms_shard_${{ matrix.shard }}.jsonl" \
+            --report "usda_synonyms_shard_${{ matrix.shard }}.report.json" \
+            --workers 24 --timeout 15 --tries 2 \
+            --shard-index "${{ matrix.shard }}" --shard-count 8
+          python - <<'PY'
+          import json,glob
+          path=glob.glob('usda_synonyms_shard_*.report.json')[0]
+          r=json.load(open(path)); s=r['stats']
+          assert r['status']=='ready',r
+          assert s['profiles_attempted']==s['shard_candidates'],s
+          assert s['outcomes'].get('UNHANDLED_ERROR',0)==0,s
+          unavailable=s['outcomes'].get('PROFILE_UNAVAILABLE',0)+s['outcomes'].get('CHARACTERISTICS_UNAVAILABLE',0)
+          assert unavailable <= max(100,int(s['profiles_attempted']*0.25)),s
+          print(json.dumps(s,indent=2))
+          PY
+
+      - name: Upload shard artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: climaflora-edaphic-v2-usda-synonym-shard-${{ matrix.shard }}
+          compression-level: 6
+          retention-days: 7
+          path: |
+            usda_synonyms_shard_${{ matrix.shard }}.jsonl
+            usda_synonyms_shard_${{ matrix.shard }}.report.json
+
+  merge:
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      USDA_PLANT_LIST_URL: https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/plantlst.txt
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: climaflora-edaphic-v2-usda-synonym-shard-*
+          path: shards
+          merge-multiple: true
+      - name: Merge and validate all synonym shards
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet requests
+          curl -fL --retry 6 --retry-all-errors -A 'ClimaFlora scientific edaphic enrichment/2.0' "$USDA_PLANT_LIST_URL" -o usda_plantlst.txt
+          python - <<'PY'
+          import hashlib,json,sys
+          from pathlib import Path
+          sys.path.insert(0,str(Path('.github/tools').resolve()))
+          from collect_edaphic_v2_sources import summarize,write_jsonl,utcnow
+
+          reports=[json.loads(p.read_text()) for p in sorted(Path('shards').glob('*.report.json'))]
+          assert len(reports)==8,len(reports)
+          assert {int(r['shard_index']) for r in reports}==set(range(8)),reports
+          totals={int(r['stats']['total_synonym_candidates']) for r in reports}
+          assert len(totals)==1,totals
+          total=totals.pop()
+          catalog_hashes={r['catalog_sha256'] for r in reports}; plant_hashes={r['plant_list_sha256'] for r in reports}
+          assert len(catalog_hashes)==1 and len(plant_hashes)==1,(catalog_hashes,plant_hashes)
+          actual_plant_hash=hashlib.sha256(Path('usda_plantlst.txt').read_bytes()).hexdigest()
+          assert actual_plant_hash==next(iter(plant_hashes)),(actual_plant_hash,plant_hashes)
+
+          records=[]
+          for p in sorted(Path('shards').glob('*.jsonl')):
+              records.extend(json.loads(line) for line in p.read_text(encoding='utf-8').splitlines() if line.strip())
+          assert len(records)==total,(len(records),total)
+          symbols=[str(r.get('symbol') or '') for r in records]
+          assert len(symbols)==len(set(symbols)), 'duplicate USDA symbols across shards'
+          records.sort(key=lambda r:(str(r.get('scientific_name')),str(r.get('symbol'))))
+          write_jsonl(Path('usda_edaphic_growth_requirements_synonyms.jsonl'),records)
+
+          first=reports[0]['stats']
+          base={k:first[k] for k in (
+              'accepted_usda_rows','already_exact_accepted','ambiguous_synonym_skipped','unmatched',
+              'exact_wcvp_synonym_candidates','ambiguous_wcvp_synonym_names','total_synonym_candidates'
+          ) if k in first}
+          summary=summarize(records,base)
+          unavailable=summary['outcomes'].get('PROFILE_UNAVAILABLE',0)+summary['outcomes'].get('CHARACTERISTICS_UNAVAILABLE',0)
+          summary['network_unavailable']=unavailable
+          summary['shards']=8
+          # Network failures are preserved and visible. A catastrophic API failure blocks the snapshot.
+          assert unavailable <= max(150,int(total*0.10)),summary
+          report={
+              'status':'ready','source':'USDA_PLANTS','source_api':'https://plantsservices.sc.egov.usda.gov/api',
+              'accessed_at':utcnow(),'catalog_sha256':next(iter(catalog_hashes)),
+              'plant_list_sha256':actual_plant_hash,
+              'request_policy':{'shards':8,'workers_per_shard':24,'timeout_seconds':15,'tries':2},
+              'stats':summary,
+              'matching_policy':'USDA accepted species symbol -> exact unambiguous WCVP synonym -> current ClimaFlora accepted taxon; accepted-name matches excluded; no fuzzy matching',
+              'row_policy':'Growth Requirements only; cultivar-specific and synonym-specific characteristic rows excluded',
+          }
+          out=Path('usda_edaphic_growth_requirements_synonyms.jsonl')
+          report['output_sha256']=hashlib.sha256(out.read_bytes()).hexdigest()
+          Path('usda_edaphic_synonyms.report.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
+          print(json.dumps(report,indent=2,ensure_ascii=False))
+          PY
+          sha256sum usda_plantlst.txt usda_edaphic_growth_requirements_synonyms.jsonl usda_edaphic_synonyms.report.json > edaphic_v2_usda_synonym_files.sha256
+
+      - name: Upload merged synonym source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: climaflora-edaphic-v2-usda-synonyms
+          compression-level: 6
+          retention-days: 30
+          path: |
+            usda_plantlst.txt
+            usda_edaphic_growth_requirements_synonyms.jsonl
+            usda_edaphic_synonyms.report.json
+            edaphic_v2_usda_synonym_files.sha256
+
+      - name: Record synonym collection status
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.load(open('usda_edaphic_synonyms.report.json'))
+          out={
+            'status':'ready','run_id':os.environ['GITHUB_RUN_ID'],'commit':os.environ['GITHUB_SHA'],
+            'branch':os.environ['GITHUB_REF_NAME'],'catalog_version':'1.9.0','usda_synonyms':r,
+            'source_hashes':Path('edaphic_v2_usda_synonym_files.sha256').read_text().splitlines(),
+          }
+          Path('/tmp/edaphic-v2-synonym-source-status.json').write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          PY
+          BRANCH="$GITHUB_REF_NAME"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$BRANCH" && git reset --hard "origin/$BRANCH"
+            cp /tmp/edaphic-v2-synonym-source-status.json .github/edaphic-v2-synonym-source-status.json
+            git add .github/edaphic-v2-synonym-source-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record ClimaFlora v2 USDA synonym source snapshot'
+            git push origin "HEAD:$BRANCH" && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

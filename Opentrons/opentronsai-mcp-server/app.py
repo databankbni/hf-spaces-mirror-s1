@@ -115,7 +115,7 @@ metadata = {
 
 requirements = {
     'robotType': 'Flex',
-    'apiLevel': '2.25'
+    'apiLevel': '2.28'
 }
 
 def run(protocol: protocol_api.ProtocolContext):

@@ -305,6 +305,7 @@ def _watch(slate: _Slate, repo, day: date_type, season: int,
                 MLBScheduleSource(repo).fetch_schedule(day)
             except Exception:
                 continue  # unreachable source: try again next time round
+
             try:
                 games = repo.get_schedule(day)
             except Exception:

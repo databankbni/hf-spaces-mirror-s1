@@ -64,12 +64,50 @@ Why the exemptions and the floor are where they are:
                        a re-read lands on "sector already correct". It stops being a
                        no-op only when the note itself improves — a better slice or
                        an OCR pass — which is exactly when a rewrite is wanted.
+  * ``rms-nace`` /
+    ``bia-directory``  — the two statistical NACE maps. Both fill blanks only, so
+                       neither ever displaced anything, and both are ~85-89% right
+                       by measurement — a filed note beats them at the standard
+                       0.75 floor, which is why they need no special case here.
   * ``unclassified``  — everything is writable, at any confidence.
 
 Orthogonal to all of that: ``'Other'`` is a parking space, not a classification.
 A non-manual company sitting in ``'Other'`` is treated as unclassified for
 Sector-write purposes regardless of which layer put it there (364 companies,
 ₾15.4bn — the single largest "sector" in the book).
+
+Rejected: "clear the SubSector when the Sector moves" (measured 2026-08-10)
+-------------------------------------------------------------------------
+The known cost of the never-clobber rule is that an EARLIER pass's LLM-written
+SubSector is not curated but is non-empty, so it counts as curated and survives a
+later pass rewriting the Sector. The company then holds two halves describing two
+businesses — the defect behind 68749bd, c588f2e and the 34-company block dated
+2026-08-10 in ``scripts/apply_sector_overrides.py``. The obvious repair is to treat
+a SubSector as stale by construction once the Sector under it changes, and clear or
+re-derive it. Measured against the 34 adjudicated companies, DON'T:
+
+    shape                                        cos   what the rule would do
+    Sector right, SubSector stale                 21   correct — clears the bad half
+    SubSector right, Sector wrong                  6   DESTROYS the only good half
+    both halves wrong                              7   no better than today
+
+It is not merely 6 losses against 21 wins, because of what happens to those 6. The
+re-derived SubSector comes from the same pass that got the Sector wrong, so the
+result is a pair that AGREES — ``Real Estate / property leasing`` for a dental
+clinic (405084723), ``Oil & Gas / gas station operations`` for a landlord that
+leases petrol stations out (404989241), ``Marketing / booking platform support`` for
+Booking.com's support arm (405079800), ``Real Estate / recreational facility
+rental`` for a campsite (405262086). Each is still wrong, and each becomes
+undetectable: the sweep that finds these companies looks for a SubSector whose
+dominant home is a different Sector, and a coherent pair matches nothing. The
+incoherence is the only reason 34 misclassifications were findable at all.
+
+So the mismatch is a symptom worth KEEPING as an assertion failure. The standing
+detector is ``scripts/find_stale_subsectors.py``; the analyst layer is where
+adjudicated answers get pinned. What would genuinely help is narrower: record which
+pass wrote the SubSector, so "stale" can be decided from provenance rather than
+inferred from vocabulary. Nothing in the schema does that today — the whole reason
+this module has to reconstruct layers from ``DescriptionSources`` in the first place.
 
 Pure/stdlib-only: no DB, no network, no Streamlit. Callers read the four inputs
 themselves and pass them in (see ``scripts/apply_sector_from_reports.py``).
@@ -81,8 +119,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 __all__ = [
-    "MANUAL", "RECENT", "ORIGINAL_WEB", "ORIGINAL_XLSX", "BIA", "DETERMINISTIC",
-    "UNCLASSIFIED", "LAYERS",
+    "MANUAL", "RECENT", "ORIGINAL_WEB", "ORIGINAL_XLSX", "RMS_NACE", "BIA",
+    "DETERMINISTIC", "UNCLASSIFIED", "LAYERS",
     "PLACEHOLDER_SECTORS", "WritePolicy",
     "OVERWRITE_MIN_CONFIDENCE",
     "is_placeholder_sector", "layer_of", "manual_idcodes", "write_policy",
@@ -100,12 +138,23 @@ ORIGINAL_XLSX = "original-xlsx"
 #: its own layer precisely so that error rate stays measurable and the whole
 #: layer stays retractable, the way the name-keyword layer had to be.
 BIA = "bia-directory"
+#: Sector seeded from the NACE Rev.2 codes the company declared in its OWN filing
+#: (the ``nace_codes`` table, from the reportal RMS ``NACE <year>.xlsx`` bulk
+#: file), via the purity-gated map in :mod:`lib.nace_sector_map`. Ranked above
+#: :data:`BIA` on two measured differences — the codes are the filer's own
+#: declaration rather than a third-party directory page, and the map is derived
+#: from a larger reference pool (4,178 vs 2,776 companies) at a higher floor —
+#: but it is still a statistical map, ~89% right leave-one-out, so roughly one in
+#: nine is wrong. Its own layer for the same reason as ``bia-directory``: the
+#: error rate stays measurable and the whole layer stays retractable.
+RMS_NACE = "rms-nace"
 DETERMINISTIC = "deterministic"
 UNCLASSIFIED = "unclassified"
 
 #: Display order — strongest evidence first, then weakest, then none.
 LAYERS: tuple[str, ...] = (
-    MANUAL, RECENT, ORIGINAL_WEB, ORIGINAL_XLSX, BIA, DETERMINISTIC, UNCLASSIFIED,
+    MANUAL, RECENT, ORIGINAL_WEB, ORIGINAL_XLSX, RMS_NACE, BIA, DETERMINISTIC,
+    UNCLASSIFIED,
 )
 
 #: Sector values that are a parking space rather than a classification. Matched
@@ -124,6 +173,34 @@ _MARKER_GCAP_XLSX = "Sectors and enrichment"
 #: bare-url fallback, since the row also carries the bia.ge company URL and would
 #: otherwise be indistinguishable from the web-research layer.
 _MARKER_BIA = "bia.ge directory"
+#: ``scripts/seed_sectors_from_nace.py`` writes
+#: "sector: NACE Rev.2 <level> <code> via reportal RMS [date]".
+#:
+#: Tested FIRST — ahead of the activity-note marker — and that ordering is
+#: measured, not stylistic. 108 of the 1,791 blank-Sector NACE candidates already
+#: carry an activity-note marker from a note read that wrote a Description but no
+#: Sector (the note was unusable, or the model abstained). Those rows read as
+#: ``unclassified`` today only because rule 2 below short-circuits on the blank
+#: Sector; the moment the seeder fills it, a note-marker-first order would file
+#: them under ``recent`` — which is the pool ``lib.nace_sector_map`` measures
+#: purity against, so the next run would be scoring the map partly against its own
+#: output. Keeping this test first keeps that circularity out.
+#:
+#: The cost of the choice, stated plainly: if a later note read replaces an
+#: RMS-seeded Sector, both markers are present and this still reports
+#: ``rms-nace``. Retract with ``seed_sectors_from_nace.py --restore`` (which
+#: strips the marker) rather than relying on precedence to age out.
+_MARKER_RMS_NACE = "via reportal RMS"
+
+#: ``scripts/seed_subsectors_from_bia.py`` writes
+#: "subsector: bia.ge industry <label> [date]" — and is NOT tested here on
+#: purpose. It only ever writes ``SubSector``, never ``Sector``, so it does not
+#: define a Sector provenance layer and must not shadow one. The wording is
+#: chosen so it contains none of the substrings above: not "bia.ge directory"
+#: (the Sector-from-NACE layer), not "activity note", not "via reportal RMS".
+#: A company seeded by it therefore keeps reporting whichever layer set its
+#: Sector, which is the layer that decides what a later note read may overwrite.
+_MARKER_BIA_SUBSECTOR_NOT_A_LAYER = "subsector: bia.ge industry "
 
 
 def is_placeholder_sector(sector: str | None) -> bool:
@@ -166,6 +243,11 @@ def layer_of(
       3. NULL sources means the deterministic classifier, which writes Sector
          without touching Description. Cross-checked: 1,213 of those 1,227 appear
          in ``docs/reviews/2026-06-18-sector-classifier-proposal.csv``.
+      4. Among the marker tests, the RMS-NACE marker is checked before the
+         activity-note one — see ``_MARKER_RMS_NACE`` for the measurement that
+         decides it (108 rows carry a note marker but no Sector, and letting them
+         land in ``recent`` would feed the NACE map back into its own reference
+         pool).
 
     Note ``'Other'`` is NOT its own layer — it is a state that any layer can
     leave a company in. Use :func:`is_placeholder_sector` for that.
@@ -177,6 +259,8 @@ def layer_of(
     if sources is None or not str(sources).strip():
         return DETERMINISTIC
     src = str(sources)
+    if _MARKER_RMS_NACE in src:
+        return RMS_NACE
     if _MARKER_ACTIVITY_NOTE in src:
         return RECENT
     if _MARKER_GCAP_XLSX in src:

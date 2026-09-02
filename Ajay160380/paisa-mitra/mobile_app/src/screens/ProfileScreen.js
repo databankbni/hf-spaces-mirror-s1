@@ -1,0 +1,598 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * EXPENSE TRACKER — PROFILE SCREEN
+ * User stats, settings, gamification, logout
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+import React, { useState, useCallback } from 'react';
+import {
+  StyleSheet, Text, View, ScrollView, TouchableOpacity,
+  SafeAreaView, Platform, RefreshControl, Alert,
+  ActivityIndicator, Linking, Image, Modal, TextInput, KeyboardAvoidingView,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
+import messaging from '@react-native-firebase/messaging';
+import { PermissionsAndroid } from 'react-native';
+import api from '../api/config';
+import { clearAuthData, getUsername } from '../utils/auth';
+import { COLORS, RADIUS, SHADOW } from '../utils/theme';
+import { GlassCard, SectionHeader } from '../components/SharedComponents';
+
+export default function ProfileScreen({ navigation }) {
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [feedbackVisible, setFeedbackVisible] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [editProfileVisible, setEditProfileVisible] = useState(false);
+  const [editUsername, setEditUsername] = useState('');
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [submittingProfile, setSubmittingProfile] = useState(false);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await api.get('/profile/');
+      setProfile(res.data);
+    } catch (error) {
+      console.error('Profile fetch error:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useFocusEffect(useCallback(() => { fetchProfile(); }, []));
+  const onRefresh = () => { setRefreshing(true); fetchProfile(); };
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled) {
+        setUploadingImage(true);
+        const localUri = result.assets[0].uri;
+        const filename = localUri.split('/').pop() || 'profile.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : `image`;
+
+        const formData = new FormData();
+        formData.append('photo', { uri: localUri, name: filename, type });
+
+        const uploadRes = await api.post('/api/profile/upload-photo/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (uploadRes.data.status === 'success') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          // Add timestamp to bust cache so the image refreshes instantly
+          const newPicUrl = uploadRes.data.profile_picture + '?t=' + Date.now();
+          setProfile({ ...profile, profile_picture: newPicUrl });
+          Alert.alert('Success', 'Profile photo updated successfully!');
+        }
+      }
+    } catch (error) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      console.error('Image pick/upload error:', error);
+      Alert.alert('Error', 'Failed to upload image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleLogout = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout', style: 'destructive',
+        onPress: async () => {
+          await clearAuthData();
+          navigation.replace('Login');
+        },
+      },
+    ]);
+  };
+
+  const submitFeedback = async () => {
+    if (!feedbackText.trim()) return;
+    setSubmittingFeedback(true);
+    try {
+      const res = await api.post('/api/submit-feedback/', { text: feedbackText, source: 'app' });
+      if (res.data.status === 'success') {
+        Alert.alert('Success', 'Feedback submitted successfully!');
+        setFeedbackVisible(false);
+        setFeedbackText('');
+      } else {
+        Alert.alert('Error', res.data.message || 'Failed to submit feedback');
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'An error occurred while submitting feedback');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  const openEditProfile = () => {
+    setEditUsername(profile?.username || '');
+    setEditFirstName(profile?.first_name || '');
+    setEditLastName(profile?.last_name || '');
+    setEditProfileVisible(true);
+  };
+
+  const submitEditProfile = async () => {
+    if (!editUsername.trim()) {
+      Alert.alert('Error', 'Username cannot be empty');
+      return;
+    }
+    setSubmittingProfile(true);
+    try {
+      const res = await api.post('/profile/', { 
+        username: editUsername,
+        first_name: editFirstName,
+        last_name: editLastName
+      });
+      if (res.data.status === 'success') {
+        Alert.alert('Success', 'Profile updated successfully!');
+        setEditProfileVisible(false);
+        fetchProfile();
+      } else {
+        Alert.alert('Error', res.data.error || 'Failed to update profile');
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', e.response?.data?.error || 'An error occurred while updating profile');
+    } finally {
+      setSubmittingProfile(false);
+    }
+  };
+
+  const openLink = (url) => Linking.openURL(url);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.center}><ActivityIndicator color={COLORS.cyan} size="large" /></View>
+      </SafeAreaView>
+    );
+  }
+
+  const username = profile?.username || 'User';
+  const joined = profile?.joined || '';
+  const lifetimeSpent = profile?.lifetime_spent || 0;
+  const totalTxns = profile?.total_txns || 0;
+  const memberDays = profile?.member_days || 0;
+  const budget = profile?.budget || 20000;
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.cyan} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Profile Header ── */}
+        <LinearGradient colors={COLORS.gradDeepPurp} style={styles.profileHeader}>
+          <TouchableOpacity onPress={pickImage} disabled={uploadingImage} style={{position: 'relative'}}>
+            {profile?.profile_picture ? (
+              <Image source={{ uri: profile.profile_picture }} style={styles.avatarLargeImage} />
+            ) : (
+              <View style={styles.avatarLarge}>
+                <Text style={styles.avatarLargeText}>{username.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
+            {uploadingImage && (
+              <View style={[StyleSheet.absoluteFill, styles.avatarOverlay]}>
+                <ActivityIndicator color={COLORS.cyan} />
+              </View>
+            )}
+            <View style={styles.editIconBadge}>
+              <Ionicons name="camera" size={16} color="white" />
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.profileName}>
+            {profile?.first_name ? `${profile.first_name} ${profile.last_name}`.trim() : username}
+          </Text>
+          <Text style={{color: 'rgba(255,255,255,0.7)', fontSize: 16}}>@{username}</Text>
+          <Text style={styles.profileSince}>Member since {joined}</Text>
+          <View style={styles.profileBadge}>
+            <Text style={styles.profileBadgeText}>🌟 {memberDays} days</Text>
+          </View>
+        </LinearGradient>
+
+        {/* ── Lifetime Stats ── */}
+        <SectionHeader title="📊 Lifetime Stats" />
+        <View style={styles.statsGrid}>
+          <GlassCard style={styles.statItem}>
+            <Text style={styles.statEmoji}>💸</Text>
+            <Text style={styles.statValue}>₹{Math.round(lifetimeSpent).toLocaleString('en-IN')}</Text>
+            <Text style={styles.statLabel}>Total Spent</Text>
+          </GlassCard>
+          <GlassCard style={styles.statItem}>
+            <Text style={styles.statEmoji}>📝</Text>
+            <Text style={styles.statValue}>{totalTxns}</Text>
+            <Text style={styles.statLabel}>Transactions</Text>
+          </GlassCard>
+          <GlassCard style={styles.statItem}>
+            <Text style={styles.statEmoji}>💰</Text>
+            <Text style={styles.statValue}>₹{Math.round(budget).toLocaleString('en-IN')}</Text>
+            <Text style={styles.statLabel}>Monthly Budget</Text>
+          </GlassCard>
+          <GlassCard style={styles.statItem}>
+            <Text style={styles.statEmoji}>📅</Text>
+            <Text style={styles.statValue}>{memberDays}</Text>
+            <Text style={styles.statLabel}>Days Active</Text>
+          </GlassCard>
+        </View>
+
+        {/* ── Quick Actions ── */}
+        <SectionHeader title="⚡ Quick Actions (Auto-Updated!)" />
+        <GlassCard style={{ padding: 0, overflow: 'hidden' }}>
+          <MenuItem
+            icon="✏️"
+            ionIcon="person-outline"
+            label="Edit Profile"
+            sub="Change your name and username"
+            onPress={openEditProfile}
+          />
+          <MenuItem
+            icon="📱"
+            ionIcon="chatbubble-ellipses-outline"
+            label="AI Financial Coach"
+            sub="Chat with ExpenseTracker AI"
+            onPress={() => navigation.navigate('AIChat')}
+          />
+          <MenuItem
+            icon="📝"
+            ionIcon="document-text-outline"
+            label="Notepad"
+            sub="Save lists & notes easily"
+            onPress={() => navigation.navigate('Notepad')}
+          />
+          <MenuItem
+            icon="📊"
+            ionIcon="analytics-outline"
+            label="Analytics"
+            sub="Detailed spending analysis"
+            onPress={() => navigation.navigate('Analytics')}
+          />
+          <MenuItem
+            icon="🎯"
+            ionIcon="flag-outline"
+            label="Savings Goals"
+            sub="Track your financial goals"
+            onPress={() => navigation.navigate('SavingsGoals')}
+          />
+          <MenuItem
+            icon="📱"
+            ionIcon="people-outline"
+            label="Expense Split"
+            sub="Split bills with friends"
+            onPress={() => navigation.navigate('ExpenseSplit')}
+          />
+          <MenuItem
+            icon="📅"
+            ionIcon="calendar-outline"
+            label="Subscriptions"
+            sub="Track recurring payments"
+            onPress={() => navigation.navigate('Subscriptions')}
+          />
+          <MenuItem
+            icon="🎤"
+            ionIcon="mic-outline"
+            label="Voice Expense"
+            sub="Add expense via text/voice"
+            onPress={() => navigation.navigate('VoiceExpense')}
+          />
+        </GlassCard>
+
+        <SectionHeader title="💬 Support" />
+        <GlassCard style={{ padding: 0, overflow: 'hidden' }}>
+          <MenuItem
+            icon="📝"
+            ionIcon="chatbox-ellipses-outline"
+            label="Submit Feedback"
+            sub="Tell us how we can improve"
+            onPress={() => setFeedbackVisible(true)}
+          />
+          <MenuItem
+            icon="🔄"
+            ionIcon="sync-outline"
+            label="Check for Updates"
+            sub="Update to the latest version"
+            onPress={async () => {
+              try {
+                const Updates = require('expo-updates');
+                const update = await Updates.checkForUpdateAsync();
+                if (update.isAvailable) {
+                  Alert.alert("Update Available", "Downloading new features...");
+                  await Updates.fetchUpdateAsync();
+                  Alert.alert("Success", "Update applied! Restarting...", [
+                    { text: "OK", onPress: () => Updates.reloadAsync() }
+                  ]);
+                } else {
+                  Alert.alert("No Update Available", "Your app is up to date.");
+                }
+              } catch (error) {
+                // Fallback for local builds that don't support manual OTA checks
+                Alert.alert("No Update Available", "Your app is up to date.");
+              }
+            }}
+          />
+          <MenuItem
+            icon="🔔"
+            ionIcon="notifications-outline"
+            label="Enable Notifications"
+            sub="Turn on push notifications"
+            onPress={async () => {
+              try {
+                if (Platform.OS === 'android' && Platform.Version >= 33) {
+                  await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+                }
+                const authStatus = await messaging().requestPermission();
+                if (authStatus === messaging.AuthorizationStatus.AUTHORIZED || authStatus === messaging.AuthorizationStatus.PROVISIONAL) {
+                  await messaging().subscribeToTopic('all_users');
+                  Alert.alert("Success", "Push notifications enabled!");
+                } else {
+                  Alert.alert("Notice", "Notification permission was denied.");
+                }
+              } catch (e) {
+                console.error(e);
+                Alert.alert("Error", "Could not enable notifications.");
+              }
+            }}
+          />
+        </GlassCard>
+
+        {/* ── App Info ── */}
+        <SectionHeader title="ℹ️ About" />
+        <GlassCard style={{ padding: 0, overflow: 'hidden' }}>
+          <MenuItem
+            ionIcon="globe-outline"
+            label="Web Dashboard"
+            sub="ajay160380-paisa-mitra.hf.space"
+            onPress={() => openLink('https://ajay160380-paisa-mitra.hf.space')}
+            showArrow
+          />
+          <MenuItem
+            ionIcon="logo-github"
+            label="GitHub"
+            sub="github.com/ajay160380"
+            onPress={() => openLink('https://github.com/ajay160380')}
+            showArrow
+          />
+          <MenuItem
+            ionIcon="information-circle-outline"
+            label="App Version"
+            sub="v2.0.0 — Built with ❤️ by Ajay Vishwakarma"
+          />
+        </GlassCard>
+
+        {/* ── Admin Panel ── */}
+        {profile?.username === 'ajay' && (
+          <>
+            <SectionHeader title="👑 Admin" />
+            <GlassCard style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
+              <MenuItem
+                icon="🛡️"
+                ionIcon="shield-checkmark-outline"
+                label="Admin Panel"
+                sub="Manage users natively"
+                onPress={() => navigation.navigate('AdminPanel')}
+                showArrow
+              />
+            </GlassCard>
+          </>
+        )}
+
+        {/* ── Logout ── */}
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color={COLORS.red} />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+
+      {/* ── Feedback Modal ── */}
+      <Modal visible={feedbackVisible} transparent animationType="slide" onRequestClose={() => setFeedbackVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Submit Feedback</Text>
+              <TouchableOpacity onPress={() => setFeedbackVisible(false)}>
+                <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.feedbackInput}
+              placeholder="Tell us how we can improve..."
+              placeholderTextColor={COLORS.textMuted}
+              multiline
+              numberOfLines={4}
+              value={feedbackText}
+              onChangeText={setFeedbackText}
+            />
+            <TouchableOpacity 
+              style={[styles.submitFeedbackBtn, submittingFeedback && {opacity: 0.7}]} 
+              onPress={submitFeedback}
+              disabled={submittingFeedback}
+            >
+              {submittingFeedback ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.submitFeedbackText}>Submit</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Edit Profile Modal ── */}
+      <Modal visible={editProfileVisible} transparent animationType="slide" onRequestClose={() => setEditProfileVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Profile</Text>
+              <TouchableOpacity onPress={() => setEditProfileVisible(false)}>
+                <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <View style={{ marginBottom: 15 }}>
+              <Text style={{ color: COLORS.textMuted, marginBottom: 5 }}>Username</Text>
+              <TextInput
+                style={[styles.feedbackInput, { minHeight: 50, padding: 12, marginBottom: 0 }]}
+                value={editUsername}
+                onChangeText={setEditUsername}
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={{ marginBottom: 15 }}>
+              <Text style={{ color: COLORS.textMuted, marginBottom: 5 }}>First Name</Text>
+              <TextInput
+                style={[styles.feedbackInput, { minHeight: 50, padding: 12, marginBottom: 0 }]}
+                value={editFirstName}
+                onChangeText={setEditFirstName}
+              />
+            </View>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ color: COLORS.textMuted, marginBottom: 5 }}>Last Name</Text>
+              <TextInput
+                style={[styles.feedbackInput, { minHeight: 50, padding: 12, marginBottom: 0 }]}
+                value={editLastName}
+                onChangeText={setEditLastName}
+              />
+            </View>
+            <TouchableOpacity 
+              style={[styles.submitFeedbackBtn, submittingProfile && {opacity: 0.7}]} 
+              onPress={submitEditProfile}
+              disabled={submittingProfile}
+            >
+              {submittingProfile ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.submitFeedbackText}>Save Changes</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+    </SafeAreaView>
+  );
+}
+
+function MenuItem({ icon, ionIcon, label, sub, onPress, showArrow }) {
+  return (
+    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={onPress ? 0.7 : 1}>
+      <View style={styles.menuIconBox}>
+        {ionIcon ? (
+          <Ionicons name={ionIcon} size={20} color={COLORS.primary} />
+        ) : (
+          <Text style={{ fontSize: 18 }}>{icon}</Text>
+        )}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.menuLabel}>{label}</Text>
+        {sub && <Text style={styles.menuSub}>{sub}</Text>}
+      </View>
+      {(onPress || showArrow) && (
+        <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+      )}
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.bg, paddingTop: Platform.OS === 'android' ? 30 : 0 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scrollContent: { flexGrow: 1 },
+
+  // ── Profile Header ──
+  profileHeader: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 },
+  avatarLarge: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 2, borderColor: COLORS.cyan,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 14,
+  },
+  avatarLargeImage: {
+    width: 80, height: 80, borderRadius: 40,
+    borderWidth: 2, borderColor: COLORS.cyan,
+    marginBottom: 14,
+  },
+  avatarOverlay: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 14,
+  },
+  editIconBadge: {
+    position: 'absolute', bottom: 14, right: 0,
+    backgroundColor: COLORS.cyan, width: 26, height: 26, borderRadius: 13,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: COLORS.bg,
+  },
+  avatarLargeText: { color: COLORS.cyan, fontSize: 32, fontWeight: 'bold' },
+  profileName: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
+  profileSince: { color: 'rgba(255,255,255,0.6)', fontSize: 14, marginTop: 4 },
+  profileBadge: {
+    backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16,
+    paddingHorizontal: 14, paddingVertical: 6, marginTop: 12,
+  },
+  profileBadgeText: { color: COLORS.yellow, fontSize: 13, fontWeight: '600' },
+
+  // ── Stats Grid ──
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12 },
+  statItem: { width: '46%', margin: '2%', alignItems: 'center', paddingVertical: 18 },
+  statEmoji: { fontSize: 28, marginBottom: 8 },
+  statValue: { color: COLORS.textPrimary, fontSize: 20, fontWeight: 'bold' },
+  statLabel: { color: COLORS.textMuted, fontSize: 11, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  // ── Menu Item ──
+  menuItem: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 15, paddingHorizontal: 16,
+    borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+  },
+  menuIconBox: {
+    width: 38, height: 38, borderRadius: 10,
+    backgroundColor: 'rgba(168,136,255,0.1)',
+    justifyContent: 'center', alignItems: 'center', marginRight: 14,
+  },
+  menuLabel: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '600' },
+  menuSub: { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
+
+  // ── Logout ──
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    marginHorizontal: 16, marginTop: 24, paddingVertical: 14,
+    borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.red + '33',
+    backgroundColor: 'rgba(239,68,68,0.08)',
+  },
+  logoutText: { color: COLORS.red, fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
+
+  // ── Modal ──
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: COLORS.bg, borderTopLeftRadius: RADIUS.lg, borderTopRightRadius: RADIUS.lg, padding: 24, minHeight: 300 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { color: COLORS.textPrimary, fontSize: 20, fontWeight: 'bold' },
+  feedbackInput: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, padding: 16, color: COLORS.textPrimary, fontSize: 16, minHeight: 120, textAlignVertical: 'top', borderWidth: 1, borderColor: COLORS.borderLight, marginBottom: 20 },
+  submitFeedbackBtn: { backgroundColor: COLORS.primary, paddingVertical: 16, borderRadius: RADIUS.md, alignItems: 'center' },
+  submitFeedbackText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+});

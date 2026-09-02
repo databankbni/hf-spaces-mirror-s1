@@ -81,12 +81,17 @@ This constraint requires protocols to be reimagined around plate-based workflows
 ### Solutions for tube-based workflows:
 
 ```python
+
 # Instead of tube racks:
+
 tube_rack = protocol.load_labware("opentrons_24_tuberack_eppendorf_1.5ml", "D1")  # NOT COMPATIBLE!
 
 # Use deep well plates:
+
 sample_plate = protocol.load_labware("nest_96_wellplate_2ml_deep", "D1")  # 2mL per well
+
 # Pre-aliquot samples from tubes into wells before protocol start
+
 ```
 
 This limitation fundamentally changes protocol design, requiring all reagents and samples to
@@ -101,9 +106,13 @@ simultaneous access pattern.
 ### Traditional 8-channel approach
 
 ```python
+
 # 8-channel: 12-well reservoir allows parallel column access
+
 reservoir_12well = protocol.load_labware("nest_12_reservoir_15ml", "D1")
+
 # Each well contains reagent for one column (15mL × 12 = 180mL total)
+
 for i, column in enumerate(plate.columns()):
     p8.aspirate(100, reservoir_12well.wells()[i])
     p8.dispense(100, column[0])
@@ -112,9 +121,13 @@ for i, column in enumerate(plate.columns()):
 ### 96-channel optimized approach
 
 ```python
+
 # 96-channel: Single reservoir for entire plate
+
 reservoir_1well = protocol.load_labware("nest_1_reservoir_195ml", "D1")
+
 # One well contains all reagent (195mL total)
+
 p96.aspirate(100, reservoir_1well["A1"])  # All 96 tips access same well
 p96.dispense(100, plate["A1"])  # Dispense to all 96 wells simultaneously
 ```
@@ -131,10 +144,15 @@ p96.dispense(100, plate["A1"])  # Dispense to all 96 wells simultaneously
 When protocols require both 8-channel and 96-channel operations:
 
 ```python
+
 # Use deep well plate as 96-well reservoir
+
 reagent_plate = protocol.load_labware("nest_96_wellplate_2ml_deep", "D1")
+
 # Pre-fill with reagents for 96-channel access
+
 # Each well can contain different reagent if needed
+
 ```
 
 ## Optimized labware combinations for 96-channel workflows
@@ -152,13 +170,16 @@ The most effective labware combinations leverage the pipette's strengths while w
 These adapters ensure proper alignment but must be removed for partial tip pickup operations:
 
 ```python
+
 # Full tip pickup configuration
+
 tips_full = protocol.load_labware(
     "opentrons_flex_96_tiprack_1000ul", "C3",
     adapter="opentrons_flex_96_tiprack_adapter"
 )
 
 # Partial tip pickup configuration (no adapter)
+
 tips_partial = protocol.load_labware(
     "opentrons_flex_96_tiprack_1000ul", "C1"
 )
@@ -210,14 +231,19 @@ patterns differ from traditional approaches:
 **Magnetic Block integration** leverages the Gripper for efficiency:
 
 ```python
+
 # Traditional approach: pipette liquid to magnetic module
+
 # 96-channel approach: move entire plate
+
 protocol.move_labware(
     labware=sample_plate,
     new_location=magnetic_block,
     use_gripper=True
 )
+
 # No engagement needed - magnets always active
+
 protocol.delay(minutes=5)  # Bead settling
 ```
 
@@ -225,7 +251,9 @@ protocol.delay(minutes=5)  # Bead settling
 
 ```python
 tc_mod = protocol.load_module("thermocyclerModuleV2")
+
 # Gripper loads plate after reagent addition
+
 protocol.move_labware(pcr_plate, tc_mod, use_gripper=True)
 tc_mod.close_lid()
 tc_mod.execute_profile(steps=[...])
@@ -236,7 +264,9 @@ tc_mod.execute_profile(steps=[...])
 ```python
 hs_mod = protocol.load_module("heaterShakerModuleV1", "D1")
 hs_mod.set_and_wait_for_temperature(37)
+
 # 96-channel dispenses reagents before shaking
+
 hs_mod.set_and_wait_for_shake_speed(rpm=1000)
 ```
 
@@ -263,7 +293,9 @@ pipette.dispense(110, destination_plate["A1"])  # Includes air gap volume
 **Parallel plate processing** uses deck space efficiently:
 
 ```python
+
 # Process 4 plates simultaneously with column operations
+
 for plate in plates:
     pipette.pick_up_tip()
     pipette.aspirate(50, reagent_reservoir["A1"])
@@ -280,7 +312,9 @@ However, error handling requires different strategies than single-channel pipett
 **Pressure-based liquid detection**:
 
 ```python
+
 # Only works with A1 or H12 in single-tip mode
+
 pipette.configure_nozzle_layout(style=SINGLE, start="H12")
 if pipette.detect_liquid_presence(well):
     pipette.aspirate(volume, well)
@@ -305,10 +339,13 @@ Requested motion with the A1 nozzle partial configuration is outside of robot bo
 Solution: Use "A12" instead of "A1" for COLUMN mode:
 
 ```python
+
 # CORRECT - Avoids collision
+
 pipette.configure_nozzle_layout(style=COLUMN, start="A12", tip_racks=[tips_partial])
 
 # INCORRECT - Causes error
+
 pipette.configure_nozzle_layout(style=COLUMN, start="A1", tip_racks=[tips_partial])
 ```
 
@@ -327,11 +364,14 @@ While the API supports flow rate adjustment, some users report the 96-channel pi
 may not respond to these settings as expected:
 
 ```python
+
 # Theoretical optimization (verify effectiveness)
+
 pipette.flow_rate.aspirate = 500   # µL/s for viscous liquids
 pipette.flow_rate.dispense = 1000  # µL/s standard dispensing
 
 # Alternative: use rate parameter in commands
+
 pipette.aspirate(100, source, rate=0.5)  # 50% of default rate
 ```
 
@@ -868,7 +908,9 @@ def run(protocol: protocol_api.ProtocolContext):
 https://library.opentrons.com/p/staining
 
 ```python
+
 # flake8: noqa
+
 from opentrons import protocol_api
 import math
 from opentrons.protocol_api import COLUMN, ALL

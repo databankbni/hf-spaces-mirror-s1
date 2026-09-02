@@ -21,6 +21,7 @@ from titan007_fundamentals import capture as capture_fundamentals
 from titan007_market_depth import capture as capture_market_depth
 from fetch_titan007_correct_score import fetch_for_packet as capture_correct_score
 from titan007_competition_stage import capture_for_packet as capture_competition_stage
+from titan007_h2h import build_portable_evidence as build_h2h_evidence
 from market_change_detector import digest as canonical_digest
 from production_accuracy_selector import (
     build_accuracy_features,
@@ -645,6 +646,7 @@ def live_packet(match_id:str)->dict:
                                         'league':str(identity.get('league') or ''),'source':'non_blocking_timeout','reason':type(exc).__name__}
     finally:
         aux_pool.shutdown(wait=False,cancel_futures=True)
+    h2h_evidence=build_h2h_evidence(fundamentals if isinstance(fundamentals,dict) else {})
     grade=market_grade(identity,coverage,fundamentals,market_depth)
     captured=utcnow()
     contract=freshness_contract(identity,captured,source_mode='local_live_packet',remote_packet_found=False)
@@ -682,7 +684,8 @@ def live_packet(match_id:str)->dict:
               'fallback_reason':'HF_REMOTE_PACKET_NOT_USED_FOR_DIRECTIONAL_ANALYSIS','fresh':True,
               'usable_for_analysis':usable,'freshness_contract':contract,'identity':identity,
               'identity_lock':{'match_id':str(match_id),'identity_score':100,'passed':True},
-              'coverage':coverage,'fundamentals':fundamentals,'market_depth':market_depth,'market_grade':grade,
+              'coverage':coverage,'fundamentals':fundamentals,'h2h_evidence':h2h_evidence,
+              'market_depth':market_depth,'market_grade':grade,
               'odds':{cid:{'company':COMPANIES[cid],**data} for cid,data in partial.items()},
               'raw_payloads':raw_records,
               'coverage_repair':{'missing_jobs':len(missing_jobs),'partial_companies':sorted(partial), 'full_companies':sorted(valid)}}
@@ -812,7 +815,8 @@ def _market_evidence_valid(value:dict,*,expected_match_id:str,expected_source_pa
 def build_market_evidence(packet:dict)->dict:
     """Persist portable, hash-bound five-book market/K-line evidence for HF readers."""
     snapshot=_market_evidence_snapshot(packet)
-    expected_sha=str(snapshot.get('packet_sha256') or packet.get('packet_sha256') or '')
+    expected_sha = str(snapshot.get('source_packet_sha256') or
+                       snapshot.get('packet_sha256') or packet.get('packet_sha256') or '')
     companies={}; hashes={}; invalid=[]
     records=snapshot.get('raw_payloads') if isinstance(snapshot.get('raw_payloads'),list) else []
     expected_records = [record for record in records if isinstance(record,dict) and str(record.get('company_id')) in MARKET_EVIDENCE_COMPANIES and record.get('market') in ('AH','OU')]

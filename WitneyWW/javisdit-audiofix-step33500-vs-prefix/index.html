@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JavisDiT audio repair — step 33500 vs pre-fix</title>
+<style>
+  :root{ --bg:#fff; --panel:#f6f7f9; --line:#e2e5ea; --fg:#12151a; --muted:#5c6470;
+         --accent:#3b6ef5; --good:#137a4e; --bad:#a4451c; --chip:#eceff4; --warn:#b3541e; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0e1116; --panel:#161b22; --line:#2a313b; --fg:#e6e9ee; --muted:#9aa4b2;
+           --accent:#7aa2ff; --good:#4ad295; --bad:#ff9b6a; --chip:#212832; --warn:#ffb17a; } }
+  :root[data-theme="dark"]{ --bg:#0e1116; --panel:#161b22; --line:#2a313b; --fg:#e6e9ee;
+    --muted:#9aa4b2; --accent:#7aa2ff; --good:#4ad295; --bad:#ff9b6a; --chip:#212832; --warn:#ffb17a; }
+  :root[data-theme="light"]{ --bg:#fff; --panel:#f6f7f9; --line:#e2e5ea; --fg:#12151a;
+    --muted:#5c6470; --accent:#3b6ef5; --good:#137a4e; --bad:#a4451c; --chip:#eceff4; --warn:#b3541e; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1240px;margin:0 auto;padding:32px 20px 80px}
+  h1{font-size:23px;margin:0 0 6px;letter-spacing:-.01em}
+  h2{font-size:17px;margin:34px 0 6px}
+  p{margin:8px 0} .sub{color:var(--muted);margin:0 0 14px}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;
+    background:var(--chip);padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+  .chip{background:var(--chip);border:1px solid var(--line);border-radius:999px;
+    padding:3px 11px;font-size:12.5px;color:var(--muted)}
+  .chip b{color:var(--fg);font-weight:600}
+  .note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:8px;padding:12px 15px;margin:18px 0}
+  .note.warn{border-left-color:var(--warn)}
+  .note ul{margin:6px 0 0;padding-left:20px} .note li{margin:4px 0}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px;display:block;
+    overflow-x:auto;white-space:nowrap}
+  th,td{border-bottom:1px solid var(--line);padding:7px 10px;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase}
+  td.g{color:var(--good);font-weight:600} td.b{color:var(--bad);font-weight:600}
+  tr.hi td{background:var(--chip)}
+  .bar{position:sticky;top:0;background:var(--bg);z-index:5;padding:10px 0 0;
+    border-bottom:1px solid var(--line);margin:22px 0 8px}
+  .picker{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:10px}
+  .picker button{font:inherit;font-size:13.5px;cursor:pointer;border:1px solid var(--line);
+    background:var(--panel);color:var(--fg);border-radius:8px;padding:6px 13px;text-align:left}
+  .picker button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .picker button small{display:block;opacity:.75;font-size:11px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-top:12px}
+  @media (max-width:1050px){ .grid{grid-template-columns:repeat(3,1fr)} }
+  @media (max-width:680px){ .grid{grid-template-columns:1fr} }
+  .cell h3{font-size:11px;margin:0 0 6px;font-weight:700;color:var(--muted);
+     text-transform:uppercase;letter-spacing:.04em}
+  .cell.new h3{color:var(--accent)} .cell.old h3{color:var(--warn)}
+  .cell video{width:100%;aspect-ratio:1/1;border-radius:8px;background:#000;display:block;
+    border:1px solid var(--line)}
+  .cell .cap{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.45}
+  .ctrl{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .ctrl button{font:inherit;font-size:12.5px;cursor:pointer;border:1px solid var(--line);
+    background:var(--bg);color:var(--fg);border-radius:7px;padding:5px 12px}
+  .foot{color:var(--muted);font-size:12.5px;margin-top:40px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Audio repair at step 33500 — what it fixed, and what it cost</h1>
+  <p class="sub">Ten held-out clips. The two generated columns differ <b>only in weights</b> —
+     same clips, same corrected audio latents, same per-entry seeds.</p>
+  <div class="chips" id="chips"></div>
+
+  <div class="note warn">
+    <b>A trade-off, not a win.</b> The fine-tune was run after a mel filterbank regression
+    (torchaudio <code>norm=None/htk</code> instead of librosa <code>slaney/slaney</code>) was
+    found to have made every encoded target mel 122× too hot. Retraining on corrected latents
+    recovered the audio — and cost about 40% of the video edit strength.
+    <ul>
+      <li>The video drop is caused by the fine-tune, not the regenerated data: the pre-fix
+          checkpoint scores the same on this corrected data as it did on the old data.</li>
+      <li>Both metrics plateaued by step ~10500 — steps 10500, 14000 and 33500 land within
+          noise of each other, so the extra 23,000 steps changed nothing either way.</li>
+    </ul>
+  </div>
+
+  <h2>Checkpoint trajectory</h2>
+  <p class="sub">Every checkpoint on these same 10 clips with the same seeds.
+     Video gap = L1→target − L1→input (more negative = stronger edit);
+     audio = median log-mel correlation vs the pseudo GT.</p>
+  <table id="traj"></table>
+
+  <h2>Per-clip</h2>
+  <table id="tbl"></table>
+
+  <div class="bar"><div class="picker" id="picker"></div></div>
+  <div id="cards"></div>
+
+  <p class="foot">256×256, 81 frames @ 16 fps (5.06 s), mono 16 kHz, cfg 1.0, 50 steps,
+     no reference frame. Audio scored as log-mel correlation with both sides peak-normalised
+     through the pipeline's own <code>normalize_wav</code> — unnormalised, the −80 dBFS
+     residuals sit on the log-mel clamp floor and the score measures clamping, not content.
+     N=10: enough to see a 40% video drop and a 0.2 audio gain, not small step-to-step wiggles.</p>
+</div>
+
+<script>
+let D=null;
+const LAB=[["input","input","source latent decode — object present"],
+           ["finetuned","fine-tuned","step 33500, corrected audio latents"],
+           ["prefix","pre-fix","step 140000, before the repair"],
+           ["target","target","target latent decode — the loss target"],
+           ["pseudo_gt","pseudo GT","inpainted video + SAM-Audio residual"]];
+const f=v=>(v===null||v===undefined)?"—":v;
+
+function chips(){
+  const s=D.summary;
+  const c=[["checkpoint",D.checkpoint],
+           ["video gap","pre-fix "+s.gap_base+" → "+s.gap_new],
+           ["audio median","pre-fix "+s.a_base_med+" → "+s.a_new_med],
+           ["audio ceiling",s.a_ceiling],
+           ["clips",s.n]];
+  document.getElementById("chips").innerHTML=c.map(([k,v])=>`<span class="chip">${k} <b>${v}</b></span>`).join("");
+}
+function traj(){
+  document.getElementById("traj").innerHTML=
+    `<thead><tr><th>checkpoint</th><th>video gap</th><th>moved right</th><th>audio (median)</th></tr></thead><tbody>`
+    + D.trajectory.map(t=>`<tr class="${t.name.includes('shown here')?'hi':''}">
+        <td>${t.name}</td><td>${t.gap}</td><td>${t.right}</td><td>${t.audio}</td></tr>`).join("")
+    + `</tbody>`;
+}
+function table(){
+  const head=`<thead><tr><th>clip</th><th>object</th><th>gap: fine-tuned</th><th>gap: pre-fix</th>
+    <th>audio: fine-tuned</th><th>audio: pre-fix</th><th>audio ceiling</th></tr></thead>`;
+  const body=D.entries.map((e,i)=>{
+    const m=e.metrics;
+    if(!m) return `<tr><td>${e.video_id}</td><td colspan="6">missing</td></tr>`;
+    return `<tr><td><a href="#" onclick="show(${i});return false">${e.video_id}</a></td>
+      <td>${e.object}</td>
+      <td class="${m.gap_new<0?'g':'b'}">${m.gap_new>0?"+":""}${m.gap_new}</td>
+      <td class="${m.gap_base<0?'g':'b'}">${m.gap_base>0?"+":""}${f(m.gap_base)}</td>
+      <td class="${m.a_new>m.a_base?'g':'b'}">${f(m.a_new)}</td>
+      <td>${f(m.a_base)}</td><td>${f(m.a_ceiling)}</td></tr>`;}).join("");
+  const s=D.summary;
+  const foot=`<tfoot><tr><th>mean</th><th></th><th>${s.gap_new}</th><th>${s.gap_base}</th>
+    <th>${s.a_new}</th><th>${s.a_base}</th><th>${s.a_ceiling}</th></tr></tfoot>`;
+  document.getElementById("tbl").innerHTML=head+"<tbody>"+body+"</tbody>"+foot;
+}
+function picker(){
+  document.getElementById("picker").innerHTML=D.entries.map((e,i)=>
+    `<button id="pk${i}" onclick="show(${i})">${e.object||"(no label)"}<small>${e.video_id}</small></button>`).join("");
+}
+function show(i){
+  D.entries.forEach((_,k)=>{const b=document.getElementById("pk"+k); if(b) b.className=(k===i)?"on":"";});
+  const e=D.entries[i], m=e.metrics;
+  const cells=LAB.map(([k,title,cap])=>{
+    const src=e.clips[k]; if(!src) return "";
+    const cls=k==="finetuned"?"new":(k==="prefix"?"old":"");
+    let extra="";
+    if(m&&k==="finetuned") extra=` · gap <b>${m.gap_new}</b> · audio <b>${f(m.a_new)}</b>`;
+    if(m&&k==="prefix")    extra=` · gap <b>${f(m.gap_base)}</b> · audio <b>${f(m.a_base)}</b>`;
+    if(m&&k==="target")    extra=` · audio ceiling ${f(m.a_ceiling)}`;
+    return `<div class="cell ${cls}"><h3>${title}</h3>
+      <video src="${src}" controls loop muted playsinline preload="metadata"></video>
+      <div class="cap">${cap}${extra}</div></div>`;}).join("");
+  document.getElementById("cards").innerHTML=`<div class="card">
+    <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
+      <b>${e.video_id}</b><code>${e.prompt}</code></div>
+    <div class="ctrl">
+      <button onclick="allPlay()">play all</button>
+      <button onclick="allPause()">pause all</button>
+      <button onclick="allRestart()">restart</button>
+      <button onclick="toggleMute()" id="mutebtn">unmute</button></div>
+    <div class="grid">${cells}</div></div>`;
+}
+const vids=()=>Array.from(document.querySelectorAll("#cards video"));
+function allPlay(){vids().forEach(v=>v.play().catch(()=>{}));}
+function allPause(){vids().forEach(v=>v.pause());}
+function allRestart(){vids().forEach(v=>{v.currentTime=0;v.play().catch(()=>{});});}
+function toggleMute(){const vs=vids(); if(!vs.length)return; const mu=!vs[0].muted;
+  vs.forEach(v=>v.muted=mu); document.getElementById("mutebtn").textContent=mu?"unmute":"mute";}
+fetch("data.json").then(r=>r.json()).then(d=>{D=d;chips();traj();table();picker();show(0);});
+</script>
+</body>
+</html>

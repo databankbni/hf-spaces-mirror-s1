@@ -1,0 +1,67 @@
+name: Verify Search v0.10 combined parity
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/services/search_soil_vector.py'
+      - 'app/services/search_vector.py'
+      - 'app/services/search_vector_navigation.py'
+      - 'app/services/search_runtime_sidecar.py'
+      - 'app/services/exhaustive_search.py'
+      - 'scripts/verify_search_v010_combined_parity.py'
+      - 'tests/test_search_soil_vector.py'
+      - 'tests/test_search_vector_navigation.py'
+      - '.github/workflows/verify-search-v010-combined-parity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install package and zstd
+        run: |
+          python -m pip install --disable-pip-version-check -e .
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+
+      - name: Download verified production catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --http1.1 -fL --retry 6 --retry-all-errors --retry-delay 3 \
+            -o /tmp/climaflora_global_plants_v2_0.sqlite.zst \
+            https://shugoan.com/climaflora/data/climaflora_global_plants_v2_0.sqlite.zst
+          echo '1683c43c6fb1e68f9b6c6c4cd7f291642feba6c37a3691c3452b319856335c32  /tmp/climaflora_global_plants_v2_0.sqlite.zst' | sha256sum -c -
+          zstd -d -f /tmp/climaflora_global_plants_v2_0.sqlite.zst -o /tmp/climaflora_global_plants_v2_0.sqlite
+
+      - name: Verify full-catalog soil, combined and navigation parity
+        shell: bash
+        run: |
+          export CLIMAFLORA_FUNNEL_CACHE_DIR=/tmp/climaflora-funnel-combined-parity
+          export CLIMAFLORA_SEARCH_RUNTIME_CACHE_DIR=/tmp/climaflora-runtime-combined-parity
+          rm -rf "$CLIMAFLORA_FUNNEL_CACHE_DIR" "$CLIMAFLORA_SEARCH_RUNTIME_CACHE_DIR"
+          python scripts/verify_search_v010_combined_parity.py \
+            --db /tmp/climaflora_global_plants_v2_0.sqlite \
+            --output /tmp/search-v010-combined-parity.json
+
+      - name: Upload parity report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: search-v010-combined-parity
+          path: /tmp/search-v010-combined-parity.json
+          if-no-files-found: warn
+          retention-days: 30

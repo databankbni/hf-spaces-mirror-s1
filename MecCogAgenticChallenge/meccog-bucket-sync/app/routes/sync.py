@@ -9,6 +9,7 @@ from app.deps import (
     get_bucket_write_limiter,
     get_hub,
     get_settings_dep,
+    require_challenge_open,
 )
 from app.errors import NotRegistered, RateLimited, SyncTooLarge
 from app.hub import HubClient
@@ -61,7 +62,11 @@ def _execute_sync(
     return out
 
 
-@router.post("/v1/artifacts:sync", response_model=SyncResponse)
+@router.post(
+    "/v1/artifacts:sync",
+    response_model=SyncResponse,
+    dependencies=[Depends(require_challenge_open)],
+)
 def artifacts_sync(
     req: ArtifactSyncRequest,
     request: Request,
@@ -106,7 +111,11 @@ def artifacts_sync(
     return SyncResponse(dest=dest_prefix, files=copied, bytes_copied=total)
 
 
-@router.post("/v1/shared-resources:sync", response_model=SyncResponse)
+@router.post(
+    "/v1/shared-resources:sync",
+    response_model=SyncResponse,
+    dependencies=[Depends(require_challenge_open)],
+)
 def shared_resources_sync(
     req: SharedResourceSyncRequest,
     request: Request,

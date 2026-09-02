@@ -10,7 +10,7 @@ import Pagination from '@/src/components/Pagination';
 import DetailsCard from '@/src/components/DetailsCard';
 import ChallengeRoundsList from '@/src/components/ChallengeRoundsList';
 import type { ChallengeDefinition, DefinitionSeries } from '@/src/types/challenge';
-import { getFilteredRankings, getRankingFilters, type RankingsResponse, type FilterOptions } from '@/src/services/modelService';
+import { getFilteredRankings, getRankingFilters, collectSqlEligible, type RankingsResponse, type FilterOptions } from '@/src/services/modelService';
 import { getDefinitionSeries } from '@/src/services/definitionService';
 
 export default function ChallengeDefinitionDetail() {
@@ -18,6 +18,9 @@ export default function ChallengeDefinitionDetail() {
   const router = useRouter();
   const [definition, setDefinition] = useState<ChallengeDefinition | null>(null);
   const [rankings, setRankings] = useState<RankingsResponse | null>(null);
+  // Models scored on this challenge's SQL board — the ones that submitted real
+  // quantiles here. Everyone else shows a dash rather than a degenerate score.
+  const [sqlEligible, setSqlEligible] = useState<Set<number> | undefined>(undefined);
   const [selectedCalculationDate, setSelectedCalculationDate] = useState<string>('');
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,8 +112,12 @@ export default function ChallengeDefinitionDetail() {
             filters.calculation_date = selectedCalculationDate;
           }
         }
-        const rankingsData = await getFilteredRankings(filters);
+        const [rankingsData, sqlRankings] = await Promise.all([
+          getFilteredRankings(filters),
+          getFilteredRankings({ ...filters, metric: 'sql' }),
+        ]);
         setRankings(rankingsData);
+        setSqlEligible(collectSqlEligible(sqlRankings.rankings));
       } catch (err) {
         console.error('Error fetching rankings:', err);
       } finally {
@@ -306,7 +313,7 @@ export default function ChallengeDefinitionDetail() {
             </div>
           ) : rankings && rankings.rankings.length > 0 ? (
             <>
-              <RankingTableElo rankings={paginatedRankings} />
+              <RankingTableElo rankings={paginatedRankings} sqlEligibleModelIds={sqlEligible} />
               
               {/* Rankings Pagination */}
               <div className="mt-4 bg-white rounded-lg shadow-md overflow-hidden">

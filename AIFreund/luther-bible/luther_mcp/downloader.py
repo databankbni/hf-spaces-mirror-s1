@@ -19,12 +19,18 @@ ASSET_NAME = "bible_chroma_db.tar.gz"
 
 
 def get_download_url() -> str:
-    """Resolve the asset URL from the latest GitHub release."""
+    """Resolve the asset URL from the latest GitHub release.
+
+    Authenticates with GITHUB_TOKEN when set. GitHub's API otherwise rate-limits
+    anonymous requests to 60/hour per IP — easily exhausted by HF Space builders
+    and CI runners sharing IPs.
+    """
     api_url = f"https://api.github.com/repos/{OWNER}/{REPO}/releases/latest"
-    req = urllib.request.Request(
-        api_url,
-        headers={"Accept": "application/vnd.github+json"},
-    )
+    headers = {"Accept": "application/vnd.github+json"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(api_url, headers=headers)
     with urllib.request.urlopen(req) as resp:
         release = json.loads(resp.read())
     for asset in release.get("assets", []):

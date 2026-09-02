@@ -8,12 +8,22 @@ export type TaskPriority = 'high' | 'medium' | 'low';
 
 // ── Auth types ────────────────────────────────────────────────────────────────
 
+/**
+ * User roles:
+ *  pending — registered but not yet approved; cannot log in
+ *  viewer  — approved personal workspace member; manages only own tasks
+ *  editor  — manages tasks for the assigned team plus months and members
+ *  admin   — everything + user management
+ */
+export type UserRole = 'pending' | 'viewer' | 'editor' | 'admin';
+
 export interface User {
   id: number;
   username: string;
   email: string;
   password_hash: string;
-  role: 'pending' | 'editor' | 'admin';
+  role: UserRole;
+  team_id: number | null;
   created_at: string;
 }
 
@@ -26,14 +36,21 @@ export interface CreateUserInput {
 export interface JwtPayload {
   id: number;
   username: string;
-  role: 'pending' | 'editor' | 'admin';
+  role: UserRole;
 }
 
 export interface AuthUser {
   id: number;
   username: string;
   email: string;
-  role: 'pending' | 'editor' | 'admin';
+  role: UserRole;
+  team_id: number | null;
+}
+
+export interface Team {
+  id: number;
+  name: string;
+  created_at: string;
 }
 
 // ── Calendar types ────────────────────────────────────────────────────────────
@@ -71,6 +88,7 @@ export interface Member {
   name: string;
   email: string;
   avatar_color: string;
+  team_id: number | null;
   created_at: string;
 }
 
@@ -90,6 +108,7 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   assignee_id: number | null;
+  team_id: number | null;
   sprint_id: number | null;
   labels: string;
   due_date: string | null;
@@ -108,6 +127,7 @@ export interface CreateTaskInput {
   status?: TaskStatus;
   priority?: TaskPriority;
   assignee_id?: number | null;
+  team_id?: number | null;
   sprint_id?: number | null;
   labels?: string;
   due_date?: string | null;
@@ -121,6 +141,11 @@ export interface CreateMemberInput {
   name: string;
   email: string;
   avatar_color?: string;
+  team_id?: number | null;
+}
+
+export interface CreateTeamInput {
+  name: string;
 }
 
 export interface CreateSprintInput {

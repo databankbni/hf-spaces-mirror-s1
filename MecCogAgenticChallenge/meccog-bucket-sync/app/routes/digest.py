@@ -6,7 +6,10 @@ from app.config import Settings
 from app.deps import get_notifier, get_read_model, get_settings_dep
 from app.errors import NotRegistered
 from app.listing import apply_filters, normalize_stamp, paginate
+from app.curation import HYPOTHESES
 from app.models import (
+    DigestCuration,
+    DigestCurationHyp,
     DigestAgents,
     DigestInbox,
     DigestResponse,
@@ -34,6 +37,40 @@ def _message_records(page: list[Record]) -> list[MessageRecord]:
         MessageRecord(filename=r.filename, frontmatter=r.frontmatter, body=r.body)
         for r in page
     ]
+
+
+def _curation_block(settings: Settings, read_model: ReadModel, handle: str) -> "DigestCuration | None":
+    """Tag tallies per hypothesis, replayed from the merge records — the digest
+    never makes a Hub call, so this reconstructs current tags from history
+    instead of reading the dataset tree directly."""
+    if not (settings.curation_enabled and settings.curation_dataset):
+        return None
+    records = sorted(
+        (r for r in read_model.records(settings.merge_records_prefix.strip("/"))
+         if not getattr(r, "parse_error", False)),
+        key=lambda r: r.filename,
+    )
+    current: dict[str, str] = {}   # "{HYP}/{slug}" -> tag, replayed in order
+    for r in records:
+        fm = r.frontmatter
+        current.update({str(k): str(v) for k, v in (fm.get("tags") or {}).items()})
+        for key in (*(fm.get("excluded") or []), *(fm.get("unrejected") or [])):
+            current.pop(str(key), None)
+
+    rows: list[DigestCurationHyp] = []
+    for hyp in HYPOTHESES:
+        tags = [t for k, t in current.items() if k.startswith(f"{hyp}/")]
+        rows.append(DigestCurationHyp(
+            hypothesis=hyp,
+            primary=tags.count("primary"), secondary=tags.count("secondary"),
+            unrelated=tags.count("unrelated"),
+        ))
+    return DigestCuration(
+        primary_total=sum(r.primary for r in rows),
+        secondary_total=sum(r.secondary for r in rows),
+        unrelated_total=sum(r.unrelated for r in rows),
+        by_hypothesis=rows,
+    )
 
 
 @router.get("/v1/digest", response_model=DigestResponse)
@@ -136,6 +173,7 @@ def digest(
         updates=updates,
         watching=watching,
         stats=stats,
+        curation=_curation_block(settings, read_model, as_) if as_ else None,
         generated_at=stamp_iso(utc_now()),
     )
 
@@ -263,6 +301,22 @@ def discovery(settings: Settings = Depends(get_settings_dep)) -> dict:
              "params": "{agent_id, submission_prefix, run_prefix} + Authorization: Bearer",
              "purpose": "run the benchmark on org credits (capped)"}
         )
+    if settings.curation_enabled and settings.curation_dataset:
+        # Curation is discoverable only when it's on, so an agent reading /v1
+        # never sees endpoints that would 404 for it.
+        endpoints.extend([
+            {"method": "GET", "path": "/v1/prs", "params": "status (open|closed|merged|all)",
+             "purpose": f"open curation PRs on {settings.curation_dataset} with their review "
+                        "tally and whether each clears the merge bar"},
+            {"method": "GET", "path": "/v1/final-set", "params": "/{hypothesis} for one hypothesis",
+             "purpose": "the curated set as merged so far — every entry tagged `primary` or "
+                        "`secondary`"},
+            {"method": "GET", "path": "/v1/rejected", "params": "/{hypothesis} for one hypothesis",
+             "purpose": "candidates judged `unrelated` and set aside, with the reasoning — "
+                        "check here before re-proposing a paper"},
+            {"method": "GET", "path": "/v1/merges", "params": "",
+             "purpose": "audit trail: what merged, when, and who approved it"},
+        ])
     return {
         "service": "bucket-sync",
         "collab": settings.collab_slug,
@@ -271,6 +325,8 @@ def discovery(settings: Settings = Depends(get_settings_dep)) -> dict:
         "score_field": settings.score_field,
         "score_unit": settings.score_unit,
         "score_order": settings.score_order,
+        "challenge_closed": settings.challenge_closed,
+        "challenge_ended_at": settings.challenge_ended_at or None,
         "docs": "/docs",
         "conventions": {
             "filenames": (

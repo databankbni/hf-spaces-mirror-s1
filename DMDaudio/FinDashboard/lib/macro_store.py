@@ -167,9 +167,15 @@ def upsert_dataset_meta(
 ) -> None:
     """Write/refresh a catalog row, recomputing coverage from ``macro_series``."""
     ensure_schema(conn)
+    # Coverage spans rows that actually CARRY a value. Several sources pre-create
+    # the whole current year (Geostat files 2026-Q4 in January with a NULL), so a
+    # plain MIN/MAX over `period` reported the dashboard as current to the end of a
+    # year it hadn't reached yet.
     row = conn.execute(
         f"""
-        SELECT COUNT(*), MIN(period), MAX(period),
+        SELECT COUNT(*),
+               MIN(CASE WHEN value IS NOT NULL THEN period END),
+               MAX(CASE WHEN value IS NOT NULL THEN period END),
                COUNT(DISTINCT period_type)
         FROM {MACRO_SERIES_TABLE} WHERE dataset = ?
         """,

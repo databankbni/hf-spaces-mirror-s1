@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Homo — A Human Modeling Framework</title>
+<meta name="description" content="Interactive playground for Homo, a layered framework for modeling human beings as structured data." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/pyodide/v0.27.6/full/pyodide.js"></script>
+<style>
+  :root{
+    --ink:#12151c;
+    --paper:#f6f6f3;
+    --panel:#ffffff;
+    --rule:#dcdcd4;
+    --mut:#6e7480;
+    --l1:#c2410c;
+    --l2:#ca8a04;
+    --l3:#15803d;
+    --l4:#0f766e;
+    --l5:#1d4ed8;
+    --l6:#6d28d9;
+    --display:"Space Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--display);font-size:14px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    display:flex;align-items:flex-end;justify-content:space-between;gap:24px;
+    padding:22px 28px 18px;border-bottom:1px solid var(--rule);flex-wrap:wrap;
+  }
+  .masthead h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-0.02em}
+  .masthead h1 em{color:var(--mut);font-weight:400;font-style:normal}
+  .masthead p{margin:5px 0 0;color:var(--mut);max-width:56ch}
+  .masthead code{font-family:var(--mono);font-size:12.5px}
+
+  .status{
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--mut);display:flex;align-items:center;gap:7px;white-space:nowrap;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--mut);flex:none}
+  .status[data-state="loading"] .dot{background:var(--l2);animation:pulse 1.1s ease-in-out infinite}
+  .status[data-state="ready"] .dot{background:var(--l3)}
+  .status[data-state="error"] .dot{background:var(--l1)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+  /* ---------- shell ---------- */
+  .shell{display:grid;grid-template-columns:26px minmax(330px,410px) 1fr;min-height:calc(100vh - 88px)}
+
+  /* signature: the layer spine */
+  .spine{border-right:1px solid var(--rule);display:flex;flex-direction:column;background:var(--panel)}
+  .spine i{flex:1;position:relative;transition:flex .35s ease}
+  .spine i::after{
+    content:attr(data-n);position:absolute;inset:0;display:grid;place-items:center;
+    font-family:var(--mono);font-size:10px;color:#fff;opacity:.85;
+  }
+  .spine i.on{flex:1.9}
+
+  .controls{
+    border-right:1px solid var(--rule);background:var(--panel);
+    padding:18px;overflow-y:auto;max-height:calc(100vh - 88px);
+  }
+  .readout{padding:18px 22px;overflow-y:auto;max-height:calc(100vh - 88px)}
+
+  @media (max-width:860px){
+    .shell{grid-template-columns:1fr}
+    .spine{flex-direction:row;height:8px;border-right:0;border-bottom:1px solid var(--rule)}
+    .spine i::after{content:""}
+    .controls,.readout{max-height:none;border-right:0}
+    .controls{border-bottom:1px solid var(--rule)}
+  }
+
+  /* ---------- layer groups ---------- */
+  .layer{border:1px solid var(--rule);border-radius:3px;margin-bottom:12px;overflow:hidden}
+  .layer > summary{
+    list-style:none;cursor:pointer;padding:9px 12px;display:flex;align-items:center;gap:9px;
+    background:var(--panel);
+  }
+  .layer > summary::-webkit-details-marker{display:none}
+  .layer > summary:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+  .layer .num{
+    font-family:var(--mono);font-size:10px;font-weight:700;color:#fff;
+    width:17px;height:17px;border-radius:2px;display:grid;place-items:center;flex:none;
+  }
+  .layer .nm{font-weight:500;font-size:13px}
+  .layer .role{color:var(--mut);font-size:11.5px;margin-left:auto;text-align:right}
+  .layer .body{padding:4px 12px 13px;border-top:1px solid var(--rule)}
+
+  .fld{margin-top:11px}
+  .fld .top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .fld .path{
+    font-family:var(--mono);font-size:10.5px;color:var(--mut);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .fld .val{font-family:var(--mono);font-size:11.5px;font-weight:500;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;margin:5px 0 0;accent-color:var(--ac);height:18px}
+  select,input[type=text]{
+    width:100%;margin-top:4px;padding:5px 7px;border:1px solid var(--rule);border-radius:3px;
+    font-family:var(--mono);font-size:12px;background:#fff;color:var(--ink);
+  }
+  select:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:0}
+
+  .roll{
+    width:100%;padding:10px;margin-bottom:14px;cursor:pointer;
+    border:1px solid var(--ink);border-radius:3px;background:var(--ink);color:var(--paper);
+    font-family:var(--display);font-size:13px;font-weight:500;letter-spacing:.01em;
+  }
+  .roll:hover:not(:disabled){background:#000}
+  .roll:disabled{opacity:.4;cursor:default}
+  .roll:focus-visible{outline:2px solid var(--l5);outline-offset:2px}
+
+  /* ---------- readout ---------- */
+  .rhead{
+    display:flex;align-items:baseline;gap:10px;margin-bottom:10px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);
+  }
+  pre{
+    margin:0;font-family:var(--mono);font-size:12px;line-height:1.6;
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .tick{animation:tick .3s ease}
+  @keyframes tick{from{background:#fffbe6}to{background:transparent}}
+  .k{color:var(--l5)}
+  .s{color:var(--l3)}
+  .n{color:var(--l1)}
+  .b{color:var(--l6)}
+  .err{font-family:var(--mono);font-size:12px;color:var(--l1);white-space:pre-wrap}
+
+  footer{
+    padding:14px 28px 22px;border-top:1px solid var(--rule);
+    font-size:12px;color:var(--mut);
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::after{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div>
+    <h1>Homo <em>— a human modeling framework</em></h1>
+    <p>Adjust the parameters and watch the <code>Homo</code> instance rebuild.
+       Six layers, from body to world. The framework runs in your browser — nothing is sent anywhere.</p>
+  </div>
+  <div class="status" id="status" data-state="loading">
+    <span class="dot"></span><span id="statusText">Starting Python runtime</span>
+  </div>
+</header>
+
+<div class="shell">
+  <div class="spine" id="spine"></div>
+  <div class="controls" id="controls">
+    <button class="roll" id="roll" disabled>Randomize</button>
+  </div>
+  <div class="readout">
+    <div class="rhead"><span>Instance</span><span id="meta"></span></div>
+    <pre id="out">Waiting for the runtime…</pre>
+  </div>
+</div>
+
+<footer>Apache-2.0 · Smiletek Limited</footer>
+
+<script>
+// Each field carries its own path into the Homo instance.
+const LAYERS = [
+  { n:1, nm:"Physical", role:"Body parameters", c:"--l1", fields:[
+    { p:"gender",  t:"select", o:["male","female","non-binary"], v:"female" },
+    { p:"age",     t:"range",  min:0,   max:100, v:30 },
+    { p:"height",  t:"range",  min:140, max:210, v:170, u:"cm" },
+    { p:"weight",  t:"range",  min:35,  max:120, v:60,  u:"kg" },
+    { p:"physical_abilities.strength",  t:"range", min:0, max:100, v:50 },
+    { p:"physical_abilities.endurance", t:"range", min:0, max:100, v:50 },
+  ]},
+  { n:2, nm:"Sensory", role:"Input channels", c:"--l2", fields:[
+    { p:"senses.vision",  t:"select", o:["normal","myopic","keen","impaired"], v:"normal" },
+    { p:"senses.hearing", t:"select", o:["normal","acute","reduced"], v:"normal" },
+    { p:"senses.touch",   t:"select", o:["low","normal","high"], v:"normal" },
+  ]},
+  { n:3, nm:"Cognitive", role:"Thinking & intelligence", c:"--l3", fields:[
+    { p:"cognition.personality.extraversion",      t:"range", min:0, max:100, v:50 },
+    { p:"cognition.personality.openness",          t:"range", min:0, max:100, v:50 },
+    { p:"cognition.personality.conscientiousness", t:"range", min:0, max:100, v:50 },
+    { p:"cognition.personality.agreeableness",     t:"range", min:0, max:100, v:50 },
+    { p:"cognition.personality.neuroticism",       t:"range", min:0, max:100, v:50 },
+    { p:"cognition.intelligence.logic",      t:"range", min:0, max:100, v:50 },
+    { p:"cognition.intelligence.memory",     t:"range", min:0, max:100, v:50 },
+    { p:"cognition.intelligence.creativity", t:"range", min:0, max:100, v:50 },
+  ]},
+  { n:4, nm:"Behavioral", role:"Output & actions", c:"--l4", fields:[
+    { p:"behavior.language.native", t:"select", o:["en","zh","ja","es","fr"], v:"en" },
+    { p:"behavior.social.empathy",       t:"range", min:0, max:100, v:50 },
+    { p:"behavior.social.communication", t:"range", min:0, max:100, v:50 },
+    { p:"behavior.decision_making.risk_taking",   t:"range", min:0, max:100, v:50 },
+    { p:"behavior.decision_making.impulsiveness", t:"range", min:0, max:100, v:50 },
+  ]},
+  { n:5, nm:"Social", role:"Relations & identity", c:"--l5", fields:[
+    { p:"social.occupation",  t:"text",   v:"engineer" },
+    { p:"social.nationality", t:"select", o:["US","CN","JP","DE","BR"], v:"US" },
+    { p:"social.education",   t:"select", o:["high school","bachelor","master","phd"], v:"bachelor" },
+  ]},
+  { n:6, nm:"Dynamic", role:"Variable parameters", c:"--l6", fields:[
+    { p:"state.current_emotion", t:"select", o:["calm","happy","anxious","tired","focused"], v:"calm" },
+    { p:"state.current_energy",  t:"range", min:0, max:100, v:100 },
+    { p:"state.current_health",  t:"range", min:0, max:100, v:100 },
+    { p:"state.environment.location", t:"text", v:"Shanghai" },
+  ]},
+];
+
+const $ = id => document.getElementById(id);
+const controls = $("controls"), spine = $("spine"), out = $("out");
+let buildFn = null, activeLayer = null;
+
+LAYERS.forEach((L, i) => {
+  const seg = document.createElement("i");
+  seg.dataset.n = L.n;
+  seg.style.background = `var(${L.c})`;
+  spine.appendChild(seg);
+
+  const d = document.createElement("details");
+  d.className = "layer";
+  d.style.setProperty("--ac", `var(${L.c})`);
+  if (i < 3) d.open = true;
+  d.innerHTML = `<summary>
+      <span class="num" style="background:var(${L.c})">${L.n}</span>
+      <span class="nm">${L.nm}</span><span class="role">${L.role}</span>
+    </summary><div class="body"></div>`;
+  const body = d.querySelector(".body");
+
+  L.fields.forEach(f => {
+    const w = document.createElement("div");
+    w.className = "fld";
+    let ctl;
+    if (f.t === "range") {
+      ctl = `<input type="range" min="${f.min}" max="${f.max}" value="${f.v}" data-p="${f.p}">`;
+    } else if (f.t === "select") {
+      ctl = `<select data-p="${f.p}">${f.o.map(o =>
+        `<option${o === f.v ? " selected" : ""}>${o}</option>`).join("")}</select>`;
+    } else {
+      ctl = `<input type="text" value="${f.v}" data-p="${f.p}">`;
+    }
+    w.innerHTML = `<div class="top"><span class="path" title="${f.p}">${f.p}</span>
+      <span class="val" data-for="${f.p}">${f.t === "range" ? f.v + (f.u || "") : ""}</span></div>${ctl}`;
+    body.appendChild(w);
+  });
+
+  d.addEventListener("input", () => setActive(i));
+  controls.appendChild(d);
+});
+
+function setActive(i){
+  if (activeLayer === i) return;
+  activeLayer = i;
+  [...spine.children].forEach((s, k) => s.classList.toggle("on", k === i));
+}
+
+function collect(){
+  const cfg = {};
+  controls.querySelectorAll("[data-p]").forEach(el => {
+    cfg[el.dataset.p] = el.type === "range" ? Number(el.value) : el.value;
+    if (el.type === "range") {
+      const lbl = controls.querySelector(`.val[data-for="${el.dataset.p}"]`);
+      const f = LAYERS.flatMap(L => L.fields).find(x => x.p === el.dataset.p);
+      if (lbl) lbl.textContent = el.value + (f && f.u ? f.u : "");
+    }
+  });
+  return cfg;
+}
+
+function paint(json){
+  out.innerHTML = json
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/"([^"]+)":/g, '<span class="k">"$1"</span>:')
+    .replace(/: "([^"]*)"/g, ': <span class="s">"$1"</span>')
+    .replace(/: (-?\d+(?:\.\d+)?)/g, ': <span class="n">$1</span>')
+    .replace(/: (true|false|null)/g, ': <span class="b">$1</span>');
+  out.classList.remove("tick"); void out.offsetWidth; out.classList.add("tick");
+  $("meta").textContent = new Blob([json]).size + " bytes";
+}
+
+function refresh(){
+  if (!buildFn) return;
+  try { paint(buildFn(JSON.stringify(collect()))); }
+  catch (e) { out.innerHTML = `<span class="err">${e}</span>`; }
+}
+
+controls.addEventListener("input", refresh);
+
+$("roll").addEventListener("click", () => {
+  const cities = ["Shanghai","Berlin","Kyoto","São Paulo","Reykjavík","Nairobi"];
+  controls.querySelectorAll("[data-p]").forEach(el => {
+    if (el.type === "range") el.value = Math.floor(Math.random() * (el.max - el.min + 1)) + +el.min;
+    else if (el.tagName === "SELECT") el.selectedIndex = Math.floor(Math.random() * el.options.length);
+    else el.value = cities[Math.floor(Math.random() * cities.length)];
+  });
+  setActive(Math.floor(Math.random() * LAYERS.length));
+  refresh();
+});
+
+function setStatus(state, text){
+  $("status").dataset.state = state;
+  $("statusText").textContent = text;
+}
+
+(async () => {
+  try {
+    const pyodide = await loadPyodide();
+    setStatus("loading", "Loading homo.py");
+
+    const res = await fetch("./homo.py");
+    if (!res.ok) throw new Error("homo.py not found (HTTP " + res.status + ")");
+    pyodide.FS.writeFile("homo.py", await res.text());
+
+    pyodide.runPython(`
+import sys, json
+sys.path.insert(0, ".")
+from homo import Homo
+
+def _assign(h, path, value):
+    parts = path.split(".")
+    node = h
+    for p in parts[:-1]:
+        node = getattr(node, p) if isinstance(node, Homo) else node[p]
+    last = parts[-1]
+    if isinstance(node, Homo):
+        setattr(node, last, value)
+    else:
+        node[last] = value
+
+def build_from_json(payload):
+    cfg = json.loads(payload)
+    h = Homo()
+    skipped = []
+    for path, value in cfg.items():
+        try:
+            _assign(h, path, value)
+        except (AttributeError, KeyError, TypeError):
+            skipped.append(path)
+    data = dict(h.__dict__)
+    if skipped:
+        data["_unmapped"] = skipped
+    return json.dumps(data, ensure_ascii=False, indent=2)
+`);
+
+    buildFn = pyodide.globals.get("build_from_json");
+    $("roll").disabled = false;
+    setStatus("ready", "Runtime ready");
+    refresh();
+  } catch (e) {
+    setStatus("error", "Failed to start");
+    out.innerHTML = `<span class="err">${e}\n\nIf homo.py is missing, check that it sits next to index.html.</span>`;
+  }
+})();
+</script>
+</body>
+</html>

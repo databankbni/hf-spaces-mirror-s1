@@ -9,6 +9,12 @@ export interface RankingFilters {
    * definition_id / frequency_horizon.
    */
   scope_type?: 'definition' | 'frequency_horizon';
+  /**
+   * Which metric drove the ELO ranking. Defaults to 'mase' server-side, which is
+   * the board this UI shows. 'sql' is fetched only to learn *who is eligible* for
+   * the probabilistic board — see `collectSqlEligible`.
+   */
+  metric?: 'mase' | 'sql';
 }
 
 export interface ModelRanking {
@@ -29,6 +35,15 @@ export interface ModelRanking {
   rank_position: number;
   avg_mase: number | null;
   mase_std: number | null;
+  /**
+   * Cumulative Scaled Quantile Loss. Written to every ranking row regardless of
+   * which metric drove the ELO, so it arrives on the default mase board too.
+   * It is *not* filtered by has_quantiles: for a point-only model this is the
+   * degenerate point-forecast substitution, which is why the UI only shows it
+   * for models on the SQL board.
+   */
+  avg_sql: number | null;
+  sql_std: number | null;
   evaluated_count: number | null;
   calculated_at?: string;
   calculation_date: string;
@@ -161,6 +176,7 @@ export async function getFilteredRankings(filters: RankingFilters = {}): Promise
   if (filters.frequency_horizon) params.append('frequency_horizon', filters.frequency_horizon);
   if (filters.calculation_date) params.append('calculation_date', filters.calculation_date);
   if (filters.limit) params.append('limit', filters.limit.toString());
+  if (filters.metric) params.append('metric', filters.metric);
   
   const url = `/api/v1/models/rankings${params.toString() ? '?' + params.toString() : ''}`;
 
@@ -169,6 +185,23 @@ export async function getFilteredRankings(filters: RankingFilters = {}): Promise
     throw new Error(`Failed to fetch rankings: ${response.status}`);
   }
   return response.json();
+}
+
+/**
+ * The set of models entitled to show a Scaled Quantile Loss number, derived from a
+ * `metric=sql` rankings response.
+ *
+ * The SQL board excludes point-only forecasts at *row* level (backend #64), so a model
+ * reaches it only if it actually submitted distributions in this scope. Membership is
+ * therefore the closest thing to a "this model forecasts probabilistically here" flag
+ * the rankings API offers — there is no has_quantiles column on the aggregate rows.
+ *
+ * Known imprecision: for the handful of models that submit quantiles on some rounds and
+ * not others, the avg_sql we then display still averages in their degenerate rounds, so
+ * it reads slightly worse than their true probabilistic performance.
+ */
+export function collectSqlEligible(rankings: ModelRanking[]): Set<number> {
+  return new Set(rankings.map((r) => r.model_id));
 }
 
 export async function getRankingFilters(): Promise<FilterOptions> {

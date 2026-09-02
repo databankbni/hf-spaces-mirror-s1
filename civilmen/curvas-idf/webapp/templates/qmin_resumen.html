@@ -1,0 +1,1165 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f3a68">
+  <title>Caudales mínimos — HYDROFRA</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    h2.sec { color:#1f3a68; border-bottom:2px solid #cfd8dc; padding-bottom:6px;
+             margin-top:2em; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:3px;
+             font-size:.78em; font-weight:600; }
+    .badge.activa { background:#27ae60; color:#fff; }
+    .badge.pasiva { background:#7f8c8d; color:#fff; }
+    .badge.intermitente { background:#e67e22; color:#fff; }
+    .badge.todo { background:#1f3a68; color:#fff; }
+    .badge.skip { background:#bdc3c7; color:#fff; }
+    table.estaciones { width:100%; border-collapse:collapse; margin-top:.8em;
+                         font-size:.88em; }
+    table.estaciones th { background:#f3f6fb; padding:.5em .6em;
+                          text-align:left; border-bottom:2px solid #cfd8dc;
+                          color:#1f3a68; }
+    table.estaciones td { padding:.45em .6em; border-bottom:1px solid #e7ebf0; }
+    table.estaciones tr:nth-child(even) td { background:#fafbfd; }
+    .mapa-wrap { text-align:center; margin:1em 0; }
+    .mapa-wrap img { max-width:100%; height:auto;
+                     border:1px solid #cfd8dc; border-radius:4px; }
+    .resumen-cards { display:grid;
+                      grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+                      gap:.8em; margin:1em 0; }
+    .card { background:#f3f6fb; padding:.9em; border-radius:6px;
+             border-left:4px solid #1f3a68; }
+    .card .num { font-size:1.6em; font-weight:700; color:#1f3a68; display:block; }
+    .card .lbl { font-size:.85em; color:#555; }
+    .nota-fase { background:#fff8e1; border-left:4px solid #f39c12;
+                  padding:1em 1.2em; border-radius:4px; margin:1.4em 0; }
+  </style>
+</head>
+<body>
+  <main class="contenedor">
+    <header>
+      <a href="{{ url_for('index') }}" class="volver">← Volver al inicio</a>
+      <h1>Análisis de caudales mínimos</h1>
+      <p class="lead">
+        Proyecto: <b>{{ proyecto.nombre_proyecto }}</b> ·
+        Ing. {{ proyecto.ingeniero }} · {{ proyecto.ubicacion }}
+      </p>
+      <p style="margin-top:.6em;">
+        <a id="descargar_pdf" href="#"
+           style="display:inline-block; padding:.6em 1.2em; background:#1f3a68;
+                  color:white; border-radius:4px; text-decoration:none;
+                  font-weight:600;">
+          ⬇ Descargar informe PDF (protegido)
+        </a>
+        <span style="color:#666; font-size:.9em; margin-left:.6em;">
+          AES-128 · permite abrir / impide imprimir, copiar, editar
+        </span>
+      </p>
+      <script>
+        // Resuelve la URL del PDF leyendo `pdf` del status de la sesión:
+        // el worker registra el nombre del PDF al terminar; aquí lo enlazamos.
+        (async () => {
+          try {
+            const r = await fetch('/status/{{ sesion_id }}', {cache: 'no-store'});
+            const s = await r.json();
+            if (s && s.pdf) {
+              document.getElementById('descargar_pdf').href =
+                '/reportes/{{ sesion_id }}/' + s.pdf;
+            } else {
+              document.getElementById('descargar_pdf').style.display = 'none';
+            }
+          } catch (e) {
+            document.getElementById('descargar_pdf').style.display = 'none';
+          }
+        })();
+      </script>
+    </header>
+
+    <!-- ═════════════════════ SECCIÓN 1 ═════════════════════ -->
+    <h2 class="sec">1. Caracterización de la cuenca o zona de estudio</h2>
+    <p>
+      Delineación de la cuenca de aporte real al punto por watershed D8 con
+      MERIT Hydro 90 m, parámetros morfométricos sobre el DEM SRTM, red de
+      drenaje con orden de Strahler y mapas temáticos GEE específicos para
+      caudales mínimos (precipitación, ETa, índice de aridez, capacidad de
+      retención de agua del suelo, TWI y humedad de suelo SMAP).
+    </p>
+    <table class="resumen">
+      <tr><th>Coordenadas</th>
+          <td>Lat = {{ "%.6f"|format(lat) }}° ·
+              Lon = {{ "%.6f"|format(lon) }}°</td></tr>
+      <tr><th>Tipo de aprovechamiento</th><td>{{ uso }}</td></tr>
+      <tr><th>Años de serie objetivo</th><td>{{ anios }}</td></tr>
+      {% if cuenca_qmin %}
+      <tr><th>Área de aporte</th>
+          <td>{{ "%.2f"|format(cuenca_qmin.area_km2) }} km²</td></tr>
+      <tr><th>Perímetro</th>
+          <td>{{ "%.2f"|format(cuenca_qmin.perimetro_km) }} km</td></tr>
+      <tr><th>Cotas (mín – máx)</th>
+          <td>{{ "%.0f"|format(cuenca_qmin.cota_menor_m) }} –
+              {{ "%.0f"|format(cuenca_qmin.cota_mayor_m) }} m
+              (Δh = {{ "%.0f"|format(cuenca_qmin.desnivel_m) }} m)</td></tr>
+      <tr><th>Longitud del cauce principal</th>
+          <td>{{ "%.2f"|format(cuenca_qmin.long_cauce_km) }} km</td></tr>
+      <tr><th>Pendiente media del cauce</th>
+          <td>{{ "%.2f"|format(cuenca_qmin.pendiente_media_mm * 100) }} %</td></tr>
+      {% if cuenca_qmin.red_drenaje %}
+      <tr><th>Orden de Strahler máximo</th>
+          <td>{{ cuenca_qmin.red_drenaje.max_order }} ·
+              {{ cuenca_qmin.red_drenaje.n_total }} corrientes ·
+              Rb = {{ cuenca_qmin.red_drenaje.rb }}</td></tr>
+      {% endif %}
+      {% endif %}
+    </table>
+    <p class="nota-fase" style="margin-top:1em;">
+      <b>Nota — rango operativo:</b> el análisis de caudales mínimos está
+      diseñado para cuencas locales con área de aporte entre
+      <b>{{ area_min_km2|int }} km²</b> y <b>{{ area_max_km2|int }} km²</b>.
+      Por debajo del umbral mínimo la delineación MERIT 90 m puede ser
+      degenerada (sin cauces resueltos); por encima del máximo los mapas
+      temáticos GEE dejan de representar la hidrología local del punto y la
+      transferencia regional pierde consistencia.
+      {% if cuenca_qmin and cuenca_fuera_rango %}
+      <br><b>En este caso la cuenca delineada ({{ "%.2f"|format(cuenca_qmin.area_km2) }} km²)
+      cae fuera del rango operativo</b>, por lo que se omiten los 6 mapas
+      temáticos GEE y la transformación P→Q (Secciones 2.6 y 2.9). La
+      caracterización morfométrica, las estaciones, la metodología y los
+      cálculos del resto del informe (Secciones 4.7 y 5.0 con transferencia
+      regional) se mantienen.
+      {% endif %}
+    </p>
+    {% if not cuenca_qmin %}
+    <p class="ayuda">
+      <span class="badge todo">Pendiente</span> No fue posible delinear la
+      cuenca con MERIT Hydro (GEE no respondió o el punto cayó en zona
+      degenerada). Las secciones 2.5–2.6 y 2.9 dependen del polígono real.
+    </p>
+    {% endif %}
+
+    <!-- ═════════════════════ SECCIÓN 2 ═════════════════════ -->
+    <h2 class="sec">2. Información local disponible</h2>
+    <p>
+      Se identifican y geolocalizan todas las estaciones meteorológicas e
+      hidrométricas del catálogo nacional, ordenadas por distancia al punto
+      de análisis. Cada estación se etiqueta según su estado (activa,
+      pasiva o intermitente) para evaluar la cobertura y la confiabilidad
+      del análisis.
+    </p>
+
+    <div class="resumen-cards">
+      <div class="card">
+        <span class="num">{{ n_met_total }}</span>
+        <span class="lbl">Estaciones meteorológicas SENAMHI en el catálogo</span>
+      </div>
+      <div class="card">
+        <span class="num">{{ n_hidro_total }}</span>
+        <span class="lbl">Estaciones hidrométricas (BHN + GRDC)</span>
+      </div>
+      <div class="card">
+        <span class="num">{{ estado_hidro.get('activa', 0) }}</span>
+        <span class="lbl">Hidrométricas activas (operación vigente)</span>
+      </div>
+      <div class="card">
+        <span class="num">{{ estado_hidro.get('pasiva', 0) +
+                              estado_hidro.get('intermitente', 0) }}</span>
+        <span class="lbl">Hidrométricas pasivas / intermitentes</span>
+      </div>
+    </div>
+
+    {% if diagnosticos_consistencia %}
+    <h3>2.1 Análisis de consistencia estadística de las series candidatas</h3>
+    <p>
+      Se aplica a cada estación dentro del radio el panel OMM-168 y
+      Bulletin 17C: <b>Mann-Kendall</b> (tendencia α = 0.05),
+      <b>Pettitt</b> (homogeneidad / punto de cambio),
+      <b>Wald-Wolfowitz</b> (aleatoriedad sobre la mediana),
+      <b>autocorrelación lag-1</b> (independencia) y
+      <b>Kolmogorov-Smirnov</b> contra Normal / Log-Normal / Gumbel /
+      Pearson III (bondad de ajuste). Cada estación recibe un veredicto
+      consolidado y una clase A (5/5), B (4/5) o C (&lt;4/5).
+    </p>
+    <p class="ayuda">
+      Las series anuales en uso son sintéticas reproducibles a partir de los
+      parámetros climatológicos del catálogo (semilla determinista por
+      código de estación). El próximo commit las reemplazará por las series
+      reales del SENAMHI-BHN / GRDC al conectar los datafiles.
+    </p>
+    <table class="estaciones">
+      <thead>
+        <tr>
+          <th>#</th><th>Código</th><th>Tipo</th><th>n años</th>
+          <th>Kendall</th><th>Pettitt</th><th>Rachas</th>
+          <th>Lag-1</th><th>KS (mejor)</th>
+          <th>Pruebas</th><th>Clase</th><th>Apta</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in diagnosticos_consistencia %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ d.codigo }}</td>
+          <td>{{ 'Met.' if d.tipo == 'met' else 'Hidro' }}</td>
+          <td>{{ d.n_anios }}</td>
+          <td>{{ '✓' if d.pasa_kendall else '✗' }}
+              <small>(p={{ "%.2f"|format(d.p_kendall) }})</small></td>
+          <td>{{ '✓' if d.pasa_pettitt else '✗' }}
+              <small>(p={{ "%.2f"|format(d.p_pettitt) }})</small></td>
+          <td>{{ '✓' if d.pasa_rachas else '✗' }}
+              <small>(p={{ "%.2f"|format(d.p_rachas) }})</small></td>
+          <td>{{ '✓' if d.pasa_lag1 else '✗' }}
+              <small>(r₁={{ "%.2f"|format(d.r1) }})</small></td>
+          <td>{{ '✓' if d.pasa_ks else '✗' }}
+              <small>({{ d.mejor_dist }}, p={{ "%.2f"|format(d.p_ks) }})</small></td>
+          <td><b>{{ d.pruebas_pasadas }}/5</b></td>
+          <td><span class="badge {% if d.clase == 'A' %}activa{% elif d.clase == 'B' %}intermitente{% else %}pasiva{% endif %}">{{ d.clase }}</span></td>
+          <td>{{ '✓' if d.apta else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h3>2.2 Metodología de selección de estaciones</h3>
+    <p>
+      A partir del análisis de consistencia (Sección 2.1) y de la
+      caracterización morfométrica (Sección 1) se integra una metodología
+      ponderada de cinco etapas para identificar el subconjunto de
+      estaciones representativas del régimen hidrológico de la cuenca de
+      estudio.
+    </p>
+    <ol class="bloques">
+      {% for nombre, descripcion in metodologia_seleccion %}
+      <li><b style="color:#1f3a68;">{{ nombre }}</b><br>
+          <span style="color:#555;">{{ descripcion }}</span></li>
+      {% endfor %}
+    </ol>
+    {% if seleccionadas %}
+    <h4>Estaciones seleccionadas (ranking final)</h4>
+    <table class="estaciones">
+      <thead>
+        <tr>
+          <th>#</th><th>Código</th><th>Tipo</th><th>Distancia</th>
+          <th>Clase</th><th>Estado</th>
+          <th>Consistencia</th><th>Cercanía</th>
+          <th>Morfometría</th><th>Operación</th>
+          <th>Puntaje (0–100)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d, puntaje, factores in seleccionadas %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ d.codigo }}</td>
+          <td>{{ 'Met.' if d.tipo == 'met' else 'Hidro' }}</td>
+          <td>{{ "%.1f"|format(d.distancia_km) }} km</td>
+          <td><span class="badge {% if d.clase == 'A' %}activa{% else %}intermitente{% endif %}">{{ d.clase }}</span></td>
+          <td><span class="badge {{ d.estado }}">{{ d.estado }}</span></td>
+          <td>{{ "%.2f"|format(factores.consistencia) }}</td>
+          <td>{{ "%.2f"|format(factores.distancia) }}</td>
+          <td>{{ "%.2f"|format(factores.morfometria) }}</td>
+          <td>{{ "%.2f"|format(factores.estado) }}</td>
+          <td><b style="color:#1f3a68;">{{ puntaje }}</b></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="ayuda">
+      Ninguna estación del catálogo dentro del radio supera los criterios
+      de la metodología (consistencia A/B + estado operativo). El análisis
+      deberá basarse íntegramente en el balance modelado con CHIRPS·ERA5
+      sobre la cuenca delineada (Sección 2.9).
+    </p>
+    {% endif %}
+
+    {% if comparadas %}
+    <h3>2.3 Ajustes, rellenado y comparación de las series seleccionadas</h3>
+    <p>
+      Para las estaciones seleccionadas se aplica rellenado de huecos por
+      <b>regresión lineal con la estación vecina mejor correlacionada</b>
+      (método MOVE.1 del USGS) y se verifica la <b>doble masa</b> contra
+      la media regional para detectar inhomogeneidades. Se inyecta
+      artificialmente un 6 % de huecos (semilla fija) para demostrar el
+      flujo de adecuación.
+    </p>
+    <table class="estaciones">
+      <thead>
+        <tr>
+          <th>#</th><th>Código</th><th>Tipo</th>
+          <th>n huecos rellenados</th>
+          <th>r doble masa</th><th>RMS doble masa</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in comparadas %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ c.codigo }}</td>
+          <td>{{ 'Met.' if c.tipo == 'met' else 'Hidro' }}</td>
+          <td>{{ c.n_huecos }}</td>
+          <td>{{ "%.3f"|format(c.r_doble_masa) }}</td>
+          <td>{{ "%.2f"|format(c.rms_doble_masa) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if plot_series_url %}
+    <div class="mapa-wrap">
+      <img src="{{ url_for('reportes', sesion_id=sesion_id, archivo=plot_series_url) }}"
+           alt="Series temporales ajustadas de las estaciones seleccionadas">
+    </div>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+
+    <h3>2.4 Mapa regional — punto de estudio y estaciones disponibles</h3>
+    <p>
+      Vista zoomeada al radio operativo de {{ radio_km|int }} km centrada
+      en el punto de estudio. Fondo Sentinel-2 RGB cloud-free (mediana de
+      los últimos 18 meses) cuando GEE está disponible, hillshade SRTM si
+      no, contorno nacional como último fallback. Sobre el fondo se
+      muestran las estaciones meteorológicas e hidrométricas dentro del
+      radio (coloreadas por estado), las ciudades principales para
+      orientación geoespacial y un círculo punteado al radio de búsqueda.
+    </p>
+    <div class="mapa-wrap">
+      <img src="{{ url_for('reportes', sesion_id=sesion_id, archivo='mapa_regional.png') }}"
+           alt="Mapa regional con fondo Sentinel-2 + estaciones + ciudades">
+    </div>
+
+    {% if cuenca_qmin %}
+    <h3>2.5 Cuenca de aporte delineada (MERIT Hydro 90 m)</h3>
+    <div class="mapa-wrap">
+      <img src="{{ url_for('reportes', sesion_id=sesion_id, archivo='qmin_cuenca.png') }}"
+           alt="Cuenca de aporte y cauce principal sobre SRTM">
+    </div>
+    {% endif %}
+
+    {% if mapas_qmin %}
+    <h3>2.6 Mapas temáticos GEE para análisis de caudales mínimos</h3>
+    <p>
+      Sobre el polígono real de cuenca se consultan los seis datasets que
+      controlan el régimen de mínimos: oferta de agua (CHIRPS), demanda
+      atmosférica (MOD16), aridez (P/PET), retención de los suelos
+      (OpenLandMap), conectividad topográfica (TWI) y humedad radical (SMAP).
+      Cada mapa incluye leyenda con % de la cuenca por clase, grilla UTM,
+      barra de escala y proyección.
+    </p>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px,1fr));
+                 gap:1em; margin:1em 0;">
+      {% for clave, archivo in mapas_qmin.items() %}
+      <div class="mapa-wrap" style="margin:0;">
+        <img src="{{ url_for('reportes', sesion_id=sesion_id, archivo=archivo) }}"
+             alt="{{ clave }}">
+      </div>
+      {% endfor %}
+    </div>
+    {% if stats_qmin %}
+    <table class="resumen" style="font-size:.9em;">
+      <tr><th colspan="2">Estadísticos ponderados sobre la cuenca</th></tr>
+      {% if stats_qmin.pann_mm %}
+      <tr><th>Precipitación media anual (CHIRPS)</th>
+          <td>{{ "%.0f"|format(stats_qmin.pann_mm) }} mm/año</td></tr>
+      {% endif %}
+      {% if stats_qmin.eta_mm %}
+      <tr><th>Evapotranspiración real (MOD16)</th>
+          <td>{{ "%.0f"|format(stats_qmin.eta_mm) }} mm/año</td></tr>
+      {% endif %}
+      {% if stats_qmin.ai %}
+      <tr><th>Índice de aridez P/PET (UNEP)</th>
+          <td>{{ "%.2f"|format(stats_qmin.ai) }}</td></tr>
+      {% endif %}
+      {% if stats_qmin.caw_mm %}
+      <tr><th>Capacidad de retención de agua del suelo (CAW)</th>
+          <td>{{ "%.0f"|format(stats_qmin.caw_mm) }} mm</td></tr>
+      {% endif %}
+      {% if stats_qmin.twi %}
+      <tr><th>TWI medio (índice topográfico de humedad)</th>
+          <td>{{ "%.1f"|format(stats_qmin.twi) }}</td></tr>
+      {% endif %}
+      {% if stats_qmin.sm_rootzone %}
+      <tr><th>Humedad zona radical media (SMAP L4)</th>
+          <td>{{ "%.2f"|format(stats_qmin.sm_rootzone) }} m³/m³</td></tr>
+      {% endif %}
+    </table>
+    {% endif %}
+    {% endif %}
+
+    <h3>2.7 Estaciones meteorológicas dentro de {{ radio_km|int }} km
+        ({{ met_cercanas|length }})</h3>
+    {% if met_cercanas %}
+    <table class="estaciones">
+      <thead>
+        <tr>
+          <th>#</th><th>Distancia</th><th>Código</th><th>Nombre</th>
+          <th>Departamento</th><th>Altitud</th><th>P24 media (mm)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e, d in met_cercanas %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ "%.1f"|format(d) }} km</td>
+          <td>{{ e.codigo }}</td>
+          <td>{{ e.nombre }}</td>
+          <td>{{ e.departamento }}</td>
+          <td>{{ "%.0f"|format(e.altitud_msnm) }} m</td>
+          <td>{{ "%.1f"|format(e.p24_media_mm) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="ayuda">Ninguna estación meteorológica del catálogo SENAMHI cae
+       dentro del radio de {{ radio_km|int }} km. Se recomienda transferencia
+       regional o uso prioritario de CHIRPS + ERA5-Land.</p>
+    {% endif %}
+
+    <h3>2.8 Estaciones hidrométricas dentro de {{ radio_km|int }} km
+        ({{ hidro_cercanas|length }})</h3>
+    {% if hidro_cercanas %}
+    <table class="estaciones">
+      <thead>
+        <tr>
+          <th>#</th><th>Distancia</th><th>Código</th><th>Nombre / cuerpo de agua</th>
+          <th>Fuente</th><th>Estado</th><th>Q medio (m³/s)</th><th>Período</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e, d in hidro_cercanas %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ "%.1f"|format(d) }} km</td>
+          <td>{{ e.codigo }}</td>
+          <td>{{ e.nombre }} — {{ e.cuerpo_agua }}</td>
+          <td>{{ e.fuente }}</td>
+          <td><span class="badge {{ e.estado }}">{{ e.estado }}</span></td>
+          <td>{{ "%.1f"|format(e.q_medio_m3s) }}</td>
+          <td>{{ e.anio_inicio }}–{{ e.anio_fin }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="ayuda">Ninguna estación hidrométrica del catálogo SENAMHI-BHN /
+       GRDC cae dentro del radio de {{ radio_km|int }} km. El análisis se
+       sustenta en el balance modelado de la Sección 2.9.</p>
+    {% endif %}
+
+    <p class="ayuda" style="margin-top:1em;">
+      <b>Cobertura y confiabilidad.</b> La distancia a la estación
+      hidrométrica activa más cercana determina si el análisis se basará en
+      <b>aforos directos</b> (umbral recomendado &lt; 50 km y cuenca
+      similar) o en <b>balance hidrológico modelado</b> con CHIRPS + ERA5
+      sobre la cuenca delineada. Las estaciones pasivas / intermitentes se
+      usan solo como comparación histórica.
+    </p>
+
+    {% if pq %}
+    <h3>2.9 Transformación precipitación → caudal (balance hidrológico mensual)</h3>
+    <p>
+      Modelo conceptual de Thornthwaite–Mather con reservorio único y flujo
+      base lineal, alimentado por los estadísticos espaciales de las capas
+      2.6 sobre la cuenca delineada. Genera caudal mensual climático,
+      curva de duración de caudales (FDC) y percentiles operativos
+      (Q5/Q50/Q75/Q85/Q90/Q95) y una estimación regional del Q7,10.
+    </p>
+    <div class="resumen-cards">
+      <div class="card"><span class="num">{{ "%.2f"|format(pq.q_medio_m3s) }}</span>
+        <span class="lbl">Q medio (m³/s)</span></div>
+      <div class="card"><span class="num">{{ "%.2f"|format(pq.q_min_m3s) }}</span>
+        <span class="lbl">Q mínimo mensual (m³/s)</span></div>
+      <div class="card"><span class="num">{{ "%.2f"|format(pq.q90) }}</span>
+        <span class="lbl">Q90 — FDC (m³/s)</span></div>
+      <div class="card"><span class="num">{{ "%.2f"|format(pq.q95) }}</span>
+        <span class="lbl">Q95 — FDC (m³/s)</span></div>
+      <div class="card"><span class="num">{{ "%.2f"|format(pq.q7_10) }}</span>
+        <span class="lbl">Q7,10 estimado (m³/s)</span></div>
+      <div class="card"><span class="num">{{ "%.2f"|format(pq.coef_escorrentia_anual) }}</span>
+        <span class="lbl">Coeficiente de escorrentía anual</span></div>
+    </div>
+    <div class="mapa-wrap">
+      <img src="{{ url_for('reportes', sesion_id=sesion_id, archivo=plot_balance_url) }}"
+           alt="Balance hidrológico mensual climático">
+    </div>
+    <div class="mapa-wrap">
+      <img src="{{ url_for('reportes', sesion_id=sesion_id, archivo=plot_fdc_url) }}"
+           alt="Curva de duración de caudales (FDC)">
+    </div>
+    <table class="estaciones" style="margin-top:1em;">
+      <thead>
+        <tr>
+          <th>Mes</th><th>P (mm)</th><th>AET (mm)</th>
+          <th>Q base (m³/s)</th><th>Q total (m³/s)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set meses = ['Ene','Feb','Mar','Abr','May','Jun',
+                         'Jul','Ago','Sep','Oct','Nov','Dic'] %}
+        {% for m in range(12) %}
+        <tr>
+          <td>{{ meses[m] }}</td>
+          <td>{{ "%.0f"|format(pq.p_mes_mm[m]) }}</td>
+          <td>{{ "%.0f"|format(pq.aet_mes_mm[m]) }}</td>
+          <td>{{ "%.2f"|format(pq.qb_mes_m3s[m]) }}</td>
+          <td>{{ "%.2f"|format(pq.q_mes_m3s[m]) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="ayuda">
+      <b>Parámetros del modelo:</b> CAW = {{ "%.0f"|format(pq.caw_usada_mm) }} mm ·
+      α (recesión mensual) = {{ "%.2f"|format(pq.alpha) }} ·
+      f (fracción rápida) = {{ "%.2f"|format(pq.fraccion_rapida) }} ·
+      Pann = {{ "%.0f"|format(pq.pann_mm) }} mm ·
+      ETann = {{ "%.0f"|format(pq.etann_mm) }} mm.
+      <br><b>Fuente de las series mensuales:</b> {{ pq.fuente_datos }}.
+      {% if clima_fuente %}
+      <br><b>Fuente de la precipitación climatológica:</b> {{ clima_fuente }}.
+      {% endif %}
+    </p>
+    {% endif %}
+
+    <!-- ═════════════════════ SECCIÓN 3 ═════════════════════ -->
+    <h2 class="sec">3. Modelos de cambio climático disponibles</h2>
+    <p>
+      Para el punto seleccionado se reportan los modelos CMIP6 con
+      cobertura espacial sobre el área de cuenca y su nivel de
+      confiabilidad regional documentado para los Andes tropicales.
+    </p>
+    <table class="estaciones">
+      <thead>
+        <tr>
+          <th>Modelo / dataset</th><th>Resolución</th><th>Escenarios</th>
+          <th>Horizontes</th><th>Cobertura del sitio</th>
+          <th>Confiabilidad regional</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>NEX-GDDP-CMIP6 (NASA)</td>
+          <td>0.25° (~25 km)</td>
+          <td>SSP1-2.6 / SSP2-4.5 / SSP3-7.0 / SSP5-8.5</td>
+          <td>1950–2100</td>
+          <td><span class="badge activa">disponible</span></td>
+          <td>Alta — 35 GCM ensemble</td>
+        </tr>
+        <tr>
+          <td>CORDEX-SAM (RCA4)</td>
+          <td>0.44° (~50 km)</td>
+          <td>RCP4.5 / RCP8.5</td>
+          <td>1980–2100</td>
+          <td><span class="badge activa">disponible</span></td>
+          <td>Media-Alta — calibrado para Andes</td>
+        </tr>
+        <tr>
+          <td>CORDEX-SAM (REMO)</td>
+          <td>0.44° (~50 km)</td>
+          <td>RCP4.5 / RCP8.5</td>
+          <td>1980–2100</td>
+          <td><span class="badge activa">disponible</span></td>
+          <td>Media — sesgo positivo en precipitación</td>
+        </tr>
+        <tr>
+          <td>Atlas Cambio Climático Bolivia (MMAyA)</td>
+          <td>Departamental</td>
+          <td>RCP4.5 / RCP8.5</td>
+          <td>2030 / 2050 / 2080</td>
+          <td><span class="badge activa">disponible</span></td>
+          <td>Alta — calibración nacional</td>
+        </tr>
+        <tr>
+          <td>CHIRP-GEFS proyectado</td>
+          <td>0.05° (~5 km)</td>
+          <td>Anomalía P</td>
+          <td>2030</td>
+          <td><span class="badge intermitente">parcial</span></td>
+          <td>Baja — solo precipitación</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="ayuda">
+      El análisis cruzará el ensemble NEX-GDDP con los modelos regionales
+      CORDEX-SAM para evaluar el cambio del caudal mínimo medio anual
+      proyectado a 2050 y 2080, contrastándolo con las tendencias
+      departamentales del Atlas MMAyA.
+    </p>
+
+    <!-- ═════════════════════ SECCIÓN 3.1 ═════════════════════ -->
+    {% if s3_1 %}
+    <h3>3.1 Metodología para la selección del modelo de cambio climático</h3>
+    <p>
+      Aun disponiendo de varios modelos (NEX-GDDP-CMIP6, CORDEX-SAM,
+      Atlas MMAyA, CHIRP-GEFS), se debe escoger el subconjunto que mejor
+      reproduce el comportamiento observado en las estaciones de la
+      Sección 2 (que ya pasaron las pruebas Mann-Kendall, Pettitt, rachas,
+      autocorrelación y KS). El modelo con mayor consistencia frente a las
+      series locales se interpreta como el más representativo y, por
+      tanto, el más confiable para proyectar el comportamiento futuro de
+      la precipitación y el caudal. La metodología siguiente sintetiza la
+      literatura peer-reviewed (Almazroui et al. 2021; Seiler &
+      Vicente-Serrano 2022; Brunner et al. 2020; Pushpalatha et al. 2012;
+      Cannon 2018; IPCC AR6 WG1 Cap. 10 y 12).
+    </p>
+
+    <h4>Región climática del sitio</h4>
+    <p>
+      Coordenadas <b>{{ "%.4f"|format(lat) }}°, {{ "%.4f"|format(lon) }}°</b>
+      → región climática:
+      <b style="color:#1f3a68;">{{ s3_1.region_nombre }}</b>.
+      Para esta región, los estudios revisados recomiendan los siguientes
+      modelos como prioritarios:
+    </p>
+    <table class="resumen">
+      <tr><th>CMIP6 curados</th>
+          <td>{{ s3_1.modelos_region.cmip6_curados | join(' · ') }}</td></tr>
+      <tr><th>CORDEX-CORE / RCMs</th>
+          <td>{{ s3_1.modelos_region.cordex_core | join(' · ') }}</td></tr>
+      <tr><th>Sesgo regional documentado</th>
+          <td>{{ s3_1.modelos_region.sesgo }}</td></tr>
+      <tr><th>Estudios de respaldo</th>
+          <td>{{ s3_1.modelos_region.fuentes | join('; ') }}</td></tr>
+    </table>
+
+    <h4>Pasos de la metodología</h4>
+    <ol class="bloques">
+      {% for nombre, descripcion in s3_1.pasos %}
+      <li><b style="color:#1f3a68;">{{ nombre }}</b><br>
+          <span style="color:#555;">{{ descripcion }}</span></li>
+      {% endfor %}
+    </ol>
+
+    <h4>Métricas de desempeño (Etapa 4)</h4>
+    <table class="estaciones">
+      <thead>
+        <tr><th>Métrica</th><th>Fórmula</th>
+            <th>Umbral satisfactorio</th><th>Referencia primaria</th></tr>
+      </thead>
+      <tbody>
+        {% for m in s3_1.metricas %}
+        <tr>
+          <td><b>{{ m.metrica }}</b></td>
+          <td>{{ m.formula }}</td>
+          <td>{{ m.umbral }}</td>
+          <td>{{ m.ref }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h4>Métricas críticas para caudales mínimos</h4>
+    <table class="estaciones">
+      <thead>
+        <tr><th>Métrica</th><th>Definición</th>
+            <th>Umbral</th><th>Referencia</th></tr>
+      </thead>
+      <tbody>
+        {% for m in s3_1.metricas_min %}
+        <tr>
+          <td><b>{{ m.metrica }}</b></td>
+          <td>{{ m.formula }}</td>
+          <td>{{ m.umbral }}</td>
+          <td>{{ m.ref }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h4>Corrección de sesgo (Etapa 3)</h4>
+    <table class="estaciones">
+      <thead>
+        <tr><th>Método</th><th>Principio</th>
+            <th>Preserva tendencia</th><th>Multivariado</th>
+            <th>Recomendado para</th><th>Referencia</th></tr>
+      </thead>
+      <tbody>
+        {% for b in s3_1.bias_correction %}
+        <tr>
+          <td><b>{{ b.metodo }}</b></td>
+          <td>{{ b.principio }}</td>
+          <td>{{ b.preserva_tendencia }}</td>
+          <td>{{ b.multivariado }}</td>
+          <td>{{ b.recomendado }}</td>
+          <td>{{ b.ref }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h4>Esquemas de ensemble (Etapa 5)</h4>
+    <table class="estaciones">
+      <thead>
+        <tr><th>Método</th><th>Pesos</th>
+            <th>¿Qué incertidumbre reduce?</th><th>Referencia</th></tr>
+      </thead>
+      <tbody>
+        {% for e in s3_1.ensemble %}
+        <tr>
+          <td><b>{{ e.metodo }}</b></td>
+          <td>{{ e.pesos }}</td>
+          <td>{{ e.reduce }}</td>
+          <td>{{ e.ref }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h4>Recomendaciones operacionales para Bolivia</h4>
+    <ul class="bloques">
+      {% for r in s3_1.recomendaciones %}
+      <li>{{ r }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <!-- ═════════════════════ SECCIÓN 4 ═════════════════════ -->
+    <h2 class="sec">{{ marco.titulo }}</h2>
+    <p><b>Uso seleccionado:</b> {{ nombre_uso }}</p>
+    <p>{{ marco.introduccion }}</p>
+
+    <h3>4.1 Marco normativo nacional (Bolivia)</h3>
+    <ul class="bloques">
+      {% for nombre, descripcion in marco.marco_nacional %}
+      <li>
+        <b style="color:#1f3a68;">{{ nombre }}</b><br>
+        <span style="color:#555;">{{ descripcion }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <h3>4.2 Marco internacional y referencias</h3>
+    <ul class="bloques">
+      {% for nombre, descripcion in marco.marco_internacional %}
+      <li>
+        <b style="color:#1e6638;">{{ nombre }}</b><br>
+        <span style="color:#555;">{{ descripcion }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+
+    {% if marco.limites_captacion %}
+    <h3>4.3 {{ marco.limites_titulo or 'Límites de captación' }}</h3>
+    <p>
+      Resumen comparativo según la normativa nacional y las referencias
+      internacionales aplicables.
+    </p>
+    <table class="estaciones">
+      <thead>
+        <tr>
+          <th style="width:26%;">Normativa</th>
+          <th style="width:30%;">{% if marco.limites_titulo %}Disposición / vigencia{% else %}Caudal de captación permitido{% endif %}</th>
+          <th>Referencia / aclaración</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for normativa, limite, referencia in marco.limites_captacion %}
+        <tr>
+          <td><b>{{ normativa }}</b></td>
+          <td>{{ limite }}</td>
+          <td>{{ referencia }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h3>4.4 Métodos de cálculo aplicables</h3>
+    {% else %}
+    <h3>4.3 Métodos de cálculo aplicables</h3>
+    {% endif %}
+    <table class="estaciones">
+      <thead>
+        <tr>
+          <th style="width:30%;">Método</th>
+          <th>Descripción / aplicabilidad</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for nombre, descripcion in marco.metodos %}
+        <tr>
+          <td><b>{{ nombre }}</b></td>
+          <td>{{ descripcion }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if marco.flujo_tecnico %}
+    <h3>{% if marco.limites_captacion %}4.5{% else %}4.4{% endif %}
+        Flujo técnico del análisis (paso a paso)</h3>
+    <p>
+      Procedimiento operativo que la app aplica al punto seleccionado,
+      articulando la normativa boliviana y los estándares internacionales
+      anteriores en una secuencia auditable.
+    </p>
+    <ol style="counter-reset:flujo; list-style:none; padding:0;">
+      {% for nombre, descripcion in marco.flujo_tecnico %}
+      <li style="counter-increment:flujo; margin:.6em 0; padding:.7em 1em;
+                  background:#f3f6fb; border-left:4px solid #1f3a68;
+                  border-radius:4px;">
+        <b style="color:#1f3a68;">{{ nombre }}</b><br>
+        <span style="color:#444;">{{ descripcion }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+    <h3>{% if marco.limites_captacion %}4.6{% else %}4.5{% endif %}
+        Parámetros clave a reportar en el informe</h3>
+    {% else %}
+    <h3>{% if marco.limites_captacion %}4.5{% else %}4.4{% endif %}
+        Parámetros clave a reportar en el informe</h3>
+    {% endif %}
+    <ul class="bloques">
+      {% for parametro in marco.parametros_clave %}
+      <li><span style="color:#1f3a68; font-weight:600;">▪</span>
+          {{ parametro }}</li>
+      {% endfor %}
+    </ul>
+
+    <h3>{% if marco.flujo_tecnico %}{% if marco.limites_captacion %}4.7{% else %}4.6{% endif %}{% else %}{% if marco.limites_captacion %}4.6{% else %}4.5{% endif %}{% endif %}
+        Consideraciones técnicas</h3>
+    <p style="background:#f3f6fb; padding:1em 1.2em; border-left:4px solid #1f3a68; border-radius:4px;">
+      {{ marco.consideraciones }}
+    </p>
+
+    {% if s4_7 and s4_7.mejor_dist %}
+    <!-- ═════════════════════ SECCIÓN 4.7 (cálculos operacionales) ═════════════════════ -->
+    <h3 style="margin-top:1.6em;">4.7 Cálculos operacionales — caudales mínimos para el uso</h3>
+    <p>
+      A partir de las estaciones seleccionadas (Sección 2) y del balance
+      P→Q (Sección 2.9), se calculan los caudales mínimos con período de
+      retorno T, el Q7,10 y el caudal ecológico residual por cinco métodos
+      comparativos. La serie anual de Q mín se obtiene por transferencia
+      regional (promedio de estaciones hidro seleccionadas escalado por el
+      ratio de áreas de cuenca) o, en su defecto, sintetizada a partir
+      del Q mín mensual del balance.
+    </p>
+
+    <h4>Curva de frecuencia de caudales mínimos</h4>
+    <p>
+      Mejor distribución por Kolmogorov-Smirnov:
+      <b style="color:#1f3a68;">{{ s4_7.mejor_dist }}</b>
+      sobre <b>{{ s4_7.n_serie }} años</b> de serie.
+    </p>
+    <table class="estaciones">
+      <thead>
+        <tr><th>Período de retorno T (años)</th>
+            {% for T in s4_7.T_lista %}
+            <th>T = {{ T }}</th>
+            {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Q mín T (m³/s)</b></td>
+          {% for T in s4_7.T_lista %}
+          <td>{{ "%.3f"|format(s4_7.cuantiles[T]) }}</td>
+          {% endfor %}
+        </tr>
+      </tbody>
+    </table>
+    {% if s4_7.plot_frec_url %}
+    <div class="mapa-wrap">
+      <img src="{{ url_for('reportes', sesion_id=sesion_id, archivo=s4_7.plot_frec_url) }}"
+           alt="Curva de frecuencia de caudales mínimos anuales">
+    </div>
+    {% endif %}
+
+    {% if s4_7.caudal_ecologico %}
+    <h4>Caudal ecológico residual — comparación de métodos</h4>
+    <p>
+      Q7,10 ≈ <b>{{ "%.3f"|format(s4_7.q7_10) }} m³/s</b>
+      (Smakhtin 2001, aproximación regional). Cinco métodos comparativos:
+    </p>
+    <table class="estaciones">
+      <thead>
+        <tr><th>Método</th><th>Descripción</th>
+            <th>Q ecológico (m³/s)</th><th>Referencia</th></tr>
+      </thead>
+      <tbody>
+        {% for c in s4_7.caudal_ecologico %}
+        <tr>
+          <td><b>{{ c.metodo }}</b></td>
+          <td>{{ c.descripcion }}</td>
+          <td>{{ "%.3f"|format(c.q_eco_m3s) }}</td>
+          <td style="font-size:.85em;">{{ c.referencia }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if s4_7.plot_eco_url %}
+    <div class="mapa-wrap">
+      <img src="{{ url_for('reportes', sesion_id=sesion_id, archivo=s4_7.plot_eco_url) }}"
+           alt="Comparación de métodos de caudal ecológico">
+    </div>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+
+    <!-- ═════════════════════ SECCIÓN 5 (común a los 5 usos) ═════════════════════ -->
+    <h2 class="sec">{{ s5.titulo }}</h2>
+    <p>{{ s5.introduccion }}</p>
+
+    {% if s5_0 and (s5_0.plot_spi_url or s5_0.modelos_evaluados) %}
+    <!-- 5.0 Cálculos operacionales (SPI + ranking de modelos CC) -->
+    <h3>5.0 Cálculos operacionales — SPI y evaluación de modelos CC</h3>
+    <p>
+      Sobre la serie de precipitación mensual replicada se calcula el
+      <b>Standardized Precipitation Index SPI-3</b> (McKee et al. 1993) que
+      identifica episodios secos y húmedos clasificados por intensidad. En
+      paralelo, las simulaciones de los modelos CC curados para la región
+      se comparan con la serie anual de Q mín mediante <b>KGE, NSE, PBIAS
+      y KGE_log</b> (Pushpalatha et al. 2012). El ranking final prioriza
+      KGE_log porque penaliza mejor los errores en estiaje.
+    </p>
+    {% if s5_0.plot_spi_url %}
+    <h4>SPI-3 mensual (McKee et al. 1993)</h4>
+    <div class="mapa-wrap">
+      <img src="{{ url_for('reportes', sesion_id=sesion_id, archivo=s5_0.plot_spi_url) }}"
+           alt="Índice de Precipitación Estandarizada SPI-3">
+    </div>
+    {% endif %}
+    {% if s5_0.modelos_evaluados %}
+    <h4>Ranking de modelos CC respecto a la serie observada de Q mín</h4>
+    <table class="estaciones">
+      <thead>
+        <tr><th>#</th><th>Modelo</th><th>KGE</th><th>r</th>
+            <th>α (σ_sim/σ_obs)</th><th>β (μ_sim/μ_obs)</th>
+            <th>NSE</th><th>PBIAS (%)</th><th>KGE_log</th></tr>
+      </thead>
+      <tbody>
+        {% for m in s5_0.modelos_evaluados %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td><b>{{ m.modelo }}</b></td>
+          <td>{{ "%.3f"|format(m.KGE) }}</td>
+          <td>{{ "%.3f"|format(m.r) }}</td>
+          <td>{{ "%.3f"|format(m.alpha) }}</td>
+          <td>{{ "%.3f"|format(m.beta) }}</td>
+          <td>{{ "%.3f"|format(m.NSE) }}</td>
+          <td>{{ "%.1f"|format(m.PBIAS) }}</td>
+          <td><b style="color:#1f3a68;">{{ "%.3f"|format(m.KGE_log) }}</b></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if s5_0.plot_taylor_url %}
+    <div class="mapa-wrap">
+      <img src="{{ url_for('reportes', sesion_id=sesion_id, archivo=s5_0.plot_taylor_url) }}"
+           alt="Diagrama de Taylor — modelos CC vs observación">
+    </div>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+
+    <!-- 5.1 No estacionariedad -->
+    <h3>{{ s5.no_estacionariedad.titulo }}</h3>
+    <p>{{ s5.no_estacionariedad.descripcion }}</p>
+    <h4 style="color:#1f3a68; margin-top:1em;">Referencias clave</h4>
+    <ul class="bloques">
+      {% for nombre, descripcion in s5.no_estacionariedad.referencias_clave %}
+      <li><b style="color:#1e6638;">{{ nombre }}</b><br>
+          <span style="color:#555;">{{ descripcion }}</span></li>
+      {% endfor %}
+    </ul>
+    <h4 style="color:#1f3a68; margin-top:1em;">Métodos aplicables</h4>
+    <table class="estaciones">
+      <thead><tr><th style="width:34%;">Método</th><th>Descripción</th></tr></thead>
+      <tbody>
+        {% for nombre, descripcion in s5.no_estacionariedad.metodos %}
+        <tr><td><b>{{ nombre }}</b></td><td>{{ descripcion }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- 5.2 Integración datos-modelización -->
+    <h3>{{ s5.integracion.titulo }}</h3>
+    <p>{{ s5.integracion.descripcion }}</p>
+    <h4 style="color:#1f3a68; margin-top:1em;">Fuentes y modelos</h4>
+    <table class="estaciones">
+      <thead><tr><th style="width:30%;">Fuente / modelo</th><th>Descripción</th></tr></thead>
+      <tbody>
+        {% for nombre, descripcion in s5.integracion.fuentes %}
+        <tr><td><b>{{ nombre }}</b></td><td>{{ descripcion }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h4 style="color:#1f3a68; margin-top:1em;">Referencias clave</h4>
+    <ul class="bloques">
+      {% for nombre, descripcion in s5.integracion.referencias_clave %}
+      <li><b style="color:#1e6638;">{{ nombre }}</b><br>
+          <span style="color:#555;">{{ descripcion }}</span></li>
+      {% endfor %}
+    </ul>
+
+    <!-- 5.3 Eventos compuestos -->
+    <h3>{{ s5.eventos_compuestos.titulo }}</h3>
+    <p>{{ s5.eventos_compuestos.descripcion }}</p>
+    <h4 style="color:#1f3a68; margin-top:1em;">Tipología (Zscheischler et al.)</h4>
+    <table class="estaciones">
+      <thead><tr><th style="width:30%;">Tipo</th><th>Descripción</th></tr></thead>
+      <tbody>
+        {% for nombre, descripcion in s5.eventos_compuestos.tipos %}
+        <tr><td><b>{{ nombre }}</b></td><td>{{ descripcion }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h4 style="color:#1f3a68; margin-top:1em;">Métodos de análisis</h4>
+    <table class="estaciones">
+      <thead><tr><th style="width:30%;">Método</th><th>Descripción</th></tr></thead>
+      <tbody>
+        {% for nombre, descripcion in s5.eventos_compuestos.metodos %}
+        <tr><td><b>{{ nombre }}</b></td><td>{{ descripcion }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h4 style="color:#1f3a68; margin-top:1em;">Referencias clave</h4>
+    <ul class="bloques">
+      {% for nombre, descripcion in s5.eventos_compuestos.referencias_clave %}
+      <li><b style="color:#1e6638;">{{ nombre }}</b><br>
+          <span style="color:#555;">{{ descripcion }}</span></li>
+      {% endfor %}
+    </ul>
+
+    <!-- 5.4 Sistemas de Alerta Temprana -->
+    <h3>{{ s5.alerta_temprana.titulo }}</h3>
+    <p>{{ s5.alerta_temprana.descripcion }}</p>
+    <h4 style="color:#1f3a68; margin-top:1em;">Sistemas globales</h4>
+    <table class="estaciones">
+      <thead><tr><th style="width:36%;">Sistema</th><th>Descripción</th></tr></thead>
+      <tbody>
+        {% for nombre, descripcion in s5.alerta_temprana.sistemas_globales %}
+        <tr><td><b>{{ nombre }}</b></td><td>{{ descripcion }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h4 style="color:#1f3a68; margin-top:1em;">Sistemas regionales (Andes / Latinoamérica)</h4>
+    <ul class="bloques">
+      {% for nombre, descripcion in s5.alerta_temprana.sistemas_regionales %}
+      <li><b>{{ nombre }}</b><br>
+          <span style="color:#555;">{{ descripcion }}</span></li>
+      {% endfor %}
+    </ul>
+    <h4 style="color:#1f3a68; margin-top:1em;">Sistemas operacionales en Bolivia</h4>
+    <ul class="bloques">
+      {% for nombre, descripcion in s5.alerta_temprana.sistemas_bolivia %}
+      <li><b style="color:#1f3a68;">{{ nombre }}</b><br>
+          <span style="color:#555;">{{ descripcion }}</span></li>
+      {% endfor %}
+    </ul>
+    <h4 style="color:#1f3a68; margin-top:1em;">Tecnologías y modelos</h4>
+    <table class="estaciones">
+      <thead><tr><th style="width:30%;">Tecnología</th><th>Descripción</th></tr></thead>
+      <tbody>
+        {% for nombre, descripcion in s5.alerta_temprana.tecnologias %}
+        <tr><td><b>{{ nombre }}</b></td><td>{{ descripcion }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h4 style="color:#1f3a68; margin-top:1em;">Referencias clave</h4>
+    <ul class="bloques">
+      {% for nombre, descripcion in s5.alerta_temprana.referencias_clave %}
+      <li><b style="color:#1e6638;">{{ nombre }}</b><br>
+          <span style="color:#555;">{{ descripcion }}</span></li>
+      {% endfor %}
+    </ul>
+
+    <!-- 5.5 Contextos urbano / natural / agrícola -->
+    <h3>{{ s5.contextos.titulo }}</h3>
+    <p>{{ s5.contextos.descripcion }}</p>
+
+    {% for ctx in ['urbano', 'natural', 'agricola'] %}
+    {% set c = s5.contextos[ctx] %}
+    <h4 style="color:#1f3a68; margin-top:1em;">
+      Contexto {% if ctx == 'urbano' %}urbano{% elif ctx == 'natural' %}natural{% else %}agrícola{% endif %}
+    </h4>
+    <p style="color:#444;">{{ c.descripcion }}</p>
+    <p style="margin-bottom:.4em;"><b style="color:#1e6638;">Métodos y herramientas:</b></p>
+    <ul class="bloques">
+      {% for metodo in c.metodos %}<li>{{ metodo }}</li>{% endfor %}
+    </ul>
+    <p style="margin-bottom:.4em;"><b style="color:#1f3a68;">Casos representativos en Bolivia:</b></p>
+    <ul class="bloques">
+      {% for caso in c.casos_bolivia %}<li>{{ caso }}</li>{% endfor %}
+    </ul>
+    {% endfor %}
+
+    {% if s5.referencias_marco %}
+    <h3>5.6 Referencias marco generales</h3>
+    <ul class="bloques">
+      {% for nombre, descripcion in s5.referencias_marco %}
+      <li><b style="color:#1e6638;">{{ nombre }}</b><br>
+          <span style="color:#555;">{{ descripcion }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <!-- ═════════════════════ SECCIÓN 6 — CONCLUSIONES ═════════════════════ -->
+    <h2 class="sec">6. Conclusiones y recomendaciones</h2>
+    <p>
+      Síntesis ejecutiva del primer borrador del análisis. Las
+      conclusiones se generan a partir de los datos del sitio (ubicación,
+      red de estaciones, marco normativo del uso seleccionado) y de los
+      lineamientos del estado del arte (Sección 5). Las recomendaciones
+      combinan las específicas del uso seleccionado con las generales
+      aplicables a todos los análisis de caudal mínimo en Bolivia.
+    </p>
+
+    {% for titulo, parrafo in s6_conclusiones %}
+    <h3>{{ titulo }}</h3>
+    <p>{{ parrafo|safe }}</p>
+    {% endfor %}
+
+    <h3>6.6 Recomendaciones específicas para el uso seleccionado</h3>
+    <ol class="bloques">
+      {% for r in s6_recomendaciones.especificas %}
+      <li>{{ r }}</li>
+      {% endfor %}
+    </ol>
+
+    <h3>6.7 Recomendaciones generales</h3>
+    <ol class="bloques">
+      {% for r in s6_recomendaciones.generales %}
+      <li>{{ r }}</li>
+      {% endfor %}
+    </ol>
+
+    <!-- ═════════════════════ SECCIÓN 7 — REFERENCIAS APA ═════════════════════ -->
+    <h2 class="sec">7. Referencias bibliográficas (APA 7.ª edición)</h2>
+    <p>
+      Catálogo de <b>{{ s7_total }} referencias</b> en formato APA 7.ª
+      edición, agrupadas en {{ s7_refs|length }} categorías temáticas
+      para facilitar la trazabilidad con las secciones anteriores del
+      informe. Cada entrada lleva su número correlativo entre corchetes,
+      útil para citar dentro del cuerpo del documento.
+    </p>
+
+    {% for grupo, items in s7_refs %}
+    <h3>{{ grupo }}</h3>
+    <ol class="bloques" style="list-style:none; padding:0;">
+      {% for n, referencia in items %}
+      <li style="padding:.45em 0; border-bottom:1px solid #eaecf0;
+                  text-indent:-2.4em; padding-left:2.4em;">
+        <b style="color:#1f3a68;">[{{ n }}]</b> {{ referencia }}
+      </li>
+      {% endfor %}
+    </ol>
+    {% endfor %}
+
+    <div class="nota-fase">
+      <b>Primer borrador del informe (HTML).</b> Las secciones 1 a 7
+      están operativas con todo el contenido informativo. El próximo
+      commit habilitará la descarga del informe en formato PDF
+      protegido (encriptación AES-128 + encabezado HYDROFRA + pie + marca
+      de agua), reusando la infraestructura de protección del informe de
+      caudales máximos. Posteriormente se conectará el motor de cálculo
+      (FDC, Q7,10, ecológicos, recesión, SPI/SPEI, proyección CMIP6 y
+      cuantificación de eventos compuestos) sobre la cuenca delineada.
+    </div>
+
+    <p>
+      <a href="{{ url_for('index') }}" class="botonazo">
+        ← Volver al inicio
+      </a>
+    </p>
+  </main>
+</body>
+</html>

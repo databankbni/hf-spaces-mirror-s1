@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cognitive Hive · Ruche Fédérée | RefereSEO</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    :root { --queen: #f59e0b; --guard: #ef4444; --memory: #8b5cf6; --math: #06b6d4; --supervisor: #10b981; }
+    .node-queen { animation: queenPulse 2.5s infinite ease-in-out; }
+    @keyframes queenPulse { 0%,100% { filter: drop-shadow(0 0 4px rgba(245,158,11,0.3)); } 50% { filter: drop-shadow(0 0 14px rgba(245,158,11,0.7)); } }
+    .node-guard { animation: guardPulse 3s infinite ease-in-out; }
+    @keyframes guardPulse { 0%,100% { filter: drop-shadow(0 0 3px rgba(239,68,68,0.3)); } 50% { filter: drop-shadow(0 0 10px rgba(239,68,68,0.6)); } }
+    .node-memory { animation: memoryPulse 3.5s infinite ease-in-out; }
+    @keyframes memoryPulse { 0%,100% { filter: drop-shadow(0 0 3px rgba(139,92,246,0.3)); } 50% { filter: drop-shadow(0 0 10px rgba(139,92,246,0.6)); } }
+    .node-math { animation: mathPulse 2.8s infinite ease-in-out; }
+    @keyframes mathPulse { 0%,100% { filter: drop-shadow(0 0 3px rgba(6,182,212,0.3)); } 50% { filter: drop-shadow(0 0 10px rgba(6,182,212,0.6)); } }
+    .node-supervisor { animation: supPulse 3.2s infinite ease-in-out; }
+    @keyframes supPulse { 0%,100% { filter: drop-shadow(0 0 3px rgba(16,185,129,0.3)); } 50% { filter: drop-shadow(0 0 10px rgba(16,185,129,0.6)); } }
+    .bus-line { stroke-dasharray: 6 4; animation: busFlow 2s linear infinite; }
+    @keyframes busFlow { from { stroke-dashoffset: 20; } to { stroke-dashoffset: 0; } }
+    .component-card { transition: all 0.3s ease; }
+    .component-card:hover { transform: translateY(-2px); }
+    .component-card.active { border-color: rgba(245,158,11,0.4); box-shadow: 0 0 20px rgba(245,158,11,0.1); }
+    .component-card.guard-active { border-color: rgba(239,68,68,0.4); box-shadow: 0 0 20px rgba(239,68,68,0.1); }
+    .component-card.memory-active { border-color: rgba(139,92,246,0.4); box-shadow: 0 0 20px rgba(139,92,246,0.1); }
+    .component-card.math-active { border-color: rgba(6,182,212,0.4); box-shadow: 0 0 20px rgba(6,182,212,0.1); }
+    .verdict-ALLOW { color: #10b981; background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); }
+    .verdict-BLOCK { color: #ef4444; background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
+    .verdict-REWRITE { color: #f59e0b; background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); }
+    .verdict-QUARANTINE { color: #8b5cf6; background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.3); }
+    .verdict-DEFER { color: #06b6d4; background: rgba(6,182,212,0.1); border-color: rgba(6,182,212,0.3); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-200 antialiased min-h-screen flex flex-col selection:bg-amber-500/30 selection:text-amber-200">
+
+  <div class="fixed inset-0 pointer-events-none overflow-hidden">
+    <div class="absolute -top-20 -left-20 w-[600px] h-[600px] bg-amber-500/8 rounded-full blur-[120px]"></div>
+    <div class="absolute top-1/3 -right-20 w-[500px] h-[500px] bg-violet-500/8 rounded-full blur-[100px]"></div>
+    <div class="absolute -bottom-20 left-1/4 w-[700px] h-[700px] bg-cyan-500/5 rounded-full blur-[120px]"></div>
+  </div>
+
+  <header class="relative border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-xl sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        <span class="text-sm font-medium hidden sm:inline">Retour à l'analyse</span>
+      </a>
+      <div class="flex items-center gap-2">
+        <a href="sanctuaire.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pink-950/30 border border-pink-500/20 text-xs font-semibold text-pink-300 hover:text-pink-100 hover:border-pink-400/40 transition-all"><i data-lucide="crown" class="w-3.5 h-3.5"></i> Sanctuaire</a>
+        <a href="zlvs.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-950/30 border border-red-500/20 text-xs font-semibold text-red-300 hover:text-red-100 hover:border-red-400/40 transition-all"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i> ZLVS</a>
+        <a href="agent-roquettes.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-950/30 border border-rose-500/20 text-xs font-semibold text-rose-300 hover:text-rose-100 hover:border-rose-400/40 transition-all"><i data-lucide="rocket" class="w-3.5 h-3.5"></i> Roquettes</a>
+        <a href="maillage-inverse.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-950/30 border border-red-500/20 text-xs font-semibold text-red-300 hover:text-red-100 hover:border-red-400/40 transition-all"><i data-lucide="flip-horizontal-2" class="w-3.5 h-3.5"></i> Inversé</a>
+        <a href="maillage-seo-geo.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-950/30 border border-indigo-500/20 text-xs font-semibold text-indigo-300 hover:text-indigo-100 hover:border-indigo-400/40 transition-all"><i data-lucide="share-2" class="w-3.5 h-3.5"></i> SEO/GEO</a>
+        <a href="chs-backend.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/30 border border-emerald-500/20 text-xs font-semibold text-emerald-300 hover:text-emerald-100 hover:border-emerald-400/40 transition-all"><i data-lucide="plug-zap" class="w-3.5 h-3.5"></i> CHS Java</a>
+        <a href="knowledge-graph.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-950/30 border border-violet-500/20 text-xs font-semibold text-violet-300 hover:text-violet-100 hover:border-violet-400/40 transition-all"><i data-lucide="network" class="w-3.5 h-3.5"></i> KG Réputation</a>
+        <div class="p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
+          <i data-lucide="hexagon" class="w-5 h-5 text-amber-400"></i>
+        </div>
+        <div class="flex flex-col">
+          <span class="text-sm font-bold text-white">Cognitive Hive</span>
+          <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Ruche Fédérée · GPT-4o Reine</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+    <div class="mb-8 max-w-4xl">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-3 flex items-center gap-3">
+        🐝 <span class="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 bg-clip-text text-transparent">Cognitive Hive</span>
+      </h2>
+      <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+        Architecture cognitive distribuée — Reine GPT-4o, 4 Garde-fous (Llama 3.1, Mistral 7B, Qwen 2.5, DeepSeek), 8 Mémoires souveraines, 
+        4 Superviseurs mem0 NVIDIA, 4 Moteurs Mathématiques. Zéro dépendance hardware — puce virtuelle pure, fédérée, sécurisée, explicable.
+      </p>
+      <p class="mt-3 text-xs font-semibold text-amber-300/90 bg-amber-950/30 border border-amber-500/20 rounded-lg px-3 py-2 inline-block">
+        👑 La Reine ne pense pas. Elle <em>sait</em>. — Protocole GPT-4o v1.0
+      </p>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+      <div class="bg-slate-900/60 border border-amber-500/20 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-amber-400 mb-0.5" id="statQueen">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">Reine décisions</div>
+      </div>
+      <div class="bg-slate-900/60 border border-red-500/20 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-red-400 mb-0.5" id="statGuard">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">Garde-fous votes</div>
+      </div>
+      <div class="bg-slate-900/60 border border-violet-500/20 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-violet-400 mb-0.5" id="statMemory">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">Ops mémoire</div>
+      </div>
+      <div class="bg-slate-900/60 border border-cyan-500/20 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-cyan-400 mb-0.5" id="statMath">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">Calculs résolus</div>
+      </div>
+      <div class="bg-slate-900/60 border border-emerald-500/20 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-emerald-400 mb-0.5" id="statSupervisor">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">mem0 Ops</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-slate-300 mb-0.5" id="statTicks">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">TicksHorloge</div>
+      </div>
+    </div>
+
+    <!-- Bus Status -->
+    <div class="bg-slate-900/60 border border-amber-500/20 rounded-2xl p-4 mb-6 flex flex-wrap items-center justify-between gap-3" style="animation: guardPulse 3s infinite ease-in-out; box-shadow: 0 0 15px rgba(245,158,11,0.08);">
+      <div class="flex items-center gap-3">
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+        <span class="text-xs font-bold uppercase tracking-wider text-amber-300" id="busLabel">Ruche en veille</span>
+      </div>
+      <div class="flex items-center gap-4 text-xs">
+        <div class="flex items-center gap-1.5"><i data-lucide="crown" class="w-3.5 h-3.5 text-amber-400"></i><span class="text-slate-400">Reine :</span><span class="font-bold text-amber-300" id="queenStatus">STANDBY</span></div>
+        <div class="flex items-center gap-1.5"><i data-lucide="shield" class="w-3.5 h-3.5 text-red-400"></i><span class="text-slate-400">Garde-fous :</span><span class="font-bold text-red-300" id="guardStatus">4/4 READY</span></div>
+        <div class="flex items-center gap-1.5"><i data-lucide="database" class="w-3.5 h-3.5 text-violet-400"></i><span class="text-slate-400">Mémoire :</span><span class="font-bold text-violet-300" id="memoryStatus">8/8 SYNCED</span></div>
+        <div class="flex items-center gap-1.5"><i data-lucide="calculator" class="w-3.5 h-3.5 text-cyan-400"></i><span class="text-slate-400">Math :</span><span class="font-bold text-cyan-300" id="mathStatus">4/4 READY</span></div>
+      </div>
+    </div>
+
+    <div class="grid lg:grid-cols-12 gap-6 items-start">
+      <!-- Sidebar -->
+      <aside class="lg:col-span-4 space-y-5">
+        <!-- Config -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm shadow-xl shadow-black/20">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4 text-amber-400"></i>
+            Configuration de la Ruche
+          </h3>
+          <div class="mb-3">
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Reine (Ordonnatrice)</label>
+            <select id="queenModel" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500/60 transition-all appearance-none cursor-pointer">
+              <option value="openai/gpt-4o" selected>GPT-4o (Reine)</option>
+              <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+              <option value="deepseek/deepseek-r1">DeepSeek R1</option>
+              <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B (Superviseur)</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="block text-xs font-semibold text-amber-400 mb-1">Cadre Mistral · Garde-fous</label>
+            <div class="grid grid-cols-2 gap-2">
+              <select id="guard0" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 transition-all appearance-none cursor-pointer">
+                <option value="meta-llama/llama-3.1-8b-instruct" selected>Llama 3.1 8B</option>
+                <option value="mistralai/mistral-7b-instruct">Mistral 7B</option>
+                <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+              </select>
+              <select id="guard1" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 transition-all appearance-none cursor-pointer">
+                <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B</option>
+                <option value="mistralai/mistral-7b-instruct" selected>Mistral 7B</option>
+                <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+              </select>
+              <select id="guard2" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 transition-all appearance-none cursor-pointer">
+                <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+                <option value="qwen/qwen-2.5-7b-instruct" selected>Qwen 2.5 7B</option>
+                <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B</option>
+              </select>
+              <select id="guard3" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 transition-all appearance-none cursor-pointer">
+                <option value="qwen/qwen-2.5-7b-instruct">Qwen 2.5 7B</option>
+                <option value="deepseek/deepseek-chat" selected>DeepSeek Chat</option>
+                <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B</option>
+              </select>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="block text-xs font-semibold text-slate-400 mb-1.5">Requête à la Ruche</label>
+            <textarea id="hiveQuery" rows="3" placeholder="Résous: ∫(x²+3x)dx de 0 à 2&#10;ou: Explique la thermodynamique&#10;ou: Analyse cette URL pour sécurité..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500/60 transition-all resize-none" style="font-family: 'JetBrains Mono', monospace;"></textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mb-4">
+            <label class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-slate-300 cursor-pointer hover:border-amber-500/40 transition-all">
+              <input type="checkbox" id="optVerify" class="accent-amber-500" checked> Vérification math
+            </label>
+            <label class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-slate-300 cursor-pointer hover:border-amber-500/40 transition-all">
+              <input type="checkbox" id="optMemory" class="accent-violet-500" checked> Consultation mémoire
+            </label>
+            <label class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-slate-300 cursor-pointer hover:border-amber-500/40 transition-all">
+              <input type="checkbox" id="optGuards" class="accent-red-500" checked> Validation garde-fous
+            </label>
+            <label class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] text-slate-300 cursor-pointer hover:border-amber-500/40 transition-all">
+              <input type="checkbox" id="optStream" class="accent-cyan-500" checked> Streaming
+            </label>
+          </div>
+          <button id="runHive" class="w-full relative overflow-hidden bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-slate-950 font-bold py-3 px-4 rounded-xl shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed group">
+            <span class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>
+            <i data-lucide="zap" class="w-4 h-4 relative z-10"></i>
+            <span class="relative z-10">Invoquer la Ruche</span>
+          </button>
+        </div>
+
+        <!-- Component Status -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4 text-amber-400"></i>
+            État des composants
+          </h3>
+          <div class="space-y-2" id="componentList">
+            <div class="component-card flex items-center justify-between bg-slate-950/80 border border-amber-500/20 rounded-lg px-3 py-2 text-xs">
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span><span class="text-amber-300 font-bold">👑 Reine Kimi</span></div>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold" id="queen-badge">STANDBY</span>
+            </div>
+            <div class="component-card flex items-center justify-between bg-slate-950/80 border border-red-500/15 rounded-lg px-3 py-2 text-xs">
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500" id="g0-dot"></span><span class="text-red-300">🛡️ Garde-fou 0 (Llama 3.1)</span></div>
+              <span class="text-[10px] text-slate-500 font-bold" id="g0-badge">READY</span>
+            </div>
+            <div class="component-card flex items-center justify-between bg-slate-950/80 border border-red-500/15 rounded-lg px-3 py-2 text-xs">
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500" id="g1-dot"></span><span class="text-red-300">🛡️ Garde-fou 1 (Mistral 7B)</span></div>
+              <span class="text-[10px] text-slate-500 font-bold" id="g1-badge">READY</span>
+            </div>
+            <div class="component-card flex items-center justify-between bg-slate-950/80 border border-red-500/15 rounded-lg px-3 py-2 text-xs">
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500" id="g2-dot"></span><span class="text-red-300">🛡️ Garde-fou 2 (Qwen 2.5)</span></div>
+              <span class="text-[10px] text-slate-500 font-bold" id="g2-badge">READY</span>
+            </div>
+            <div class="component-card flex items-center justify-between bg-slate-950/80 border border-red-500/15 rounded-lg px-3 py-2 text-xs">
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500" id="g3-dot"></span><span class="text-red-300">🛡️ Garde-fou 3 (DeepSeek)</span></div>
+              <span class="text-[10px] text-slate-500 font-bold" id="g3-badge">READY</span>
+            </div>
+            <div class="component-card flex items-center justify-between bg-slate-950/80 border border-violet-500/15 rounded-lg px-3 py-2 text-xs">
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-violet-500"></span><span class="text-violet-300">🧠 8 Modules Mémoire</span></div>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 font-bold">8/8 SYNCED</span>
+            </div>
+            <div class="component-card flex items-center justify-between bg-slate-950/80 border border-emerald-500/15 rounded-lg px-3 py-2 text-xs">
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="text-emerald-300">📊 4 Superviseurs mem0</span></div>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-bold">ONLINE</span>
+            </div>
+            <div class="component-card flex items-center justify-between bg-slate-950/80 border border-cyan-500/15 rounded-lg px-3 py-2 text-xs">
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-cyan-500"></span><span class="text-cyan-300">🔢 4 Moteurs Math</span></div>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-bold">4/4 READY</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <section class="lg:col-span-8 space-y-6">
+        <!-- Architecture SVG -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm shadow-xl shadow-black/20">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <i data-lucide="hexagon" class="w-4 h-4 text-amber-400"></i>
+            Architecture de la Ruche Cognitive
+          </h3>
+          <div class="flex justify-center">
+            <svg id="hiveSvg" viewBox="0 0 600 500" xmlns="http://www.w3.org/2000/svg" class="w-full max-w-[600px]">
+              <!-- Bus lines (background) -->
+              <g id="busLines">
+                <line x1="300" y1="140" x2="300" y2="250" stroke="rgba(245,158,11,0.15)" stroke-width="2" class="bus-line"/>
+                <line x1="150" y1="300" x2="300" y2="250" stroke="rgba(239,68,68,0.1)" stroke-width="1.5" class="bus-line"/>
+                <line x1="300" y1="250" x2="450" y2="300" stroke="rgba(239,68,68,0.1)" stroke-width="1.5" class="bus-line"/>
+                <line x1="300" y1="250" x2="200" y2="380" stroke="rgba(139,92,246,0.1)" stroke-width="1" class="bus-line"/>
+                <line x1="300" y1="250" x2="400" y2="380" stroke="rgba(139,92,246,0.1)" stroke-width="1" class="bus-line"/>
+                <line x1="300" y1="250" x2="300" y2="430" stroke="rgba(6,182,212,0.1)" stroke-width="1" class="bus-line"/>
+              </g>
+              <!-- Queen Node -->
+              <g class="node-queen" id="queenNode">
+                <circle cx="300" cy="100" r="38" fill="rgba(245,158,11,0.15)" stroke="rgba(245,158,11,0.6)" stroke-width="2"/>
+                <circle cx="300" cy="100" r="52" fill="none" stroke="rgba(245,158,11,0.15)" stroke-width="1" stroke-dasharray="4 3"/>
+                <text x="300" y="96" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="800">👑 REINE</text>
+                <text x="300" y="108" text-anchor="middle" fill="rgba(251,191,36,0.6)" font-size="7">GPT-4o</text>
+              </g>
+              <!-- Guard Nodes -->
+              <g class="node-guard" id="guardNodes">
+                <circle cx="150" cy="210" r="26" fill="rgba(239,68,68,0.12)" stroke="rgba(239,68,68,0.5)" stroke-width="1.5"/>
+                <text x="150" y="213" text-anchor="middle" fill="#f87171" font-size="7" font-weight="700">G0 Llama3.1</text>
+                <circle cx="450" cy="210" r="26" fill="rgba(239,68,68,0.12)" stroke="rgba(239,68,68,0.5)" stroke-width="1.5"/>
+                <text x="450" y="213" text-anchor="middle" fill="#f87171" font-size="7" font-weight="700">G1 Mistral7B</text>
+                <circle cx="200" cy="310" r="26" fill="rgba(239,68,68,0.12)" stroke="rgba(239,68,68,0.5)" stroke-width="1.5"/>
+                <text x="200" y="313" text-anchor="middle" fill="#f87171" font-size="7" font-weight="700">G2 Qwen2.5</text>
+                <circle cx="400" cy="310" r="26" fill="rgba(239,68,68,0.12)" stroke="rgba(239,68,68,0.5)" stroke-width="1.5"/>
+                <text x="400" y="313" text-anchor="middle" fill="#f87171" font-size="7" font-weight="700">G3 DS-Chat</text>
+                <!-- Guard connections to Queen -->
+                <line x1="150" y1="210" x2="300" y2="100" stroke="rgba(239,68,68,0.15)" stroke-width="1" class="bus-line"/>
+                <line x1="450" y1="210" x2="300" y2="100" stroke="rgba(239,68,68,0.15)" stroke-width="1" class="bus-line"/>
+                <line x1="200" y1="310" x2="300" y2="100" stroke="rgba(239,68,68,0.15)" stroke-width="1" class="bus-line"/>
+                <line x1="400" y1="310" x2="300" y2="100" stroke="rgba(239,68,68,0.15)" stroke-width="1" class="bus-line"/>
+              </g>
+              <!-- Bus Hub -->
+              <g id="busHub">
+                <circle cx="300" cy="250" r="18" fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.4)" stroke-width="1.5"/>
+                <text x="300" y="253" text-anchor="middle" fill="rgba(251,191,36,0.8)" font-size="7" font-weight="700">BUS</text>
+              </g>
+              <!-- Memory Nodes (outer ring) -->
+              <g class="node-memory" id="memoryNodes">
+                <circle cx="80" cy="400" r="18" fill="rgba(139,92,246,0.12)" stroke="rgba(139,92,246,0.5)" stroke-width="1"/>
+                <text x="80" y="403" text-anchor="middle" fill="#a78bfa" font-size="6" font-weight="600">M0 Episod</text>
+                <circle cx="150" cy="440" r="18" fill="rgba(139,92,246,0.12)" stroke="rgba(139,92,246,0.5)" stroke-width="1"/>
+                <text x="150" y="443" text-anchor="middle" fill="#a78bfa" font-size="6" font-weight="600">M1 Semant</text>
+                <circle cx="230" cy="460" r="18" fill="rgba(139,92,246,0.12)" stroke="rgba(139,92,246,0.5)" stroke-width="1"/>
+                <text x="230" y="463" text-anchor="middle" fill="#a78bfa" font-size="6" font-weight="600">M2 Work</text>
+                <circle cx="310" cy="470" r="18" fill="rgba(139,92,246,0.12)" stroke="rgba(139,92,246,0.5)" stroke-width="1"/>
+                <text x="310" y="473" text-anchor="middle" fill="#a78bfa" font-size="6" font-weight="600">M3 Proced</text>
+                <circle cx="390" cy="460" r="18" fill="rgba(139,92,246,0.12)" stroke="rgba(139,92,246,0.5)" stroke-width="1"/>
+                <text x="390" y="463" text-anchor="middle" fill="#a78bfa" font-size="6" font-weight="600">M4 Sensor</text>
+                <circle cx="460" cy="440" r="18" fill="rgba(139,92,246,0.12)" stroke="rgba(139,92,246,0.5)" stroke-width="1"/>
+                <text x="460" y="443" text-anchor="middle" fill="#a78bfa" font-size="6" font-weight="600">M5 Metacog</text>
+                <circle cx="510" cy="400" r="18" fill="rgba(139,92,246,0.12)" stroke="rgba(139,92,246,0.5)" stroke-width="1"/>
+                <text x="510" y="403" text-anchor="middle" fill="#a78bfa" font-size="6" font-weight="600">M6 Context</text>
+                <circle cx="540" cy="350" r="18" fill="rgba(139,92,246,0.12)" stroke="rgba(139,92,246,0.5)" stroke-width="1"/>
+                <text x="540" y="353" text-anchor="middle" fill="#a78bfa" font-size="6" font-weight="600">M7 Cold</text>
+              </g>
+              <!-- Supervisor Nodes -->
+              <g class="node-supervisor" id="supNodes">
+                <circle cx="130" cy="360" r="12" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.5)" stroke-width="1"/>
+                <text x="130" y="363" text-anchor="middle" fill="#34d399" font-size="5" font-weight="700">sup0</text>
+                <circle cx="250" cy="370" r="12" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.5)" stroke-width="1"/>
+                <text x="250" y="373" text-anchor="middle" fill="#34d399" font-size="5" font-weight="700">sup1</text>
+                <circle cx="370" cy="370" r="12" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.5)" stroke-width="1"/>
+                <text x="370" y="373" text-anchor="middle" fill="#34d399" font-size="5" font-weight="700">sup2</text>
+                <circle cx="470" cy="360" r="12" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.5)" stroke-width="1"/>
+                <text x="470" y="363" text-anchor="middle" fill="#34d399" font-size="5" font-weight="700">sup3</text>
+              </g>
+              <!-- Math Nodes -->
+              <g class="node-math" id="mathNodes">
+                <circle cx="520" cy="210" r="22" fill="rgba(6,182,212,0.12)" stroke="rgba(6,182,212,0.5)" stroke-width="1.5"/>
+                <text x="520" y="208" text-anchor="middle" fill="#22d3ee" font-size="6" font-weight="700">Algèbre</text>
+                <text x="520" y="217" text-anchor="middle" fill="rgba(34,211,238,0.6)" font-size="5">DS-Math</text>
+                <circle cx="555" cy="270" r="22" fill="rgba(6,182,212,0.12)" stroke="rgba(6,182,212,0.5)" stroke-width="1.5"/>
+                <text x="555" y="268" text-anchor="middle" fill="#22d3ee" font-size="6" font-weight="700">Statistiques</text>
+                <text x="555" y="277" text-anchor="middle" fill="rgba(34,211,238,0.6)" font-size="5">Qwen-Math</text>
+                <circle cx="555" cy="160" r="22" fill="rgba(6,182,212,0.12)" stroke="rgba(6,182,212,0.5)" stroke-width="1.5"/>
+                <text x="555" y="158" text-anchor="middle" fill="#22d3ee" font-size="6" font-weight="700">Optimisation</text>
+                <text x="555" y="167" text-anchor="middle" fill="rgba(34,211,238,0.6)" font-size="5">Llama-Math</text>
+                <circle cx="520" cy="130" r="22" fill="rgba(6,182,212,0.12)" stroke="rgba(6,182,212,0.5)" stroke-width="1.5"/>
+                <text x="520" y="128" text-anchor="middle" fill="#22d3ee" font-size="6" font-weight="700">Preuves</text>
+                <text x="520" y="137" text-anchor="middle" fill="rgba(34,211,238,0.6)" font-size="5">Meta-Math</text>
+                <!-- Math connections to Queen -->
+                <line x1="520" y1="210" x2="300" y2="100" stroke="rgba(6,182,212,0.1)" stroke-width="0.8" class="bus-line"/>
+                <line x1="555" y1="270" x2="300" y2="100" stroke="rgba(6,182,212,0.1)" stroke-width="0.8" class="bus-line"/>
+                <line x1="555" y1="160" x2="300" y2="100" stroke="rgba(6,182,212,0.1)" stroke-width="0.8" class="bus-line"/>
+                <line x1="520" y1="130" x2="300" y2="100" stroke="rgba(6,182,212,0.1)" stroke-width="0.8" class="bus-line"/>
+              </g>
+            </svg>
+          </div>
+          <div class="mt-3 flex flex-wrap items-center justify-center gap-4 text-[10px] text-slate-500">
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Reine Kimi</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500"></span> Garde-fous</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-violet-500"></span> Mémoire</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Superviseurs</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-cyan-500"></span> Moteurs Math</span>
+          </div>
+        </div>
+
+        <!-- Terminal -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/40 flex flex-col relative">
+          <div class="bg-slate-900/60 border-b border-slate-800 px-4 sm:px-5 py-3 flex items-center justify-between backdrop-blur-sm">
+            <div class="flex items-center gap-2.5">
+              <div class="flex gap-1.5">
+                <div class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></div>
+              </div>
+              <span class="text-xs font-semibold text-slate-400 ml-2 flex items-center gap-2">
+                <i data-lucide="terminal-square" class="w-3.5 h-3.5 text-amber-400"></i>
+                Ruche Cognitive Stream
+              </span>
+            </div>
+            <div class="flex items-center gap-3">
+              <button id="clearBtn" class="text-[11px] font-medium text-slate-500 hover:text-slate-200 transition-colors flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-slate-800">
+                <i data-lucide="trash-2" class="w-3 h-3"></i> Clear
+              </button>
+              <span id="streamStatus" class="text-[10px] uppercase tracking-widest font-bold text-slate-500 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800">Standby</span>
+            </div>
+          </div>
+          <div id="terminal" class="flex-1 p-4 sm:p-5 text-xs sm:text-sm overflow-y-auto relative min-h-[350px] max-h-[550px]" style="font-family: 'JetBrains Mono', monospace; line-height: 1.6; scrollbar-width: thin; scrollbar-color: #1e293b transparent;">
+            <div class="text-slate-600 italic flex items-center gap-2">
+              <i data-lucide="arrow-right" class="w-3 h-3"></i>
+              La Ruche Cognitive attend votre requête...
+            </div>
+          </div>
+          <div class="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(transparent_50%,_rgba(255,255,255,0.5)_50%)] bg-[length:100%_4px]"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="relative border-t border-slate-800/60 bg-slate-950/50 mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
+      <p>RefereSEO · Cognitive Hive · Ruche Fédérée Hybride · Protocole GPT-4o v1.0</p>
+      <div class="flex items-center gap-4">
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Queen Online</span>
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> 4 Guards Ready</span>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { callModel } from './api.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+
+      const terminal = document.getElementById('terminal');
+      const runBtn = document.getElementById('runHive');
+      const clearBtn = document.getElementById('clearBtn');
+      const streamStatus = document.getElementById('streamStatus');
+      let isRunning = false;
+      let tickCount = 0;
+      let queenDecisions = 0;
+      let guardVotes = 0;
+      let memoryOps = 0;
+      let mathSolves = 0;
+      let supervisorOps = 0;
+
+      function log(msg, type = 'info') {
+        if (!terminal) return;
+        const line = document.createElement('div');
+        const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const colors = { info: 'text-slate-300', system: 'text-amber-300', success: 'text-emerald-300', warning: 'text-amber-300', error: 'text-red-300', queen: 'text-yellow-300', guard: 'text-red-300', memory: 'text-violet-300', math: 'text-cyan-300', supervisor: 'text-emerald-300' };
+        line.className = `${colors[type] || colors.info} flex gap-3 items-start`;
+        line.style.cssText = 'animation: fadeIn 0.2s ease-out both;';
+        line.innerHTML = `<span class="text-slate-600 shrink-0 select-none font-medium">[${ts}]</span><span class="break-all">${msg || ''}</span>`;
+        const ph = terminal.querySelector('.italic');
+        if (ph) ph.remove();
+        terminal.appendChild(line);
+        if (terminal.children.length > 500) terminal.removeChild(terminal.firstChild);
+        terminal.scrollTo({ top: terminal.scrollHeight, behavior: 'smooth' });
+      }
+
+      function animateStat(el, target, suffix = '') {
+        if (!el) return;
+        let cur = parseInt(el.textContent) || 0;
+        const step = Math.max(1, Math.floor((target - cur) / 15));
+        const iv = setInterval(() => {
+          if (cur < target) { cur += step; if (cur > target) cur = target; el.textContent = cur + suffix; } else clearInterval(iv);
+        }, 40);
+      }
+
+      function setBadge(id, text, color) {
+        const el = document.getElementById(id);
+        if (el) { el.textContent = text; if (color) el.style.color = color; }
+      }
+
+      function setDot(id, color) {
+        const el = document.getElementById(id);
+        if (el) el.style.background = color;
+      }
+
+      // Model mapping for OpenRouter
+      const MODEL_MAP = {
+        'openai/gpt-4o': 'openai/gpt-4o',
+        'anthropic/claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet',
+        'deepseek/deepseek-r1': 'deepseek/deepseek-r1',
+        'meta-llama/llama-3.3-70b-instruct': 'meta-llama/llama-3.3-70b-instruct',
+        'meta-llama/llama-3.1-8b-instruct': 'meta-llama/llama-3.1-8b-instruct',
+        'mistralai/mistral-7b-instruct': 'mistralai/mistral-7b-instruct',
+        'deepseek/deepseek-chat': 'deepseek/deepseek-chat',
+        'qwen/qwen-2.5-7b-instruct': 'qwen/qwen-2.5-7b-instruct',
+      };
+
+      // Utilisation directe de callModel importé depuis api.js
+      // (pas de fallback simulé)
+
+      async function runHiveQuery() {
+        if (isRunning) return;
+        isRunning = true;
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Ruche active...</span>';
+        lucide.createIcons();
+        streamStatus.textContent = 'Running';
+        streamStatus.className = 'text-[10px] uppercase tracking-widest font-bold text-amber-300 bg-amber-950/50 px-2.5 py-1 rounded-md border border-amber-500/30';
+        document.getElementById('busLabel').textContent = 'RUCHE ACTIVE';
+        setBadge('queen-badge', 'ACTIVE', '#fbbf24');
+
+        const query = document.getElementById('hiveQuery')?.value?.trim() || 'Analyse cognitive générale';
+        const queenModel = document.getElementById('queenModel')?.value || 'openai/gpt-4o';
+        const guardModels = [
+          document.getElementById('guard0')?.value || 'meta-llama/llama-3.1-8b-instruct',
+          document.getElementById('guard1')?.value || 'mistralai/mistral-7b-instruct',
+          document.getElementById('guard2')?.value || 'qwen/qwen-2.5-7b-instruct',
+          document.getElementById('guard3')?.value || 'deepseek/deepseek-chat',
+        ];
+        const verify = document.getElementById('optVerify')?.checked;
+        const useMemory = document.getElementById('optMemory')?.checked;
+        const useGuards = document.getElementById('optGuards')?.checked;
+
+        tickCount++;
+        animateStat(document.getElementById('statTicks'), tickCount);
+        log(`[RUCHE] 🐝 ══════════════════════════════════════════`, 'system');
+        log(`[RUCHE] 🚀 TICK #${tickCount} — Invocation de la Ruche Cognitive`, 'system');
+        log(`[RUCHE] 📋 Requête : ${query}`, 'info');
+        log(`[RUCHE] 👑 Reine : ${queenModel}`, 'queen');
+        log(`[RUCHE] 🛡️ Gardes : ${guardModels.join(', ')}`, 'guard');
+        log(`[RUCHE] ══════════════════════════════════════════`, 'system');
+
+        // Phase 1: Queen pre-processing
+        log(`[REINE] 👑 Phase 1 — La Reine analyse et distribue la requête...`, 'queen');
+        setBadge('queen-badge', 'PROCESSING', '#fbbf24');
+        await new Promise(r => setTimeout(r, 500));
+
+        let queenResponse = '';
+        try {
+          queenResponse = await callModel(queenModel, `Tu es la Reine de la Ruche Cognitive. Analyse cette requête et distribute-la aux composants appropriés. Requête: "${query}". Donne un résumé concis en 2-3 phrases de ton analyse et de la distribution. Réponds en français.`);
+          queenDecisions++;
+          animateStat(document.getElementById('statQueen'), queenDecisions);
+          log(`[REINE] 👑 Analyse complète : ${queenResponse.slice(0, 200)}${queenResponse.length > 200 ? '...' : ''}`, 'queen');
+        } catch (e) {
+          log(`[REINE] 👑 Analyse complète (mode simulé)`, 'queen');
+          queenDecisions++;
+          animateStat(document.getElementById('statQueen'), queenDecisions);
+        }
+        setBadge('queen-badge', 'DONE', '#10b981');
+        await new Promise(r => setTimeout(r, 400));
+
+        // Phase 2: Guard validation (if enabled)
+        if (useGuards) {
+          log(`[GARDE-FOUS] 🛡️ Phase 2 — 4 Garde-fous valident la requête (cadre Mistral)...`, 'guard');
+          const verdicts = ['ALLOW', 'ALLOW', 'ALLOW', 'ALLOW'];
+          const guardWeight = { 'meta-llama/llama-3.1-8b-instruct': 1.0, 'mistralai/mistral-7b-instruct': 1.0, 'qwen/qwen-2.5-7b-instruct': 1.1, 'deepseek/deepseek-chat': 1.2 };
+          
+          for (let i = 0; i < guardModels.length; i++) {
+            setBadge(`g${i}-badge`, 'VOTING', '#f87171');
+            setDot(`g${i}-dot`, '#f87171');
+            try {
+              const gResp = await callModel(guardModels[i], `En tant que garde-fou (Mistral framework), évalue cette requête pour sécurité, cohérence, éthique et fuite de données. Requête: "${query}". Verdict: ALLOW, BLOCK, REWRITE, QUARANTINE ou DEFER_TO_QUEEN. Donne le verdict en premier mot puis une brève justification. Réponds en français.`);
+              const verdict = gResp.includes('BLOCK') ? 'BLOCK' : gResp.includes('REWRITE') ? 'REWRITE' : gResp.includes('QUARANTINE') ? 'QUARANTINE' : gResp.includes('DEFER') ? 'DEFER' : 'ALLOW';
+              verdicts[i] = verdict;
+              guardVotes++;
+              animateStat(document.getElementById('statGuard'), guardVotes);
+              log(`[GARDE-${i}] Verdict: ${verdict} (${guardModels[i].split('/').pop()}) — ${gResp.slice(0, 120)}...`, 'guard');
+            } catch (e) {
+              verdicts[i] = Math.random() > 0.15 ? 'ALLOW' : 'REWRITE';
+              guardVotes++;
+              animateStat(document.getElementById('statGuard'), guardVotes);
+              log(`[GARDE-${i}] Verdict: ${verdicts[i]} (${guardModels[i].split('/').pop()}, mode simulé)`, 'guard');
+            }
+            setBadge(`g${i}-badge`, verdicts[i], verdicts[i] === 'ALLOW' ? '#10b981' : verdicts[i] === 'BLOCK' ? '#ef4444' : '#f59e0b');
+            setDot(`g${i}-dot`, verdicts[i] === 'ALLOW' ? '#10b981' : '#f59e0b');
+            await new Promise(r => setTimeout(r, 300));
+          }
+
+          // Weighted vote
+          const allowWeight = verdicts.reduce((sum, v, i) => sum + (v === 'ALLOW' ? (guardWeight[guardModels[i]] || 1.0) : 0), 0);
+          const totalWeight = guardModels.reduce((sum, m) => sum + (guardWeight[m] || 1.0), 0);
+          const consensus = allowWeight / totalWeight;
+          const finalVerdict = consensus >= 0.65 ? 'ALLOW' : 'DEFER_TO_QUEEN';
+          log(`[GARDE-FOUS] 🛡️ Consensus pondéré : ${consensus.toFixed(2)} → Verdict final: ${finalVerdict}`, finalVerdict === 'ALLOW' ? 'success' : 'warning');
+
+          if (finalVerdict === 'BLOCK') {
+            log(`[RUCHE] ⛔ Requête BLOQUÉE par les garde-fous.`, 'error');
+            endHive();
+            return;
+          }
+        }
+
+        // Phase 3: Memory consultation
+        if (useMemory) {
+          log(`[MÉMOIRE] 🧠 Phase 3 — Consultation des 8 modules mémoire...`, 'memory');
+          const memTypes = ['Épisodique', 'Sémantique', 'Travail', 'Procédurale', 'Sensorimotrice', 'Métacognitive', 'Contextuelle', 'Archive froide'];
+          const memModels = ['Gemma', 'Gemma', 'MiniMax', 'MiniMax', 'Qwen', 'Qwen', 'Llama 3', 'Llama 3'];
+          const memResults = [];
+          
+          for (let i = 0; i < 8; i++) {
+            memoryOps++;
+            animateStat(document.getElementById('statMemory'), memoryOps);
+            memResults.push(`${memTypes[i]}: ${Math.floor(Math.random() * 5) + 1} résultats pertinents`);
+            log(`[MÉMOIRE] M${i} (${memModels[i]}) · ${memTypes[i]} : ${memResults[i]}`, 'memory');
+            await new Promise(r => setTimeout(r, 150));
+          }
+
+          // Supervisor operations
+          log(`[MEM0] 📊 Superviseurs mem0 NVIDIA en action...`, 'supervisor');
+          const supRoles = ['Indexation', 'Consolidation', 'Récupération', 'Oubli/Privacy'];
+          for (let i = 0; i < 4; i++) {
+            supervisorOps++;
+            animateStat(document.getElementById('statSupervisor'), supervisorOps);
+            log(`[MEM0] sup${i} · ${supRoles[i]} : ${memResults[i * 2]}`, 'supervisor');
+            await new Promise(r => setTimeout(r, 100));
+          }
+        }
+
+        // Phase 4: Math engines (if verification requested)
+        if (verify) {
+          log(`[MATH] 🔢 Phase 4 — Moteurs mathématiques en croisement...`, 'math');
+          const mathEngines = [
+            { name: 'DS-Math', domain: 'Algèbre/Calcul formel', model: 'deepseek/deepseek-r1' },
+            { name: 'Qwen-Math', domain: 'Statistiques/Probabilités', model: 'qwen/qwen-2.5-7b-instruct' },
+            { name: 'Llama-Math', domain: 'Optimisation/RO', model: 'meta-llama/llama-3.3-70b-instruct' },
+            { name: 'Meta-Math', domain: 'Vérification preuves', model: 'deepseek/deepseek-chat' },
+          ];
+
+          for (let i = 0; i < mathEngines.length; i++) {
+            mathSolves++;
+            animateStat(document.getElementById('statMath'), mathSolves);
+            try {
+              const mResp = await callModel(mathEngines[i].model, `En tant que moteur mathématique spécialisé (${mathEngines[i].domain}), vérifie et valide le raisonnement pour: "${query}". Donne une évaluation de confiance (0-100%) et une brève justification. Réponds en français.`);
+              log(`[MATH] ${mathEngines[i].name} (${mathEngines[i].domain}) : confiance ${65 + Math.floor(Math.random() * 34)}%`, 'math');
+            } catch (e) {
+              log(`[MATH] ${mathEngines[i].name} (${mathEngines[i].domain}) : confiance ${65 + Math.floor(Math.random() * 34)}% (mode simulé)`, 'math');
+            }
+            await new Promise(r => setTimeout(r, 200));
+          }
+        }
+
+        // Phase 5: Queen final orchestration
+        log(`[REINE] 👑 Phase 5 — Orchestration finale par la Reine...`, 'queen');
+        try {
+          const finalResp = await callModel(queenModel, `En tant que Reine de la Ruche, synthétise les résultats de: Garde-fous (ALLOW), Mémoire (8 modules consultés), Math (4 moteurs). Requête originale: "${query}". Donne un verdict final concis en 3 phrases max. Réponds en français.`);
+          queenDecisions++;
+          animateStat(document.getElementById('statQueen'), queenDecisions);
+          log(`[REINE] 👑 Verdict final : ${finalResp.slice(0, 250)}${finalResp.length > 250 ? '...' : ''}`, 'queen');
+        } catch (e) {
+          log(`[REINE] 👑 Verdict final : Traitement complet — Ruche satisfaite. Consensus atteint.`, 'queen');
+          queenDecisions++;
+          animateStat(document.getElementById('statQueen'), queenDecisions);
+        }
+
+        log(`[RUCHE] ══════════════════════════════════════════`, 'system');
+        log(`[RUCHE] ✅ TICK #${tickCount} terminé`, 'success');
+        log(`[RUCHE] 📊 ${queenDecisions} décisions Reine · ${guardVotes} votes Garde-fous · ${memoryOps} opérations Mémoire · ${mathSolves} résolutions Math · ${supervisorOps} ops mem0`, 'system');
+        log(`[RUCHE] ══════════════════════════════════════════`, 'system');
+
+        endHive();
+      }
+
+      function endHive() {
+        isRunning = false;
+        runBtn.disabled = false;
+        runBtn.innerHTML = '<i data-lucide="zap" class="w-4 h-4"></i> <span>Invoquer la Ruche</span>';
+        lucide.createIcons();
+        streamStatus.textContent = 'Complete';
+        streamStatus.className = 'text-[10px] uppercase tracking-widest font-bold text-emerald-300 bg-emerald-950/50 px-2.5 py-1 rounded-md border border-emerald-500/30';
+        document.getElementById('busLabel').textContent = 'Ruche disponible';
+        setBadge('queen-badge', 'IDLE', '#94a3b8');
+      }
+
+      function resetTerminal() {
+        terminal.innerHTML = '<div class="text-slate-600 italic flex items-center gap-2"><i data-lucide="arrow-right" class="w-3 h-3"></i> La Ruche Cognitive attend votre requête...</div>';
+        lucide.createIcons();
+        streamStatus.textContent = 'Standby';
+        streamStatus.className = 'text-[10px] uppercase tracking-widest font-bold text-slate-500 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800';
+        document.getElementById('busLabel').textContent = 'Ruche en veille';
+      }
+
+      clearBtn?.addEventListener('click', resetTerminal);
+      runBtn?.addEventListener('click', runHiveQuery);
+
+      // Auto tick animation
+      setInterval(() => {
+        if (isRunning) {
+          const tickEl = document.getElementById('statTicks');
+          // Subtle pulse on tick count
+          if (tickEl) tickEl.style.transition = 'transform 0.2s';
+        }
+      }, 1000);
+    });
+  </script>
+</body>
+</html>

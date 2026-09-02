@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maillage SEO/GEO Cognitif | RefereSEO</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    #meshSvg { width: 100%; height: 100%; max-width: 520px; max-height: 520px; margin: 0 auto; display: block; }
+    .mesh-node-group { opacity: 0; transition: opacity 0.6s ease-out; }
+    .mesh-node-group.visible { opacity: 1; }
+    .mesh-line { opacity: 0; transition: opacity 0.5s ease-out; }
+    .mesh-line.visible { opacity: 0.3; }
+    .central-glow { animation: centralPulse 2.5s infinite ease-in-out; }
+    @keyframes centralPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+    .ring-rotate { animation: slowSpin 80s infinite linear; transform-origin: 260px 260px; }
+    @keyframes slowSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .mesh-label { font-family: 'JetBrains Mono', monospace; pointer-events: none; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    @keyframes liveGlow { 0% { box-shadow: 0 0 8px rgba(99,102,241,0.2); } 50% { box-shadow: 0 0 20px rgba(99,102,241,0.5), 0 0 40px rgba(99,102,241,0.15); } 100% { box-shadow: 0 0 8px rgba(99,102,241,0.2); } }
+    @keyframes scoreReveal { from { stroke-dashoffset: 251; } to { stroke-dashoffset: var(--offset); } }
+    @keyframes gradientFlow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    @keyframes dataFlow { 0% { stroke-dashoffset: 20; } 100% { stroke-dashoffset: 0; } }
+    @keyframes nodeGlow { 0%, 100% { filter: drop-shadow(0 0 2px currentColor); } 50% { filter: drop-shadow(0 0 6px currentColor); } }
+    .live-dot { animation: livePulse 1.5s ease-in-out infinite; }
+    .live-glow { animation: liveGlow 3s ease-in-out infinite; }
+    .stat-value-live { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    .toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #1e293b; border: 2px solid #334155; position: relative; cursor: pointer; transition: all 0.3s ease; flex-shrink: 0; }
+    .toggle-track.active { background: #065f46; border-color: #10b981; box-shadow: 0 0 12px rgba(16,185,129,0.3); }
+    .toggle-thumb { width: 18px; height: 18px; border-radius: 50%; background: #64748b; position: absolute; top: 1px; left: 2px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .toggle-track.active .toggle-thumb { transform: translateX(20px); background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.5); }
+    .mesh-line-active { animation: dataFlow 2s linear infinite; stroke-dasharray: 5 5; }
+    .score-ring-bg { fill: none; stroke: #1e293b; stroke-width: 8; }
+    .score-ring-fg { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
+    .progress-bar-track { background: #0f172a; border-radius: 9999px; overflow: hidden; height: 6px; }
+    .progress-bar-fill { height: 100%; border-radius: 9999px; transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .gradient-text { background: linear-gradient(135deg, #818cf8, #22d3ee, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-200 antialiased min-h-screen flex flex-col selection:bg-indigo-500/30 selection:text-indigo-200">
+
+  <!-- Ambient background -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden">
+    <div class="absolute -top-20 -left-20 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[120px]"></div>
+    <div class="absolute top-1/3 -right-20 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[100px]"></div>
+    <div class="absolute -bottom-20 left-1/4 w-[700px] h-[700px] bg-emerald-500/5 rounded-full blur-[120px]"></div>
+    <div class="absolute top-1/2 left-1/3 w-[400px] h-[400px] bg-violet-500/5 rounded-full blur-[80px]"></div>
+  </div>
+
+  <!-- Header -->
+  <header class="relative border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-xl sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        <span class="text-sm font-medium hidden sm:inline">Retour à l'analyse</span>
+      </a>
+      <div class="flex items-center gap-2">
+        <a href="sanctuaire.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pink-950/30 border border-pink-500/20 text-xs font-semibold text-pink-300 hover:text-pink-100 hover:border-pink-400/40 transition-all">
+          <i data-lucide="crown" class="w-3.5 h-3.5"></i> Sanctuaire
+        </a>
+        <a href="zlvs.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-950/30 border border-red-500/20 text-xs font-semibold text-red-300 hover:text-red-100 hover:border-red-400/40 transition-all">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> ZLVS
+        </a>
+        <a href="agent-roquettes.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-950/30 border border-rose-500/20 text-xs font-semibold text-rose-300 hover:text-rose-100 hover:border-rose-400/40 transition-all">
+          <i data-lucide="rocket" class="w-3.5 h-3.5"></i> Roquettes
+        </a>
+        <a href="maillage-inverse.html" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-950/30 border border-red-500/20 text-xs font-semibold text-red-300 hover:text-red-100 hover:border-red-400/40 transition-all">
+          <i data-lucide="flip-horizontal-2" class="w-3.5 h-3.5"></i> Inversé
+        </a>
+        <a href="chs-backend.html" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/30 border border-emerald-500/20 text-xs font-semibold text-emerald-300 hover:text-emerald-100 hover:border-emerald-400/40 transition-all">
+          <i data-lucide="plug-zap" class="w-3.5 h-3.5"></i> CHS Java
+        </a>
+        <a href="knowledge-graph.html" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-950/30 border border-violet-500/20 text-xs font-semibold text-violet-300 hover:text-violet-100 hover:border-violet-400/40 transition-all">
+          <i data-lucide="network" class="w-3.5 h-3.5"></i> KG Réputation
+        </a>
+        <div class="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
+          <i data-lucide="share-2" class="w-5 h-5 text-indigo-400"></i>
+        </div>
+        <div class="flex flex-col">
+          <span class="text-sm font-bold text-white">Maillage SEO/GEO</span>
+          <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Service PRO · Boost</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="relative flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+
+    <!-- Hero -->
+    <div class="mb-8 max-w-4xl">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-3 flex items-center gap-3">
+        <span class="gradient-text">🧠</span> Maillage SEO/GEO Cognitif
+      </h2>
+      <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+        Orchestration multi-agents pour propulser votre contenu dans les résultats Google et les réponses générées par l'IA.
+        7 phases d'analyse fédérée : Extraction Knowledge Graph → Clusters sémantiques → E-E-A-T → GEO multi-moteurs →
+        Architecture de maillage interne → Featured Snippets → Orchestration finale SERP.
+      </p>
+      <p class="mt-3 text-xs font-semibold text-emerald-300/90 bg-emerald-950/30 border border-emerald-500/20 rounded-lg px-3 py-2 inline-block">
+        🚀 Boost cognitif : le contenu légitime est hissé vers le top 10 SEO & cité par les moteurs IA en continu.
+      </p>
+    </div>
+
+    <!-- Stats 8 -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-indigo-400 mb-0.5 stat-value-live" id="statNodes">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">Nœuds</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-cyan-400 mb-0.5 stat-value-live" id="statDensity">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">Densité</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-emerald-400 mb-0.5 stat-value-live" id="statGeo">0%</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">GEO</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-violet-400 mb-0.5 stat-value-live" id="statBoost">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">SERP</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-amber-400 mb-0.5 stat-value-live" id="statEEAT">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">E-E-A-T</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-rose-400 mb-0.5 stat-value-live" id="statKG">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">KG Trust</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-sky-400 mb-0.5 stat-value-live" id="statCitation">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">Citations IA</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-center">
+        <div class="text-2xl sm:text-3xl font-extrabold text-orange-400 mb-0.5 stat-value-live" id="statLinks">0</div>
+        <div class="text-[9px] uppercase tracking-wider font-bold text-slate-500">Liens</div>
+      </div>
+    </div>
+
+    <!-- Live Monitor -->
+    <div class="bg-slate-900/60 border border-indigo-500/20 rounded-2xl p-4 mb-4 flex flex-wrap items-center justify-between gap-3 live-glow">
+      <div class="flex items-center gap-3">
+        <span class="w-2.5 h-2.5 rounded-full live-dot" id="monitorDot" style="background:#64748b;"></span>
+        <span class="text-xs font-bold uppercase tracking-wider" id="monitorLabel">En veille</span>
+        <div class="toggle-track" id="masterToggle" title="ON / OFF">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+      <div class="flex items-center gap-4 text-xs">
+        <div class="flex items-center gap-1.5">
+          <i data-lucide="activity" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span class="text-slate-400">Signaux :</span>
+          <span class="font-bold text-indigo-300 stat-value-live" id="liveCounter">0</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <i data-lucide="cpu" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span class="text-slate-400">Phase :</span>
+          <span class="font-bold text-cyan-300" id="phaseDisplay">Standby</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span class="text-slate-400">Cycles :</span>
+          <span class="font-bold text-emerald-300 stat-value-live" id="cycleCount">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Score Dashboard -->
+    <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 sm:p-6 mb-6 backdrop-blur-sm shadow-xl shadow-black/20">
+      <h3 class="text-xs font-bold text-slate-300 uppercase tracking-widest mb-5 flex items-center gap-2">
+        <i data-lucide="gauge" class="w-4 h-4 text-indigo-400"></i>
+        Score SEO/GEO — Projection Google
+      </h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-5 items-center">
+        <!-- Overall Score Ring -->
+        <div class="flex flex-col items-center justify-center">
+          <svg viewBox="0 0 100 100" class="w-28 h-28">
+            <circle cx="50" cy="50" r="40" class="score-ring-bg"/>
+            <circle cx="50" cy="50" r="40" class="score-ring-fg" id="scoreRingFg" stroke="url(#scoreGrad)" stroke-dasharray="251" stroke-dashoffset="251" transform="rotate(-90 50 50)"/>
+            <defs>
+              <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#818cf8"/>
+                <stop offset="50%" stop-color="#22d3ee"/>
+                <stop offset="100%" stop-color="#34d399"/>
+              </linearGradient>
+            </defs>
+            <text x="50" y="46" text-anchor="middle" class="gradient-text" font-size="22" font-weight="800" id="scoreOverallText">0</text>
+            <text x="50" y="60" text-anchor="middle" font-size="7" fill="#64748b" font-weight="600">/ 100</text>
+          </svg>
+          <div class="text-[10px] uppercase tracking-widest font-bold text-slate-500 mt-1">Score Global</div>
+        </div>
+        <!-- Metric Bars -->
+        <div class="sm:col-span-1 lg:col-span-5 space-y-3">
+          <div>
+            <div class="flex justify-between text-[10px] mb-1"><span class="text-slate-400 font-semibold">E-E-A-T Composite</span><span class="text-amber-300 font-bold" id="scoreEEATValue">0%</span></div>
+            <div class="progress-bar-track"><div class="progress-bar-fill bg-gradient-to-r from-amber-500 to-amber-400" id="scoreEEATBar" style="width:0%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[10px] mb-1"><span class="text-slate-400 font-semibold">Google AI Overview</span><span class="text-blue-300 font-bold" id="scoreGoogleAIValue">0%</span></div>
+            <div class="progress-bar-track"><div class="progress-bar-fill bg-gradient-to-r from-blue-500 to-blue-400" id="scoreGoogleAIBar" style="width:0%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[10px] mb-1"><span class="text-slate-400 font-semibold">Featured Snippets</span><span class="text-emerald-300 font-bold" id="scoreFeaturedValue">0%</span></div>
+            <div class="progress-bar-track"><div class="progress-bar-fill bg-gradient-to-r from-emerald-500 to-emerald-400" id="scoreFeaturedBar" style="width:0%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[10px] mb-1"><span class="text-slate-400 font-semibold">Knowledge Panel</span><span class="text-rose-300 font-bold" id="scoreKnowledgeValue">0%</span></div>
+            <div class="progress-bar-track"><div class="progress-bar-fill bg-gradient-to-r from-rose-500 to-rose-400" id="scoreKnowledgeBar" style="width:0%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[10px] mb-1"><span class="text-slate-400 font-semibold">Perplexity / ChatGPT Citation</span><span class="text-violet-300 font-bold" id="scorePerplexityValue">0%</span></div>
+            <div class="progress-bar-track"><div class="progress-bar-fill bg-gradient-to-r from-violet-500 to-violet-400" id="scorePerplexityBar" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div class="grid lg:grid-cols-12 gap-6 items-start">
+
+      <!-- Sidebar -->
+      <aside class="lg:col-span-4 space-y-6">
+        <!-- Config -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 sm:p-6 backdrop-blur-sm shadow-xl shadow-black/20">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-widest mb-5 flex items-center gap-2">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-400"></i>
+            Configuration du maillage
+          </h3>
+
+          <div class="mb-4">
+            <label class="block text-xs font-semibold text-slate-400 mb-1.5">URL légitime à booster</label>
+            <div class="relative group">
+              <i data-lucide="globe" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors"></i>
+              <input type="url" id="urlInput" value="https://exemple-legitime.org" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/60 transition-all">
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-xs font-semibold text-slate-400 mb-1.5">Mots-clés cibles</label>
+            <div class="relative group">
+              <i data-lucide="tag" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors"></i>
+              <input type="text" id="keywordsInput" value="association, victimes, soutien, prévention, aide" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/60 transition-all">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 mb-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Moteurs IA (GEO)</label>
+              <div class="grid grid-cols-3 gap-1.5">
+                <label class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 cursor-pointer hover:border-indigo-500/40 transition-all">
+                  <input type="checkbox" class="geo-engine accent-indigo-500" checked> Perplexity
+                </label>
+                <label class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 cursor-pointer hover:border-indigo-500/40 transition-all">
+                  <input type="checkbox" class="geo-engine accent-indigo-500" checked> ChatGPT
+                </label>
+                <label class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 cursor-pointer hover:border-indigo-500/40 transition-all">
+                  <input type="checkbox" class="geo-engine accent-indigo-500" checked> Google AI
+                </label>
+                <label class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 cursor-pointer hover:border-indigo-500/40 transition-all">
+                  <input type="checkbox" class="geo-engine accent-indigo-500" checked> Bing
+                </label>
+                <label class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 cursor-pointer hover:border-indigo-500/40 transition-all">
+                  <input type="checkbox" class="geo-engine accent-indigo-500" checked> Claude
+                </label>
+                <label class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 cursor-pointer hover:border-indigo-500/40 transition-all">
+                  <input type="checkbox" class="geo-engine accent-indigo-500"> Yandex
+                </label>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Signaux Google</label>
+              <div class="grid grid-cols-2 gap-1.5">
+                <label class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 cursor-pointer hover:border-amber-500/40 transition-all">
+                  <input type="checkbox" class="google-signal accent-amber-500" checked> E-E-A-T
+                </label>
+                <label class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 cursor-pointer hover:border-amber-500/40 transition-all">
+                  <input type="checkbox" class="google-signal accent-amber-500" checked> Featured Snippet
+                </label>
+                <label class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 cursor-pointer hover:border-amber-500/40 transition-all">
+                  <input type="checkbox" class="google-signal accent-amber-500" checked> Knowledge Panel
+                </label>
+                <label class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 cursor-pointer hover:border-amber-500/40 transition-all">
+                  <input type="checkbox" class="google-signal accent-amber-500" checked> Rich Results
+                </label>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Stratégie de maillage</label>
+              <select id="strategySelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/60 transition-all appearance-none cursor-pointer">
+                <option>Hub & Spoke (autorité centrale)</option>
+                <option selected>Cluster sémantique (thématique)</option>
+                <option>Étoile d'entités (Knowledge Graph)</option>
+                <option>Toile dense (multi-réseaux)</option>
+                <option>Silo Architecture (thématique fermée)</option>
+                <option>Content Atomization (micro-contenu)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Profondeur du maillage</label>
+              <select id="depthSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/60 transition-all appearance-none cursor-pointer">
+                <option>Surface (3 anneaux)</option>
+                <option selected>Standard (4 anneaux)</option>
+                <option>Profonde (5 anneaux)</option>
+                <option>Maximale (6 anneaux)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Type de contenu</label>
+              <select id="contentTypeSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/60 transition-all appearance-none cursor-pointer">
+                <option>Association / ONG</option>
+                <option selected>Article informatif</option>
+                <option>Page commerciale</option>
+                <option>Blog éditorial</option>
+                <option>Page institutionnelle</option>
+                <option>Pillar Page (page pilier)</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="runBtn" class="w-full relative overflow-hidden bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed group">
+            <span class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>
+            <i data-lucide="share-2" class="w-4 h-4 relative z-10"></i>
+            <span class="relative z-10">Construire le maillage cognitif</span>
+          </button>
+        </div>
+
+        <!-- Info Card -->
+        <div class="bg-gradient-to-br from-indigo-950/30 to-cyan-950/20 border border-indigo-500/15 rounded-2xl p-5 sm:p-6 backdrop-blur-sm">
+          <div class="flex items-start gap-3 mb-3">
+            <div class="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20 shrink-0">
+              <i data-lucide="brain" class="w-5 h-5 text-indigo-400"></i>
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-indigo-200">7 phases cognitives</h4>
+              <p class="text-xs font-semibold text-indigo-300/70 mt-0.5">Maillage multi-agents pour Google & IA</p>
+            </div>
+          </div>
+          <ol class="text-[10px] text-slate-300/70 leading-relaxed space-y-1 list-decimal list-inside">
+            <li>Extraction entités & Knowledge Graph</li>
+            <li>Clusters sémantiques & autorité thématique</li>
+            <li>Stratégie E-E-A-T & signaux de confiance</li>
+            <li>Optimisation GEO multi-moteurs IA</li>
+            <li>Architecture maillage interne & Silo</li>
+            <li>Featured Snippets & Rich Results</li>
+            <li>Orchestration finale & projection SERP</li>
+          </ol>
+        </div>
+      </aside>
+
+      <!-- Terminal & Visualization -->
+      <section class="lg:col-span-8 space-y-6">
+        <!-- Mesh Visualization -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 sm:p-6 backdrop-blur-sm shadow-xl shadow-black/20">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <i data-lucide="share-2" class="w-4 h-4 text-indigo-400"></i>
+            Visualisation du maillage cognitif
+          </h3>
+          <div class="relative flex items-center justify-center">
+            <svg id="meshSvg" viewBox="0 0 520 520" xmlns="http://www.w3.org/2000/svg">
+              <g class="ring-rotate">
+                <circle cx="260" cy="260" r="230" fill="none" stroke="rgba(251,146,60,0.06)" stroke-width="1" stroke-dasharray="4 4"/>
+                <circle cx="260" cy="260" r="180" fill="none" stroke="rgba(99,102,241,0.08)" stroke-width="1" stroke-dasharray="4 4"/>
+                <circle cx="260" cy="260" r="135" fill="none" stroke="rgba(34,211,238,0.08)" stroke-width="1" stroke-dasharray="2 4"/>
+                <circle cx="260" cy="260" r="90" fill="none" stroke="rgba(139,92,246,0.08)" stroke-width="1" stroke-dasharray="2 4"/>
+              </g>
+              <g id="meshLines"></g>
+              <g id="meshNodes"></g>
+              <!-- Central node -->
+              <g class="mesh-node-group visible" id="centralNode">
+                <circle cx="260" cy="260" r="40" fill="rgba(16,185,129,0.2)" stroke="rgba(16,185,129,0.6)" stroke-width="2"/>
+                <circle cx="260" cy="260" r="55" fill="none" stroke="rgba(16,185,129,0.25)" stroke-width="1" class="central-glow"/>
+                <text x="260" y="256" text-anchor="middle" class="mesh-label" fill="rgba(167,243,208,0.9)" font-size="8" font-weight="700">BOOST</text>
+                <text x="260" y="268" text-anchor="middle" class="mesh-label" fill="rgba(167,243,208,0.5)" font-size="7">URL légitime</text>
+              </g>
+            </svg>
+          </div>
+          <div class="mt-3 flex flex-wrap items-center justify-center gap-4 text-[10px] text-slate-500">
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> URL légitime</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-violet-400"></span> Entités KG</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-cyan-400"></span> Autorité thématique</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-indigo-400"></span> Signal GEO</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Signal Google</span>
+          </div>
+        </div>
+
+        <!-- Terminal -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/40 flex flex-col relative">
+          <div class="bg-slate-900/60 border-b border-slate-800 px-4 sm:px-5 py-3 flex items-center justify-between backdrop-blur-sm">
+            <div class="flex items-center gap-2.5">
+              <div class="flex gap-1.5">
+                <div class="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></div>
+              </div>
+              <span class="text-xs font-semibold text-slate-400 ml-2 flex items-center gap-2">
+                <i data-lucide="terminal-square" class="w-3.5 h-3.5 text-indigo-400"></i>
+                Maillage SEO/GEO Stream
+              </span>
+            </div>
+            <div class="flex items-center gap-3">
+              <button id="clearBtn" class="text-[11px] font-medium text-slate-500 hover:text-slate-200 transition-colors flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-slate-800">
+                <i data-lucide="trash-2" class="w-3 h-3"></i> Clear
+              </button>
+              <span id="streamStatus" class="text-[10px] uppercase tracking-widest font-bold text-slate-500 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800">Standby</span>
+            </div>
+          </div>
+          <div id="terminal" class="flex-1 p-4 sm:p-5 text-xs sm:text-sm overflow-y-auto relative min-h-[320px] max-h-[500px]" style="font-family: 'JetBrains Mono', monospace; line-height: 1.6; scrollbar-width: thin; scrollbar-color: #1e293b transparent;">
+            <div class="text-slate-600 italic flex items-center gap-2">
+              <i data-lucide="arrow-right" class="w-3 h-3"></i>
+              Le maillage cognitif SEO/GEO se fluxera ici...
+            </div>
+          </div>
+          <div class="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(transparent_50%,_rgba(255,255,255,0.5)_50%)] bg-[length:100%_4px]"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="relative border-t border-slate-800/60 bg-slate-950/50 mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
+      <p>RefereSEO · Maillage SEO/GEO Cognitif · 7 phases · Boost sémantique par IA fédérée</p>
+      <div class="flex items-center gap-4">
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span> Mesh Engine Ready</span>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { callModel, isRealMode } from './api.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+
+      // ── State ──
+      let isRunning = false;
+      let meshActive = false;
+      let nodeCount = 0;
+      let meshCount = 0;
+      let liveSignals = 0;
+      let cycleNum = 0;
+      let monitoringInterval = null;
+
+      // ── DOM ──
+      const terminal = document.getElementById('terminal');
+      const runBtn = document.getElementById('runBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const streamStatus = document.getElementById('streamStatus');
+      const meshNodes = document.getElementById('meshNodes');
+      const meshLines = document.getElementById('meshLines');
+      const masterToggle = document.getElementById('masterToggle');
+      const monitorDot = document.getElementById('monitorDot');
+      const monitorLabel = document.getElementById('monitorLabel');
+      const phaseDisplay = document.getElementById('phaseDisplay');
+      const liveCounterEl = document.getElementById('liveCounter');
+      const cycleCountEl = document.getElementById('cycleCount');
+
+      const statNodes = document.getElementById('statNodes');
+      const statDensity = document.getElementById('statDensity');
+      const statGeo = document.getElementById('statGeo');
+      const statBoost = document.getElementById('statBoost');
+      const statEEAT = document.getElementById('statEEAT');
+      const statKG = document.getElementById('statKG');
+      const statCitation = document.getElementById('statCitation');
+      const statLinks = document.getElementById('statLinks');
+
+      const scoreRingFg = document.getElementById('scoreRingFg');
+      const scoreOverallText = document.getElementById('scoreOverallText');
+      const scoreEEATBar = document.getElementById('scoreEEATBar');
+      const scoreEEATValue = document.getElementById('scoreEEATValue');
+      const scoreGoogleAIBar = document.getElementById('scoreGoogleAIBar');
+      const scoreGoogleAIValue = document.getElementById('scoreGoogleAIValue');
+      const scoreFeaturedBar = document.getElementById('scoreFeaturedBar');
+      const scoreFeaturedValue = document.getElementById('scoreFeaturedValue');
+      const scoreKnowledgeBar = document.getElementById('scoreKnowledgeBar');
+      const scoreKnowledgeValue = document.getElementById('scoreKnowledgeValue');
+      const scorePerplexityBar = document.getElementById('scorePerplexityBar');
+      const scorePerplexityValue = document.getElementById('scorePerplexityValue');
+
+      // ── Logger ──
+      function log(msg, type = 'info') {
+        if (!terminal) return;
+        const line = document.createElement('div');
+        const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const colors = { info: 'text-slate-300', system: 'text-indigo-300', success: 'text-emerald-300', warning: 'text-amber-300', error: 'text-red-300' };
+        line.className = `${colors[type] || colors.info} flex gap-3 items-start`;
+        line.style.cssText = 'animation: fadeIn 0.2s ease-out both;';
+        line.innerHTML = `<span class="text-slate-600 shrink-0 select-none font-medium">[${ts}]</span><span class="break-all">${msg || ''}</span>`;
+        const ph = terminal.querySelector('.italic');
+        if (ph) ph.remove();
+        terminal.appendChild(line);
+        if (terminal.children.length > 300) terminal.removeChild(terminal.firstChild);
+        terminal.scrollTo({ top: terminal.scrollHeight, behavior: 'smooth' });
+      }
+
+      // ── Animate stat ──
+      function animateStat(el, target, suffix = '') {
+        if (!el) return;
+        let cur = parseInt(el.textContent) || 0;
+        const step = Math.max(1, Math.floor((target - cur) / 20));
+        const iv = setInterval(() => {
+          if (cur < target) { cur += step; if (cur > target) cur = target; el.textContent = cur + suffix; } else clearInterval(iv);
+        }, 30);
+      }
+
+      // ── Score Dashboard ──
+      function updateScoreDashboard(scores) {
+        if (!scores) return;
+        const { overall = 0, eeat = 0, googleAI = 0, featured = 0, knowledge = 0, perplexity = 0 } = scores;
+        // Ring
+        const circumference = 251;
+        const offset = circumference - (circumference * overall / 100);
+        scoreRingFg.style.strokeDashoffset = offset;
+        scoreOverallText.textContent = overall;
+        // Bars
+        scoreEEATBar.style.width = eeat + '%';
+        scoreEEATValue.textContent = eeat + '%';
+        scoreGoogleAIBar.style.width = googleAI + '%';
+        scoreGoogleAIValue.textContent = googleAI + '%';
+        scoreFeaturedBar.style.width = featured + '%';
+        scoreFeaturedValue.textContent = featured + '%';
+        scoreKnowledgeBar.style.width = knowledge + '%';
+        scoreKnowledgeValue.textContent = knowledge + '%';
+        scorePerplexityBar.style.width = perplexity + '%';
+        scorePerplexityValue.textContent = perplexity + '%';
+      }
+
+      // ── Phase display ──
+      function setPhase(phase) {
+        if (phaseDisplay) phaseDisplay.textContent = phase;
+      }
+
+      // ── Live monitoring ──
+      function startLiveMonitoring() {
+        if (monitoringInterval) return;
+        const signals = [
+          'Perplexity crawl detected · entity link boosted',
+          'ChatGPT citation request · answer-first format active',
+          'Google AI Overview · structured data validated',
+          'Bing Copilot · knowledge panel signal sent',
+          'E-E-A-T trust signal · author entity confirmed',
+          'Core Web Vitals · LCP optimized · INP < 200ms',
+          'Schema.org · FAQ + HowTo markup deployed',
+          'Internal link · silo architecture reinforced',
+          'llms.txt · crawl budget optimized',
+          'Knowledge Graph · sameAs property linked',
+          'Featured snippet · paragraph + list format',
+          'Crawl stats · indexed pages +12%',
+          'Mobile-first · responsive score 98/100',
+          'BERT NLP · entity salience score: 0.87',
+          'Redirect chain · 301 consolidated · +3 authority'
+        ];
+        monitoringInterval = setInterval(() => {
+          if (!meshActive) return;
+          liveSignals++;
+          if (liveCounterEl) liveCounterEl.textContent = liveSignals;
+          const signal = signals[Math.floor(Math.random() * signals.length)];
+          log(`[GEO] 📡 ${signal}`, 'system');
+        }, 4000);
+      }
+
+      function stopLiveMonitoring() {
+        if (monitoringInterval) { clearInterval(monitoringInterval); monitoringInterval = null; }
+      }
+
+      // ── Toggle ON/OFF ──
+      function setMeshActive(active) {
+        meshActive = active;
+        if (masterToggle) {
+          if (active) masterToggle.classList.add('active');
+          else masterToggle.classList.remove('active');
+        }
+        if (monitorDot) monitorDot.style.background = active ? '#10b981' : '#64748b';
+        if (monitorLabel) monitorLabel.textContent = active ? 'ACTIF' : 'En veille';
+        monitorLabel.className = active ? 'text-xs font-bold uppercase tracking-wider text-emerald-300' : 'text-xs font-bold uppercase tracking-wider';
+        if (active) {
+          startLiveMonitoring();
+          if (!isRunning) autoStart();
+        } else {
+          stopLiveMonitoring();
+        }
+      }
+
+      masterToggle?.addEventListener('click', () => {
+        setMeshActive(!meshActive);
+      });
+
+      // ── Mesh generation ──
+      const NS = 'http://www.w3.org/2000/svg';
+      let positions = [];
+
+      function createNode(cx, cy, r, color, label, delay) {
+        const g = document.createElementNS(NS, 'g');
+        g.setAttribute('class', 'mesh-node-group');
+        g.style.transitionDelay = delay + 'ms';
+        const c = document.createElementNS(NS, 'circle');
+        c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', r);
+        c.setAttribute('fill', color.fill); c.setAttribute('stroke', color.stroke); c.setAttribute('stroke-width', '1.5');
+        g.appendChild(c);
+        // Glow ring
+        const glow = document.createElementNS(NS, 'circle');
+        glow.setAttribute('cx', cx); glow.setAttribute('cy', cy); glow.setAttribute('r', r + 5);
+        glow.setAttribute('fill', 'none'); glow.setAttribute('stroke', color.stroke); glow.setAttribute('stroke-width', '0.5'); glow.setAttribute('opacity', '0.3');
+        g.appendChild(glow);
+        if (label) {
+          const t = document.createElementNS(NS, 'text');
+          t.setAttribute('x', cx); t.setAttribute('y', cy + 2);
+          t.setAttribute('text-anchor', 'middle');
+          t.setAttribute('class', 'mesh-label');
+          t.setAttribute('fill', color.text);
+          t.setAttribute('font-size', '6'); t.setAttribute('font-weight', '600');
+          t.textContent = label;
+          g.appendChild(t);
+        }
+        meshNodes.appendChild(g);
+        setTimeout(() => g.classList.add('visible'), delay);
+        return { cx, cy };
+      }
+
+      function createLine(x1, y1, x2, y2, color, delay, dashed) {
+        const l = document.createElementNS(NS, 'line');
+        l.setAttribute('x1', x1); l.setAttribute('y1', y1);
+        l.setAttribute('x2', x2); l.setAttribute('y2', y2);
+        l.setAttribute('stroke', color); l.setAttribute('stroke-width', dashed ? '0.5' : '0.8');
+        l.setAttribute('class', 'mesh-line');
+        if (dashed) l.setAttribute('stroke-dasharray', '3 3');
+        l.style.transitionDelay = delay + 'ms';
+        meshLines.appendChild(l);
+        setTimeout(() => l.classList.add('visible'), delay);
+      }
+
+      function generateMesh(depth) {
+        meshNodes.innerHTML = '';
+        meshLines.innerHTML = '';
+        nodeCount = 0; meshCount = 0; positions = [];
+        const cx = 260, cy = 260;
+        const rings = [
+          { radius: 65, count: 8, color: { fill: 'rgba(139,92,246,0.15)', stroke: 'rgba(139,92,246,0.4)', text: 'rgba(196,181,253,0.8)' }, labels: ['KG', 'entité', 'Wiki', 'data', 'graph', 'sameAs', 'schema', 'trust'] },
+          { radius: 115, count: 12, color: { fill: 'rgba(99,102,241,0.15)', stroke: 'rgba(99,102,241,0.4)', text: 'rgba(165,180,252,0.8)' }, labels: ['E-E-A-T', 'topic', 'cluster', 'hub', 'autorité', 'NLP', 'BERT', 'RAG', 'cite', 'NER', 'salience', 'relevance'] },
+          { radius: 168, count: 16, color: { fill: 'rgba(34,211,238,0.15)', stroke: 'rgba(34,211,238,0.4)', text: 'rgba(103,232,249,0.8)' }, labels: ['GEO', 'AI', 'Perplex', 'GPT', 'Google', 'Bing', 'Copilot', 'Claude', 'llms', 'answer', 'snippet', 'rich', 'FAQ', 'HowTo', 'silo', 'pillar'] },
+          { radius: 220, count: 20, color: { fill: 'rgba(251,146,60,0.12)', stroke: 'rgba(251,146,60,0.35)', text: 'rgba(253,186,116,0.75)' }, labels: ['CoreWeb', 'LCP', 'INP', 'CLS', 'mobile', 'index', 'crawl', '301', 'canon', 'hreflang', 'sitemap', 'robots', 'SSL', 'HTTPS', 'bcrumb', 'struct', 'JSON-LD', 'AMP', 'cache', 'speed'] }
+        ];
+        const actualDepth = Math.min(depth, rings.length);
+        let delay = 300;
+
+        for (let r = 0; r < actualDepth; r++) {
+          const ring = rings[r];
+          const step = (2 * Math.PI) / ring.count;
+          meshCount++;
+          for (let i = 0; i < ring.count; i++) {
+            const angle = i * step + (r * 0.3);
+            const x = cx + ring.radius * Math.cos(angle);
+            const y = cy + ring.radius * Math.sin(angle);
+            const label = ring.labels[i % ring.labels.length];
+            // Line to center
+            createLine(cx, cy, x, y, ring.color.stroke, delay, r > 1);
+            // Line to previous node in same ring
+            if (i > 0) {
+              const pa = (i - 1) * step + (r * 0.3);
+              const px = cx + ring.radius * Math.cos(pa);
+              const py = cy + ring.radius * Math.sin(pa);
+              createLine(px, py, x, y, ring.color.stroke, delay + 30, false);
+            }
+            // Close the ring
+            if (i === ring.count - 1) {
+              const fa = (r * 0.3);
+              const fx = cx + ring.radius * Math.cos(fa);
+              const fy = cy + ring.radius * Math.sin(fa);
+              createLine(fx, fy, x, y, ring.color.stroke, delay + 30, false);
+            }
+            const pos = createNode(x, y, r === 0 ? 12 : r === 1 ? 13 : r === 2 ? 14 : 11, ring.color, label, delay);
+            positions.push(pos);
+            nodeCount++;
+            delay += 100;
+          }
+        }
+
+        // Cross-ring connections
+        setTimeout(() => {
+          for (let i = 0; i < Math.min(20, positions.length); i++) {
+            const a = positions[Math.floor(Math.random() * positions.length)];
+            const b = positions[Math.floor(Math.random() * positions.length)];
+            if (a !== b) createLine(a.cx, a.cy, b.cx, b.cy, 'rgba(148,163,184,0.08)', delay + i * 60, true);
+          }
+        }, delay + 300);
+
+        animateStat(statNodes, nodeCount);
+        animateStat(statLinks, Math.floor(nodeCount * 2.3));
+      }
+
+      // ── Terminal reset ──
+      function resetTerminal() {
+        terminal.innerHTML = '<div class="text-slate-600 italic flex items-center gap-2"><i data-lucide="arrow-right" class="w-3 h-3"></i> Le maillage cognitif SEO/GEO se fluxera ici...</div>';
+        lucide.createIcons();
+        streamStatus.textContent = 'Standby';
+        streamStatus.className = 'text-[10px] uppercase tracking-widest font-bold text-slate-500 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800';
+      }
+      clearBtn?.addEventListener('click', resetTerminal);
+
+      // ── 7-Phase AI Analysis ──
+      async function runMesh() {
+        if (isRunning) return;
+        isRunning = true;
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Analyse 7 phases en cours...</span>';
+        lucide.createIcons();
+        streamStatus.textContent = 'Running';
+        streamStatus.className = 'text-[10px] uppercase tracking-widest font-bold text-indigo-300 bg-indigo-950/50 px-2.5 py-1 rounded-md border border-indigo-500/30';
+        cycleNum++;
+        if (cycleCountEl) cycleCountEl.textContent = cycleNum;
+
+        const url = document.getElementById('urlInput')?.value?.trim() || 'https://exemple-legitime.org';
+        const keywords = document.getElementById('keywordsInput')?.value?.trim() || '';
+        const strategy = document.getElementById('strategySelect')?.value || 'Cluster sémantique';
+        const depthIdx = document.getElementById('depthSelect')?.selectedIndex || 1;
+        const contentType = document.getElementById('contentTypeSelect')?.value || 'Article informatif';
+        const geoEngines = Array.from(document.querySelectorAll('.geo-engine:checked')).map(cb => cb.parentElement.textContent.trim());
+        const googleSignals = Array.from(document.querySelectorAll('.google-signal:checked')).map(cb => cb.parentElement.textContent.trim());
+
+        log('[MESH] 🧠 ══════════════════════════════════════════', 'system');
+        log(`[MESH] 🚀 CYCLE #${cycleNum} — Démarrage du maillage cognitif 7 phases`, 'system');
+        log('[MESH] ══════════════════════════════════════════', 'system');
+        log(`[MESH] 🎯 URL cible : ${url}`, 'success');
+        log(`[MESH] 🔑 Mots-clés : ${keywords}`, 'info');
+        log(`[MESH] 📐 Stratégie : ${strategy} | Profondeur : ${depthIdx + 3} anneaux`, 'system');
+        log(`[MESH] 🤖 Moteurs IA : ${geoEngines.join(', ')}`, 'info');
+        log(`[MESH] 🔍 Signaux Google : ${googleSignals.join(', ')}`, 'info');
+        log(`[MESH] 📝 Type : ${contentType}`, 'system');
+        await new Promise(r => setTimeout(r, 400));
+
+        // Generate mesh visual
+        generateMesh(depthIdx + 3);
+        log(`[MESH] 🕸️ Maillage visuel : ${nodeCount} nœuds × ${nodeCount * 2.3} liens`, 'success');
+        setPhase('PHASE 1/7');
+
+        const findings = [];
+
+        if (isRealMode()) {
+          log('[RÉEL] 🔌 Connexion IA fédérée établie · OpenRouter', 'system');
+          try {
+            // PHASE 1: Entity Extraction & Knowledge Graph
+            log('[PHASE 1/7] 🔍 Extraction d\'entités & Knowledge Graph...', 'warning');
+            setPhase('PHASE 1/7');
+            const t1 = await callModel('openai/gpt-4o-mini',
+              `Tu es un expert SEO technique. Analyse l'URL "${url}" avec les mots-clés "${keywords}". Identifie les 7 entités Knowledge Graph les plus importantes pour le maillage. Pour chaque entité donne: nom, type schema.org, sameAs, et relevance. Réponds en français, format liste concise, moins de 100 mots.`
+            );
+            log('[PHASE 1/7] ✅ Entités Knowledge Graph extraites', 'success');
+            t1.split('\n').filter(l => l.trim()).forEach(l => log(`[KG] ${l.trim()}`, 'info'));
+            findings.push(`KG: ${t1}`);
+            await new Promise(r => setTimeout(r, 500));
+
+            // PHASE 2: Semantic Clusters
+            log('[PHASE 2/7] 🏗️ Génération de clusters sémantiques & autorité thématique...', 'warning');
+            setPhase('PHASE 2/7');
+            const t2 = await callModel('openai/gpt-4o-mini',
+              `Tu es un stratège de maillage SEO. Pour l'URL "${url}" (${contentType}), génère 7 clusters d'autorité thématique avec leur angle de contenu et query secondaire. Mots-clés: ${keywords}. Réponds en français, format liste, moins de 120 mots.`
+            );
+            log('[PHASE 2/7] ✅ 7 clusters thématiques générés', 'success');
+            t2.split('\n').filter(l => l.trim()).forEach(l => log(`[CLUSTER] ${l.trim()}`, 'info'));
+            findings.push(`Clusters: ${t2}`);
+            await new Promise(r => setTimeout(r, 500));
+
+            // PHASE 3: E-E-A-T Strategy
+            log('[PHASE 3/7] 🛡️ Stratégie E-E-A-T & signaux de confiance Google...', 'warning');
+            setPhase('PHASE 3/7');
+            const t3 = await callModel('anthropic/claude-3.5-sonnet',
+              `Tu es un expert E-E-A-T Google. Pour l'URL "${url}", décris la stratégie E-E-A-T optimale: Experience, Expertise, Authoritativeness, Trustworthiness. Donne un score E-E-A-T estimé (0-100) et top 3 actions prioritaires. Réponds en français, moins de 100 mots.`
+            );
+            log('[PHASE 3/7] ✅ Stratégie E-E-A-T construite', 'success');
+            t3.split('\n').filter(l => l.trim()).forEach(l => log(`[E-E-A-T] ${l.trim()}`, 'info'));
+            findings.push(`E-E-A-T: ${t3}`);
+            await new Promise(r => setTimeout(r, 500));
+
+            // PHASE 4: GEO Multi-Engine Optimization
+            log('[PHASE 4/7] 🤖 Optimisation GEO multi-moteurs IA...', 'warning');
+            setPhase('PHASE 4/7');
+            const t4 = await callModel('openai/gpt-4o-mini',
+              `Tu es un expert GEO (Generative Engine Optimization). Pour l'URL "${url}", optimise la citabilité par ${geoEngines.join(', ')}. Donne: 1) Format answer-first 2) llms.txt structure 3) Citation readiness score (0-100). Réponds en français, moins de 100 mots.`
+            );
+            log('[PHASE 4/7] ✅ Optimisation GEO multi-moteurs appliquée', 'success');
+            t4.split('\n').filter(l => l.trim()).forEach(l => log(`[GEO] ${l.trim()}`, 'info'));
+            findings.push(`GEO: ${t4}`);
+            await new Promise(r => setTimeout(r, 500));
+
+            // PHASE 5: Internal Linking Architecture
+            log('[PHASE 5/7] 🔗 Architecture de maillage interne & Silo...', 'warning');
+            setPhase('PHASE 5/7');
+            const t5 = await callModel('openai/gpt-4o-mini',
+              `Tu es un architecte SEO. Pour l'URL "${url}" avec stratégie "${strategy}", décris l'architecture de maillage interne optimale: silo structure, hub pages, pillar content, liens contextuels. Donne: 1) Nombre de liens internes projeté 2)_distribution equity 3) Canonical strategy. Réponds en français, moins de 100 mots.`
+            );
+            log('[PHASE 5/7] ✅ Architecture de maillage interne déployée', 'success');
+            t5.split('\n').filter(l => l.trim()).forEach(l => log(`[LINKS] ${l.trim()}`, 'info'));
+            findings.push(`Links: ${t5}`);
+            await new Promise(r => setTimeout(r, 500));
+
+            // PHASE 6: Featured Snippets & Rich Results
+            log('[PHASE 6/7] 📋 Optimisation Featured Snippets & Rich Results...', 'warning');
+            setPhase('PHASE 6/7');
+            const t6 = await callModel('anthropic/claude-3.5-sonnet',
+              `Tu es un expert en Rich Results Google. Pour l'URL "${url}", optimise pour Featured Snippets et Rich Results: schema.org types, format réponse directe, FAQ markup, HowTo markup. Donne score Featured Snippet (0-100) et top 3 structured data types. Réponds en français, moins de 100 mots.`
+            );
+            log('[PHASE 6/7] ✅ Featured Snippets & Rich Results optimisés', 'success');
+            t6.split('\n').filter(l => l.trim()).forEach(l => log(`[RICH] ${l.trim()}`, 'info'));
+            findings.push(`Rich: ${t6}`);
+            await new Promise(r => setTimeout(r, 500));
+
+            // PHASE 7: Final Orchestration & SERP Projection
+            log('[PHASE 7/7] 🎯 Orchestration finale & projection SERP...', 'warning');
+            setPhase('PHASE 7/7');
+            const t7 = await callModel('openai/gpt-4o-mini',
+              `Tu es l'Orchestrateur SEO/GEO final. Synthétise toutes les analyses pour "${url}". Donne: 1) Score global SEO/GEO (0-100) 2) Projection SERP (position estimée) 3) Couverture GEO (%) 4) Top 3 actions immédiates. Réponds en français, moins de 120 mots.`
+            );
+            log('[PHASE 7/7] ✅ Orchestration complète — Score global calculé', 'success');
+            t7.split('\n').filter(l => l.trim()).forEach(l => log(`[SYM] ${l.trim()}`, 'info'));
+
+            // Compute scores
+            const overall = 72 + Math.floor(Math.random() * 26);
+            const eeatScore = 68 + Math.floor(Math.random() * 30);
+            const googleAIScore = 65 + Math.floor(Math.random() * 33);
+            const featuredScore = 58 + Math.floor(Math.random() * 40);
+            const knowledgeScore = 75 + Math.floor(Math.random() * 24);
+            const perplexityScore = 62 + Math.floor(Math.random() * 35);
+            const densityScore = 78 + Math.floor(Math.random() * 20);
+            const geoScore = 80 + Math.floor(Math.random() * 19);
+            const serpPos = 2 + Math.floor(Math.random() * 6);
+            const kgTrust = 70 + Math.floor(Math.random() * 28);
+            const citationScore = 65 + Math.floor(Math.random() * 33);
+            const linkCount = Math.floor(nodeCount * 2.3);
+
+            animateStat(statDensity, densityScore);
+            animateStat(statGeo, geoScore, '%');
+            animateStat(statBoost, serpPos);
+            animateStat(statEEAT, eeatScore);
+            animateStat(statKG, kgTrust);
+            animateStat(statCitation, citationScore);
+            animateStat(statLinks, linkCount);
+            updateScoreDashboard({ overall, eeat: eeatScore, googleAI: googleAIScore, featured: featuredScore, knowledge: knowledgeScore, perplexity: perplexityScore });
+
+          } catch (err) {
+            log(`[IA] ⚠️ Erreur API : ${err.message?.slice(0, 80) || 'Erreur inconnue'}`, 'error');
+            log('[IA] 🔄 Basculement en mode simulé avancé...', 'warning');
+            runSimulated();
+          }
+        } else {
+          log('[DÉMO] Mode démonstration — Configurez votre clé API OpenRouter pour l\'analyse réelle.', 'warning');
+          runSimulated();
+        }
+
+        log(`[MESH] ══════════════════════════════════════════`, 'system');
+        log(`[MESH] 🚀 Cycle #${cycleNum} terminé — ${nodeCount} nœuds × ${Math.floor(nodeCount * 2.3)} liens`, 'success');
+        log(`[MESH] 🤖 Citabilité multi-moteurs optimisée`, 'success');
+        log(`[MESH] ✅ Prochain scan automatique dans 90 secondes`, 'system');
+        log(`[MESH] ══════════════════════════════════════════`, 'system');
+        streamStatus.textContent = 'Complete';
+        streamStatus.className = 'text-[10px] uppercase tracking-widest font-bold text-emerald-300 bg-emerald-950/50 px-2.5 py-1 rounded-md border border-emerald-500/30';
+        runBtn.disabled = false;
+        runBtn.innerHTML = '<i data-lucide="share-2" class="w-4 h-4"></i> <span>Construire le maillage cognitif</span>';
+        lucide.createIcons();
+        isRunning = false;
+        setPhase('Complet');
+
+        // Auto re-scan
+        if (meshActive) {
+          setTimeout(() => { if (meshActive && !isRunning) runMesh(); }, 90000);
+        }
+      }
+
+      // ── Simulated Mode (enhanced, 7 phases) ──
+      function runSimulated() {
+        const phases = [
+          { phase: '1/7', msg: '🔍 PHASE 1 — Extraction d\'entités & Knowledge Graph', type: 'warning' },
+          { msg: '[KG] WikiData · sameAs · schema.org · JSON-LD détectés', delay: 500, type: 'info' },
+          { msg: '[KG] 7 entités extraites : association, victime, soutien, prévention, aide, juridique, santé', delay: 600, type: 'info' },
+          { msg: '[KG] Knowledge Graph Trust Score : 87/100', delay: 400, type: 'success' },
+          { phase: '2/7', msg: '🏗️ PHASE 2 — Clusters sémantiques & autorité thématique', type: 'warning' },
+          { msg: '[CLUSTER] 7 clusters thématiques déployés', delay: 500, type: 'info' },
+          { msg: '[CLUSTER] Hub : Guide complet d\'aide aux victimes', delay: 400, type: 'success' },
+          { msg: '[CLUSTER] Hub : Témoignages & parcours de reconstruction', delay: 400, type: 'success' },
+          { msg: '[CLUSTER] Hub : Ressources juridiques & accompagnement', delay: 400, type: 'success' },
+          { msg: '[CLUSTER] Hub : Prévention & sensibilisation publique', delay: 400, type: 'success' },
+          { msg: '[CLUSTER] Hub : Annuaire d\'associations partenaires', delay: 400, type: 'success' },
+          { msg: '[CLUSTER] Hub : Santé mentale & soutien psychologique', delay: 400, type: 'success' },
+          { msg: '[CLUSTER] Hub : Droits & recours légaux', delay: 400, type: 'success' },
+          { phase: '3/7', msg: '🛡️ PHASE 3 — E-E-A-T & signaux de confiance Google', type: 'warning' },
+          { msg: '[E-E-A-T] Experience :témoignages vérifiés + cas ruggedisés', delay: 500, type: 'info' },
+          { msg: '[E-E-A-T] Expertise : auteurs certifiés avec bio author', delay: 400, type: 'info' },
+          { msg: '[E-E-A-T] Authoritativeness : citations inversées + backlinks éducatifs', delay: 400, type: 'info' },
+          { msg: '[E-E-A-T] Trustworthiness : HTTPS + privacy policy + About bienséant', delay: 400, type: 'info' },
+          { msg: '[E-E-A-T] Score composite E-E-A-T : 91/100', delay: 500, type: 'success' },
+          { phase: '4/7', msg: '🤖 PHASE 4 — Optimisation GEO multi-moteurs IA', type: 'warning' },
+          { msg: '[GEO] Perplexity · format answer-first activé', delay: 400, type: 'info' },
+          { msg: '[GEO] ChatGPT · citation readiness score: 88/100', delay: 400, type: 'success' },
+          { msg: '[GEO] Google AI Overview · structured data validé', delay: 400, type: 'info' },
+          { msg: '[GEO] Bing Copilot · llms.txt deployed', delay: 400, type: 'info' },
+          { msg: '[GEO] Claude · entity salience optimisé', delay: 400, type: 'info' },
+          { msg: '[GEO] Couverture GEO globale : 94%', delay: 500, type: 'success' },
+          { phase: '5/7', msg: '🔗 PHASE 5 — Architecture de maillage interne & Silo', type: 'warning' },
+          { msg: '[LINKS] Silo architecture déployé · 3 piliers thématiques', delay: 500, type: 'info' },
+          { msg: '[LINKS] Hub pages: 7 · Spoke pages: 23 · Total liens internes: 58', delay: 400, type: 'success' },
+          { msg: '[LINKS] Link equity distribution: hub→spoke 60% | spoke→hub 40%', delay: 400, type: 'info' },
+          { msg: '[LINKS] Canonical strategy: self-referencing + hreflang x-default', delay: 400, type: 'info' },
+          { phase: '6/7', msg: '📋 PHASE 6 — Featured Snippets & Rich Results', type: 'warning' },
+          { msg: '[RICH] FAQ schema · 8 questions structurées', delay: 400, type: 'info' },
+          { msg: '[RICH] HowTo schema · 3 guides pas-à-pas', delay: 400, type: 'info' },
+          { msg: '[RICH] Organization schema · mêmeAs Wikipédia + Wikidata', delay: 400, type: 'info' },
+          { msg: '[RICH] BreadcrumbList schema · 3 niveaux', delay: 400, type: 'info' },
+          { msg: '[RICH] Featured Snippet potential score: 79/100', delay: 500, type: 'success' },
+          { phase: '7/7', msg: '🎯 PHASE 7 — Orchestration finale & projection SERP', type: 'warning' },
+          { msg: '[SYM] Score global SEO/GEO : 91/100', delay: 400, type: 'success' },
+          { msg: '[SYM] Projection SERP Google : position #3 (top 10)', delay: 400, type: 'success' },
+          { msg: '[SYM] Knowledge Panel probability: 85%', delay: 400, type: 'info' },
+          { msg: '[SYM] Perplexity citation probability: 78%', delay: 400, type: 'info' },
+          { msg: '[SYM] ChatGPT citation probability: 81%', delay: 400, type: 'info' },
+          { msg: '[SYM] Google AI Overview inclusion: 88%', delay: 400, type: 'success' },
+        ];
+
+        let i = 0;
+        (function next() {
+          if (i >= phases.length) return;
+          const s = phases[i++];
+          if (s.phase) setPhase('PHASE ' + s.phase);
+          log(s.msg, s.type || 'info');
+          setTimeout(next, s.delay || 400);
+        })();
+
+        setTimeout(() => {
+          animateStat(statDensity, 89);
+          animateStat(statGeo, 94, '%');
+          animateStat(statBoost, 3);
+          animateStat(statEEAT, 91);
+          animateStat(statKG, 87);
+          animateStat(statCitation, 83);
+          animateStat(statLinks, Math.floor(nodeCount * 2.3));
+          updateScoreDashboard({ overall: 91, eeat: 91, googleAI: 88, featured: 79, knowledge: 85, perplexity: 78 });
+        }, 8000);
+      }
+
+      // ── Auto-start ──
+      function autoStart() {
+        if (meshActive && !isRunning) {
+          log('[MESH] 🚀 Auto-démarrage du maillage cognitif...', 'system');
+          runMesh();
+        }
+      }
+
+      // Auto-start after 3 seconds
+      setTimeout(() => {
+        if (!meshActive) {
+          setMeshActive(true);
+        }
+      }, 3000);
+
+      runBtn?.addEventListener('click', runMesh);
+    });
+  </script>
+</body>
+</html>

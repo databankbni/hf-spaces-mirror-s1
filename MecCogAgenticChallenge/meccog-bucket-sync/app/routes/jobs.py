@@ -11,6 +11,7 @@ from app.deps import (
     get_job_quota,
     get_job_runner,
     get_settings_dep,
+    require_challenge_open,
 )
 from app.errors import (
     BucketNotOwnedByCaller,
@@ -101,7 +102,12 @@ def _verify_caller_owns_agent(
     return caller_hf_user
 
 
-@router.post("/v1/jobs:run", response_model=BenchmarkJobResponse, status_code=202)
+@router.post(
+    "/v1/jobs:run",
+    response_model=BenchmarkJobResponse,
+    status_code=202,
+    dependencies=[Depends(require_challenge_open)],
+)
 def run_benchmark_job(
     req: BenchmarkJobRequest,
     request: Request,

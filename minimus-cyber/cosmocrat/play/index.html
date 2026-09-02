@@ -40,11 +40,24 @@ body {
 /* ═══ SETUP ═══ */
 #setup {
   position: fixed; inset: 0;
-  background: radial-gradient(ellipse at center, #0a0500, #000);
+  /* planisfero base fisso, velato di scuro per leggibilità */
+  background: linear-gradient(rgba(10,3,6,.84), rgba(10,3,6,.90)), url('../assets/planisphere.png') center center / cover no-repeat fixed, #0b213e;
   overflow-y: auto; padding: 24px 16px;
   display: flex; flex-direction: column; align-items: center;
   z-index: 100;
 }
+/* AVVIO: la demo dal vivo (#game) gioca dietro; questo overlay è translucido */
+#intro {
+  position: fixed; inset: 0; z-index: 120; display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(10,3,6,.35), rgba(10,3,6,.72));
+  padding: 24px 16px;
+}
+#intro .intro-box { text-align: center; background: rgba(10,3,6,.55); border: 1px solid var(--border); padding: 28px 34px; backdrop-filter: blur(2px); }
+#intro h1 { font-size: clamp(34px,7vw,60px); letter-spacing: 8px; color: var(--gold-b); text-shadow: 0 0 24px rgba(212,175,55,.5); }
+#intro .intro-sub { color: var(--pl); letter-spacing: 3px; margin-top: 4px; }
+#intro .intro-demo-note { color: var(--gold-d); font-size: 11px; letter-spacing: 2px; margin: 14px 0 18px; }
+#intro .intro-btns { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
 #setup .title-block {
   text-align: center; margin: 8px 0 24px;
 }
@@ -131,6 +144,8 @@ body {
 .type-btn.human.on { background: #4a9a4a; color: var(--ink); }
 .type-btn.bot { border-color: #9a4a9a; color: #9a4a9a; }
 .type-btn.bot.on { background: #9a4a9a; color: #fff; }
+.type-btn.mech { border-color: var(--gold); color: var(--gold-b); }
+.type-btn.mech.on { background: var(--gold); color: var(--ink); }
 
 .n-ctl { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .n-btn {
@@ -364,6 +379,8 @@ code { background: rgba(0,0,0,.35); color: var(--gold-b); padding:0 4px; border-
 #sin-tooltip .stt-city { color: var(--pl); font-size: 10px; font-style: italic; }
 #sin-tooltip .stt-desc { color: var(--pl); font-size: 10px; margin-top: 3px; }
 #sin-tooltip .stt-owner { color: var(--gold); font-size: 10px; margin-top: 3px; }
+#sin-tooltip .stt-res { display: flex; gap: 8px; margin-top: 4px; font-size: 9px; letter-spacing: .5px; color: var(--gold-b); }
+#sin-tooltip .stt-res span { white-space: nowrap; }
 #zctrl {
   position: absolute; bottom: 12px; left: 12px;
   display: flex; flex-direction: column; gap: 3px; z-index: 15;
@@ -426,6 +443,10 @@ code { background: rgba(0,0,0,.35); color: var(--gold-b); padding:0 4px; border-
   border-top: 1px solid var(--border); padding: 10px;
   background: rgba(0,0,0,.5); flex-shrink: 0;
 }
+#aleas-panel { border-top: 1px solid var(--border); padding: 10px; background: rgba(0,0,0,.5); flex-shrink: 0; }
+.aleas-btns { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.aleas-ally-row { display: flex; gap: 6px; align-items: center; }
+.aleas-ally-row select { flex: 1; min-width: 0; }
 .decl-hint {
   font-size: 10px; color: var(--pd); margin-bottom: 6px;
   font-style: italic;
@@ -522,6 +543,8 @@ code { background: rgba(0,0,0,.35); color: var(--gold-b); padding:0 4px; border-
 .mag-brush-chip.off.on { background: var(--pd); color: #000; }
 #mapc.mag-painting #hex-overlay polygon.has-sin { cursor: crosshair; }
 #mapc.mag-painting #hex-overlay polygon.has-sin:hover { stroke: var(--gold-b); stroke-width: 2.5; stroke-opacity: 1; }
+/* AD ALEAS!: le hexad di fronte attaccabili sono evidenziate in rosso */
+#hex-overlay polygon.aleas-target { stroke: #ff6a6a !important; stroke-width: 1.5 !important; stroke-opacity: .9 !important; fill: #ff6a6a !important; fill-opacity: .16 !important; }
 /* bersaglio Magister: l'intera regione dell'hexad puntato si accende (grande e chiara) */
 #hex-overlay polygon.mag-hover {
   stroke: var(--gold-b) !important; stroke-width: 2 !important; stroke-opacity: 1 !important;
@@ -825,6 +848,19 @@ code { background: rgba(0,0,0,.35); color: var(--gold-b); padding:0 4px; border-
 </head>
 <body>
 
+<!-- ═══════════════════ AVVIO (demo dal vivo in sottofondo) ═══════════════════ -->
+<div id="intro">
+  <div class="intro-box">
+    <h1 style="text-transform:none;">hexadom</h1>
+    <div class="intro-sub">cambia la storia con un prompt</div>
+    <div class="intro-demo-note">▶ demo dal vivo · Mech contro Mech, giudice Machina</div>
+    <div class="intro-btns">
+      <button class="start-btn" onclick="introToSetup()">⬢ CONFIGURA E GIOCA</button>
+      <button class="start-btn" id="intro-loop-btn" onclick="introToLoop()" style="background:linear-gradient(135deg,#3a0a12,#52030c);">⟳ LOOP MACHINA — guarda i Mech</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════ SETUP ═══════════════════ -->
 <div id="setup">
   <div class="lang-bar" style="position:absolute;top:14px;right:14px;display:flex;gap:5px;z-index:10;">
@@ -923,6 +959,13 @@ code { background: rgba(0,0,0,.35); color: var(--gold-b); padding:0 4px; border-
     <div id="magister-note" style="display:none;margin-top:6px;font-size:9px;color:var(--gold);line-height:1.5;">
       Con il Magister attivo il modello Arbiter LLM è opzionale: i verdetti e l'assegnazione iniziale li deciderai tu, turno per turno.
     </div>
+    <label class="opt-toggle" style="margin-top:10px;">
+      <input type="checkbox" id="aleas-mode-toggle" onchange="onAleasToggle()">
+      <span>⬢ <strong>MACHINA — giudice oggettivo</strong> — il giudice meccanico (deus ex machina): niente testi, i giocatori scelgono sulla mappa (attacco / alleanza) e gli scontri li decidono i dadi in automatico. Non serve LLM né Magister.</span>
+    </label>
+    <div id="aleas-note" style="display:none;margin-top:6px;font-size:9px;color:var(--gold);line-height:1.5;">
+      Modalità deterministica: il vincitore dello scontro prende hexad di frontiera pari al margine dei dadi. Le alleanze si propongono in un turno, si accettano nel successivo e sono attive dal terzo (potenza dadi cumulata).
+    </div>
   </details>
 
   <details class="setup-details" style="width:min(820px,96vw);" open>
@@ -934,11 +977,16 @@ code { background: rgba(0,0,0,.35); color: var(--gold-b); padding:0 4px; border-
       <label class="conc-field">
         <span>Soglia di egemonia</span>
         <select id="win-threshold" class="arbiter-select">
+          <option value="10">10% delle hexad</option>
+          <option value="20">20% delle hexad</option>
+          <option value="30">30% delle hexad</option>
           <option value="40">40% delle hexad</option>
           <option value="50">50% delle hexad</option>
           <option value="60" selected>60% delle hexad</option>
           <option value="70">70% delle hexad</option>
           <option value="80">80% delle hexad</option>
+          <option value="90">90% delle hexad</option>
+          <option value="100">100% delle hexad (dominio totale)</option>
           <option value="random">⬢ Casuale (decisa a inizio partita)</option>
         </select>
       </label>
@@ -962,6 +1010,8 @@ code { background: rgba(0,0,0,.35); color: var(--gold-b); padding:0 4px; border-
 
   <div style="width:min(820px,96vw);margin-top:14px;">
     <button class="start-btn" id="start-btn" onclick="startGame()">⬢ INIZIA LA CAMPAGNA</button>
+    <button class="start-btn" id="loop-btn" onclick="startLoopGame()" style="margin-top:8px;background:linear-gradient(135deg,#3a0a12,#52030c);"
+      title="Partite automatiche soli-Mech, giudice Machina: epoca/giocatori/soglia casuali, statistiche registrate, riavvio dopo 60s">⟳ LOOP MACHINA · soli Mech (auto)</button>
     <div id="resume-block" style="display:none;">
       <button class="resume-btn" id="resume-btn" onclick="resumeGame()">📂 RIPRENDI PARTITA SALVATA</button>
       <div id="resume-info" style="font-size:9px;color:var(--pd);text-align:center;margin-top:4px;"></div>
@@ -1036,6 +1086,28 @@ code { background: rgba(0,0,0,.35); color: var(--gold-b); padding:0 4px; border-
           <button class="decl-btn" id="pass-btn" onclick="passTurn()">⏭ PASSA</button>
           <button class="decl-btn primary" id="declare-btn" onclick="submitDecl()">✔ DICHIARA</button>
         </div>
+      </div>
+
+      <!-- AD ALEAS! panel: azione deterministica del giocatore (attacco / alleanza) -->
+      <div id="aleas-panel" style="display:none;">
+        <div class="decl-hint" id="aleas-hint">Scegli la tua mossa</div>
+        <div class="aleas-btns" id="aleas-actions">
+          <button class="decl-btn primary" onclick="aleasArmAttack()">⚔ ATTACCA (clicca una hexad)</button>
+          <div class="aleas-ally-row">
+            <select id="aleas-ally-sel" class="arbiter-select"></select>
+            <button class="decl-btn" onclick="aleasProposeUI()">🤝 PROPONI</button>
+            <button class="decl-btn" id="aleas-accept-btn" onclick="aleasAcceptUI()">✔ ACCETTA</button>
+          </div>
+          <button class="decl-btn" onclick="aleasPassUI()">⏭ PASSA</button>
+        </div>
+        <div id="aleas-confirm" style="display:none;">
+          <div id="aleas-confirm-text" style="margin-bottom:8px;"></div>
+          <div class="aleas-ally-row">
+            <button class="decl-btn primary" onclick="aleasConfirmAttack()">✔ CONFERMA</button>
+            <button class="decl-btn" onclick="aleasCancelAttack()">✕ ANNULLA</button>
+          </div>
+        </div>
+        <div id="aleas-status" style="margin-top:8px;font-size:10px;color:var(--gold);"></div>
       </div>
 
       <!-- Step-by-step gate: shown after a verdict when stepMode is on -->
@@ -2283,6 +2355,15 @@ const ARCHIVE = {
         this.data.stats.byLlm[p.llm] = s;
       }
     });
+    // Sfida a tre specie: Umani / LLM / Mech — partite giocate e vinte per specie
+    this.data.stats.byRace = this.data.stats.byRace || {};
+    const racesInGame = new Set((gameData.players || []).map(p => p.type === 'human' ? 'Umani' : p.type === 'mech' ? 'Mech' : 'LLM'));
+    racesInGame.forEach(r => {
+      const rc = this.data.stats.byRace[r] || { games: 0, wins: 0 };
+      rc.games++;
+      if (gameData.winnerRace === r) rc.wins++;
+      this.data.stats.byRace[r] = rc;
+    });
     this.save();
   },
   reset() {
@@ -2352,6 +2433,8 @@ function startGameArchiving() {
   S.gameStartedAt = new Date().toISOString();
   S.gameId = 'g_' + Date.now() + '_' + Math.random().toString(36).substring(2,8);
 }
+// Specie di un tipo di giocatore: Umani / LLM / Mech (per la sfida a tre specie).
+function raceOf(type) { return type === 'human' ? 'Umani' : type === 'mech' ? 'Mech' : 'LLM'; }
 function finalizeGameArchive(winner) {
   if (!S.gameStartedAt) return;
   const players = S.players.map(p => ({
@@ -2367,7 +2450,8 @@ function finalizeGameArchive(winner) {
     startYear: S.era ? (parseInt(document.getElementById('custom-year')?.value) || S.era.year) : null,
     endYear: S.currentYear,
     turns: S.turn,
-    winner: winner ? { pid: winner.pid, name: winner.name, char: winner.char, llm: winner.llm } : null,
+    winner: winner ? { pid: winner.id, name: winner.name, char: winner.char, llm: winner.llm } : null,
+    winnerRace: winner ? raceOf(winner.type) : null,
     players,
     log: (S.log || []).slice(-200),
     arbiterModel: S.arbiterModel,
@@ -2375,6 +2459,9 @@ function finalizeGameArchive(winner) {
     lang: currentLang,
   };
   ARCHIVE.recordGame(gameData);
+  const br = ARCHIVE.data?.stats?.byRace || {};
+  const tally = ['Umani', 'LLM', 'Mech'].filter(r => br[r]).map(r => `${r} ${br[r].wins}/${br[r].games}`).join(' · ');
+  if (tally) log('info', `⬢ Vittorie per specie (storico) — ${tally}`);
 }
 
 let currentLang = detectLang();
@@ -2553,6 +2640,7 @@ function renderPlayersConfig() {
       <div class="player-type">
         <button class="type-btn human ${defType==='human'?'on':''}" onclick="setType(${i},'human')">${(I18N[currentLang]||I18N.it).human}</button>
         <button class="type-btn bot ${defType==='bot'?'on':''}" onclick="setType(${i},'bot')">${(I18N[currentLang]||I18N.it).ai}</button>
+        <button class="type-btn mech ${defType==='mech'?'on':''}" onclick="setType(${i},'mech')" title="Mech — motore nativo (0 token). Ideale col giudice Machina.">⬢ Mech</button>
       </div>
     `;
     cont.appendChild(row);
@@ -2625,7 +2713,18 @@ function onArbiterHumanToggle() {
   const on = document.getElementById('arbiter-human-toggle').checked;
   document.getElementById('magister-note').style.display = on ? 'block' : 'none';
   localStorage.setItem('cosmocrat.arbiterHuman', on ? '1' : '0');
+  if (on) { const al = document.getElementById('aleas-mode-toggle'); if (al && al.checked) { al.checked = false; onAleasToggle(); } }
   renderArbiterModel();
+}
+// Terzo giudice: AD ALEAS! (oggettivo, deterministico). Mutuamente esclusivo col Magister.
+function onAleasToggle() {
+  const on = document.getElementById('aleas-mode-toggle').checked;
+  document.getElementById('aleas-note').style.display = on ? 'block' : 'none';
+  localStorage.setItem('cosmocrat.aleasMode', on ? '1' : '0');
+  if (on) {
+    const hm = document.getElementById('arbiter-human-toggle');
+    if (hm && hm.checked) { hm.checked = false; document.getElementById('magister-note').style.display = 'none'; }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2653,7 +2752,7 @@ function renderConclusion() {
 // Resolve threshold mode → fraction. 'random' picks once, at game start.
 function resolveThreshold(mode) {
   if (mode === 'random') {
-    const choices = [0.4, 0.5, 0.6, 0.7, 0.8];
+    const choices = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
     return choices[Math.floor(Math.random() * choices.length)];
   }
   const pct = parseInt(mode);
@@ -2680,6 +2779,65 @@ function renderTimer() {
 // ═══════════════════════════════════════════════════════════════════════
 //  START GAME
 // ═══════════════════════════════════════════════════════════════════════
+// LOOP MACHINA — partite automatiche soli-Mech, giudice Machina: epoca, numero
+// giocatori e soglia di vittoria casuali ogni volta; statistiche registrate;
+// riavvio automatico 60s dopo il verdetto (tempo di lettura).
+function startLoopGame(demo) {
+  const era = ERAS[Math.floor(Math.random() * ERAS.length)];
+  const n = 2 + Math.floor(Math.random() * 5);            // 2..6 Mech
+  const thr = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8][Math.floor(Math.random() * 7)];
+  numPlayers = n;
+  S.era = era; S.currentYear = era.year; S.yearStep = era.step;
+  S.turn = 1; S.currentPlayerIdx = 0; S.pending = []; S.log = []; S.chronicle = [];
+  S.pactsLine = ''; S.alliances = {}; S.ownership = {};
+  S.aleasMode = true; S.arbiterHuman = false; S.arbiterModel = '';
+  S.stepMode = false; S.timerSec = 0;
+  S.winThresholdMode = 'loop'; S.winThreshold = thr;
+  S.gameOver = false; S.capitals = {};
+  S.demoMode = !!demo; S.loopMode = !demo;   // demo = sottofondo dell'avvio; altrimenti loop in primo piano
+  S.epoch = (S.epoch || 0) + 1;
+  const eraChars = S.characters.filter(c => c.era === era.id);
+  const used = new Set();
+  S.players = [];
+  for (let i = 0; i < n; i++) {
+    let ch = null;
+    for (let t = 0; t < 40 && !ch; t++) { const c = eraChars[Math.floor(Math.random() * Math.max(1, eraChars.length))]; if (c && !used.has(c.nome)) ch = c; }
+    if (ch) used.add(ch.nome);
+    S.players.push({ id: i, name: colorName(i), color: PCOLS[i], char: ch ? ch.nome : colorName(i), type: 'mech', llm: '' });
+  }
+  S.sinecismi.forEach(s => { S.ownership[s.id] = null; });
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('game').style.display = 'flex';
+  initMap(); initPanelSplitters(); renderPlayers(); renderTerritorySummary(); updateHdr();
+  log('event', `⟳ LOOP MACHINA — ${eraLabel(era.id)} · ${n} Mech · soglia ${Math.round(thr * 100)}%`);
+  applyMagisterTheme(); startGameArchiving();
+  arbiterOpen();                                           // -> aleasStart -> beginRound
+}
+
+// AVVIO con demo dal vivo in sottofondo (loop Mech), overlay #intro sopra.
+function startDemoAttract() {
+  document.getElementById('intro').style.display = 'flex';
+  startLoopGame(true);   // demo: nessun modale, riavvio rapido; #intro resta sopra
+}
+function stopDemo() {
+  S.demoMode = false; S.loopMode = false; S.gameOver = true;   // ferma il loop di sottofondo
+  document.getElementById('intro').style.display = 'none';
+  document.getElementById('game').style.display = 'none';
+}
+function introToSetup() {
+  stopDemo();
+  numPlayers = 3;
+  const nd = document.getElementById('n-dsp'); if (nd) nd.textContent = numPlayers;
+  document.getElementById('setup').style.display = 'flex';
+  renderEraGrid();            // reset pulito del setup (niente era preselezionata)
+  refreshResume();
+}
+function introToLoop() {
+  document.getElementById('intro').style.display = 'none';
+  S.gameOver = true;          // ferma la demo corrente
+  startLoopGame(false);       // loop in primo piano (con verdetti e riavvio 60s)
+}
+
 function startGame() {
   const cy = parseInt(document.getElementById('custom-year').value);
   // Nessun default temporale: serve una scelta esplicita di epoca o anno.
@@ -2692,6 +2850,9 @@ function startGame() {
   S.log = [];
   S.chronicle = [];
   S.pactsLine = '';
+  S.alliances = {};
+  S.loopMode = false;
+  S.epoch = (S.epoch || 0) + 1;
   S.ownership = {};
 
   // Build players
@@ -2700,21 +2861,24 @@ function startGame() {
     const nameField = document.getElementById(`pchar${i}`);
     const llmField = document.getElementById(`pllm${i}`);
     const typeBtns = document.querySelectorAll(`#players-config .player-row:nth-child(${i+1}) .type-btn`);
-    const isHuman = [...typeBtns].some(b => b.classList.contains('on') && b.classList.contains('human'));
+    const activeBtn = [...typeBtns].find(b => b.classList.contains('on'));
+    const ptype = activeBtn ? (activeBtn.classList.contains('mech') ? 'mech'
+      : activeBtn.classList.contains('human') ? 'human' : 'bot') : 'bot';
     const llmFullId = llmField?.value || '';
     S.players.push({
       id: i,
       name: colorName(i),
       color: PCOLS[i],
       char: nameField?.value || colorName(i),
-      type: isHuman ? 'human' : 'bot',
+      type: ptype,
       llm: llmFullId,
     });
     if (llmFullId) localStorage.setItem(`cosmocrat.pllm.${i}`, llmFullId);
   }
 
-  S.arbiterHuman = document.getElementById('arbiter-human-toggle').checked;
-  S.arbiterModel = document.getElementById('arbiter-model').value;
+  S.aleasMode = document.getElementById('aleas-mode-toggle').checked;
+  S.arbiterHuman = !S.aleasMode && document.getElementById('arbiter-human-toggle').checked;
+  S.arbiterModel = S.aleasMode ? '' : document.getElementById('arbiter-model').value;
   S.timerSec = parseInt(document.getElementById('timer-slider').value);
   S.stepMode = document.getElementById('step-mode-toggle').checked;
   S.winThresholdMode = document.getElementById('win-threshold').value;
@@ -2722,7 +2886,7 @@ function startGame() {
   S.gameOver = false;
   S.capitals = {};
 
-  if (!S.arbiterHuman && !S.arbiterModel) {
+  if (!S.aleasMode && !S.arbiterHuman && !S.arbiterModel) {
     alert(T('alertNoArbiter'));
     return;
   }
@@ -3086,6 +3250,26 @@ function buildHexGrid() {
   svg.innerHTML = '';
   svg.appendChild(frag);
   HEX.built = true;
+  buildHexadAdjacency();
+}
+// Grafo di adiacenza fra hexad: due hexad sono confinanti se due loro celle si toccano.
+function buildHexadAdjacency() {
+  const hw = Math.sqrt(3) * HEX.R, maxD = (hw * 1.25) * (hw * 1.25);
+  const kx = v => Math.floor(v / hw), bucket = {};
+  HEX.cells.forEach(c => { const k = kx(c.cx) + ',' + kx(c.cy); (bucket[k] || (bucket[k] = [])).push(c); });
+  const adj = {};
+  HEX.cells.forEach(c => {
+    if (!c.sin) return;
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+      const arr = bucket[(kx(c.cx) + dx) + ',' + (kx(c.cy) + dy)]; if (!arr) continue;
+      arr.forEach(o => {
+        if (!o.sin || o.sin === c.sin) return;
+        const ddx = c.cx - o.cx, ddy = c.cy - o.cy;
+        if (ddx * ddx + ddy * ddy <= maxD) (adj[c.sin] || (adj[c.sin] = new Set())).add(o.sin);
+      });
+    }
+  });
+  HEX.adj = adj;
 }
 
 // Il hexad NON ha un segnaposto: la sua area del reticolo si colora per intero
@@ -3102,7 +3286,7 @@ function renderHexOwnership() {
       const isCapital = c.home && S.capitals && S.capitals[owner] === c.sin;
       c.el.style.fill = p.color;
       c.el.style.fillOpacity = isCapital ? '1' : '0.5';
-      c.el.style.stroke = p.color;
+      c.el.style.stroke = 'transparent';   // niente perimetro fra le celle: si vede l'AREA, non l'alveare
       c.el.classList.add('owned');
       c.el.classList.toggle('home', !!isCapital);
     } else {
@@ -3125,10 +3309,13 @@ function showSinTooltip(e, s) {
     `<div class="stt-owner">⬢ ${S.players[owner].name} · ${S.players[owner].char}</div>` :
     `<div class="stt-owner" style="color:var(--pd);">⬡ ${T('neutralLow')}</div>`;
   const cityLine = (s.citta && s.citta !== s.nome) ? `<div class="stt-city">${s.citta}</div>` : '';
+  const r = s.risorse;
+  const resLine = r ? `<div class="stt-res"><span>DIF ${r.dif}</span><span>COM ${r.com}</span><span>AGR ${r.agr}</span><span>MIN ${r.min}</span></div>` : '';
   tt.innerHTML = `
     <div class="stt-name">${s.nome}</div>
     ${cityLine}
     <div class="stt-desc">${s.descrizione}</div>
+    ${resLine}
     ${ownerName}
   `;
   tt.style.display = 'block';
@@ -3276,6 +3463,7 @@ function log(kind, html) {
 //  ARBITER: opening + turn resolution
 // ═══════════════════════════════════════════════════════════════════════
 async function arbiterOpen() {
+  if (S.aleasMode) { aleasStart(); return; }   // giudice oggettivo: nessun prologo/LLM
   const era = S.era ? eraLabel(S.era.id) : '';
   const year = fmtYear(S.currentYear);
   const count = S.sinecismi.length;
@@ -3405,13 +3593,13 @@ Distribuisci ora. Rispondi solo nel formato a righe indicato.`;
     hideWaiting();
 
     // Small pause then start
-    setTimeout(beginRound, 800);
+    sched(beginRound, 800);
 
   } catch(e) {
     ARCHIVE.recordLLMCall(S.arbiterModel, 0, 'error');
     log('error', TF('logAssignFailed', { e: e.message }));
     hideWaiting();
-    setTimeout(beginRound, 500);
+    sched(beginRound, 500);
   }
 }
 
@@ -3435,6 +3623,7 @@ function hideArbModal() {
 // ═══════════════════════════════════════════════════════════════════════
 //  TURN FLOW
 // ═══════════════════════════════════════════════════════════════════════
+function sched(fn, ms) { const e = S.epoch; setTimeout(() => { if (S.epoch === e) fn(); }, ms); }
 function beginRound() {
   S.currentPlayerIdx = 0;
   S.pending = [];
@@ -3445,6 +3634,7 @@ function beginRound() {
 function beginPlayerPhase() {
   if (S.gameOver) return;
   if (S.currentPlayerIdx >= S.players.length) {
+    if (S.aleasMode) { resolveAleasRound(); return; }
     resolveRoundWithArbiter();
     return;
   }
@@ -3455,9 +3645,14 @@ function beginPlayerPhase() {
   document.getElementById('ct-char').textContent = p.char;
 
   if (p.type === 'human') {
+    if (S.aleasMode) { showAleasPanel(p); return; }
     showHumanPanel(p);
   } else {
     showWaiting(`${p.name} (${p.char}) ${T('aiThinking')}`);
+    if (S.aleasMode) {
+      if (p.type === 'mech') { sched(() => botMechAction(p), 160); return; }
+      sched(() => botAleasAction(p), 200); return;
+    }
     // Start timer if enabled - for bots too
     if (S.timerSec > 0) {
       const ctrl = new AbortController();
@@ -3467,7 +3662,7 @@ function beginPlayerPhase() {
         ctrl.abort();
       });
     }
-    setTimeout(() => botDeclare(p), 200);
+    sched(() => botDeclare(p), 200);
   }
 }
 
@@ -3877,7 +4072,7 @@ function advanceToNextTurn() {
   S.lastCombat = null;
   updateHdr();
   saveGame(true);
-  setTimeout(beginPlayerPhase, 600);
+  sched(beginPlayerPhase, 600);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -3986,12 +4181,13 @@ function magTintHex(sinId, brush) {
   const p = (brush !== null && brush !== 'neutral') ? S.players[brush] : null;
   HEX.cells.forEach(c => {
     if (c.sin !== sinId) return;
-    if (p) { c.el.style.fill = p.color; c.el.style.fillOpacity = '0.5'; c.el.style.stroke = p.color; }
+    if (p) { c.el.style.fill = p.color; c.el.style.fillOpacity = '0.5'; c.el.style.stroke = 'transparent'; }
     else { c.el.style.fill = ''; c.el.style.fillOpacity = ''; c.el.style.stroke = ''; }
   });
 }
 // dispatcher del clic su una cella: dipinge in modalita' Magister, altrimenti tooltip/focus
 function onHexClick(s) {
+  if (S.aleasArm != null) { aleasPickTarget(s.id); return; }
   if (magPaintActive()) { magPaint(s.id); return; }
   focusSinecismo(s);
 }
@@ -4122,7 +4318,7 @@ function magSubmitVerdict() {
     renderPlayers();
     renderTerritorySummary();
     saveGame(true);
-    setTimeout(beginRound, 400);
+    sched(beginRound, 400);
     return;
   }
 
@@ -4185,6 +4381,12 @@ NARRATIVA: <prosa conclusiva CONCISA, 2-3 frasi in ${lang}>
   }
 }
 
+// In modalità LOOP: dopo il verdetto, 60s di lettura poi nuova partita casuale.
+function loopRestartMaybe() {
+  if (!S.loopMode) return;
+  log('info', '⟳ Loop: nuova partita casuale fra 60s (tempo di lettura del giudizio). Ricarica la pagina per fermare il loop.');
+  setTimeout(() => { if (S.loopMode) { hideArbModal(); startLoopGame(); } }, 60000);
+}
 function declareFinalWinner(closingNarrative) {
   const total = S.sinecismi.length;
   const totals = {};
@@ -4203,6 +4405,8 @@ function declareFinalWinner(closingNarrative) {
   document.getElementById('decl-panel').style.display = 'none';
   document.getElementById('step-gate').style.display = 'none';
   if (leader) finalizeGameArchive(leader);
+  // In demo (sottofondo avvio): niente modale, riparte una nuova demo dopo pochi secondi
+  if (S.demoMode) { setTimeout(() => { if (S.demoMode) startLoopGame(true); }, 4000); return; }
 
   const standings = S.players.slice().sort((a,b)=>(totals[b.id]||0)-(totals[a.id]||0))
     .map(p => `<div>⬢ <span style="color:${p.color}">${p.name}</span> (${p.char}) — <strong>${totals[p.id]||0}</strong>/${total}</div>`).join('');
@@ -4220,6 +4424,7 @@ function declareFinalWinner(closingNarrative) {
     { label: T('newGame'), cb: () => { clearSave(); location.reload(); } },
     { label: T('observeMap'), cb: hideArbModal },
   ]);
+  loopRestartMaybe();
 }
 
 function checkVictory() {
@@ -4236,6 +4441,7 @@ function checkVictory() {
     S.gameOver = true;
     // Archive the completed game
     finalizeGameArchive(winner);
+    if (S.demoMode) { setTimeout(() => { if (S.demoMode) startLoopGame(true); }, 4000); return true; }
     showArbModal(`
       <p>${T('vic1')}</p>
       <p>${TF('vic2', { name: `<em>${winner.name}</em>`, char: `<strong>${winner.char}</strong>`, n: `<strong>${totals[winner.id]}`, tot: `${total}</strong>`, pct: Math.round((S.winThreshold||0.6)*100) })}</p>
@@ -4245,6 +4451,7 @@ function checkVictory() {
       { label: T('newGame'), cb: () => { clearSave(); location.reload(); } },
       { label: T('observeMap'), cb: hideArbModal },
     ]);
+    loopRestartMaybe();
     return true;
   }
   return false;
@@ -4271,6 +4478,7 @@ function saveGame(silent) {
       log: S.log.slice(-100),
       chronicle: (S.chronicle || []).slice(-40),
       pactsLine: S.pactsLine || '',
+      alliances: S.alliances || {},
       timerSec: S.timerSec,
       arbiterModel: S.arbiterModel,
       arbiterHuman: S.arbiterHuman,
@@ -4324,6 +4532,8 @@ function resumeGame() {
     S.pending = d.pending || [];
     S.chronicle = d.chronicle || [];
     S.pactsLine = d.pactsLine || '';
+    S.alliances = d.alliances || {};
+    S.epoch = (S.epoch || 0) + 1;
     S.currentPlayerIdx = d.currentPlayerIdx || 0;
     S.timerSec = d.timerSec || 0;
     S.arbiterModel = d.arbiterModel;
@@ -4352,7 +4562,7 @@ function resumeGame() {
       el.appendChild(div);
     });
     log('event', TF('logResumed', { turn: T('turn'), n: S.turn }));
-    setTimeout(beginPlayerPhase, 500);
+    sched(beginPlayerPhase, 500);
   } catch(e) {
     alert(TF('alertRestoreError', { e: e.message }));
   }
@@ -5026,6 +5236,358 @@ function diceCountFor(own, other) {
   if (share >= 0.40) return 2;
   return 1;
 }
+// ═══════════════════════════════════════════════════════════════════════
+//  MODALITÀ AD ALEAS! — giudice OGGETTIVO, motore deterministico (Fase 1)
+//  Niente prosa: i giocatori scelgono sulla mappa (attacco / proposta alleanza).
+//  Scontro: dadi (potenza = n° hexad, SOMMATA fra alleati attivi) -> margine ->
+//  il vincitore prende `margine` hexad di FRONTIERA del perdente. Auto-applicato.
+//  Alleanze: proposta(T) -> accettata(T+1) -> ATTIVA(T+2); potenza dadi cumulata.
+// ═══════════════════════════════════════════════════════════════════════
+function allyKey(a, b) { return [a, b].sort((x, y) => x - y).join('-'); }
+function alliancesActiveWith(pid) {
+  const out = [];
+  Object.values(S.alliances || {}).forEach(al => {
+    if (al.activeFromTurn != null && S.turn >= al.activeFromTurn) {
+      if (al.a === pid) out.push(al.b); else if (al.b === pid) out.push(al.a);
+    }
+  });
+  return out;
+}
+function effectivePower(pid) {
+  if (pid == null) return 0;
+  let t = sinCountOf(pid);
+  alliancesActiveWith(pid).forEach(o => { t += sinCountOf(o); });
+  return t;
+}
+function proposeAlliance(a, b) {
+  if (a == null || b == null || a === b) return null;
+  if (!S.alliances) S.alliances = {};
+  const k = allyKey(a, b), ex = S.alliances[k];
+  if (ex && (ex.acceptedTurn != null || ex.activeFromTurn != null)) return ex; // già in corso/attiva
+  S.alliances[k] = { a: Math.min(a, b), b: Math.max(a, b), proposedBy: a, proposedTurn: S.turn,
+                     acceptedTurn: null, activeFromTurn: null };
+  return S.alliances[k];
+}
+function acceptAlliance(a, b) {
+  const al = S.alliances && S.alliances[allyKey(a, b)];
+  if (!al || al.acceptedTurn != null) return null;
+  if (al.proposedTurn >= S.turn) return null;              // non nello stesso turno della proposta
+  al.acceptedTurn = S.turn;
+  al.activeFromTurn = S.turn + 1;                          // attiva dal turno dopo l'accettazione
+  return al;
+}
+// hexad di FRONTIERA di `fromPid` (o neutrali se null) verso il territorio di `towardPid`
+function frontierHexads(fromPid, towardPid, n, seedId) {
+  const owned = S.sinecismi.filter(s => {
+    const o = S.ownership[s.id];
+    return fromPid == null ? (o == null || o === undefined) : (o === fromPid);
+  });
+  const toward = S.sinecismi.filter(s => S.ownership[s.id] === towardPid);
+  const dist = s => {
+    let best = Infinity;
+    toward.forEach(t => { const dx = s.nx - t.nx, dy = s.ny - t.ny, d = dx * dx + dy * dy; if (d < best) best = d; });
+    return best;
+  };
+  owned.sort((s1, s2) => (s1.id === seedId ? -1 : s2.id === seedId ? 1 : dist(s1) - dist(s2)));
+  return owned.slice(0, Math.max(0, n)).map(s => s.id);
+}
+// Risolve uno scontro deterministico. Ritorna esito + trasferimenti (non li applica).
+function resolveAttackAuto(attackerPid, targetHexadId, rng) {
+  const d6 = rng || (() => 1 + Math.floor(Math.random() * 6));
+  const defenderPid = S.ownership[targetHexadId];          // null/undefined = neutrale
+  const dP = (defenderPid === null || defenderPid === undefined) ? null : defenderPid;
+  const aT = effectivePower(attackerPid);
+  const dT = dP == null ? 0 : effectivePower(dP);
+  const nA = diceCountFor(aT, dT);
+  const nD = dP == null ? 1 : diceCountFor(dT, aT);
+  const roll = k => Array.from({ length: k }, () => d6()).sort((x, y) => y - x);
+  const av = roll(nA), dv = roll(nD);
+  const pairs = Math.min(av.length, dv.length);
+  let hitsA = 0, hitsD = 0;
+  for (let i = 0; i < pairs; i++) { if (av[i] > dv[i]) hitsA++; else hitsD++; }
+  const margin = hitsA - hitsD;
+  const transfers = [];
+  if (margin > 0) {
+    frontierHexads(dP, attackerPid, margin, targetHexadId)
+      .forEach(id => transfers.push({ hexad_id: id, to_player: attackerPid }));
+  } else if (margin < 0 && dP != null) {
+    frontierHexads(attackerPid, dP, -margin)
+      .forEach(id => transfers.push({ hexad_id: id, to_player: dP }));
+  }
+  return { attackerPid, defenderPid: dP, targetHexadId, av, dv, hitsA, hitsD, margin,
+           allied: alliancesActiveWith(attackerPid), transfers };
+}
+
+// ═══ MOTORE "MACHINA / MECH" — valutazione + probabilità + decisione (Fase B) ═══
+// I Mech decidono senza LLM (0 token): valutano le risorse delle hexad e la forza
+// degli avversari, stimano la probabilità dei dadi in forma chiusa e scelgono la
+// mossa a massimo VALORE ATTESO, con una spiegazione verbosa.
+const ENGINE = { winTable: null, W: { dif: 0.9, com: 1.1, agr: 1.0, min: 1.0 } };
+function buildWinTable() {
+  const T = {};
+  const rec = (arr, k, cb) => { if (k === 0) { cb(arr); return; } for (let v = 1; v <= 6; v++) rec(arr.concat(v), k - 1, cb); };
+  for (let nA = 1; nA <= 3; nA++) for (let nD = 1; nD <= 3; nD++) {
+    let win = 0, lose = 0, tot = 0, smw = 0, sml = 0;
+    rec([], nA, av => rec([], nD, dv => {
+      const a = av.slice().sort((x, y) => y - x), d = dv.slice().sort((x, y) => y - x);
+      const pairs = Math.min(a.length, d.length); let hA = 0, hD = 0;
+      for (let i = 0; i < pairs; i++) { if (a[i] > d[i]) hA++; else hD++; }
+      const m = hA - hD; tot++;
+      if (m > 0) { win++; smw += m; } else if (m < 0) { lose++; sml += -m; }
+    }));
+    T[nA + '-' + nD] = { pWin: win / tot, pLose: lose / tot, eMarginWin: win ? smw / win : 0, eMarginLose: lose ? sml / lose : 0 };
+  }
+  ENGINE.winTable = T;
+}
+function hexadValue(sinId) {
+  const s = S.sinecismi.find(x => x.id === sinId); if (!s || !s.risorse) return 1;
+  const r = s.risorse, W = ENGINE.W;
+  return (W.dif * r.dif + W.com * r.com + W.agr * r.agr + W.min * r.min) / (W.dif + W.com + W.agr + W.min);
+}
+function playerStrength(pid) { let v = 0; S.sinecismi.forEach(s => { if (S.ownership[s.id] === pid) v += hexadValue(s.id); }); return v; }
+function engineDecide(pid) {
+  if (!ENGINE.winTable) buildWinTable();
+  const name = S.players[pid].name;
+  // 1) accetta un'alleanza pendente (unire le forze conviene quasi sempre)
+  const pend = Object.values(S.alliances || {}).find(al => al.acceptedTurn == null && al.proposedBy !== pid && (al.a === pid || al.b === pid) && al.proposedTurn < S.turn);
+  if (pend) { const o = pend.a === pid ? pend.b : pend.a; return { kind: 'accept', to: o, rationale: `**${name}** accetta l'alleanza con **${S.players[o].name}**: potenza dei dadi cumulata.` }; }
+  // 2) miglior attacco a valore atteso
+  const aT = effectivePower(pid);
+  let best = { kind: 'pass', ev: 0, rationale: `**${name}** non trova un fronte redditizio: consolida e attende.` };
+  aleasAttackables(pid).forEach(id => {
+    const owner = S.ownership[id], dP = (owner == null || owner === undefined) ? null : owner;
+    const dT = dP == null ? 0 : effectivePower(dP);
+    const nA = diceCountFor(aT, dT), nD = dP == null ? 1 : diceCountFor(dT, aT);
+    const w = ENGINE.winTable[nA + '-' + nD];
+    const gainV = hexadValue(id) * Math.max(1, w.eMarginWin);
+    const myFront = dP == null ? [] : frontierHexads(pid, dP, Math.ceil(w.eMarginLose || 1));
+    const lossV = myFront.reduce((a, fid) => a + hexadValue(fid), 0);
+    const ev = w.pWin * gainV - w.pLose * lossV;
+    if (ev > best.ev) {
+      const s = S.sinecismi.find(x => x.id === id), dn = dP == null ? T('neutralLow') : S.players[dP].name;
+      best = { kind: 'attack', target: id, ev,
+        rationale: `**${name}** punta a **${s ? s.nome : id}** (${dn}) — valore ${hexadValue(id).toFixed(1)} (agr/com/min/dif), vittoria ${Math.round(w.pWin * 100)}% con ${nA}d vs ${nD}d; guadagno atteso **${(w.pWin * gainV).toFixed(1)}** contro rischio ${(w.pLose * lossV).toFixed(1)}.` };
+    }
+  });
+  // 3) se resta a mani vuote ed è più debole del più forte, propone alleanza al più forte
+  const others = S.players.filter(q => q.id !== pid);
+  const maxStr = Math.max(0, ...others.map(q => playerStrength(q.id)));
+  if (best.kind === 'pass' && playerStrength(pid) < 0.65 * maxStr) {
+    const t = others.slice().sort((a, b) => playerStrength(b.id) - playerStrength(a.id))[0];
+    if (t && !(S.alliances && S.alliances[allyKey(pid, t.id)]))
+      return { kind: 'propose', to: t.id, rationale: `**${name}**, più debole, propone alleanza a **${t.name}** per non essere travolto.` };
+  }
+  return best;
+}
+function botMechAction(p) {
+  const d = engineDecide(p.id);
+  if (d.rationale) log('decl', `<span style="color:${p.color}">⬢ ${p.name}</span> · ${mdToHtml(d.rationale)}`);
+  const a = d.kind === 'attack' ? { pid: p.id, kind: 'attack', target: d.target }
+    : d.kind === 'propose' ? { pid: p.id, kind: 'propose', to: d.to }
+    : d.kind === 'accept' ? { pid: p.id, kind: 'accept', to: d.to }
+    : { pid: p.id, kind: 'pass' };
+  S.pending.push(a);
+  S.currentPlayerIdx++;
+  sched(beginPlayerPhase, 140);
+}
+
+// ── Flusso di gioco in modalità AD ALEAS! ────────────────────────────────
+function aleasStart() {
+  // assegnazione iniziale COERENTE col personaggio: la sua capoluogo storica se
+  // presente, altrimenti la hexad di maggior valore nella SUA macroregione (così
+  // Ciro il Grande parte in Persia, non sugli Appalachi). Random solo come ultima spiaggia.
+  const used = new Set();
+  S.players.forEach(p => {
+    let capId = null;
+    const ch = (S.characters || []).find(c => c.nome === p.char);
+    if (ch && ch.capoluogo && S.sinecismi.some(s => s.id === ch.capoluogo) && !used.has(ch.capoluogo)) capId = ch.capoluogo;
+    if (!capId && ch && ch.macro_regione) {
+      const pool = S.sinecismi.filter(s => s.macro_regione === ch.macro_regione && !used.has(s.id));
+      if (pool.length) { pool.sort((a, b) => hexadValue(b.id) - hexadValue(a.id)); capId = pool[0].id; }
+    }
+    for (let tries = 0; tries < 60 && !capId; tries++) {
+      const s = S.sinecismi[Math.floor(Math.random() * S.sinecismi.length)];
+      if (s && !used.has(s.id)) capId = s.id;
+    }
+    if (capId) { S.ownership[capId] = p.id; used.add(capId); }
+  });
+  recordCapitals();
+  log('event', `⬢ MACHINA — giudice oggettivo: gli scontri li decidono i dadi`);
+  renderSinecismiMarkers(); renderPlayers(); renderTerritorySummary(); updateHdr();
+  beginRound();
+}
+function aleasSubmitAction(action) {
+  stopTimer();
+  S.aleasArm = null; S.aleasSel = null;
+  document.getElementById('mapc')?.classList.remove('mag-painting');
+  magClearHighlight(); aleasClearTargets();
+  S.pending.push(action);
+  S.currentPlayerIdx++;
+  beginPlayerPhase();
+}
+// hexad attaccabili da pid: quelle di FRONTE (confinanti col suo territorio) non sue.
+function aleasAttackables(pid) {
+  if (!HEX.adj) return [];
+  const front = new Set();
+  const mine = S.sinecismi.filter(s => S.ownership[s.id] === pid);
+  mine.forEach(s => (HEX.adj[s.id] || []).forEach(nb => { if (S.ownership[nb] !== pid) front.add(nb); }));
+  if (!front.size && !mine.length) return S.sinecismi.filter(s => S.ownership[s.id] == null).map(s => s.id);
+  return [...front];
+}
+function aleasHighlightTargets(pid) {
+  aleasClearTargets();
+  const set = new Set(aleasAttackables(pid));
+  HEX.cells.forEach(c => { if (set.has(c.sin)) c.el.classList.add('aleas-target'); });
+  S._aleasTargets = set;
+}
+function aleasClearTargets() {
+  if (window.HEX && HEX.cells) HEX.cells.forEach(c => c.el.classList.remove('aleas-target'));
+  S._aleasTargets = null;
+}
+// ---- Umano ----
+function showAleasPanel(p) {
+  hideWaiting();
+  document.getElementById('decl-panel').style.display = 'none';
+  document.getElementById('aleas-panel').style.display = 'block';
+  document.getElementById('aleas-confirm').style.display = 'none';
+  document.getElementById('aleas-actions').style.display = '';
+  S.aleasArm = null; S.aleasSel = null; aleasClearTargets();
+  document.getElementById('mapc')?.classList.remove('mag-painting');
+  const sel = document.getElementById('aleas-ally-sel');
+  if (sel) sel.innerHTML = S.players.filter(q => q.id !== p.id)
+    .map(q => `<option value="${q.id}">${q.name} · ${q.char}</option>`).join('');
+  const pend = Object.values(S.alliances || {}).filter(al =>
+    al.acceptedTurn == null && al.proposedBy !== p.id && (al.a === p.id || al.b === p.id) && al.proposedTurn < S.turn);
+  const accBtn = document.getElementById('aleas-accept-btn'); if (accBtn) accBtn.disabled = !pend.length;
+  // stato relazioni + proposte da accettare
+  const rel = Object.values(S.alliances || {}).filter(al => al.a === p.id || al.b === p.id).map(al => {
+    const other = al.a === p.id ? al.b : al.a;
+    const st = (al.activeFromTurn != null && S.turn >= al.activeFromTurn) ? 'attiva'
+      : (al.acceptedTurn != null ? `attiva dal T${al.activeFromTurn}` : 'proposta');
+    return `${S.players[other].name}: ${st}`;
+  });
+  const lines = [];
+  if (pend.length) lines.push(`Da accettare: ${pend.map(al => S.players[al.proposedBy].name).join(', ')}`);
+  if (rel.length) lines.push(`Alleanze — ${rel.join(' · ')}`);
+  const nAtt = aleasAttackables(p.id).length;
+  lines.push(`Fronti attaccabili: ${nAtt}`);
+  document.getElementById('aleas-status').innerHTML = lines.join('<br>');
+  document.getElementById('aleas-hint').textContent = `${p.name} (${p.char}) — scegli la tua mossa`;
+}
+function aleasArmAttack() {
+  const p = S.players[S.currentPlayerIdx];
+  S.aleasArm = p.id;
+  document.getElementById('mapc')?.classList.add('mag-painting');   // riusa il bagliore-regione
+  aleasHighlightTargets(p.id);                                      // evidenzia le hexad di fronte
+  document.getElementById('aleas-hint').textContent = 'Clicca una hexad EVIDENZIATA (di fronte) da attaccare';
+}
+function aleasPickTarget(sinId) {
+  const p = S.players[S.currentPlayerIdx];
+  if (S.aleasArm !== p.id) return;
+  if (!S._aleasTargets || !S._aleasTargets.has(sinId)) {
+    document.getElementById('aleas-hint').textContent = 'Non raggiungibile: scegli una hexad di FRONTE (evidenziata)';
+    return;
+  }
+  S.aleasSel = sinId;
+  const s = S.sinecismi.find(x => x.id === sinId);
+  const owner = S.ownership[sinId];
+  const defName = (owner == null || owner === undefined) ? T('neutralLow') : S.players[owner].name;
+  document.getElementById('aleas-actions').style.display = 'none';
+  document.getElementById('aleas-confirm').style.display = 'block';
+  document.getElementById('aleas-confirm-text').innerHTML = `⚔ Attaccare <strong>${s ? s.nome : sinId}</strong> <span style="opacity:.7">(${defName})</span>?`;
+}
+function aleasConfirmAttack() {
+  const p = S.players[S.currentPlayerIdx];
+  const sinId = S.aleasSel; if (!sinId) return;
+  const s = S.sinecismi.find(x => x.id === sinId);
+  log('decl', `<span style="color:${p.color}">⚔ ${p.name}</span> attacca <strong>${s ? s.nome : sinId}</strong>`);
+  document.getElementById('aleas-confirm').style.display = 'none';
+  document.getElementById('aleas-actions').style.display = '';
+  aleasSubmitAction({ pid: p.id, kind: 'attack', target: sinId });
+}
+function aleasCancelAttack() {
+  S.aleasSel = null; S.aleasArm = null;
+  aleasClearTargets();
+  document.getElementById('mapc')?.classList.remove('mag-painting');
+  document.getElementById('aleas-confirm').style.display = 'none';
+  document.getElementById('aleas-actions').style.display = '';
+  document.getElementById('aleas-hint').textContent = 'Scegli la tua mossa';
+}
+function aleasProposeUI() {
+  const p = S.players[S.currentPlayerIdx];
+  const to = parseInt(document.getElementById('aleas-ally-sel').value);
+  if (isNaN(to)) return;
+  log('decl', `<span style="color:${p.color}">🤝 ${p.name}</span> propone alleanza a ${S.players[to].name}`);
+  aleasSubmitAction({ pid: p.id, kind: 'propose', to });
+}
+function aleasAcceptUI() {
+  const p = S.players[S.currentPlayerIdx];
+  const to = parseInt(document.getElementById('aleas-ally-sel').value);
+  if (isNaN(to)) return;
+  aleasSubmitAction({ pid: p.id, kind: 'accept', to });
+}
+function aleasPassUI() {
+  const p = S.players[S.currentPlayerIdx];
+  aleasSubmitAction({ pid: p.id, kind: 'pass' });
+}
+// ---- Bot (euristica di riempimento; Fase 3 = LLM strutturato) ----
+function botAleasAction(p) {
+  const mine = S.sinecismi.filter(s => S.ownership[s.id] === p.id);
+  const targets = aleasAttackables(p.id).map(id => S.sinecismi.find(s => s.id === id)).filter(Boolean);
+  let action = { pid: p.id, kind: 'pass' };
+  if (targets.length) {
+    const dist = s => { let b = Infinity; mine.forEach(m => { const dx = s.nx - m.nx, dy = s.ny - m.ny, d = dx * dx + dy * dy; if (d < b) b = d; }); return b; };
+    if (mine.length) targets.sort((a, b) => dist(a) - dist(b));
+    const tgt = targets[0];
+    action = { pid: p.id, kind: 'attack', target: tgt.id };
+    log('decl', `<span style="color:${p.color}">⚔ ${p.name}</span> attacca <strong>${tgt.nome}</strong>`);
+  }
+  S.pending.push(action);
+  S.currentPlayerIdx++;
+  sched(beginPlayerPhase, 120);
+}
+// ---- Risoluzione del round ----
+function resolveAleasRound() {
+  hideWaiting();
+  document.getElementById('aleas-panel').style.display = 'none';
+  const actions = S.pending || [];
+  // Se PASSANO TUTTI, la partita è in stallo: si chiude e va a giudizio.
+  if (actions.length && actions.every(a => a.kind === 'pass')) {
+    log('event', `⬢ Tutti i capi passano: stallo. La partita va a giudizio.`);
+    declareFinalWinner('');
+    return;
+  }
+  log('arb', `<strong>⬢ MACHINA — ESITO DEL TURNO</strong>`);
+  actions.filter(a => a.kind === 'accept').forEach(a => {
+    const al = acceptAlliance(a.pid, a.to);
+    if (al) log('info', `🤝 <strong>${S.players[a.pid].name}</strong> accetta l'alleanza con ${S.players[a.to].name} — attiva dal turno ${al.activeFromTurn}`);
+  });
+  actions.filter(a => a.kind === 'propose').forEach(a => {
+    const al = proposeAlliance(a.pid, a.to);
+    if (al && al.proposedTurn === S.turn) log('info', `🤝 <strong>${S.players[a.pid].name}</strong> propone alleanza a ${S.players[a.to].name}`);
+  });
+  const delta = {};
+  actions.filter(a => a.kind === 'attack' && a.target).forEach(a => {
+    const res = resolveAttackAuto(a.pid, a.target);
+    res.transfers.forEach(t => {
+      const prev = S.ownership[t.hexad_id];
+      S.ownership[t.hexad_id] = t.to_player;
+      if (prev != null && prev !== undefined) delta[prev] = (delta[prev] || 0) - 1;
+      delta[t.to_player] = (delta[t.to_player] || 0) + 1;
+    });
+    const s = S.sinecismi.find(x => x.id === a.target);
+    const defName = res.defenderPid == null ? T('neutralLow') : S.players[res.defenderPid].name;
+    const outcome = res.margin > 0 ? `<strong style="color:var(--gold-b)">${S.players[a.pid].name} conquista ${res.transfers.length}</strong>`
+      : res.margin < 0 ? `${defName} respinge` : 'stallo';
+    log('info', `⚔ <strong>${S.players[a.pid].name}</strong> [${res.av.join('·')}] vs ${defName} [${res.dv.join('·')}] su <strong>${s ? s.nome : a.target}</strong> → ${res.hitsA}–${res.hitsD} · ${outcome}`);
+  });
+  pushChronicle(`AD ALEAS!: ${actions.filter(a => a.kind === 'attack').length} scontri`, delta);
+  renderSinecismiMarkers(); renderPlayers(); renderTerritorySummary(); saveGame(true);
+  if (checkVictory()) return;
+  if (S.stepMode) { showStepGate(); return; }
+  advanceToNextTurn();
+}
+
 function diceSideIds() {
   const a = document.getElementById('dice-att'), d = document.getElementById('dice-def');
   const av = a && a.value !== '' ? parseInt(a.value) : null;
@@ -5227,6 +5789,15 @@ async function boot() {
   const un = document.getElementById('user-name');
   if (un) un.value = ARCHIVE.getUser();
   applyLangToUI();
+  document.getElementById('setup').style.display = 'none';
+  // ?bg=1 -> modalità SFONDO (per la vetrina): solo demo loop, niente overlay/UI chrome
+  if (new URLSearchParams(location.search).get('bg')) {
+    startLoopGame(true);
+    document.getElementById('intro').style.display = 'none';   // solo l'overlay d'avvio; menù laterali e header restano animati
+    return;
+  }
+  // Schermata d'avvio: demo dal vivo in sottofondo + overlay #intro (il setup si apre da lì)
+  startDemoAttract();
 }
 boot();
 </script>

@@ -1,13 +1,13 @@
-# hf-spaces-archive — mirror s1 (2026.08)
+# hf-spaces-archive — mirror s1 (2026.09)
 
 Repo ini **jalur transit menuju arsip permanen**, bukan tempat penyimpanan
 utama. Isinya cermin berkas dari Hugging Face Space publik, apa adanya,
 dikelompokkan `<owner>/<nama>/`.
 
 * Shard: `s1`
-* Periode: `2026.08`
-* Space: 264
-* Byte: 1245821165 (1.16 GiB)
+* Periode: `2026.09`
+* Space: 542
+* Byte: 1820318767 (1.70 GiB)
 
 Arsip permanennya ada di Software Heritage. Kalau repo ini suatu saat
 dihapus, salinan SWH tetap ada dan tetap bisa diambil.

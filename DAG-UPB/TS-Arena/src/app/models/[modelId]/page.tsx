@@ -7,7 +7,11 @@ import ModelPerformanceCharts from '@/src/components/ModelPerformanceCharts';
 import ModelSeriesList from '@/src/components/ModelSeriesList';
 import DetailsCard from '@/src/components/DetailsCard';
 import ModelActiveRounds from '@/src/components/ModelActiveRounds';
-import { getModelRankings, ModelDetailRankings, getModelSeriesByDefinition, ModelSeriesByDefinition, getModelDetails, ModelDetails, getModelActiveRounds, ModelActiveRoundsResponse } from '@/src/services/modelService';
+import ModelMetricSummary from '@/src/components/ModelMetricSummary';
+import { getModelRankings, ModelDetailRankings, getModelSeriesByDefinition, ModelSeriesByDefinition, getModelDetails, ModelDetails, getModelActiveRounds, ModelActiveRoundsResponse, getFilteredRankings, ModelRanking } from '@/src/services/modelService';
+
+/** Enough to cover the global board; it holds well under a hundred models. */
+const GLOBAL_BOARD_LIMIT = 500;
 
 export default function ModelDetailPage() {
   const params = useParams();
@@ -17,6 +21,9 @@ export default function ModelDetailPage() {
   const [rankingsData, setRankingsData] = useState<ModelDetailRankings | null>(null);
   const [seriesData, setSeriesData] = useState<ModelSeriesByDefinition | null>(null);
   const [activeRoundsData, setActiveRoundsData] = useState<ModelActiveRoundsResponse | null>(null);
+  // This model's row on the global board, plus whether it is scored on the SQL one.
+  const [globalRanking, setGlobalRanking] = useState<ModelRanking | null>(null);
+  const [sqlEligible, setSqlEligible] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,16 +35,29 @@ export default function ModelDetailPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [details, rankings, series, activeRounds] = await Promise.all([
-          getModelDetails(modelId),
-          getModelRankings(modelId),
-          getModelSeriesByDefinition(modelId),
-          getModelActiveRounds(modelId)
-        ]);
+        const [details, rankings, series, activeRounds, globalBoard, globalSqlBoard] =
+          await Promise.all([
+            getModelDetails(modelId),
+            getModelRankings(modelId),
+            getModelSeriesByDefinition(modelId),
+            getModelActiveRounds(modelId),
+            // The per-model rankings endpoint returns ELO only, so the accuracy
+            // figures come from this model's row on the global boards.
+            getFilteredRankings({ limit: GLOBAL_BOARD_LIMIT }),
+            getFilteredRankings({ limit: GLOBAL_BOARD_LIMIT, metric: 'sql' }),
+          ]);
         setModelDetails(details);
         setRankingsData(rankings);
         setSeriesData(series);
         setActiveRoundsData(activeRounds);
+
+        const numericId = Number(modelId);
+        setGlobalRanking(
+          globalBoard.rankings.find((r) => r.model_id === numericId) ?? null
+        );
+        setSqlEligible(
+          globalSqlBoard.rankings.some((r) => r.model_id === numericId)
+        );
       } catch (error) {
         console.error('Error fetching model data:', error);
       } finally {
@@ -154,6 +174,10 @@ export default function ModelDetailPage() {
           <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 lg:p-8 text-center">
             <div className="text-lg text-gray-600">Failed to load model details.</div>
           </div>
+        )}
+
+        {!loading && (
+          <ModelMetricSummary ranking={globalRanking} sqlEligible={sqlEligible} />
         )}
 
         {!loading && activeRoundsData && activeRoundsData.rounds.length > 0 && (

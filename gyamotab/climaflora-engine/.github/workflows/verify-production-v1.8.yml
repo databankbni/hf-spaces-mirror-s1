@@ -1,0 +1,174 @@
+name: Verify ClimaFlora rollback v1.8 (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: verify-production-v1.8
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      HF_API: https://gyamotab-climaflora-engine.hf.space/api/v1
+      FRONTEND: https://shugoan.com/climaflora/
+      EXPECTED_CATALOG_VERSION: '1.8.0'
+      EXPECTED_CATALOG_FILE: climaflora_global_plants_v1_8.sqlite
+
+    steps:
+      - name: Checkout requested revision
+        uses: actions/checkout@v4
+
+      - name: Resolve expected application version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(python - <<'PY'
+          import re
+          from pathlib import Path
+          text=Path('app/version.py').read_text()
+          m=re.search(r'^APP_VERSION\s*=\s*["\x27]([^"\x27]+)', text, re.M)
+          assert m, 'APP_VERSION not found'
+          print(m.group(1))
+          PY
+          )"
+          echo "EXPECTED_APP_VERSION=$version" >> "$GITHUB_ENV"
+          echo "Manual rollback verification expects app version $version"
+
+      - name: Require verified v1.8 catalog promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('.github/catalog-v1.8-promotion.json')
+          assert p.exists(), 'v1.8 promotion status missing'
+          s=json.loads(p.read_text())
+          assert s.get('status')=='uploaded_verified', s
+          assert s.get('catalog_version')=='1.8.0', s
+          assert s.get('zst_sha256'), s
+          print('catalog promotion verified:', s['zst_sha256'])
+          PY
+
+      - name: Wait for Hugging Face readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f /tmp/health.json /tmp/meta.json /tmp/readiness.json /tmp/master.json
+          for attempt in $(seq 1 24); do
+            echo "Verification attempt $attempt/24"
+            if curl -fsSL --connect-timeout 15 --max-time 45 "$HF_API/health" -o /tmp/health.json \
+              && curl -fsSL --connect-timeout 15 --max-time 45 "$HF_API/meta" -o /tmp/meta.json \
+              && curl -fsSL --connect-timeout 15 --max-time 45 "$HF_API/readiness" -o /tmp/readiness.json \
+              && curl -fsSL --connect-timeout 15 --max-time 45 "$HF_API/master/status" -o /tmp/master.json; then
+              if python - <<'PY'
+          import json, os
+          from pathlib import Path
+          h=json.loads(Path('/tmp/health.json').read_text())
+          m=json.loads(Path('/tmp/meta.json').read_text())
+          r=json.loads(Path('/tmp/readiness.json').read_text())
+          s=json.loads(Path('/tmp/master.json').read_text())
+          expected=os.environ['EXPECTED_APP_VERSION']
+          assert h.get('status')=='ok', h
+          assert h.get('version')==expected, h
+          assert m.get('version')==expected, m
+          cat=m.get('catalog') or {}
+          assert cat.get('filename')==os.environ['EXPECTED_CATALOG_FILE'], cat
+          assert cat.get('catalog_version')==os.environ['EXPECTED_CATALOG_VERSION'], cat
+          assert r.get('catalog_schema_version')==os.environ['EXPECTED_CATALOG_VERSION'], r
+          assert r.get('ready') is True and r.get('scientific_ready') is True, r
+          plants=r.get('plants') or {}
+          assert plants.get('scientific_ready') is True, plants
+          assert r.get('soil_geographic_prior_scoring_safe') is True, r
+          assert int(plants.get('soil_geographic_prior_scoring_rows',0) or 0)==0, plants
+          assert s.get('ready') is True and s.get('phase')=='ready', s
+          print('backend ready:', expected, cat)
+          PY
+              then break; fi
+            fi
+            if [ "$attempt" = 24 ]; then
+              echo '::error::Production backend is not currently running the v1.8 rollback catalog.'
+              exit 1
+            fi
+            sleep 15
+          done
+
+      - name: Verify enriched API sample
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --connect-timeout 15 --max-time 45 \
+            "$HF_API/plants/search?q=Abelmoschus%20esculentus&limit=10" -o /tmp/search.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload=json.loads(Path('/tmp/search.json').read_text())
+          rows=payload if isinstance(payload,list) else payload.get('plants') or payload.get('results') or []
+          assert rows, payload
+          assert any((row.get('functions') or []) for row in rows), rows
+          print('enriched API sample OK')
+          PY
+
+      - name: Verify public frontend assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          nonce="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          curl -fsSL --connect-timeout 15 --max-time 45 -H 'Cache-Control: no-cache' \
+            "${FRONTEND}?verify=${nonce}" -o /tmp/frontend.html
+          grep -qi 'ClimaFlora' /tmp/frontend.html
+          grep -Fq 'static/design3.css' /tmp/frontend.html
+          grep -Fq 'static/typography.css' /tmp/frontend.html
+          curl -fsSL --connect-timeout 15 --max-time 45 -H 'Cache-Control: no-cache' \
+            "${FRONTEND}static/design3.css?verify=${nonce}" -o /tmp/design3.css
+          curl -fsSL --connect-timeout 15 --max-time 45 -H 'Cache-Control: no-cache' \
+            "${FRONTEND}static/typography.css?verify=${nonce}" -o /tmp/typography.css
+          grep -Fq '.app-shell' /tmp/design3.css
+          grep -Fq 'font-size:16px' /tmp/typography.css
+          echo 'public frontend verified'
+
+      - name: Record manual v1.8 rollback verification
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          meta=json.loads(Path('/tmp/meta.json').read_text())
+          readiness=json.loads(Path('/tmp/readiness.json').read_text())
+          master=json.loads(Path('/tmp/master.json').read_text())
+          out={
+            'status':'ready',
+            'verification_mode':'manual_rollback',
+            'verified_at':datetime.now(timezone.utc).isoformat(),
+            'app_version':meta.get('version'),
+            'catalog_filename':meta.get('catalog',{}).get('filename'),
+            'catalog_version':meta.get('catalog',{}).get('catalog_version'),
+            'catalog_schema_version':readiness.get('catalog_schema_version'),
+            'scientific_ready':readiness.get('scientific_ready'),
+            'soil_geographic_prior_scoring_safe':readiness.get('soil_geographic_prior_scoring_safe'),
+            'master_phase':master.get('phase'),
+            'master_ready':master.get('ready')
+          }
+          Path('/tmp/production-v1.8-status.json').write_text(json.dumps(out,indent=2)+'\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch origin main && git reset --hard origin/main
+            cp /tmp/production-v1.8-status.json .github/production-v1.8-status.json
+            git add .github/production-v1.8-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record manual ClimaFlora v1.8 rollback verification [skip ci]'
+            git push origin HEAD:main && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

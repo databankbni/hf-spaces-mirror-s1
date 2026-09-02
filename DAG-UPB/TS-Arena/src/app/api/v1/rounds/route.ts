@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { createLogger } from '@/src/lib/logger';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_DASH_BOARD_API_URL || '';
 const API_KEY = process.env.NEXT_PUBLIC_DASH_BOARD_API_KEY || '';
+
+const log = createLogger('/api/v1/rounds');
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -29,8 +33,11 @@ export async function GET(request: NextRequest) {
   if (searchTerm) queryParams.append('search', searchTerm);
   
   const queryString = queryParams.toString();
-  const url = `${API_BASE_URL}/api/v1/rounds${queryString ? '?' + queryString : ''}`;
-  
+  const path = `/api/v1/rounds${queryString ? '?' + queryString : ''}`;
+  const url = `${API_BASE_URL}${path}`;
+
+  log.debug(`upstream GET ${path}`);
+
   try {
     const response = await fetch(url, {
       headers: {
@@ -48,7 +55,7 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching rounds:', error);
+    log.error('failed to fetch rounds', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

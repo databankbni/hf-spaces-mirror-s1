@@ -59,17 +59,6 @@ export default function ModelSeriesList({ definitions, modelId }: ModelSeriesLis
 
     try {
       const data = await getModelSeriesForecasts(modelId, definitionId, seriesId, startDate, endDate);
-      const roundsWithForecasts = data.rounds.filter(r => r.forecast_exists && r.forecasts && r.forecasts.length > 0);
-      console.log(`Series ${seriesId} (${data.series_name}):`, {
-        totalRounds: data.rounds.length,
-        roundsWithForecasts: roundsWithForecasts.length,
-        rounds: roundsWithForecasts.map(r => ({
-          id: r.round_id,
-          name: r.round_name,
-          points: r.forecasts?.length || 0,
-          forecasts: r.forecasts
-        }))
-      });
       setSeriesData(prev => new Map(prev).set(cacheKey, { loading: false, data }));
     } catch (error) {
       console.error('Error fetching forecasts:', error);
@@ -230,14 +219,6 @@ export default function ModelSeriesList({ definitions, modelId }: ModelSeriesLis
       filters?.startDate,
       effectiveEndDate
     ] : undefined;
-    
-    console.log(`X-axis range for series ${seriesId}:`, {
-      from: filters?.startDate,
-      to: filters?.endDate,
-      effectiveEndDate,
-      maxDateFromData: maxDate ? maxDate.toISOString() : null,
-      range: xAxisRange
-    });
 
     const layout: Partial<PlotParams['layout']> = isMobile
       ? {

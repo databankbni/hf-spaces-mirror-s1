@@ -1,7 +1,8 @@
 import asyncio
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import ToolRetryMiddleware
+from utils.middleware import ToolMonitoringMiddleware
+from langchain.agents.middleware import ToolRetryMiddleware, ToolCallLimitMiddleware
 from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 
 from agent.navigate_agent import call_navigate_agent
@@ -36,8 +37,9 @@ async def init_supervisor_agent(hf_token: str):
     # Using asyncio.to_thread to avoid blocking calls in async context
     llm = await asyncio.to_thread(
         HuggingFaceEndpoint,
-        repo_id="meta-llama/Llama-3.1-8B-Instruct",
+        repo_id="Qwen/Qwen3-8B",
         huggingfacehub_api_token=hf_token,
+        max_new_tokens=4096,
     )
     
     model = ChatHuggingFace(llm=llm)
@@ -47,10 +49,17 @@ async def init_supervisor_agent(hf_token: str):
         tools=[call_navigate_agent, call_search_agent],
         system_prompt=SUPERVISOR_SYSTEM_PROMPT,
         middleware=[
+            ToolMonitoringMiddleware(),
             ToolRetryMiddleware(
                 max_retries=3,
                 backoff_factor=2.0,
                 initial_delay=1.0,
+            ),
+            # Cap subagent delegations per run so the supervisor can't
+            # re-delegate to the same subagent in a loop.
+            ToolCallLimitMiddleware(
+                run_limit=6,
+                exit_behavior="end",
             ),
         ],
     )

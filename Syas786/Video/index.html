@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Text2Video AI</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #080b14;
+      color: white;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1000px;
+      margin: auto;
+      padding: 30px 18px 60px;
+    }
+
+    header {
+      text-align: center;
+      padding: 25px 10px;
+    }
+
+    .logo {
+      font-size: 32px;
+      font-weight: 800;
+    }
+
+    .logo span {
+      color: #7c5cff;
+    }
+
+    .subtitle {
+      margin-top: 10px;
+      color: #aeb4c4;
+      font-size: 15px;
+    }
+
+    .card {
+      background: #111624;
+      border: 1px solid #252c3e;
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 15px 50px rgba(0,0,0,0.25);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 9px;
+      font-weight: 600;
+    }
+
+    textarea,
+    select {
+      width: 100%;
+      background: #080b14;
+      border: 1px solid #30384d;
+      border-radius: 14px;
+      padding: 15px;
+      color: white;
+      font-size: 16px;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 170px;
+      resize: vertical;
+    }
+
+    textarea:focus,
+    select:focus {
+      border-color: #7c5cff;
+    }
+
+    .options {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .option label {
+      font-size: 13px;
+      color: #aeb4c4;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 22px;
+      padding: 16px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(90deg, #7c4dff, #c43cff);
+      color: white;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .status {
+      display: none;
+      margin-top: 15px;
+      padding: 14px;
+      border-radius: 12px;
+      background: #171d2d;
+      color: #dce1ef;
+      text-align: center;
+    }
+
+    .result {
+      display: none;
+      margin-top: 20px;
+    }
+
+    video {
+      width: 100%;
+      max-height: 600px;
+      border-radius: 14px;
+      background: black;
+    }
+
+    .download {
+      display: block;
+      text-align: center;
+      margin-top: 12px;
+      padding: 13px;
+      border-radius: 12px;
+      background: #252c3e;
+      color: white;
+      text-decoration: none;
+    }
+
+    .download:hover {
+      background: #30384d;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 25px;
+      color: #777f91;
+      font-size: 13px;
+    }
+
+    .error {
+      color: #ffb4b4;
+    }
+
+    .success {
+      color: #a8f5c2;
+    }
+
+    @media (max-width: 700px) {
+      .options {
+        grid-template-columns: 1fr;
+      }
+
+      .logo {
+        font-size: 28px;
+      }
+
+      .container {
+        padding: 20px 12px 50px;
+      }
+
+      .card {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="logo">
+      Text<span>2Video</span> AI
+    </div>
+
+    <div class="subtitle">
+      Turn your ideas into videos with AI
+    </div>
+  </header>
+
+  <div class="card">
+
+    <label for="prompt">
+      Describe your video
+    </label>
+
+    <textarea
+      id="prompt"
+      placeholder="Example: A cinematic night view of Hyderabad with beautiful city lights, realistic camera movement..."
+    ></textarea>
+
+    <div class="options">
+
+      <div class="option">
+        <label for="duration">
+          Duration
+        </label>
+
+        <select id="duration">
+          <option value="5">5 seconds</option>
+          <option value="10">10 seconds</option>
+          <option value="15">15 seconds</option>
+        </select>
+      </div>
+
+      <div class="option">
+        <label for="ratio">
+          Aspect Ratio
+        </label>
+
+        <select id="ratio">
+          <option value="16:9">16:9 Landscape</option>
+          <option value="9:16">9:16 Portrait</option>
+          <option value="1:1">1:1 Square</option>
+        </select>
+      </div>
+
+      <div class="option">
+        <label for="style">
+          Style
+        </label>
+
+        <select id="style">
+          <option value="Realistic">Realistic</option>
+          <option value="Cinematic">Cinematic</option>
+          <option value="3D Animation">3D Animation</option>
+          <option value="Cartoon">Cartoon</option>
+          <option value="Anime">Anime</option>
+        </select>
+      </div>
+
+    </div>
+
+    <button id="generate">
+      ✨ Generate Video
+    </button>
+
+    <div id="status" class="status">
+      Preparing video...
+    </div>
+
+    <div id="result" class="result">
+
+      <video
+        id="video"
+        controls
+        playsinline
+      ></video>
+
+      <a
+        id="download"
+        class="download"
+        download="text2video-ai.mp4"
+        target="_blank"
+      >
+        ⬇️ Download Video
+      </a>
+
+    </div>
+
+  </div>
+
+  <div class="footer">
+    AI video generation powered by Hugging Face
+  </div>
+
+</div>
+
+
+<script type="module">
+
+  import { Client } from
+    "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+
+
+  /*
+   * ============================================================
+   * LTX-2.5 HUGGING FACE WORKFLOW
+   * ============================================================
+   */
+
+  const WORKFLOW_SPACE = "akhaliq/ltx-2-5-workflow";
+
+  const API_ENDPOINT = "/output_video";
+
+
+  /*
+   * ============================================================
+   * PAGE ELEMENTS
+   * ============================================================
+   */
+
+  const generateButton =
+    document.getElementById("generate");
+
+  const promptInput =
+    document.getElementById("prompt");
+
+  const durationInput =
+    document.getElementById("duration");
+
+  const ratioInput =
+    document.getElementById("ratio");
+
+  const styleInput =
+    document.getElementById("style");
+
+  const statusBox =
+    document.getElementById("status");
+
+  const resultBox =
+    document.getElementById("result");
+
+  const video =
+    document.getElementById("video");
+
+  const download =
+    document.getElementById("download");
+
+
+  /*
+   * ============================================================
+   * CONNECT TO HUGGING FACE
+   * ============================================================
+   */
+
+  let app = null;
+
+  async function connectToWorkflow() {
+
+    if (app) {
+      return app;
+    }
+
+    statusBox.style.display = "block";
+    statusBox.className = "status";
+    statusBox.textContent =
+      "🔌 Connecting to AI video generator...";
+
+    /*
+     * Using the Hugging Face Space name is safer than
+     * manually constructing an API URL.
+     */
+
+    app = await Client.connect(WORKFLOW_SPACE);
+
+    return app;
+  }
+
+
+  /*
+   * ============================================================
+   * GET VIDEO URL SAFELY
+   * ============================================================
+   */
+
+  function getVideoUrl(value) {
+
+    if (!value) {
+      return null;
+    }
+
+    /*
+     * If the workflow returns a simple string.
+     */
+
+    if (typeof value === "string") {
+
+      try {
+
+        return new URL(value).href;
+
+      } catch {
+
+        /*
+         * A relative URL may also be returned.
+         */
+
+        if (value.startsWith("/")) {
+
+          return new URL(
+            value,
+            "https://akhaliq-ltx-2-5-workflow.hf.space"
+          ).href;
+
+        }
+
+        return null;
+      }
+    }
+
+
+    /*
+     * Gradio FileData normally contains a URL.
+     */
+
+    if (value.url) {
+
+      try {
+
+        return new URL(value.url).href;
+
+      } catch {
+
+        return null;
+      }
+    }
+
+
+    /*
+     * Some responses may contain a nested path.
+     */
+
+    if (value.path) {
+
+      if (value.path.startsWith("http")) {
+
+        try {
+
+          return new URL(value.path).href;
+
+        } catch {
+
+          return null;
+        }
+      }
+
+      return null;
+    }
+
+
+    return null;
+  }
+
+
+  /*
+   * ============================================================
+   * GENERATE VIDEO
+   * ============================================================
+   */
+
+  generateButton.addEventListener(
+    "click",
+    async () => {
+
+      const prompt =
+        promptInput.value.trim();
+
+      const duration =
+        durationInput.value;
+
+      const ratio =
+        ratioInput.value;
+
+      const style =
+        styleInput.value;
+
+
+      /*
+       * Check prompt
+       */
+
+      if (!prompt) {
+
+        alert(
+          "Please describe your video first."
+        );
+
+        return;
+      }
+
+
+      /*
+       * Disable button
+       */
+
+      generateButton.disabled = true;
+
+      resultBox.style.display = "none";
+
+      video.removeAttribute("src");
+
+      download.removeAttribute("href");
+
+
+      try {
+
+        /*
+         * Connect to LTX workflow
+         */
+
+        const client =
+          await connectToWorkflow();
+
+
+        /*
+         * Build enhanced prompt.
+         *
+         * LTX workflow receives the prompt as text.
+         * Duration, aspect ratio and style are included
+         * in the prompt because this workflow endpoint
+         * exposes the prompt as its main text input.
+         */
+
+        const finalPrompt = `
+
+${prompt}
+
+Video requirements:
+
+Style: ${style}
+
+Aspect ratio: ${ratio}
+
+Duration: ${duration} seconds
+
+Create a high-quality AI-generated video.
+
+Smooth natural motion.
+
+Detailed visuals.
+
+Consistent subjects.
+
+Professional composition.
+
+No subtitles unless specifically requested.
+
+`;
+
+
+        statusBox.style.display = "block";
+
+        statusBox.className = "status";
+
+        statusBox.textContent =
+          "🎬 Generating video... This may take a few minutes.";
+
+
+        /*
+         * ========================================================
+         * CALL LTX-2.5
+         * ========================================================
+         *
+         * /output_video is the endpoint shown in your
+         * LTX-2.5 View API screen.
+         *
+         * in_0 = prompt
+         * in_1 = optional input image
+         *
+         * We are not using an input image, so in_1 is null.
+         */
+
+        const response =
+          await client.predict(
+            API_ENDPOINT,
+            {
+              in_0: finalPrompt,
+              in_1: null
+            }
+          );
+
+
+        console.log(
+          "LTX response:",
+          response
+        );
+
+
+        /*
+         * Check returned data
+         */
+
+        if (
+          !response ||
+          !response.data ||
+          !response.data.length
+        ) {
+
+          throw new Error(
+            "The AI workflow returned no data."
+          );
+        }
+
+
+        /*
+         * First output is the generated video.
+         */
+
+        const output =
+          response.data[0];
+
+
+        console.log(
+          "Video output:",
+          output
+        );
+
+
+        /*
+         * Convert FileData/string to a usable URL.
+         */
+
+        const videoUrl =
+          getVideoUrl(output);
+
+
+        if (!videoUrl) {
+
+          throw new Error(
+            "The workflow completed, but no valid video URL was returned."
+          );
+        }
+
+
+        /*
+         * Show video
+         */
+
+        video.src = videoUrl;
+
+        video.load();
+
+
+        download.href = videoUrl;
+
+        download.download =
+          "text2video-ai.mp4";
+
+
+        resultBox.style.display =
+          "block";
+
+
+        statusBox.className =
+          "status success";
+
+        statusBox.textContent =
+          "✅ Video generated successfully!";
+
+
+      } catch (error) {
+
+        console.error(
+          "VIDEO GENERATION ERROR:",
+          error
+        );
+
+
+        statusBox.style.display =
+          "block";
+
+        statusBox.className =
+          "status error";
+
+
+        statusBox.textContent =
+          "⚠️ Video generation failed: " +
+          (
+            error?.message ||
+            "Unknown error"
+          );
+
+
+      } finally {
+
+        generateButton.disabled =
+          false;
+
+      }
+
+    }
+  );
+
+</script>
+
+</body>
+</html>

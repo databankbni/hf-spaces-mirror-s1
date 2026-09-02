@@ -19,6 +19,7 @@ from app.deps import (
     get_hub,
     get_read_model,
     get_settings_dep,
+    require_challenge_open,
 )
 from app.errors import InvalidFrontmatter, InvalidPath, NotFound, RateLimited, SyncTooLarge
 from app.frontmatter import merge, parse, serialise
@@ -90,7 +91,12 @@ def _primary_log_files(read_model: ReadModel) -> dict[tuple[str, str], str]:
     return out
 
 
-@router.post("/v1/traces", response_model=TracePostResponse, status_code=201)
+@router.post(
+    "/v1/traces",
+    response_model=TracePostResponse,
+    status_code=201,
+    dependencies=[Depends(require_challenge_open)],
+)
 def post_trace(
     req: TracePostRequest,
     request: Request,

@@ -14,6 +14,7 @@ from app.deps import (
     get_settings_dep,
     get_verification_status,
     get_verifier,
+    require_challenge_open,
 )
 from app.errors import AlreadyPromoted, InvalidFrontmatter, NotFound, RateLimited, TraceRequired
 from app.frontmatter import merge, serialise, validate_result_frontmatter
@@ -60,7 +61,12 @@ def _require_trace(settings: Settings, read_model: ReadModel, agent_id: str, cli
         raise TraceRequired(agent_id, session_id, reason="stats_only")
 
 
-@router.post("/v1/results", response_model=ResultResponse, status_code=201)
+@router.post(
+    "/v1/results",
+    response_model=ResultResponse,
+    status_code=201,
+    dependencies=[Depends(require_challenge_open)],
+)
 def post_result(
     req: ResultPostRequest,
     request: Request,

@@ -1,0 +1,220 @@
+name: Promote ClimaFlora catalog v2.0 edaphic enrichment
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: promote-catalog-v2.0
+  cancel-in-progress: true
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+      OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+      OVH_SFTP_USER: ${{ secrets.OVH_SFTP_USER }}
+      OVH_SFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+      OVH_SFTP_REMOTE_DIR: ${{ secrets.OVH_SFTP_REMOTE_DIR }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_BUILD_REPO: gyamotab/climaflora-edaphic-builds
+      V20_REMOTE_PATH: data/climaflora_global_plants_v2_0.sqlite.zst
+      V20_PUBLIC_URL: https://shugoan.com/climaflora/data/climaflora_global_plants_v2_0.sqlite.zst
+
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - name: Read candidate status
+        id: status
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          s=json.load(open('.github/catalog-v2.0-status.json'))
+          assert s['status']=='ready',s
+          assert s['catalog_version']=='2.0.0',s
+          assert s['base_catalog_version']=='1.9.0',s
+          assert s['validation']['blocking_failures']==0,s
+          for k in ('run_id','source_run_id','synonym_source_run_id','sqlite_sha256','zst_sha256','build_sqlite_sha256','build_zst_sha256'):
+              print(k+'='+str(s[k]))
+          PY
+
+      - name: Download validated v2 candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: climaflora-global-plants-v2.0-candidate
+          path: candidate
+          run-id: ${{ steps.status.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download primary v2 source snapshot
+        uses: actions/download-artifact@v4
+        with:
+          name: climaflora-edaphic-v2-sources
+          path: sources/primary
+          run-id: ${{ steps.status.outputs.source_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download WCVP-synonym USDA source snapshot
+        uses: actions/download-artifact@v4
+        with:
+          name: climaflora-edaphic-v2-usda-synonyms
+          path: sources/synonyms
+          run-id: ${{ steps.status.outputs.synonym_source_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Install validation and upload utilities
+        run: |
+          python -m pip install --quiet 'paramiko>=3.5,<5' 'huggingface_hub>=0.34,<2'
+          command -v zstd
+
+      - name: Independently revalidate hashes, provenance and SQLite
+        env:
+          SQLITE_SHA: ${{ steps.status.outputs.sqlite_sha256 }}
+          ZST_SHA: ${{ steps.status.outputs.zst_sha256 }}
+          BUILD_SQLITE_SHA: ${{ steps.status.outputs.build_sqlite_sha256 }}
+          BUILD_ZST_SHA: ${{ steps.status.outputs.build_zst_sha256 }}
+        run: |
+          set -euo pipefail
+          echo "$ZST_SHA  candidate/climaflora_global_plants_v2_0.sqlite.zst" | sha256sum -c -
+          echo "$BUILD_ZST_SHA  candidate/climaflora_edaphic_v2_build.sqlite.zst" | sha256sum -c -
+          (cd sources/primary && sha256sum -c edaphic_v2_source_files.sha256)
+          (cd sources/synonyms && sha256sum -c edaphic_v2_usda_synonym_files.sha256)
+          zstd -t candidate/climaflora_global_plants_v2_0.sqlite.zst
+          zstd -t candidate/climaflora_edaphic_v2_build.sqlite.zst
+          zstd -d -f candidate/climaflora_global_plants_v2_0.sqlite.zst -o audit.sqlite
+          echo "$SQLITE_SHA  audit.sqlite" | sha256sum -c -
+          python - <<'PY'
+          import json,sqlite3
+          report=json.load(open('candidate/climaflora_global_plants_v2_0.report.json'))
+          norm=json.load(open('candidate/edaphic_v2_taxonomy_normalization.report.json'))
+          assert report['status']=='ready' and report['validation']['blocking_failures']==0,report
+          assert norm['baseflor']['synonym_matches']>500,norm
+          with sqlite3.connect('audit.sqlite') as c:
+              assert c.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+              m=dict(c.execute('SELECT key,value FROM climaflora_catalog_metadata'))
+              assert m.get('catalog_version')=='2.0.0',m
+              assert m.get('catalog_schema_version')=='2.0.0',m
+              assert m.get('scientific_ready')=='true',m
+              assert m.get('edaphic_v2_usda_ph_semantics')=='compatibility_range_no_optimum_inferred',m
+              assert m.get('edaphic_v2_baseflor_semantics')=='native_ordinal_context_only_no_physical_conversion',m
+              assert c.execute('SELECT COUNT(*) FROM plant_index').fetchone()[0]==420532
+              assert c.execute('SELECT COUNT(*) FROM soil_geographic_prior WHERE scoring_enabled<>0').fetchone()[0]==0
+              assert c.execute('SELECT COUNT(*) FROM (SELECT taxon_id,variable,COUNT(*) c FROM soil_envelope GROUP BY 1,2 HAVING c>1)').fetchone()[0]==0
+              assert c.execute("SELECT COUNT(*) FROM soil_envelope WHERE method='USDA_PLANTS_PH_COMPATIBILITY_RANGE' AND (optimum_low IS NOT NULL OR optimum_high IS NOT NULL)").fetchone()[0]==0
+              assert c.execute("SELECT COUNT(*) FROM soil_envelope WHERE method IN ('USDA_PLANTS_PH_COMPATIBILITY_RANGE','CLIMAFLORA_V2_USDA_OCCURRENCE') AND ABS(weight-0.30)>1e-9").fetchone()[0]==0
+              assert c.execute("SELECT COUNT(*) FROM soil_envelope WHERE source_ref LIKE 'Baseflor 2023.10%'").fetchone()[0]==0
+              assert c.execute("SELECT COUNT(*) FROM soil_indicator_preference WHERE method='BASEFLOR_JULVE_INDICATORS'").fetchone()[0]>0
+          PY
+          rm audit.sqlite
+          zstd -d -f candidate/climaflora_edaphic_v2_build.sqlite.zst -o audit-build.sqlite
+          echo "$BUILD_SQLITE_SHA  audit-build.sqlite" | sha256sum -c -
+          python - <<'PY'
+          import sqlite3
+          with sqlite3.connect('audit-build.sqlite') as c:
+              assert c.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+              assert c.execute('SELECT COUNT(*) FROM v2_usda_requirement').fetchone()[0]>0
+              assert c.execute('SELECT COUNT(*) FROM v2_baseflor_indicator').fetchone()[0]>0
+          PY
+          rm audit-build.sqlite
+
+      - name: Upload v2 catalog alongside v1.9 rollback on OVH
+        run: |
+          set -euo pipefail
+          for name in OVH_SFTP_HOST OVH_SFTP_USER OVH_SFTP_PASSWORD OVH_SFTP_REMOTE_DIR; do test -n "${!name}"; done
+          python - <<'PY'
+          import os,posixpath,paramiko
+          t=paramiko.Transport((os.environ['OVH_SFTP_HOST'],int(os.environ.get('OVH_SFTP_PORT') or 22)))
+          t.connect(username=os.environ['OVH_SFTP_USER'],password=os.environ['OVH_SFTP_PASSWORD'])
+          s=paramiko.SFTPClient.from_transport(t)
+          remote=posixpath.join(os.environ['OVH_SFTP_REMOTE_DIR'].rstrip('/'),os.environ['V20_REMOTE_PATH'])
+          cur=''
+          for part in posixpath.dirname(remote).strip('/').split('/'):
+              cur+='/'+part
+              try:s.stat(cur)
+              except FileNotFoundError:s.mkdir(cur)
+          s.put('candidate/climaflora_global_plants_v2_0.sqlite.zst',remote)
+          s.close();t.close()
+          PY
+
+      - name: Persist v2 build and source snapshots on private Hugging Face dataset
+        run: |
+          set -euo pipefail
+          test -n "$HF_TOKEN"
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api=HfApi(token=os.environ['HF_TOKEN']); repo=os.environ['HF_BUILD_REPO']
+          api.create_repo(repo_id=repo,repo_type='dataset',private=True,exist_ok=True)
+          uploads={
+            'candidate/climaflora_edaphic_v2_build.sqlite.zst':'v2.0/climaflora_edaphic_v2_build.sqlite.zst',
+            'candidate/climaflora_edaphic_v2_build.sqlite.zst.sha256':'v2.0/climaflora_edaphic_v2_build.sqlite.zst.sha256',
+            'candidate/climaflora_edaphic_v2_build.sqlite.sha256':'v2.0/climaflora_edaphic_v2_build.sqlite.sha256',
+            'candidate/climaflora_global_plants_v2_0.report.json':'v2.0/climaflora_global_plants_v2_0.report.json',
+            'candidate/edaphic_v2_taxonomy_normalization.report.json':'v2.0/edaphic_v2_taxonomy_normalization.report.json',
+            'sources/primary/usda_plantlst.txt':'v2.0/sources/usda_plantlst.txt',
+            'sources/primary/usda_edaphic_growth_requirements.jsonl':'v2.0/sources/usda_edaphic_growth_requirements.jsonl',
+            'sources/primary/usda_edaphic_collection.report.json':'v2.0/sources/usda_edaphic_collection.report.json',
+            'sources/primary/baseflor_2023_10.xlsx':'v2.0/sources/baseflor_2023_10.xlsx',
+            'sources/primary/edaphic_v2_source_files.sha256':'v2.0/sources/edaphic_v2_source_files.sha256',
+            'sources/synonyms/usda_edaphic_growth_requirements_synonyms.jsonl':'v2.0/sources/usda_edaphic_growth_requirements_synonyms.jsonl',
+            'sources/synonyms/usda_edaphic_synonyms.report.json':'v2.0/sources/usda_edaphic_synonyms.report.json',
+            'sources/synonyms/edaphic_v2_usda_synonym_files.sha256':'v2.0/sources/edaphic_v2_usda_synonym_files.sha256',
+          }
+          for local,remote in uploads.items():
+              api.upload_file(path_or_fileobj=local,path_in_repo=remote,repo_id=repo,repo_type='dataset',commit_message='Persist ClimaFlora edaphic v2.0 provenance')
+          files=set(api.list_repo_files(repo_id=repo,repo_type='dataset'))
+          assert set(uploads.values())<=files,(set(uploads.values())-files)
+          PY
+
+      - name: Verify public v2 object byte-for-byte
+        env:
+          ZST_SHA: ${{ steps.status.outputs.zst_sha256 }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            curl -fL --retry 3 --retry-all-errors --max-time 1800 "$V20_PUBLIC_URL" -o public-v2.zst || true
+            [ -f public-v2.zst ] && [ "$(sha256sum public-v2.zst|awk '{print $1}')" = "$ZST_SHA" ] && exit 0
+            sleep $((attempt*5))
+          done
+          exit 1
+
+      - name: Record reversible v2 promotion
+        env:
+          SQLITE_SHA: ${{ steps.status.outputs.sqlite_sha256 }}
+          ZST_SHA: ${{ steps.status.outputs.zst_sha256 }}
+          BUILD_SQLITE_SHA: ${{ steps.status.outputs.build_sqlite_sha256 }}
+          BUILD_ZST_SHA: ${{ steps.status.outputs.build_zst_sha256 }}
+        run: |
+          python - <<'PY'
+          import json,os
+          from datetime import datetime,timezone
+          from pathlib import Path
+          s=json.load(open('.github/catalog-v2.0-status.json'))
+          out={'status':'uploaded_verified','catalog_version':'2.0.0','candidate_run_id':s['run_id'],
+               'source_snapshot_run_id':s['source_run_id'],'synonym_source_snapshot_run_id':s['synonym_source_run_id'],
+               'branch':os.environ['GITHUB_REF_NAME'],'sqlite_sha256':os.environ['SQLITE_SHA'],'zst_sha256':os.environ['ZST_SHA'],
+               'public_url':'https://shugoan.com/climaflora/data/climaflora_global_plants_v2_0.sqlite.zst',
+               'build_repo':'gyamotab/climaflora-edaphic-builds','build_path':'v2.0/climaflora_edaphic_v2_build.sqlite.zst',
+               'build_sqlite_sha256':os.environ['BUILD_SQLITE_SHA'],'build_zst_sha256':os.environ['BUILD_ZST_SHA'],
+               'stats':s['stats'],'validation':s['validation'],'limitations':s['limitations'],
+               'previous_catalogs_retained':['climaflora_global_plants_v1_9.sqlite.zst','climaflora_global_plants_v1_8.sqlite.zst','climaflora_global_plants_v1_7.sqlite.zst','climaflora_global_plants_v1_6.sqlite.zst','climaflora_global_plants_v1_2.sqlite.zst'],
+               'promoted_at':datetime.now(timezone.utc).isoformat()}
+          Path('/tmp/catalog-v2.0-promotion.json').write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          PY
+          git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4 5; do
+            git fetch origin edaphic-v2.0-enrichment && git reset --hard origin/edaphic-v2.0-enrichment
+            cp /tmp/catalog-v2.0-promotion.json .github/catalog-v2.0-promotion.json
+            git add .github/catalog-v2.0-promotion.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record verified ClimaFlora v2.0 promotion [skip ci]'
+            git push origin HEAD:edaphic-v2.0-enrichment && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

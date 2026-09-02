@@ -12,6 +12,7 @@ from anthropic.types import Message, MessageParam, TextBlockParam
 
 from api.settings import Settings
 from api.domain.prompts import SYSTEM_PROMPT, PROMPT, DOCUMENTS, PROMPT_FIND_RELEVANT_DOCS
+from api.knowledge import load_knowledge_runtime
 from api.services.simulator import ProtocolSimulator
 
 
@@ -32,11 +33,13 @@ class AnthropicPredict:
         self.max_tokens = settings.max_tokens
         self.simulator = ProtocolSimulator(settings)
 
-        # Paths for documentation
-        self.storage_path = Path(__file__).parent.parent.parent / "storage"
-        self.api_docs_path = self.storage_path / "api_docs"
-        self.api_docs_struct = self.api_docs_path / "api_docs_struct_v2.25.md"
-        self.docs_path = self.storage_path / "docs"
+        # Docs are committed under storage/ by `make sync-knowledge`.
+        knowledge = load_knowledge_runtime(version=settings.knowledge_version)
+        self.knowledge_version = knowledge.version
+        self.docs_path = knowledge.ai_docs_path
+        self.api_docs_path = knowledge.api_docs_path
+        self.api_docs_content_root = knowledge.api_docs_content_root
+        self.api_docs_struct = knowledge.api_docs_struct
 
         # Load cached documentation for system context
         self.cached_docs = self._load_cached_docs()
@@ -177,6 +180,23 @@ class AnthropicPredict:
         files_content = response.content[0].text.strip()
         return self._parse_and_load_docs(files_content)
 
+    def _api_doc_resolve_path(self, filename: str) -> Optional[Path]:
+        """Resolve a structure path to a materialized markdown file under docs/v2."""
+        normalized = filename.strip().strip(",")
+        if not normalized:
+            return None
+
+        # Accept both new MkDocs paths (modules/index.md) and legacy docs/v2/... prefixes.
+        if normalized.startswith("docs/v2/"):
+            normalized = normalized[len("docs/v2/") :]
+        if normalized.startswith("docs/python-api/docs/"):
+            normalized = normalized[len("docs/python-api/docs/") :]
+
+        if not normalized.endswith(".md"):
+            return None
+
+        return self.api_docs_content_root / normalized
+
     def _parse_and_load_docs(self, response: str) -> str:
         """
         Parse the file list from Claude's response and load the actual file contents.
@@ -196,7 +216,9 @@ class AnthropicPredict:
         xml_content = "<relevant_file_content>\n"
 
         for filename in filenames:
-            filepath = self.api_docs_path / filename
+            filepath = self._api_doc_resolve_path(filename)
+            if filepath is None:
+                continue
             try:
                 content = filepath.read_text(encoding="utf-8")
                 xml_content += f"<file name='{filename}'>\n"

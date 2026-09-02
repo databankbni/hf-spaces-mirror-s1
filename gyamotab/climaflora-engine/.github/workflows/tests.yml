@@ -1,0 +1,121 @@
+name: ClimaFlora tests
+
+on:
+  push:
+    branches:
+      - main
+      - 'agent/**'
+      - 'feature/**'
+      - 'fix/**'
+    paths:
+      - 'app/**'
+      - '!app/static/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/tools/**'
+      - '.github/workflows/tests.yml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - '!app/static/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/tools/**'
+      - '.github/workflows/tests.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: climaflora-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install project and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: Compile application and catalog builders
+        run: |
+          python -m compileall -q app
+          python -m compileall -q .github/tools
+
+      - name: Run regression suite
+        run: pytest -q
+
+      - name: Check fatal Python lint errors
+        run: ruff check app tests .github/tools --select E9,F63,F7,F82
+
+      - name: Persist successful test status
+        if: success() && github.event_name == 'push'
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from app.version import APP_VERSION, METHOD_VERSION, CATALOG_SCHEMA_VERSION
+          Path('/tmp/test-status.json').write_text(json.dumps({
+            'status': 'ready',
+            'run_id': os.environ.get('GITHUB_RUN_ID'),
+            'commit': os.environ.get('GITHUB_SHA'),
+            'branch': os.environ.get('GITHUB_REF_NAME'),
+            'app_version': APP_VERSION,
+            'method_version': METHOD_VERSION,
+            'catalog_schema_version': CATALOG_SCHEMA_VERSION,
+          }, indent=2) + '\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="$GITHUB_REF_NAME"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$branch"
+            git reset --hard "origin/$branch"
+            cp /tmp/test-status.json .github/test-status.json
+            git add .github/test-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m "Record ClimaFlora test status [skip ci]"
+            git push origin HEAD:"$branch" && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1
+
+      - name: Persist failed test status
+        if: failure() && github.event_name == 'push'
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path('/tmp/test-status.json').write_text(json.dumps({
+            'status': 'failed',
+            'run_id': os.environ.get('GITHUB_RUN_ID'),
+            'commit': os.environ.get('GITHUB_SHA'),
+            'branch': os.environ.get('GITHUB_REF_NAME'),
+          }, indent=2) + '\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="$GITHUB_REF_NAME"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$branch"
+            git reset --hard "origin/$branch"
+            cp /tmp/test-status.json .github/test-status.json
+            git add .github/test-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m "Record failed ClimaFlora test status [skip ci]"
+            git push origin HEAD:"$branch" && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1

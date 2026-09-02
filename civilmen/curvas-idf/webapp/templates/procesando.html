@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f3a68">
+  <title>Procesando — CURVAS IDF</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .progreso { text-align: center; padding: 4em 1em; max-width: 640px; margin: 0 auto; }
+    .spinner {
+      display: inline-block; width: 64px; height: 64px;
+      border: 6px solid #cfd8dc; border-top-color: #1f3a68;
+      border-radius: 50%; animation: girar 1s linear infinite;
+    }
+    @keyframes girar { to { transform: rotate(360deg); } }
+    .paso { color: #555; font-size: 1em; margin-top: 1em; min-height: 1.4em; }
+    .meta { color: #888; font-size: .9em; margin-top: .4em; }
+    .barra { width: 100%; height: 8px; background: #e3e8ee; border-radius: 4px;
+             margin: 1.5em 0; overflow: hidden; }
+    .barra > div { height: 100%; background: linear-gradient(90deg, #1f3a68, #4477b3);
+                    width: 0%; transition: width .5s ease; }
+    .error {
+      background: #fff5f5; border-left: 4px solid #d33; padding: 1em 1.4em;
+      max-width: 700px; margin: 2em auto; border-radius: 4px;
+    }
+    .error pre {
+      font-size: .8em; background: #fafafa; padding: .8em;
+      overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <main class="progreso" id="caja_progreso">
+    <div class="spinner" aria-hidden="true"></div>
+    <h2 style="color:#1f3a68; margin-top: 1em;">Procesando análisis</h2>
+    <p>Generando el informe IDF, delineando la cuenca con MERIT Hydro y
+       descargando los 7 mapas de Google Earth Engine.<br>
+       Esto suele tomar entre <b>1 y 3 minutos</b>. No cierres la pestaña.</p>
+    <div class="barra" aria-hidden="true"><div id="prog"></div></div>
+    <p class="paso" id="paso">Iniciando…</p>
+    <p class="meta" id="tiempo">0 s</p>
+  </main>
+
+  <section class="error" id="caja_error" hidden>
+    <h3 style="color:#d33; margin-top: 0;">Error en el procesamiento</h3>
+    <p id="error_msg"></p>
+    <pre id="error_trace" hidden></pre>
+    <p><a href="{{ url_for('index') }}">← Volver al inicio</a></p>
+  </section>
+
+  <script>
+    const SESION = {{ sesion_id|tojson }};
+    const T0 = Date.now();
+
+    // Pasos estimados client-side (no requiere instrumentar el pipeline).
+    const PASOS = [
+      [0,   "Iniciando análisis…"],
+      [8,   "Conectando con Google Earth Engine…"],
+      [20,  "Delineando cuenca con MERIT Hydro 90 m (D8 watershed)…"],
+      [45,  "Generando mapa hillshade NASADEM y polígono…"],
+      [60,  "Descargando mapas de uso de suelo, cobertura, drenaje, CN, pendientes, isoyetas…"],
+      [110, "Calibrando 7 modelos IDF y hietogramas…"],
+      [140, "Compilando PDF del informe…"],
+      [180, "Casi listo… (procesamiento prolongado)"],
+    ];
+
+    function pasoActual(segundos) {
+      let p = PASOS[0][1];
+      for (const [t, txt] of PASOS) if (segundos >= t) p = txt;
+      return p;
+    }
+
+    function progreso(segundos) {
+      // Curva asintótica al 95% en 180 s — no llega a 100 hasta que termine de verdad.
+      return Math.min(95, 95 * (1 - Math.exp(-segundos / 60)));
+    }
+
+    let tickHandle = setInterval(() => {
+      const s = Math.floor((Date.now() - T0) / 1000);
+      document.getElementById('tiempo').textContent = s + ' s';
+      document.getElementById('paso').textContent = pasoActual(s);
+      document.getElementById('prog').style.width = progreso(s).toFixed(1) + '%';
+    }, 1000);
+
+    function mostrarError(msg, trace) {
+      clearInterval(tickHandle);
+      document.getElementById('caja_progreso').hidden = true;
+      document.getElementById('caja_error').hidden = false;
+      document.getElementById('error_msg').textContent = msg || 'Error desconocido';
+      if (trace) {
+        const t = document.getElementById('error_trace');
+        t.textContent = trace;
+        t.hidden = false;
+      }
+    }
+
+    async function pollear() {
+      try {
+        const r = await fetch('/status/' + SESION, {cache: 'no-store'});
+        if (r.status === 404) {
+          // Sesión limpiada o nunca existió.
+          mostrarError('La sesión ya no existe en el servidor.');
+          return;
+        }
+        const data = await r.json();
+        if (data.estado === 'completo') {
+          clearInterval(tickHandle);
+          document.getElementById('prog').style.width = '100%';
+          document.getElementById('paso').textContent = '¡Listo! Cargando resultados…';
+          setTimeout(() => window.location.replace('/resultado/' + SESION), 400);
+          return;
+        }
+        if (data.estado === 'error') {
+          mostrarError(data.mensaje, data.traceback);
+          return;
+        }
+        // Si el server nos da un "paso" más reciente, lo usamos en vez del estimado.
+        if (data.paso && data.estado === 'procesando') {
+          document.getElementById('paso').textContent = data.paso;
+        }
+      } catch (e) {
+        // Error de red transitorio — seguimos poleando.
+      }
+      setTimeout(pollear, 3000);
+    }
+    pollear();
+  </script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import type { LeaderboardEntry } from "@/lib/db/schema";
 import { getSharedPageData } from "@/lib/data/page-data";
 import { getDatasetsWithVersions } from "@/lib/data/datasets";
@@ -215,7 +216,6 @@ function toBoardEntries(entries: LeaderboardEntry[]): TriWorldBoardEntry[] {
     return {
       rank: entry.rank,
       modelName: entry.model.name,
-      teamName: entry.team.name,
       score: entry.metrics[TRIWORLD_RANKING_CODE]?.rawValue ?? entry.score.rawValue ?? null,
       normalizedScore: entry.metrics[TRIWORLD_RANKING_CODE]?.rawValue ?? entry.score.rawValue ?? null,
       status: entry.statusLabel || entry.submission.status,
@@ -448,7 +448,6 @@ function LeaderboardTable({
               <tr key={row.modelName}>
                 <td className="twb-model-col twb-sticky-col">
                   <b>{row.modelName}</b>
-                  <small>{row.teamName}</small>
                 </td>
                 <td className="twb-col-rank twb-sticky-rank">
                   <span className={`twb-rank-badge rank-${Math.min(row.rank, 4)}`}>
@@ -894,9 +893,19 @@ export default function TriWorldPage() {
               <article className="contact-card sub-email" data-contact-component="sub_email" key={contact.id}>
                 <b><I18nText text={contact.labelText} /></b>
                 {contact.image_path ? (
-                  <a className="contact-download-link" href={contact.image_path} download="Group_Chat.jpg">
-                    <I18n en="Download WeChat QR Code" zh="下载微信群二维码" />
-                  </a>
+                  <div className="contact-qr">
+                    <div className="contact-qr-label"><I18nText text={contact.valueText} /></div>
+                    <div className="contact-qr-frame">
+                      <Image
+                        className="contact-qr-image"
+                        src={contact.image_path}
+                        alt="WeChat QR Code / 微信群二维码"
+                        width={280}
+                        height={280}
+                        unoptimized
+                      />
+                    </div>
+                  </div>
                 ) : (
                   <a href={contact.href || `mailto:${contact.value}`}>{contact.value}</a>
                 )}

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Match Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0b0f19;
+            color: #f1f5f9;
+            margin: 0;
+            padding: 16px;
+        }
+        h2 { color: #38bdf8; text-align: center; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+        .card {
+            background-color: #1e293b;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        select, button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 8px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background-color: #0f172a;
+            color: white;
+            font-size: 15px;
+        }
+        .match-row {
+            background: #334155;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .metric-box {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            border-top: 3px solid #38bdf8;
+        }
+        .metric-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #38bdf8;
+            margin-top: 4px;
+        }
+        .prediction-box {
+            margin-top: 15px;
+            padding: 14px;
+            background-color: #064e3b;
+            border-left: 5px solid #10b981;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>⚽ Daily Match Analyzer</h2>
+    <div class="subtitle">Select a league to analyze today's active fixtures</div>
+
+    <div class="card">
+        <label for="leagueSelect"><strong>Select League / Competition:</strong></label>
+        <select id="leagueSelect" onchange="loadMatches()">
+            <option value="">-- Choose League --</option>
+            <option value="turkish">Turkish Süper Lig</option>
+            <option value="epl">English Premier League</option>
+            <option value="laliga">Spanish La Liga</option>
+            <option value="uganda">Ugandan Premier League</option>
+        </select>
+    </div>
+
+    <div class="card" id="matchCard" style="display: none;">
+        <h3 id="matchesHeader" style="margin-top:0; color:#38bdf8;">Today's Fixtures</h3>
+        <div id="matchListContainer"></div>
+    </div>
+
+    <div class="card" id="analysisCard" style="display: none;">
+        <h3 id="activeMatchTitle" style="margin-top:0; color:#38bdf8;">Probability Engine Results</h3>
+        
+        <div class="metrics-grid">
+            <div class="metric-box">
+                <small style="color:#94a3b8;">BTTS Probability</small>
+                <div class="metric-value" id="bttsVal">-</div>
+            </div>
+            <div class="metric-box" style="border-top-color: #f43f5e;">
+                <small style="color:#94a3b8;">Double Chance</small>
+                <div class="metric-value" id="dcVal" style="color:#f43f5e;">-</div>
+            </div>
+            <div class="metric-box" style="border-top-color: #10b981;">
+                <small style="color:#94a3b8;">Over / Under Market</small>
+                <div class="metric-value" id="ouVal" style="color:#10b981;">-</div>
+            </div>
+            <div class="metric-box" style="border-top-color: #f59e0b;">
+                <small style="color:#94a3b8;">Goal Expectancy</small>
+                <div class="metric-value" id="xgVal" style="color:#f59e0b;">-</div>
+            </div>
+        </div>
+
+        <div class="prediction-box">
+            <strong>🎯 Most Likely Outcome:</strong><br>
+            <span id="outcomeText" style="font-size: 15px; line-height: 1.5; display:block; margin-top:5px;">-</span>
+        </div>
+    </div>
+
+    <script>
+        // Update these matches anytime to match today's exact fixtures!
+        const liveMatchDatabase = {
+            turkish: [
+                { id: "gal_corum", name: "Galatasaray vs Çorum FK", btts: "58%", dc: "1X (Galatasaray)", ou: "Over 2.5 Goals", xg: "3.20 Goals", outcome: "Galatasaray Win (1) & Over 2.5 Match Goals." }
+            ],
+            epl: [
+                { id: "mci_ars", name: "Manchester City vs Arsenal", btts: "68%", dc: "1X (Home or Draw)", ou: "Over 2.5 Goals", xg: "3.15 Goals", outcome: "Home Win or Draw (1X) & Over 1.5 Goals." }
+            ],
+            laliga: [
+                { id: "rma_fcb", name: "Real Madrid vs Barcelona", btts: "78%", dc: "1X (Real Madrid)", ou: "Over 2.5 Goals", xg: "3.60 Goals", outcome: "Real Madrid Win or Draw (1X) with Both Teams to Score." }
+            ],
+            uganda: [
+                { id: "kcca_vipers", name: "KCCA FC vs Vipers SC", btts: "42%", dc: "1X (Home / Draw)", ou: "Under 2.5 Goals", xg: "1.85 Goals", outcome: "Under 2.5 Goals & Home Double Chance (1X)." }
+            ]
+        };
+
+        function loadMatches() {
+            var league = document.getElementById("leagueSelect").value;
+            var matchCard = document.getElementById("matchCard");
+            var container = document.getElementById("matchListContainer");
+            var analysisCard = document.getElementById("analysisCard");
+            
+            container.innerHTML = "";
+            analysisCard.style.display = "none";
+
+            if (!league || !liveMatchDatabase[league]) {
+                matchCard.style.display = "none";
+                return;
+            }
+
+            document.getElementById("matchesHeader").innerText = "Today's Fixtures (" + league.toUpperCase() + ")";
+            
+            liveMatchDatabase[league].forEach(match => {
+                var row = document.createElement("div");
+                row.className = "match-row";
+                row.innerHTML = `<span>⚽ ${match.name}</span> <button style="width:auto; padding:6px 14px; background:#0284c7; border:none; color:white; border-radius:6px; cursor:pointer;" onclick="analyzeMatch('${league}', '${match.id}')">Analyze</button>`;
+                container.appendChild(row);
+            });
+
+            matchCard.style.display = "block";
+        }
+
+        function analyzeMatch(league, matchId) {
+            var match = liveMatchDatabase[league].find(m => m.id === matchId);
+            if (match) {
+                document.getElementById("bttsVal").innerText = match.btts;
+                document.getElementById("dcVal").innerText = match.dc;
+                document.getElementById("ouVal").innerText = match.ou;
+                document.getElementById("xgVal").innerText = match.xg;
+                document.getElementById("outcomeText").innerText = match.outcome;
+                document.getElementById("analysisCard").style.display = "block";
+            }
+        }
+    </script>
+
+</body>
+</html>

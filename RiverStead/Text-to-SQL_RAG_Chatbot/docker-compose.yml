@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # Flask Application
+  app:
+    build: .
+    container_name: f1insightai-app
+    ports:
+      - "5000:5000"
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-f1insight123}
+      - MYSQL_DATABASE=f1db
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - FLASK_DEBUG=False
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: f1insightai-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD:-f1insight123}
+      - MYSQL_DATABASE=f1db
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

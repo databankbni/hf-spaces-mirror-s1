@@ -5,7 +5,7 @@ class Context(TypedDict):
     """Context parameters for the agent.
 
     This is a TypedDict, so instances are plain dicts accessed via keys
-    (e.g. ``runtime.context["hf_token"]``), not attributes.
+    (e.g. ``runtime.context["my_configurable_param"]``), not attributes.
 
     Set these when creating assistants OR when invoking the graph.
     See: https://langchain-ai.github.io/langgraph/cloud/how-tos/configuration_cloud/

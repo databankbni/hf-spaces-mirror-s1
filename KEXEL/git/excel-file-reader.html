@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel File Reader - Show All Text</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .file-input-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .excel-grid-container {
+            position: relative;
+            overflow: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            max-height: none !important;
+        }
+        .excel-sheet {
+            position: relative;
+            min-width: 100%;
+        }
+        .excel-cell {
+            position: absolute;
+            box-sizing: border-box;
+            border: 1px solid #e2e8f0;
+            padding: 4px 8px;
+            font-size: 14px;
+            overflow: visible;
+            white-space: normal;
+            word-wrap: break-word;
+            background-color: white;
+            min-height: 30px;
+        }
+        .excel-header {
+            background-color: #f8fafc;
+            font-weight: 600;
+        }
+        .excel-col-header {
+            position: absolute;
+            top: 0;
+            z-index: 10;
+            background-color: #f8fafc;
+            font-weight: 600;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        .excel-row-header {
+            position: sticky;
+            left: 0;
+            z-index: 10;
+            background-color: #f8fafc;
+            font-weight: 600;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        .excel-corner {
+            position: sticky;
+            top: 0;
+            left: 0;
+            z-index: 20;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        .merged-cell {
+            background-color: #f0f9ff;
+        }
+        .text-bold {
+            font-weight: bold;
+        }
+        .text-italic {
+            font-style: italic;
+        }
+        .text-underline {
+            text-decoration: underline;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-left {
+            text-align: left;
+        }
+        .bg-yellow {
+            background-color: #fef9c3;
+        }
+        .bg-green {
+            background-color: #dcfce7;
+        }
+        .bg-red {
+            background-color: #fee2e2;
+        }
+        .bg-blue {
+            background-color: #dbeafe;
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .sheet-tab {
+            transition: all 0.2s ease;
+        }
+        .sheet-tab:hover {
+            transform: translateY(-2px);
+        }
+        .sheet-tab.active {
+            border-bottom: 3px solid #3b82f6;
+            font-weight: 600;
+        }
+        /* New styles to ensure all text is visible */
+        .auto-height {
+            height: auto !important;
+            min-height: 30px;
+        }
+        .text-preserve {
+            white-space: pre-wrap !important;
+            overflow: visible !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-6xl mx-auto">
+            <!-- Header -->
+            <div class="text-center mb-10">
+                <h1 class="text-4xl font-bold text-blue-600 mb-2">Excel File Reader</h1>
+                <p class="text-gray-600">View your Excel files with all text preserved</p>
+            </div>
+
+            <!-- Upload Card -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden mb-8 transition-all duration-300 hover:shadow-lg">
+                <div class="p-6">
+                    <div class="flex flex-col items-center justify-center py-12 px-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                        <div class="file-input-wrapper">
+                            <button id="uploadBtn" class="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 pulse">
+                                <i class="fas fa-file-excel mr-2"></i>
+                                Choose Excel File
+                            </button>
+                            <input id="fileInput" type="file" accept=".xlsx, .xls" class="hidden">
+                        </div>
+                        <p class="mt-4 text-gray-500">or drag and drop your file here</p>
+                        <p class="text-sm text-gray-400 mt-2">Supports .xlsx and .xls files</p>
+                    </div>
+                    <div id="fileInfo" class="mt-4 hidden">
+                        <div class="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-excel text-blue-600 text-xl mr-3"></i>
+                                <div>
+                                    <p id="fileName" class="font-medium text-gray-800"></p>
+                                    <p id="fileSize" class="text-sm text-gray-500"></p>
+                                </div>
+                            </div>
+                            <button id="clearBtn" class="text-red-500 hover:text-red-700">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sheets Navigation -->
+            <div id="sheetsNav" class="hidden mb-6">
+                <div class="flex space-x-1 overflow-x-auto pb-2">
+                    <!-- Sheets tabs will be added here dynamically -->
+                </div>
+            </div>
+
+            <!-- Data Preview -->
+            <div id="dataPreview" class="hidden">
+                <div class="bg-white rounded-xl shadow-md overflow-hidden mb-8">
+                    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                        <h3 class="text-lg font-medium text-gray-900">Sheet Preview</h3>
+                        <div class="flex space-x-2">
+                            <button id="downloadJsonBtn" class="flex items-center px-3 py-1.5 bg-green-100 text-green-800 rounded-md text-sm hover:bg-green-200">
+                                <i class="fas fa-file-code mr-1"></i> JSON
+                            </button>
+                            <button id="downloadCsvBtn" class="flex items-center px-3 py-1.5 bg-blue-100 text-blue-800 rounded-md text-sm hover:bg-blue-200">
+                                <i class="fas fa-file-csv mr-1"></i> CSV
+                            </button>
+                            <button id="toggleAutoHeight" class="flex items-center px-3 py-1.5 bg-purple-100 text-purple-800 rounded-md text-sm hover:bg-purple-200">
+                                <i class="fas fa-arrows-alt-v mr-1"></i> Auto Height
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="excel-grid-container" style="max-height: 70vh;">
+                            <div id="excelContainer"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div id="statsSection" class="hidden">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+                                <i class="fas fa-table text-lg"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Sheets</p>
+                                <p id="sheetsCount" class="text-2xl font-semibold">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+                                <i class="fas fa-columns text-lg"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Columns</p>
+                                <p id="columnsCount" class="text-2xl font-semibold">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
+                                <i class="fas fa-list text-lg"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Rows</p>
+                                <p id="rowsCount" class="text-2xl font-semibold">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const fileInfo = document.getElementById('fileInfo');
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+            const clearBtn = document.getElementById('clearBtn');
+            const sheetsNav = document.getElementById('sheetsNav');
+            const dataPreview = document.getElementById('dataPreview');
+            const excelContainer = document.getElementById('excelContainer');
+            const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+            const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+            const toggleAutoHeight = document.getElementById('toggleAutoHeight');
+            const statsSection = document.getElementById('statsSection');
+            const sheetsCount = document.getElementById('sheetsCount');
+            const columnsCount = document.getElementById('columnsCount');
+            const rowsCount = document.getElementById('rowsCount');
+            let workbook = null;
+            let currentSheet = null;
+            let jsonData = null;
+            let autoHeightEnabled = false;
+            const cellWidth = 120;
+            const defaultCellHeight = 30;
+            const headerSize = 25;
+            // Handle file selection
+            uploadBtn.addEventListener('click', function() {
+                fileInput.click();
+            });
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length) {
+                    const file = e.target.files[0];
+                    processFile(file);
+                }
+            });
+            // Handle drag and drop
+            const dropArea = document.querySelector('.bg-gray-50');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            function highlight() {
+                dropArea.classList.add('bg-blue-50', 'border-blue-300');
+            }
+            function unhighlight() {
+                dropArea.classList.remove('bg-blue-50', 'border-blue-300');
+            }
+            dropArea.addEventListener('drop', function(e) {
+                const dt = e.dataTransfer;
+                const file = dt.files[0];
+                
+                if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                    fileInput.files = dt.files;
+                    processFile(file);
+                } else {
+                    alert('Please upload an Excel file (.xlsx or .xls)');
+                }
+            });
+            // Clear file
+            clearBtn.addEventListener('click', function() {
+                resetUI();
+            });
+            // Toggle auto height
+            toggleAutoHeight.addEventListener('click', function() {
+                autoHeightEnabled = !autoHeightEnabled;
+                if (autoHeightEnabled) {
+                    this.classList.add('bg-purple-200');
+                    this.classList.remove('bg-purple-100');
+                    document.querySelectorAll('.excel-cell').forEach(cell => {
+                        cell.classList.add('auto-height');
+                        cell.style.height = 'auto';
+                    });
+                } else {
+                    this.classList.remove('bg-purple-200');
+                    this.classList.add('bg-purple-100');
+                    document.querySelectorAll('.excel-cell').forEach(cell => {
+                        cell.classList.remove('auto-height');
+                        cell.style.height = defaultCellHeight + 'px';
+                    });
+                }
+                
+                if (workbook && currentSheet) {
+                    loadSheet(currentSheet);
+                }
+            });
+            // Process the uploaded file
+            function processFile(file) {
+                fileName.textContent = file.name;
+                fileSize.textContent = formatFileSize(file.size);
+                fileInfo.classList.remove('hidden');
+                uploadBtn.classList.remove('pulse');
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    workbook = XLSX.read(data, { type: 'array', cellStyles: true, cellText: true });
+                    
+                    // Update stats
+                    sheetsCount.textContent = workbook.SheetNames.length;
+                    
+                    // Show sheets navigation
+                    renderSheetsNav(workbook.SheetNames);
+                    
+                    // Load first sheet by default
+                    loadSheet(workbook.SheetNames[0]);
+                    
+                    // Show preview and stats sections
+                    dataPreview.classList.remove('hidden');
+                    statsSection.classList.remove('hidden');
+                };
+                reader.readAsArrayBuffer(file);
+            }
+            // Format file size
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            // Render sheets navigation
+            function renderSheetsNav(sheetNames) {
+                sheetsNav.classList.remove('hidden');
+                const sheetsContainer = sheetsNav.querySelector('.flex');
+                sheetsContainer.innerHTML = '';
+                
+                sheetNames.forEach((name, index) => {
+                    const tab = document.createElement('button');
+                    tab.className = `sheet-tab px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 ${index === 0 ? 'active' : ''}`;
+                    tab.textContent = name;
+                    tab.dataset.sheetName = name;
+                    tab.addEventListener('click', function() {
+                        document.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
+                        this.classList.add('active');
+                        loadSheet(this.dataset.sheetName);
+                    });
+                    sheetsContainer.appendChild(tab);
+                });
+            }
+            // Load sheet data
+            function loadSheet(sheetName) {
+                currentSheet = sheetName;
+                const worksheet = workbook.Sheets[sheetName];
+                
+                // Get the range of the sheet
+                const range = worksheet['!ref'] ? XLSX.utils.decode_range(worksheet['!ref']) : {s: {c:0, r:0}, e: {c:0, r:0}};
+                
+                // Update stats
+                columnsCount.textContent = range.e.c - range.s.c + 1;
+                rowsCount.textContent = range.e.r - range.s.r + 1;
+                
+                // Render the sheet with original layout
+                renderExcelSheet(worksheet, range);
+            }
+            // Render Excel sheet with original layout
+            function renderExcelSheet(worksheet, range) {
+                excelContainer.innerHTML = '';
+                
+                // Create sheet container
+                const sheetContainer = document.createElement('div');
+                sheetContainer.className = 'excel-sheet';
+                
+                // Calculate sheet dimensions
+                const width = (range.e.c - range.s.c + 1) * cellWidth + headerSize;
+                const height = (range.e.r - range.s.r + 1) * defaultCellHeight + headerSize;
+                
+                sheetContainer.style.width = `${width}px`;
+                sheetContainer.style.height = `${height}px`;
+                
+                // Create corner header
+                const cornerHeader = document.createElement('div');
+                cornerHeader.className = 'excel-corner';
+                cornerHeader.style.width = `${headerSize}px`;
+                cornerHeader.style.height = `${headerSize}px`;
+                cornerHeader.style.top = '0';
+                cornerHeader.style.left = '0';
+                sheetContainer.appendChild(cornerHeader);
+                
+                // Create column headers
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const colHeader = document.createElement('div');
+                    colHeader.className = 'excel-col-header';
+                    colHeader.style.width = `${cellWidth}px`;
+                    colHeader.style.height = `${headerSize}px`;
+                    colHeader.style.left = `${headerSize + (C - range.s.c) * cellWidth}px`;
+                    colHeader.style.top = '0';
+                    colHeader.textContent = XLSX.utils.encode_col(C);
+                    sheetContainer.appendChild(colHeader);
+                }
+                
+                // Create row headers
+                for (let R = range.s.r; R <= range.e.r; ++R) {
+                    const rowHeader = document.createElement('div');
+                    rowHeader.className = 'excel-row-header';
+                    rowHeader.style.width = `${headerSize}px`;
+                    rowHeader.style.height = `${defaultCellHeight}px`;
+                    rowHeader.style.left = '0';
+                    rowHeader.style.top = `${headerSize + (R - range.s.r) * defaultCellHeight}px`;
+                    rowHeader.textContent = (R + 1).toString();
+                    sheetContainer.appendChild(rowHeader);
+                }
+                
+                // Process each cell
+                for (let R = range.s.r; R <= range.e.r; ++R) {
+                    for (let C = range.s.c; C <= range.e.c; ++C) {
+                        const cell_address = {c: C, r: R};
+                        const cell_ref = XLSX.utils.encode_cell(cell_address);
+                        
+                        // Create cell
+                        const cell = document.createElement('div');
+                        cell.className = 'excel-cell text-preserve';
+                        cell.style.width = `${cellWidth}px`;
+                        cell.style.left = `${headerSize + (C - range.s.c) * cellWidth}px`;
+                        cell.style.top = `${headerSize + (R - range.s.r) * defaultCellHeight}px`;
+                        
+                        // Check if cell exists in worksheet
+                        if (worksheet[cell_ref]) {
+                            const excelCell = worksheet[cell_ref];
+                            
+                            // Set cell content - preserve all text
+                            if (excelCell.w) {
+                                // Use formatted text if available
+                                cell.innerHTML = excelCell.w.replace(/\n/g, '<br>');
+                            } else if (excelCell.v !== undefined && excelCell.v !== null) {
+                                // Use raw value otherwise
+                                if (typeof excelCell.v === 'string') {
+                                    cell.innerHTML = excelCell.v.replace(/\n/g, '<br>');
+                                } else {
+                                    cell.textContent = excelCell.v.toString();
+                                }
+                            }
+                            
+                            // Apply cell styles with more precision
+                            applyCellStyles(cell, excelCell);
+                            
+                            // Handle merged cells
+                            if (worksheet['!merges']) {
+                                const merge = worksheet['!merges'].find(m => {
+                                    return R >= m.s.r && R <= m.e.r && 
+                                           C >= m.s.c && C <= m.e.c;
+                                });
+                                
+                                if (merge) {
+                                    cell.classList.add('merged-cell');
+                                    cell.style.width = `${(merge.e.c - merge.s.c + 1) * cellWidth}px`;
+                                    
+                                    // For merged cells, we need to calculate the height based on content
+                                    if (autoHeightEnabled) {
+                                        cell.style.height = 'auto';
+                                        cell.classList.add('auto-height');
+                                    } else {
+                                        cell.style.height = `${(merge.e.r - merge.s.r + 1) * defaultCellHeight}px`;
+                                    }
+                                    
+                                    // Center content in merged cells by default
+                                    if (!cell.style.textAlign) {
+                                        cell.style.textAlign = 'center';
+                                        cell.style.display = 'flex';
+                                        cell.style.alignItems = 'center';
+                                        cell.style.justifyContent = 'center';
+                                    }
+                                }
+                            }
+                            
+                            // Auto height for regular cells
+                            if (autoHeightEnabled && !cell.classList.contains('merged-cell')) {
+                                cell.style.height = 'auto';
+                                cell.classList.add('auto-height');
+                            } else if (!cell.classList.contains('merged-cell')) {
+                                cell.style.height = defaultCellHeight + 'px';
+                            }
+                        } else {
+                            // Empty cell
+                            cell.style.height = defaultCellHeight + 'px';
+                            if (autoHeightEnabled) {
+                                cell.style.height = 'auto';
+                                cell.classList.add('auto-height');
+                            }
+                        }
+                        
+                        sheetContainer.appendChild(cell);
+                    }
+                }
+                
+                excelContainer.appendChild(sheetContainer);
+                
+                // After rendering, adjust heights for cells with lots of text
+                if (autoHeightEnabled) {
+                    adjustCellHeights();
+                }
+            }
+            // Adjust cell heights based on content
+            function adjustCellHeights() {
+                document.querySelectorAll('.excel-cell').forEach(cell => {
+                    // Create a clone to measure the height
+                    const clone = document.createElement('div');
+                    clone.style.position = 'absolute';
+                    clone.style.visibility = 'hidden';
+                    clone.style.width = cell.offsetWidth + 'px';
+                    clone.style.padding = window.getComputedStyle(cell).padding;
+                    clone.style.whiteSpace = 'pre-wrap';
+                    clone.style.wordWrap = 'break-word';
+                    clone.innerHTML = cell.innerHTML;
+                    
+                    document.body.appendChild(clone);
+                    const height = clone.offsetHeight + 8; // Add some padding
+                    document.body.removeChild(clone);
+                    
+                    // Set the minimum height to show all content
+                    cell.style.height = Math.max(height, defaultCellHeight) + 'px';
+                });
+            }
+            // Apply Excel cell styles to HTML cell with more precision
+            function applyCellStyles(cell, excelCell) {
+                if (!excelCell.s) return;
+                
+                const style = excelCell.s;
+                let cellStyle = '';
+                
+                // Font styles
+                if (style.font) {
+                    const font = style.font;
+                    
+                    if (font.bold) cell.classList.add('text-bold');
+                    if (font.italic) cell.classList.add('text-italic');
+                    if (font.underline) cell.classList.add('text-underline');
+                    
+                    // Font family
+                    if (font.name) {
+                        cellStyle += `font-family: ${font.name}, sans-serif;`;
+                    }
+                    
+                    // Font color
+                    if (font.color && font.color.rgb) {
+                        cellStyle += `color: #${font.color.rgb.slice(2)};`;
+                    }
+                    
+                    // Font size
+                    if (font.sz) {
+                        cellStyle += `font-size: ${font.sz}pt;`;
+                    }
+                }
+                
+                // Alignment
+                if (style.alignment) {
+                    const align = style.alignment.horizontal;
+                    if (align === 'center') {
+                        cell.classList.add('text-center');
+                    } else if (align === 'right') {
+                        cell.classList.add('text-right');
+                    } else if (align === 'left') {
+                        cell.classList.add('text-left');
+                    }
+                    
+                    // Vertical alignment
+                    if (style.alignment.vertical) {
+                        const vertical = style.alignment.vertical;
+                        if (vertical === 'top') {
+                            cellStyle += 'vertical-align: top;';
+                        } else if (vertical === 'center') {
+                            cellStyle += 'vertical-align: middle;';
+                        } else if (vertical === 'bottom') {
+                            cellStyle += 'vertical-align: bottom;';
+                        }
+                        
+                        // For vertical alignment to work properly
+                        cellStyle += 'display: flex; align-items: center;';
+                    }
+                    
+                    // Wrap text - always enabled to prevent text loss
+                    cellStyle += 'white-space: pre-wrap; word-wrap: break-word; overflow: visible;';
+                    
+                    // Indent
+                    if (style.alignment.indent) {
+                        cellStyle += `padding-left: ${style.alignment.indent * 10}px;`;
+                    }
+                }
+                
+                // Fill (background color)
+                if (style.fill && style.fill.fgColor && style.fill.fgColor.rgb) {
+                    const bgColor = `#${style.fill.fgColor.rgb.slice(2)}`;
+                    cellStyle += `background-color: ${bgColor};`;
+                } else if (style.fill && style.fill.patternType === 'solid' && style.fill.bgColor && style.fill.bgColor.rgb) {
+                    const bgColor = `#${style.fill.bgColor.rgb.slice(2)}`;
+                    cellStyle += `background-color: ${bgColor};`;
+                }
+                
+                // Borders
+                if (style.border) {
+                    const border = style.border;
+                    
+                    if (border.top && border.top.style) {
+                        const color = border.top.color?.rgb ? `#${border.top.color.rgb.slice(2)}` : '#94a3b8';
+                        const width = border.top.style === 'thin' ? '1px' : 
+                                     border.top.style === 'medium' ? '2px' : 
+                                     border.top.style === 'thick' ? '3px' : '1px';
+                        cellStyle += `border-top: ${width} solid ${color};`;
+                    }
+                    if (border.bottom && border.bottom.style) {
+                        const color = border.bottom.color?.rgb ? `#${border.bottom.color.rgb.slice(2)}` : '#94a3b8';
+                        const width = border.bottom.style === 'thin' ? '1px' : 
+                                     border.bottom.style === 'medium' ? '2px' : 
+                                     border.bottom.style === 'thick' ? '3px' : '1px';
+                        cellStyle += `border-bottom: ${width} solid ${color};`;
+                    }
+                    if (border.left && border.left.style) {
+                        const color = border.left.color?.rgb ? `#${border.left.color.rgb.slice(2)}` : '#94a3b8';
+                        const width = border.left.style === 'thin' ? '1px' : 
+                                     border.left.style === 'medium' ? '2px' : 
+                                     border.left.style === 'thick' ? '3px' : '1px';
+                        cellStyle += `border-left: ${width} solid ${color};`;
+                    }
+                    if (border.right && border.right.style) {
+                        const color = border.right.color?.rgb ? `#${border.right.color.rgb.slice(2)}` : '#94a3b8';
+                        const width = border.right.style === 'thin' ? '1px' : 
+                                     border.right.style === 'medium' ? '2px' : 
+                                     border.right.style === 'thick' ? '3px' : '1px';
+                        cellStyle += `border-right: ${width} solid ${color};`;
+                    }
+                }
+                
+                // Number formatting
+                if (excelCell.z) {
+                    // You could add specific formatting for numbers, dates, etc.
+                    // For example, format dates, currency, percentages, etc.
+                }
+                
+                // Apply all styles at once
+                if (cellStyle) {
+                    cell.style.cssText += cellStyle;
+                }
+                
+                // Padding - Excel default is different from our default
+                cell.style.padding = '4px 8px';
+            }
+            // Download as JSON
+            downloadJsonBtn.addEventListener('click', function() {
+                if (!workbook || !currentSheet) return;
+                
+                const worksheet = workbook.Sheets[currentSheet];
+                const json = XLSX.utils.sheet_to_json(worksheet);
+                
+                const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentSheet}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+            // Download as CSV
+            downloadCsvBtn.addEventListener('click', function() {
+                if (!workbook || !currentSheet) return;
+                
+                const worksheet = workbook.Sheets[currentSheet];
+                const csv = XLSX.utils.sheet_to_csv(worksheet);
+                
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentSheet}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+            // Reset UI
+            function resetUI() {
+                fileInput.value = '';
+                fileInfo.classList.add('hidden');
+                sheetsNav.classList.add('hidden');
+                dataPreview.classList.add('hidden');
+                statsSection.classList.add('hidden');
+                uploadBtn.classList.add('pulse');
+                workbook = null;
+                currentSheet = null;
+                jsonData = null;
+                excelContainer.innerHTML = '';
+                autoHeightEnabled = false;
+                toggleAutoHeight.classList.remove('bg-purple-200');
+                toggleAutoHeight.classList.add('bg-purple-100');
+            }
+        });
+    </script>
+<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=KEXEL/excel-file-reader" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p></body>
+</html>

@@ -66,16 +66,16 @@ pipette.transfer_with_liquid_class(
 
 The liquid class version automatically applies optimized mixing, touch tip, air gap, and blow out behavior based on the liquid properties, while the traditional transfer requires manual specification of each parameter.
 
-
-
 ## Liquid Classes examples
 
-### Notes for 1-to-1, 1-to-many and many-to-1 transfers   
+### Notes for 1-to-1, 1-to-many and many-to-1 transfers
+
 - Sources and destinations should be of the same length in order to perform a transfer with `transfer_with_liquid_class`. 
 - To transfer liquid from one source to many destinations, use `distribute_with_liquid_class`. 
 - To transfer liquid to one destination from many sources, use `consolidate_with_liquid_class`.
-  
+
 ### Example 1
+
 A protocol with custom properties
 
 <example-one>
@@ -203,15 +203,15 @@ def run(protocol: protocol_api.ProtocolContext) -> None:
 ```
 </example-one>
 
-
-
 ### Example 2: A protocol with aqueous liquid class (water) and custom properties
 
 <example-two>
 
 ```python
 ...
+
 # Load Liquid Classes:
+
 water_base_class = protocol.get_liquid_class("water")
 custom_liquid_class_properties  = ...
 pipette_left.transfer_with_liquid_class(

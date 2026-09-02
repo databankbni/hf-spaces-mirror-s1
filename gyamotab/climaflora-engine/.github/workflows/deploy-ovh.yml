@@ -1,0 +1,133 @@
+name: Deploy frontend to OVH
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/static/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-ovh-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+      OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+      OVH_SFTP_USER: ${{ secrets.OVH_SFTP_USER }}
+      OVH_SFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+      OVH_SFTP_REMOTE_DIR: ${{ secrets.OVH_SFTP_REMOTE_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate OVH secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in OVH_SFTP_HOST OVH_SFTP_USER OVH_SFTP_PASSWORD OVH_SFTP_REMOTE_DIR; do
+            test -n "${!name}" || { echo "::error::$name secret is missing"; exit 1; }
+          done
+
+      - name: Install Paramiko
+        run: python -m pip install --disable-pip-version-check --quiet paramiko
+
+      - name: Deploy static frontend with correct public paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, posixpath
+          from pathlib import Path
+          import paramiko
+
+          host=os.environ['OVH_SFTP_HOST']
+          port=int(os.environ.get('OVH_SFTP_PORT') or 22)
+          user=os.environ['OVH_SFTP_USER']
+          password=os.environ['OVH_SFTP_PASSWORD']
+          remote_root=os.environ['OVH_SFTP_REMOTE_DIR'].rstrip('/')
+          local_root=Path('app/static')
+
+          transport=paramiko.Transport((host, port))
+          transport.connect(username=user, password=password)
+          sftp=paramiko.SFTPClient.from_transport(transport)
+
+          def mkdir_p(path):
+              if not path:
+                  return
+              parts=[]
+              cur=path
+              while cur not in ('', '/'):
+                  parts.append(cur)
+                  cur=posixpath.dirname(cur)
+              for p in reversed(parts):
+                  try:
+                      sftp.stat(p)
+                  except FileNotFoundError:
+                      sftp.mkdir(p)
+
+          mkdir_p(remote_root)
+          static_root=posixpath.join(remote_root, 'static')
+          mkdir_p(static_root)
+
+          for local in sorted(local_root.rglob('*')):
+              if not local.is_file():
+                  continue
+              rel=local.relative_to(local_root).as_posix()
+              remote=posixpath.join(remote_root, 'index.html') if rel == 'index.html' else posixpath.join(static_root, rel)
+              mkdir_p(posixpath.dirname(remote))
+              print(f'upload {rel} -> {remote}')
+              sftp.put(str(local), remote)
+
+          sftp.close()
+          transport.close()
+          PY
+
+      - name: Verify public UI, media, exhaustive search and funnel files
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 20); do
+            html="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://shugoan.com/climaflora/?deploy=${GITHUB_SHA}" || true)"
+            config_js="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://shugoan.com/climaflora/static/config.js?deploy=${GITHUB_SHA}" || true)"
+            ui_css="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://shugoan.com/climaflora/static/ui-v4.css?deploy=${GITHUB_SHA}" || true)"
+            ui_js="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://shugoan.com/climaflora/static/ui-v4.js?deploy=${GITHUB_SHA}" || true)"
+            media_css="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://shugoan.com/climaflora/static/media-v1.css?deploy=${GITHUB_SHA}" || true)"
+            media_js="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://shugoan.com/climaflora/static/media-v1.js?deploy=${GITHUB_SHA}" || true)"
+            search_css="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://shugoan.com/climaflora/static/search-v1.css?deploy=${GITHUB_SHA}" || true)"
+            search_js="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://shugoan.com/climaflora/static/search-v1.js?deploy=${GITHUB_SHA}" || true)"
+            funnel_js="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "https://shugoan.com/climaflora/static/funnel-v1.js?deploy=${GITHUB_SHA}" || true)"
+            if grep -q 'static/ui-v4.css?rev=' <<<"$html" \
+              && grep -q 'static/ui-v4.js?rev=' <<<"$html" \
+              && grep -q 'static/media-v1.css?rev=20260821-2' <<<"$html" \
+              && grep -q 'static/media-v1.js?rev=20260821-2' <<<"$html" \
+              && grep -q 'search-v1.js?rev=20260822-2' <<<"$config_js" \
+              && grep -q 'funnel-v1.js?rev=20260822-2' <<<"$config_js" \
+              && grep -q 'ClimaFlora UI v4' <<<"$ui_css" \
+              && grep -q 'lifeform-grid' <<<"$ui_css" \
+              && grep -q 'plants/enrichment' <<<"$ui_js" \
+              && grep -q 'ClimaFlora media v1.1' <<<"$media_css" \
+              && grep -q 'display_blurred' <<<"$media_js" \
+              && grep -q 'server-filter-group' <<<"$search_css" \
+              && grep -q 'recommendations/search' <<<"$search_js" \
+              && grep -q 'active-filter-chip' <<<"$search_js" \
+              && grep -q 'À titre de comparaison' <<<"$search_js" \
+              && grep -q 'Type de végétaux' <<<"$funnel_js" \
+              && grep -q 'Fonction documentée' <<<"$funnel_js" \
+              && grep -q 'Sol local' <<<"$funnel_js"; then
+              echo 'ClimaFlora exhaustive search UI + media verified publicly.'
+              exit 0
+            fi
+            echo "Verification attempt $attempt/20"
+            sleep 3
+          done
+          echo '::error::Public frontend did not expose the expected exhaustive-search assets.'
+          exit 1

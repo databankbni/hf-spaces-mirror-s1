@@ -1,0 +1,129 @@
+name: ClimaFlora robustness
+
+on:
+  push:
+    branches:
+      - 'agent/robustness-campaign'
+    paths:
+      - 'app/**'
+      - 'tests/**'
+      - '.github/workflows/robustness.yml'
+      - 'pyproject.toml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'tests/**'
+      - '.github/workflows/robustness.yml'
+      - 'pyproject.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: External API, validation and load robustness
+        env:
+          API_BASE: https://gyamotab-climaflora-engine.hf.space/api/v1
+          FRONTEND_URL: https://shugoan.com/climaflora/
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+          from concurrent.futures import ThreadPoolExecutor
+          from app.version import CATALOG_SCHEMA_VERSION
+
+          base = os.environ['API_BASE']
+
+          def get(path, timeout=90):
+              started = time.perf_counter()
+              try:
+                  with urllib.request.urlopen(base + path, timeout=timeout) as response:
+                      raw = response.read()
+                      try:
+                          body = json.loads(raw)
+                      except Exception:
+                          body = raw[:500].decode('utf-8', 'replace')
+                      return response.status, body, time.perf_counter() - started
+              except urllib.error.HTTPError as exc:
+                  raw = exc.read()
+                  try:
+                      body = json.loads(raw)
+                  except Exception:
+                      body = raw[:500].decode('utf-8', 'replace')
+                  return exc.code, body, time.perf_counter() - started
+
+          cases = [
+              ('/health', 200),
+              ('/readiness', 200),
+              ('/meta', 200),
+              ('/scientific/status', 200),
+              ('/scientific/method', 200),
+              ('/climate/smoke', 200),
+              ('/soil/smoke', 200),
+              ('/soil/validation', 200),
+              ('/climate/profile?lat=91&lon=0', 422),
+              ('/climate/profile?lat=-91&lon=0', 422),
+              ('/climate/profile?lat=0&lon=181', 422),
+              ('/soil/profile?lat=47.16&lon=-1.27&soil_ph=15', 422),
+              ('/soil/profile?lat=47.16&lon=-1.27&soil_clay=101', 422),
+              ('/soil/profile?lat=47.16&lon=-1.27&soil_drainage=bogus', 422),
+              ('/plants/search?q=a', 422),
+              ('/recommendations?lat=47.16&lon=-1.27&horizon=2050&scenario=MEDIUM&limit=10', 200),
+          ]
+          results = []
+          for path, expected in cases:
+              status, body, elapsed = get(path, timeout=120)
+              ok = status == expected
+              results.append({'path': path, 'status': status, 'expected': expected, 'seconds': round(elapsed, 3), 'ok': ok})
+              print(json.dumps(results[-1], ensure_ascii=False))
+              if not ok:
+                  print(json.dumps(body, ensure_ascii=False)[:3000])
+
+          status, readiness, elapsed = get('/readiness')
+          assert status == 200
+          assert readiness.get('ready') is True, readiness
+          assert readiness.get('scientific_ready') is True, readiness
+          assert readiness.get('soil_geographic_prior_scoring_safe') is True, readiness
+          assert readiness.get('catalog_schema_version') == CATALOG_SCHEMA_VERSION, readiness
+          plants = readiness.get('plants') or {}
+          assert int(plants.get('soil_geographic_prior_scoring_rows', 0) or 0) == 0, plants
+          assert int(plants.get('soil_geographic_prior_taxa', 0) or 0) >= 400000, plants
+
+          status, validation, elapsed = get('/soil/validation', timeout=180)
+          assert status == 200
+          checks = validation.get('checks') or {}
+          assert checks.get('successful_locations', 0) >= 3, validation
+          assert checks.get('distinct_profile_signatures', 0) >= 3, validation
+
+          # Moderate read-only concurrency. This is intentionally not a stress/DoS test.
+          def health(_):
+              status, _, elapsed = get('/health', timeout=30)
+              return status, elapsed
+
+          started = time.perf_counter()
+          with ThreadPoolExecutor(max_workers=10) as pool:
+              load = list(pool.map(health, range(50)))
+          duration = time.perf_counter() - started
+          assert all(status == 200 for status, _ in load), load
+          assert max(elapsed for _, elapsed in load) < 15, load
+          print(json.dumps({'load_requests': 50, 'concurrency': 10, 'total_seconds': round(duration, 3), 'max_request_seconds': round(max(x[1] for x in load), 3)}))
+
+          with urllib.request.urlopen(os.environ['FRONTEND_URL'], timeout=30) as response:
+              html = response.read(100000).decode('utf-8', 'replace')
+              assert response.status == 200
+              assert 'ClimaFlora' in html
+              print(json.dumps({'frontend_status': response.status, 'frontend_bytes_sampled': len(html)}))
+
+          failures = [item for item in results if not item['ok']]
+          assert not failures, failures
+          PY

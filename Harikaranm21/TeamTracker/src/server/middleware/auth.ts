@@ -30,14 +30,15 @@ export function extractUser(req: Request, _res: Response, next: NextFunction): v
 
   if (token) {
     const payload = verifyToken(token);
-    if (payload) {
-      req.user = payload;
-    }
+    if (payload) req.user = payload;
   }
   next();
 }
 
-/** Requires a valid authenticated user of any approved role (editor or admin). */
+/**
+ * Requires a logged-in user of any active role (viewer, editor, or admin).
+ * Blocks unauthenticated requests (401) and pending accounts (403).
+ */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
     res.status(401).json({ error: 'Authentication required' });
@@ -45,6 +46,22 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
   if (req.user.role === 'pending') {
     res.status(403).json({ error: 'Your account is pending approval' });
+    return;
+  }
+  next();
+}
+
+/**
+ * Requires editor or admin role. Use this for administrative writes;
+ * viewer task writes are authorized separately in the task routes.
+ */
+export function requireEditor(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+  if (req.user.role !== 'editor' && req.user.role !== 'admin') {
+    res.status(403).json({ error: 'Editor access required' });
     return;
   }
   next();

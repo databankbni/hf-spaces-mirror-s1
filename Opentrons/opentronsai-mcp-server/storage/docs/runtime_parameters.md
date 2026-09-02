@@ -96,8 +96,8 @@ description: str = "Reused description for all parameters."
 unit: str = "unit"
 
 # parameters with choice having non unique values is acceptable and covered in another protocol
-# parameters with display_name="" and description="" is acceptable but silly - no good rule possible to protect against that
 
+# parameters with display_name="" and description="" is acceptable but silly - no good rule possible to protect against that
 
 def add_parameters(parameters):
     ###################INT#####################

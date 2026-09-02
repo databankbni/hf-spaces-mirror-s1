@@ -1,13 +1,20 @@
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from schemas import AuthRequest
 import auth as auth_utils
+from services import auth_service
 import database as db_mod
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _cookie_secure_flag() -> bool:
+    return os.getenv("COOKIE_SECURE", "false").strip().lower() in ("1", "true", "yes", "on")
 
 
 def _get_user_value(user, key, default=None):
@@ -80,7 +87,7 @@ async def register(request: AuthRequest):
 
 
 @router.post("/login")
-async def login(request: AuthRequest):
+async def login(request: AuthRequest, response: Response):
     email = _normalize_email(request.email)
     password = request.password.strip() if isinstance(request.password, str) else ""
 
@@ -92,17 +99,85 @@ async def login(request: AuthRequest):
     if not user or not auth_utils.verify_password(password, password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email hoặc mật khẩu không đúng")
 
-    token = auth_utils.create_access_token(email)
+    # Create access token and a DB-backed refresh token (sent as HttpOnly cookie)
+    access_token = auth_utils.create_access_token(email)
+    refresh_token = await auth_service.create_refresh_token(email)
+
+    # Cookie options: HttpOnly, Secure where appropriate, SameSite none to allow cross-site usage
+    secure_flag = _cookie_secure_flag()
+    max_age = int(os.getenv("REFRESH_TOKEN_EXPIRES_SECONDS", 30 * 24 * 3600))
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=secure_flag,
+        samesite="none",
+        max_age=max_age,
+        path="/",
+    )
+
     return {
         "success": True,
         "data": {
-            "token": token,
+            "token": access_token,
             "user": {
                 "email": _get_user_value(user, "email", ""),
                 "name": _get_user_value(user, "name") or "",
+                "role": _get_user_value(user, "role", "user"),
             },
         },
     }
+
+
+
+@router.post("/refresh")
+async def refresh(request: Request, response: Response):
+    token = request.cookies.get("refresh_token")
+    rt = await auth_service.verify_refresh_token(token)
+
+    user_email = _get_user_value(rt, "userEmail") or _get_user_value(rt, "user_email")
+    if not user_email:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    # Rotate refresh token: revoke old and issue new
+    new_refresh = await auth_service.rotate_refresh_token(token, user_email)
+    secure_flag = _cookie_secure_flag()
+    max_age = int(os.getenv("REFRESH_TOKEN_EXPIRES_SECONDS", 30 * 24 * 3600))
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh,
+        httponly=True,
+        secure=secure_flag,
+        samesite="none",
+        max_age=max_age,
+        path="/",
+    )
+
+    access_token = auth_utils.create_access_token(user_email)
+    user = await db_mod.client.user.find_unique(where={"email": user_email})
+
+    return {
+        "success": True,
+        "data": {
+            "token": access_token,
+            "user": {
+                "email": _get_user_value(user, "email", ""),
+                "name": _get_user_value(user, "name") or "",
+                "role": _get_user_value(user, "role", "user"),
+            },
+        },
+    }
+
+
+@router.post("/logout")
+async def logout(request: Request, response: Response):
+    token = request.cookies.get("refresh_token")
+    if token:
+        await auth_service.revoke_refresh_token(token)
+
+    # Clear cookie
+    response.set_cookie(key="refresh_token", value="", httponly=True, secure=_cookie_secure_flag(), samesite="none", max_age=0, path="/")
+    return {"success": True}
 
 
 @router.get("/me")
@@ -116,5 +191,6 @@ async def me(current_email: str = Depends(auth_utils.get_current_user_email)):
         "data": {
             "email": _get_user_value(user, "email", ""),
             "name": _get_user_value(user, "name") or "",
+            "role": _get_user_value(user, "role", "user"),
         },
     }

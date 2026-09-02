@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ring Sizer — Admin</title>
+  <style>
+    :root {
+      --bg-1: #f5f1e7;
+      --ink: #2b1f1f;
+      --ink-soft: #4b3d3d;
+      --accent: #bf3a2b;
+      --sand: #f9f4ec;
+      --shadow: rgba(34, 26, 26, 0.12);
+      --border: rgba(45, 33, 33, 0.18);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px;
+      color: var(--ink);
+      background: var(--bg-1);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 8px; }
+    /* --- Login gate --- */
+    .login-gate {
+      max-width: 320px; margin: 120px auto; text-align: center;
+    }
+    .login-gate h1 { margin-bottom: 16px; }
+    .login-gate input {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 14px; margin-bottom: 12px;
+    }
+    .login-gate button {
+      width: 100%; padding: 10px; border: none; border-radius: 8px;
+      background: var(--accent); color: #fff; font-size: 14px; cursor: pointer;
+    }
+    .login-gate button:hover { opacity: 0.9; }
+    .login-gate .error { color: var(--accent); font-size: 13px; margin-top: 8px; }
+    .login-gate .back { display: inline-block; margin-top: 16px; color: var(--ink-soft); font-size: 13px; text-decoration: none; }
+    /* --- Admin content --- */
+    .admin-content { display: none; }
+    .toolbar {
+      display: flex; gap: 12px; align-items: center;
+      margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .toolbar a, .toolbar button {
+      padding: 6px 14px; border-radius: 6px; text-decoration: none;
+      font-size: 13px; cursor: pointer; border: 1px solid var(--border);
+      background: #fff; color: var(--ink);
+    }
+    .toolbar a:hover, .toolbar button:hover { background: var(--sand); }
+    .toolbar .count { color: var(--ink-soft); font-size: 13px; }
+    table {
+      width: 100%; border-collapse: collapse;
+      background: #fff; border-radius: 8px;
+      box-shadow: 0 1px 4px var(--shadow);
+      overflow: hidden;
+    }
+    th, td {
+      padding: 8px 10px; text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap; font-size: 13px;
+    }
+    th { background: var(--sand); font-weight: 600; position: sticky; top: 0; z-index: 1; }
+    tr:hover td { background: #faf7f2; }
+    .thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; cursor: pointer; }
+    .fail { color: var(--accent); font-weight: 500; }
+    .del-btn {
+      padding: 2px 8px; font-size: 11px; cursor: pointer;
+      border: 1px solid var(--accent); border-radius: 4px;
+      background: #fff; color: var(--accent);
+    }
+    .del-btn:hover { background: var(--accent); color: #fff; }
+    .finger-cell { font-size: 12px; }
+    .finger-cell .size { font-weight: 600; }
+    .finger-cell .detail { color: var(--ink-soft); }
+    .session-cell {
+      min-width: 190px; white-space: normal; font-size: 12px;
+      line-height: 1.35;
+    }
+    .session-overall { font-weight: 600; color: var(--ink); }
+    .session-fingers { margin-top: 2px; color: var(--ink); }
+    .session-meta { margin-top: 2px; color: var(--ink-soft); }
+    .session-json-btn {
+      margin-top: 5px; padding: 2px 7px; font-size: 11px; cursor: pointer;
+      border: 1px solid var(--border); border-radius: 4px;
+      background: #fff; color: var(--ink-soft);
+    }
+    .session-json-btn:hover { background: var(--sand); color: var(--ink); }
+    .rating-stars { color: #e3a73b; letter-spacing: 1px; font-size: 13px; }
+    .rating-stars .rating-empty { color: rgba(45, 33, 33, 0.18); }
+    .comment-cell {
+      display: inline-block; max-width: 220px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      vertical-align: middle; color: var(--ink-soft); font-size: 12px;
+      cursor: help;
+    }
+    .empty { text-align: center; padding: 48px; color: var(--ink-soft); }
+    .scroll-wrap { overflow-x: auto; }
+    /* --- Tabs --- */
+    .tabs {
+      display: flex; gap: 0; margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      padding: 8px 16px; cursor: pointer; font-size: 14px;
+      background: none; border: none; color: var(--ink-soft);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .tab:hover { color: var(--ink); }
+    .tab.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+    .pane { display: none; }
+    .pane.active { display: block; }
+    /* --- Dashboard --- */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px; margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #fff; border-radius: 8px; padding: 14px 16px;
+      box-shadow: 0 1px 4px var(--shadow);
+    }
+    .stat-card .label {
+      font-size: 11px; color: var(--ink-soft);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .stat-card .value {
+      font-size: 22px; font-weight: 600; color: var(--ink);
+    }
+    .stat-card .sub {
+      font-size: 12px; color: var(--ink-soft); margin-top: 4px;
+    }
+    .delta-up { color: #2f7a3d; }
+    .delta-down { color: var(--accent); }
+    .delta-flat { color: var(--ink-soft); }
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 16px;
+    }
+    .chart-card {
+      background: #fff; border-radius: 8px; padding: 14px 16px;
+      box-shadow: 0 1px 4px var(--shadow);
+    }
+    .chart-card.wide { grid-column: 1 / -1; }
+    .chart-card h2 {
+      font-size: 13px; margin: 0 0 12px;
+      color: var(--ink-soft); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .chart-wrap { position: relative; height: 240px; }
+    .chart-wrap.tall { height: 280px; }
+    .top-kol-list {
+      list-style: none; padding: 0; margin: 0;
+      font-size: 13px;
+    }
+    .top-kol-list li {
+      display: flex; justify-content: space-between;
+      padding: 6px 0; border-bottom: 1px solid var(--border);
+    }
+    .top-kol-list li:last-child { border-bottom: none; }
+    .top-kol-list .name { font-weight: 500; }
+    .top-kol-list .count { color: var(--ink-soft); }
+    .session-dialog {
+      width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 48px);
+      border: 1px solid var(--border); border-radius: 10px; padding: 0;
+      color: var(--ink); background: #fff; box-shadow: 0 12px 40px rgba(34, 26, 26, 0.25);
+    }
+    .session-dialog::backdrop { background: rgba(34, 26, 26, 0.45); }
+    .session-dialog-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; padding: 14px 16px; border-bottom: 1px solid var(--border);
+    }
+    .session-dialog-head h2 { margin: 0; font-size: 15px; }
+    .session-dialog-head button {
+      padding: 4px 10px; cursor: pointer; border: 1px solid var(--border);
+      border-radius: 5px; background: #fff; color: var(--ink);
+    }
+    .session-dialog pre {
+      margin: 0; padding: 16px; overflow: auto; max-height: calc(100vh - 130px);
+      white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.45;
+      background: #fcfaf6;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- Login gate -->
+  <div class="login-gate" id="loginGate">
+    <h1>Admin Access</h1>
+    <form id="loginForm">
+      <input type="password" id="tokenInput" placeholder="Enter passcode" autofocus />
+      <button type="submit">Unlock</button>
+    </form>
+    <div class="error" id="loginError"></div>
+    <a class="back" href="/">Back to Demo</a>
+  </div>
+
+  <!-- Admin content (hidden until authenticated) -->
+  <div class="admin-content" id="adminContent">
+    <h1>Ring Sizer — Admin</h1>
+    <div class="tabs">
+      <button class="tab active" data-pane="recordsPane">Records</button>
+      <button class="tab" data-pane="dashboardPane">Dashboard</button>
+      <button class="tab" data-pane="feedbackPane">Feedback</button>
+    </div>
+
+    <!-- Records pane -->
+    <div class="pane active" id="recordsPane">
+      <div class="toolbar">
+        <a href="/">Back to Demo</a>
+        <a id="exportCsvLink" href="#" download>Export CSV</a>
+        <button id="refreshBtn">Refresh</button>
+        <button id="prevPageBtn" disabled>&lsaquo; Prev</button>
+        <button id="nextPageBtn" disabled>Next &rsaquo;</button>
+        <span class="count" id="countLabel">Loading...</span>
+      </div>
+
+      <div class="scroll-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>KOL</th>
+              <th>Date</th>
+              <th>Model</th>
+              <th>Photo</th>
+              <th>Result</th>
+              <th>Index</th>
+              <th>Middle</th>
+              <th>Ring</th>
+              <th>Session Recommendation</th>
+              <th>Conf</th>
+              <th>Fail</th>
+              <th>Rating</th>
+              <th>Comment</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="14" class="empty">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Dashboard pane -->
+    <div class="pane" id="dashboardPane">
+      <div class="toolbar">
+        <a href="/">Back to Demo</a>
+        <button id="dashRefreshBtn">Refresh</button>
+        <label class="count" for="windowSelect">Window:</label>
+        <select id="windowSelect">
+          <option value="7">Last 7 days</option>
+          <option value="14">Last 14 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="60">Last 60 days</option>
+          <option value="90">Last 90 days</option>
+        </select>
+        <span class="count" id="dashStatusLabel">Loading...</span>
+      </div>
+
+      <div class="stat-grid" id="statGrid">
+        <!-- stat cards injected -->
+      </div>
+
+      <div class="chart-grid">
+        <div class="chart-card wide">
+          <h2>Uploads Per Day</h2>
+          <div class="chart-wrap tall"><canvas id="chartPerDay"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h2>Top KOLs</h2>
+          <ol class="top-kol-list" id="topKolList"></ol>
+        </div>
+        <div class="chart-card">
+          <h2>Failure Reasons</h2>
+          <div class="chart-wrap"><canvas id="chartFails"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h2>Confidence Levels</h2>
+          <div class="chart-wrap"><canvas id="chartConf"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h2>Ring Model Usage</h2>
+          <div class="chart-wrap"><canvas id="chartModels"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h2>Ring Size Distribution (Index, real uploads)</h2>
+          <div class="chart-wrap"><canvas id="chartSizes"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h2>User Ratings</h2>
+          <div class="chart-wrap"><canvas id="chartRatings"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h2>Storage Breakdown</h2>
+          <div class="chart-wrap"><canvas id="chartStorage"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback pane (v8 post-shipment fit feedback) -->
+    <div class="pane" id="feedbackPane">
+      <div class="toolbar">
+        <a href="/">Back to Demo</a>
+        <button id="fbRefreshBtn">Refresh</button>
+        <button id="fbPrevPageBtn" disabled>&lsaquo; Prev</button>
+        <button id="fbNextPageBtn" disabled>Next &rsaquo;</button>
+        <span class="count" id="fbCountLabel">Loading...</span>
+      </div>
+
+      <div class="scroll-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Submitted</th>
+              <th>Size</th>
+              <th>Model</th>
+              <th>Best finger</th>
+              <th>Fit</th>
+              <th>Hand</th>
+              <th>Photo</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="fbTableBody">
+            <tr><td colspan="11" class="empty">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <dialog class="session-dialog" id="sessionJsonDialog">
+    <div class="session-dialog-head">
+      <h2 id="sessionJsonTitle">Session Recommendation JSON</h2>
+      <button type="button" onclick="closeSessionJson()">Close</button>
+    </div>
+    <pre id="sessionJsonOutput"></pre>
+  </dialog>
+
+  <script src="/static/shared/admin-session.js"></script>
+  <script>
+    const loginGate = document.getElementById("loginGate");
+    const adminContent = document.getElementById("adminContent");
+    const loginForm = document.getElementById("loginForm");
+    const tokenInput = document.getElementById("tokenInput");
+    const loginError = document.getElementById("loginError");
+    const tbody = document.getElementById("tableBody");
+    const countLabel = document.getElementById("countLabel");
+    const prevPageBtn = document.getElementById("prevPageBtn");
+    const nextPageBtn = document.getElementById("nextPageBtn");
+
+    const PAGE_SIZE = 25;
+    let allRows = [];
+    let currentPage = 1;
+    let serverTotal = null;  // full DB count from X-Total-Count (may exceed loaded rows)
+
+    // "N rows" or "newest N of M rows" when the server-side fetch was capped.
+    const countText = (loaded, total, noun) =>
+      (total != null && total > loaded)
+        ? `newest ${loaded} of ${total} ${noun}`
+        : `${loaded} ${noun}`;
+
+    let adminToken = sessionStorage.getItem("admin_token") || "";
+
+    const unlock = async (token) => {
+      const resp = await fetch(`/api/admin/measurements?token=${encodeURIComponent(token)}`);
+      if (resp.status === 401) return false;
+      adminToken = token;
+      sessionStorage.setItem("admin_token", token);
+      loginGate.style.display = "none";
+      adminContent.style.display = "block";
+      document.getElementById("exportCsvLink").href = `/api/admin/export-csv?token=${encodeURIComponent(adminToken)}`;
+      loadStats();
+      loadStorage();
+      loadData();
+      loadFeedback();
+      return true;
+    };
+
+    // Auto-unlock if token saved in session
+    if (adminToken) {
+      unlock(adminToken).then((ok) => {
+        if (!ok) { adminToken = ""; sessionStorage.removeItem("admin_token"); }
+      });
+    }
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const token = tokenInput.value.trim();
+      if (!token) return;
+      const ok = await unlock(token);
+      if (!ok) {
+        loginError.textContent = "Incorrect passcode";
+        tokenInput.value = "";
+        tokenInput.focus();
+      }
+    });
+
+    const fmtDate = (iso) => {
+      if (!iso) return "";
+      const d = new Date(iso);
+      return d.toLocaleDateString("en-CA") + " " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    };
+
+    const fmtFinger = (pf, name) => {
+      if (!pf || !pf[name]) return '<span class="detail">-</span>';
+      const f = pf[name];
+      if (f.status !== "ok") return `<span class="fail">${f.fail_reason || "fail"}</span>`;
+      const size = f.best_match != null ? f.best_match : "-";
+      const diam = f.diameter_cm != null ? (f.diameter_cm * 10).toFixed(1) + "mm" : "";
+      const conf = f.confidence != null ? (f.confidence * 100).toFixed(0) + "%" : "";
+      return `<span class="size">${size}</span> <span class="detail">${diam} ${conf}</span>`;
+    };
+
+    const esc = (s) => String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+    const fmtRating = (r) => {
+      if (r == null || r < 1 || r > 5) return '<span class="detail">—</span>';
+      return `<span class="rating-stars" title="${r}/5">${"★".repeat(r)}<span class="rating-empty">${"★".repeat(5 - r)}</span></span>`;
+    };
+
+    const fmtComment = (msg) => {
+      if (!msg) return '<span class="detail">—</span>';
+      const trimmed = String(msg).slice(0, 80);
+      const more = msg.length > 80 ? "…" : "";
+      return `<span class="comment-cell" title="${esc(msg)}">${esc(trimmed)}${more}</span>`;
+    };
+
+    const fmtSessionRecommendation = (row) => {
+      const session = window.AdminSession.summary(row);
+      if (!session) return '<span class="detail">—</span>';
+
+      const fingerLabels = { index: "I", middle: "M", ring: "R" };
+      const fingers = Object.entries(session.perFinger)
+        .map(([finger, size]) => `${fingerLabels[finger]} ${esc(size)}`)
+        .join(" · ");
+      const evidence = [];
+      if (session.handedness) evidence.push(esc(session.handedness));
+      if (session.successfulShots != null) {
+        const noun = Number(session.successfulShots) === 1 ? "shot" : "shots";
+        evidence.push(`${esc(session.successfulShots)} successful ${noun}`);
+      }
+      const audit = [];
+      if (session.attemptIndex != null) audit.push(`Attempt ${esc(session.attemptIndex)}`);
+      if (session.shortSessionId) audit.push(esc(session.shortSessionId));
+
+      return `
+        <div class="session-overall">Overall ${session.overallSize != null ? esc(session.overallSize) : "—"}</div>
+        ${fingers ? `<div class="session-fingers">${fingers}</div>` : ""}
+        ${evidence.length ? `<div class="session-meta">${evidence.join(" · ")}</div>` : ""}
+        ${audit.length ? `<div class="session-meta">${audit.join(" · ")}</div>` : ""}
+        <button class="session-json-btn" type="button" onclick="viewSessionJson(this)">View JSON</button>`;
+    };
+
+    const rowHtml = (r) => {
+      const pf = r.per_finger || {};
+      const photoThumb = r.photo_url
+        ? `<img class="thumb" loading="lazy" src="${r.photo_url}" onclick="window.open('${r.photo_url}')" />`
+        : "-";
+      const resultThumb = r.result_url
+        ? `<img class="thumb" loading="lazy" src="${r.result_url}" onclick="window.open('${r.result_url}')" />`
+        : "-";
+      return `<tr data-id="${r.id}">
+        <td><strong>${r.kol_email || r.kol_name || "-"}</strong></td>
+        <td>${fmtDate(r.created_at)}</td>
+        <td>${r.ring_model || "-"}</td>
+        <td>${photoThumb}</td>
+        <td>${resultThumb}</td>
+        <td class="finger-cell">${fmtFinger(pf, "index")}</td>
+        <td class="finger-cell">${fmtFinger(pf, "middle")}</td>
+        <td class="finger-cell">${fmtFinger(pf, "ring")}</td>
+        <td class="session-cell">${fmtSessionRecommendation(r)}</td>
+        <td>${r.confidence != null ? (r.confidence * 100).toFixed(0) + "%" : "-"}</td>
+        <td>${r.fail_reason ? '<span class="fail">' + r.fail_reason + "</span>" : ""}</td>
+        <td>${fmtRating(r.feedback_rating)}</td>
+        <td>${fmtComment(r.feedback_message)}</td>
+        <td><button class="del-btn" onclick="deleteRow(this)">Delete</button></td>
+      </tr>`;
+    };
+
+    const renderPage = () => {
+      const total = allRows.length;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+      if (total === 0) {
+        countLabel.textContent = "0 records";
+        tbody.innerHTML = '<tr><td colspan="14" class="empty">No measurements yet</td></tr>';
+      } else {
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const slice = allRows.slice(start, start + PAGE_SIZE);
+        countLabel.textContent = `${countText(total, serverTotal, "records")} · page ${currentPage}/${totalPages}`;
+        tbody.innerHTML = slice.map(rowHtml).join("");
+      }
+      prevPageBtn.disabled = currentPage <= 1;
+      nextPageBtn.disabled = currentPage >= totalPages;
+    };
+
+    const loadData = async () => {
+      try {
+        const resp = await fetch(`/api/admin/measurements?token=${encodeURIComponent(adminToken)}`);
+        if (resp.status === 401) {
+          sessionStorage.removeItem("admin_token");
+          loginGate.style.display = "";
+          adminContent.style.display = "none";
+          loginError.textContent = "Session expired. Please log in again.";
+          return;
+        }
+        serverTotal = parseInt(resp.headers.get("X-Total-Count"), 10);
+        if (isNaN(serverTotal)) serverTotal = null;
+        allRows = await resp.json();
+        currentPage = 1;
+        renderPage();
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="14" class="empty">Error loading data: ${e.message}</td></tr>`;
+      }
+    };
+
+    window.viewSessionJson = (btn) => {
+      const rowId = btn.closest("tr").dataset.id;
+      const row = allRows.find((item) => String(item.id) === String(rowId));
+      if (!row || !row.session_recommendation) return;
+
+      const dialog = document.getElementById("sessionJsonDialog");
+      const shortId = row.session_id ? ` · ${String(row.session_id).slice(0, 8)}` : "";
+      document.getElementById("sessionJsonTitle").textContent = `Session Recommendation${shortId}`;
+      document.getElementById("sessionJsonOutput").textContent = JSON.stringify(
+        row.session_recommendation,
+        null,
+        2,
+      );
+      if (typeof dialog.showModal === "function") dialog.showModal();
+      else dialog.setAttribute("open", "");
+    };
+
+    window.closeSessionJson = () => {
+      const dialog = document.getElementById("sessionJsonDialog");
+      if (typeof dialog.close === "function") dialog.close();
+      else dialog.removeAttribute("open");
+    };
+
+    window.deleteRow = async (btn) => {
+      if (!confirm("Delete this measurement record?")) return;
+      const tr = btn.closest("tr");
+      const id = tr.dataset.id;
+      try {
+        const resp = await fetch(`/api/admin/measurements/${id}?token=${encodeURIComponent(adminToken)}`, {
+          method: "DELETE",
+        });
+        const result = await resp.json();
+        if (result.success) {
+          allRows = allRows.filter((r) => r.id !== id);
+          if (serverTotal != null) serverTotal--;
+          renderPage();
+        } else {
+          alert("Delete failed: " + (result.error || "unknown"));
+        }
+      } catch (e) {
+        alert("Network error: " + e.message);
+      }
+    };
+
+    prevPageBtn.addEventListener("click", () => { currentPage--; renderPage(); });
+    nextPageBtn.addEventListener("click", () => { currentPage++; renderPage(); });
+    document.getElementById("refreshBtn").addEventListener("click", loadData);
+
+    // ------------------------------------------------------------------
+    // Tab switching
+    // ------------------------------------------------------------------
+    document.querySelectorAll(".tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".pane").forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.pane).classList.add("active");
+      });
+    });
+
+    // ------------------------------------------------------------------
+    // Feedback (v8 post-shipment fit feedback)
+    // ------------------------------------------------------------------
+    const fbTableBody = document.getElementById("fbTableBody");
+    const fbCountLabel = document.getElementById("fbCountLabel");
+    const fbPrevPageBtn = document.getElementById("fbPrevPageBtn");
+    const fbNextPageBtn = document.getElementById("fbNextPageBtn");
+
+    let fbAllRows = [];
+    let fbCurrentPage = 1;
+    let fbServerTotal = null;  // full DB count from X-Total-Count
+
+    // Map the stored value codes back to human labels (mirrors the
+    // /feedback form's <option> text).
+    const FB_MODEL = { gen: "Gen1/Gen2", air: "Air" };
+    const FB_FINGER = {
+      thumb: "Thumb", index: "Index", middle: "Middle", ring: "Ring",
+      pinky: "Pinky", none_too_small: "None (too small)", none_too_big: "None (too big)",
+    };
+    const FB_FIT = {
+      perfect: "Perfect", snug: "Snug", loose: "Loose but stays on",
+      falls_off: "Falls off", too_tight: "Can't get it on",
+    };
+    const FB_HAND = { left: "Left", right: "Right" };
+    const fbLabel = (map, v) => (v ? (map[v] || v) : "-");
+
+    const fbRowHtml = (r) => {
+      const photoThumb = r.photo_url
+        ? `<img class="thumb" loading="lazy" src="${esc(r.photo_url)}" onclick="window.open('${esc(r.photo_url)}')" />`
+        : "-";
+      return `<tr data-id="${esc(r.id)}">
+        <td>${esc(r.kol_name) || "-"}</td>
+        <td><strong>${esc(r.kol_email) || "-"}</strong></td>
+        <td>${fmtDate(r.submitted_at)}</td>
+        <td>${esc(r.received_size) || "-"}</td>
+        <td>${fbLabel(FB_MODEL, r.received_model)}</td>
+        <td>${fbLabel(FB_FINGER, r.best_fit_finger)}</td>
+        <td>${fbLabel(FB_FIT, r.fit_quality)}</td>
+        <td>${fbLabel(FB_HAND, r.hand)}</td>
+        <td>${photoThumb}</td>
+        <td>${fmtComment(r.notes)}</td>
+        <td><button class="del-btn" onclick="deleteFbRow(this)">Delete</button></td>
+      </tr>`;
+    };
+
+    const renderFbPage = () => {
+      const total = fbAllRows.length;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      if (fbCurrentPage > totalPages) fbCurrentPage = totalPages;
+      if (fbCurrentPage < 1) fbCurrentPage = 1;
+      if (total === 0) {
+        fbCountLabel.textContent = "0 feedback rows";
+        fbTableBody.innerHTML = '<tr><td colspan="11" class="empty">No feedback yet</td></tr>';
+      } else {
+        const start = (fbCurrentPage - 1) * PAGE_SIZE;
+        const slice = fbAllRows.slice(start, start + PAGE_SIZE);
+        fbCountLabel.textContent = `${countText(total, fbServerTotal, "feedback rows")} · page ${fbCurrentPage}/${totalPages}`;
+        fbTableBody.innerHTML = slice.map(fbRowHtml).join("");
+      }
+      fbPrevPageBtn.disabled = fbCurrentPage <= 1;
+      fbNextPageBtn.disabled = fbCurrentPage >= totalPages;
+    };
+
+    const loadFeedback = async () => {
+      try {
+        const resp = await fetch(`/api/admin/feedback?token=${encodeURIComponent(adminToken)}`);
+        if (resp.status === 401) {
+          sessionStorage.removeItem("admin_token");
+          loginGate.style.display = "";
+          adminContent.style.display = "none";
+          loginError.textContent = "Session expired. Please log in again.";
+          return;
+        }
+        fbServerTotal = parseInt(resp.headers.get("X-Total-Count"), 10);
+        if (isNaN(fbServerTotal)) fbServerTotal = null;
+        fbAllRows = await resp.json();
+        fbCurrentPage = 1;
+        renderFbPage();
+      } catch (e) {
+        fbTableBody.innerHTML = `<tr><td colspan="11" class="empty">Error loading feedback: ${e.message}</td></tr>`;
+      }
+    };
+
+    window.deleteFbRow = async (btn) => {
+      if (!confirm("Delete this feedback record?")) return;
+      const tr = btn.closest("tr");
+      const id = tr.dataset.id;
+      try {
+        const resp = await fetch(`/api/admin/feedback/${id}?token=${encodeURIComponent(adminToken)}`, {
+          method: "DELETE",
+        });
+        const result = await resp.json();
+        if (result.success) {
+          fbAllRows = fbAllRows.filter((r) => r.id !== id);
+          if (fbServerTotal != null) fbServerTotal--;
+          renderFbPage();
+        } else {
+          alert("Delete failed: " + (result.error || "unknown"));
+        }
+      } catch (e) {
+        alert("Network error: " + e.message);
+      }
+    };
+
+    fbPrevPageBtn.addEventListener("click", () => { fbCurrentPage--; renderFbPage(); });
+    fbNextPageBtn.addEventListener("click", () => { fbCurrentPage++; renderFbPage(); });
+    document.getElementById("fbRefreshBtn").addEventListener("click", loadFeedback);
+
+    // ------------------------------------------------------------------
+    // Dashboard
+    // ------------------------------------------------------------------
+    const ACCENT = "#bf3a2b";
+    const PALETTE = ["#bf3a2b", "#d99c4f", "#7a8b3d", "#3d6b8b", "#8a4d8e", "#4b8a82", "#a05a3c", "#5a5a3c"];
+    const dashStatusLabel = document.getElementById("dashStatusLabel");
+    const statGrid = document.getElementById("statGrid");
+    const topKolList = document.getElementById("topKolList");
+    const windowSelect = document.getElementById("windowSelect");
+    const charts = {};
+
+    const fmtPct = (v) => v == null ? "-" : (v * 100).toFixed(1) + "%";
+    const fmtInt = (v) => v == null ? "-" : v.toLocaleString();
+    const fmtBytes = (n) => {
+      if (n == null) return "—";
+      const u = ["B", "KB", "MB", "GB", "TB"];
+      let i = 0;
+      while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+      return n.toFixed(n < 10 && i > 0 ? 1 : 0) + " " + u[i];
+    };
+
+    // Storage usage is fetched separately from /api/admin/stats; cached here
+    // and folded into the stat-card grid so it sits with the headline numbers.
+    let storageStats = null;
+    let lastStats = null;
+
+    const storageCard = () => {
+      if (storageStats === null) return { label: "Storage used", value: "…", sub: "" };
+      if (!storageStats.available) return { label: "Storage used", value: "n/a", sub: "persistence off" };
+      const s = storageStats;
+      // Card is the at-a-glance headline only: % of quota + the quota it's
+      // measured against. The per-prefix breakdown lives in the Storage
+      // Breakdown doughnut below.
+      const pct = s.used_fraction != null ? (s.used_fraction * 100).toFixed(0) + "%" : fmtBytes(s.total_bytes);
+      const sub = `of ${fmtBytes(s.quota_bytes)}`;
+      const subCls = (s.used_fraction != null && s.used_fraction > 0.8) ? "delta-down" : "";
+      return { label: "Storage used", value: pct, sub, subCls };
+    };
+    const fmtDay = (iso) => {
+      if (!iso) return "—";
+      // YYYY-MM-DD → MM-DD for compact axis labels
+      return iso.slice(5);
+    };
+    const deltaArrow = (curr, prev) => {
+      if (!prev && !curr) return { cls: "delta-flat", txt: "no change" };
+      if (!prev) return { cls: "delta-up", txt: `+${curr} vs prior 7d` };
+      const diff = curr - prev;
+      if (diff === 0) return { cls: "delta-flat", txt: "flat vs prior 7d" };
+      const pct = Math.round((diff / prev) * 100);
+      if (diff > 0) return { cls: "delta-up", txt: `+${diff} (${pct >= 0 ? "+" : ""}${pct}%) vs prior 7d` };
+      return { cls: "delta-down", txt: `${diff} (${pct}%) vs prior 7d` };
+    };
+
+    const renderStatCards = (s) => {
+      lastStats = s;
+      const t = s.totals;
+      const last7Delta = deltaArrow(t.last_7_days, t.prev_7_days);
+      const cards = [
+        { label: "Total measurements", value: fmtInt(t.total_measurements), sub: t.first_measurement_at ? `since ${t.first_measurement_at.slice(0, 10)}` : "" },
+        { label: "Unique KOLs", value: fmtInt(t.unique_kols), sub: "all-time, normalized" },
+        { label: "Last 7 days", value: fmtInt(t.last_7_days), sub: last7Delta.txt, subCls: last7Delta.cls },
+        { label: "Success rate", value: fmtPct(t.success_rate), sub: `${fmtInt(t.success_count)} ok · ${fmtInt(t.fail_count)} failed` },
+        { label: "Avg confidence", value: fmtPct(t.avg_confidence), sub: "successful runs only" },
+        {
+          label: "Avg rating",
+          value: t.rating_count ? `${t.avg_rating.toFixed(2)} ★` : "—",
+          sub: `${fmtInt(t.rating_count)} rated · ${fmtInt(t.comment_count)} comments`,
+        },
+        storageCard(),
+      ];
+      statGrid.innerHTML = cards.map((c) => `
+        <div class="stat-card">
+          <div class="label">${c.label}</div>
+          <div class="value">${c.value}</div>
+          <div class="sub ${c.subCls || ""}">${c.sub || ""}</div>
+        </div>
+      `).join("");
+    };
+
+    const renderTopKols = (kols) => {
+      if (!kols.length) {
+        topKolList.innerHTML = '<li><span class="name">—</span><span class="count">no KOLs yet</span></li>';
+        return;
+      }
+      topKolList.innerHTML = kols.map((k) => {
+        const last = k.last_at ? new Date(k.last_at).toISOString().slice(0, 10) : "";
+        return `<li><span class="name">${k.kol_ident}</span><span class="count">${k.count} · ${last}</span></li>`;
+      }).join("");
+    };
+
+    const upsertChart = (key, ctx, config) => {
+      if (charts[key]) { charts[key].destroy(); }
+      charts[key] = new Chart(ctx, config);
+    };
+
+    const renderCharts = (s) => {
+      // Per-day uploads — line chart with photos, unique KOLs, fails
+      const labels = s.per_day.map((d) => fmtDay(d.date));
+      upsertChart("perDay", document.getElementById("chartPerDay"), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            { label: "Photos", data: s.per_day.map((d) => d.photos), borderColor: ACCENT, backgroundColor: ACCENT + "33", tension: 0.25, fill: true, pointStyle: "line" },
+            { label: "Unique KOLs", data: s.per_day.map((d) => d.unique_kols), borderColor: "#3d6b8b", backgroundColor: "transparent", tension: 0.25, pointStyle: "line" },
+            { label: "Failures", data: s.per_day.map((d) => d.fails), borderColor: "#a05a3c", backgroundColor: "transparent", borderDash: [4, 4], tension: 0.25, pointStyle: "line" },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+          plugins: { legend: { position: "bottom", labels: { usePointStyle: true } } },
+        },
+      });
+
+      // Failure reasons — doughnut. Always includes a Success slice for context.
+      const failLabels = ["Success", ...s.fail_reasons.map((f) => f.reason)];
+      const failData = [s.totals.success_count, ...s.fail_reasons.map((f) => f.count)];
+      const failColors = ["#7a8b3d", ...s.fail_reasons.map((_, i) => PALETTE[(i + 1) % PALETTE.length])];
+      upsertChart("fails", document.getElementById("chartFails"), {
+        type: "doughnut",
+        data: { labels: failLabels, datasets: [{ data: failData, backgroundColor: failColors }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: "right", labels: { boxWidth: 12, font: { size: 11 } } } },
+        },
+      });
+
+      // Confidence buckets — horizontal bar
+      upsertChart("conf", document.getElementById("chartConf"), {
+        type: "bar",
+        data: {
+          labels: s.confidence_buckets.map((b) => b.bucket),
+          datasets: [{
+            data: s.confidence_buckets.map((b) => b.count),
+            backgroundColor: ["#7a8b3d", "#d99c4f", "#bf3a2b"],
+          }],
+        },
+        options: {
+          indexAxis: "y", responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+
+      // Ring model usage
+      upsertChart("models", document.getElementById("chartModels"), {
+        type: "bar",
+        data: {
+          labels: s.ring_models.map((m) => m.model),
+          datasets: [{ data: s.ring_models.map((m) => m.count), backgroundColor: PALETTE }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+
+      // Ring size distribution
+      upsertChart("sizes", document.getElementById("chartSizes"), {
+        type: "bar",
+        data: {
+          labels: s.size_distribution.map((d) => d.size),
+          datasets: [{ data: s.size_distribution.map((d) => d.count), backgroundColor: ACCENT }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+
+      // User ratings — vertical bar, 1★ → 5★
+      const ratings = s.rating_distribution || [];
+      upsertChart("ratings", document.getElementById("chartRatings"), {
+        type: "bar",
+        data: {
+          labels: ratings.map((d) => `${d.stars}★`),
+          datasets: [{
+            data: ratings.map((d) => d.count),
+            backgroundColor: ["#bf3a2b", "#d96b2b", "#d9a83b", "#7a8b3d", "#2f7a3d"],
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+      });
+    };
+
+    // Storage breakdown doughnut — fed by the separate /api/admin/storage
+    // fetch (not the stats payload), so it has its own render path. Shows the
+    // per-prefix split plus a Free slice for quota context.
+    const renderStorageChart = () => {
+      const canvas = document.getElementById("chartStorage");
+      if (!canvas || !storageStats || !storageStats.available) return;
+      const s = storageStats;
+      const p = s.prefixes || {};
+      const segs = [
+        { label: "Photos", bytes: (p.photos || {}).bytes || 0, color: "#7a8b3d" },
+        { label: "Results", bytes: (p.results || {}).bytes || 0, color: "#d99c4f" },
+        { label: "Feedback", bytes: (p.feedback || {}).bytes || 0, color: "#3d6b8b" },
+      ].filter((seg) => seg.bytes > 0);
+      const free = Math.max(0, (s.quota_bytes || 0) - (s.total_bytes || 0));
+      if (free > 0) segs.push({ label: "Free", bytes: free, color: "rgba(45,33,33,0.10)" });
+      upsertChart("storage", canvas, {
+        type: "doughnut",
+        data: {
+          labels: segs.map((seg) => seg.label),
+          datasets: [{ data: segs.map((seg) => seg.bytes), backgroundColor: segs.map((seg) => seg.color) }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "right", labels: { boxWidth: 12, font: { size: 11 } } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${fmtBytes(ctx.parsed)}` } },
+          },
+        },
+      });
+    };
+
+    const loadStats = async () => {
+      dashStatusLabel.textContent = "Loading...";
+      const days = windowSelect.value;
+      try {
+        const resp = await fetch(`/api/admin/stats?token=${encodeURIComponent(adminToken)}&days=${days}`);
+        if (resp.status === 401) {
+          sessionStorage.removeItem("admin_token");
+          loginGate.style.display = "";
+          adminContent.style.display = "none";
+          loginError.textContent = "Session expired. Please log in again.";
+          return;
+        }
+        const stats = await resp.json();
+        renderStatCards(stats);
+        renderTopKols(stats.top_kols);
+        renderCharts(stats);
+        const updated = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        dashStatusLabel.textContent = `Updated ${updated}`;
+      } catch (e) {
+        dashStatusLabel.textContent = `Error: ${e.message}`;
+      }
+    };
+
+    const loadStorage = async () => {
+      try {
+        const resp = await fetch(`/api/admin/storage?token=${encodeURIComponent(adminToken)}`);
+        if (resp.status === 401) return;
+        storageStats = await resp.json();
+        if (lastStats) renderStatCards(lastStats);  // re-render so the card fills in
+        renderStorageChart();
+      } catch (e) {
+        console.error("Failed to load storage", e);
+      }
+    };
+
+    document.getElementById("dashRefreshBtn").addEventListener("click", () => { loadStats(); loadStorage(); });
+    windowSelect.addEventListener("change", loadStats);
+  </script>
+</body>
+</html>

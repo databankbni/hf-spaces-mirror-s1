@@ -1,0 +1,1 @@
+const WINES=WD.map(a=>({winery:WY[a[0]].winery,wineryEn:WY[a[0]].wineryEn,region:WY[a[0]].region,kosher:WY[a[0]].kosher,kcls:WY[a[0]].kcls,name:a[1],nameEn:a[2],type:a[3],varieties:a[4],uncertain:!!a[5],cat:a[6],c:a[7]}));

@@ -1,0 +1,679 @@
+<div class="feature-heatmap"></div>
+<style>
+  .feature-heatmap {
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .feature-heatmap .controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .feature-heatmap .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .feature-heatmap .controls label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-color);
+  }
+
+  .feature-heatmap .model-tabs {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .feature-heatmap .model-tab {
+    padding: 7px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted-color);
+    background: var(--surface-bg);
+    border: none;
+    border-right: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+
+  .feature-heatmap .model-tab:last-child {
+    border-right: none;
+  }
+
+  .feature-heatmap .model-tab:hover {
+    background: var(--page-bg);
+  }
+
+  .feature-heatmap .model-tab.active {
+    background: #2563eb;
+    color: #fff;
+  }
+
+  .feature-heatmap .axes path,
+  .feature-heatmap .axes line {
+    stroke: var(--axis-color, var(--text-color));
+  }
+
+  .feature-heatmap .axes text {
+    fill: var(--tick-color, var(--muted-color));
+  }
+
+  .feature-heatmap .axis-label {
+    fill: var(--text-color);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* Dark mode: ensure all text is visible */
+  [data-theme="dark"] .feature-heatmap .axes text {
+    fill: rgba(255, 255, 255, 0.7) !important;
+  }
+  [data-theme="dark"] .feature-heatmap .axis-label {
+    fill: rgba(255, 255, 255, 0.9) !important;
+  }
+  [data-theme="dark"] .feature-heatmap .axes path,
+  [data-theme="dark"] .feature-heatmap .axes line {
+    stroke: rgba(255, 255, 255, 0.3) !important;
+  }
+  [data-theme="dark"] .feature-heatmap .controls label {
+    color: rgba(255, 255, 255, 0.9);
+  }
+  [data-theme="dark"] .feature-heatmap .legend-title {
+    color: rgba(255, 255, 255, 0.9);
+  }
+  [data-theme="dark"] .feature-heatmap .legend .item {
+    color: rgba(255, 255, 255, 0.8);
+  }
+  [data-theme="dark"] .feature-heatmap .colorbar-label {
+    color: rgba(255, 255, 255, 0.6);
+  }
+  [data-theme="dark"] .feature-heatmap .detail-panel {
+    background: #1a1d28;
+    border-color: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.9);
+  }
+  [data-theme="dark"] .feature-heatmap .detail-panel .detail-key {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .feature-heatmap .legend {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .feature-heatmap .legend-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-color);
+  }
+
+  .feature-heatmap .legend .items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    align-items: center;
+  }
+
+  .feature-heatmap .legend .item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--text-color);
+  }
+
+  .feature-heatmap .colorbar-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  .feature-heatmap .colorbar-canvas {
+    border-radius: 3px;
+    border: 1px solid var(--border-color);
+  }
+
+  .feature-heatmap .colorbar-label {
+    font-size: 11px;
+    color: var(--muted-color);
+  }
+
+  .feature-heatmap .detail-panel {
+    margin-top: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--surface-bg);
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-color);
+    display: none;
+  }
+
+  .feature-heatmap .detail-panel.visible {
+    display: block;
+    animation: fhFadeIn 0.25s ease;
+  }
+
+  @keyframes fhFadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .feature-heatmap .detail-panel .detail-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .feature-heatmap .detail-panel .detail-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+
+  .feature-heatmap .detail-panel .detail-key {
+    font-weight: 600;
+    color: var(--muted-color);
+    min-width: 90px;
+  }
+
+  .feature-heatmap .detail-panel .detail-link {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .feature-heatmap .detail-panel .detail-link:hover {
+    text-decoration: underline;
+  }
+
+  .feature-heatmap .detail-panel .detail-close {
+    float: right;
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--muted-color);
+    padding: 0 4px;
+    line-height: 1;
+  }
+
+  .feature-heatmap .detail-panel .detail-close:hover {
+    color: var(--text-color);
+  }
+
+  @media (max-width: 600px) {
+    .feature-heatmap .controls {
+      justify-content: flex-start;
+    }
+  }
+</style>
+<script>
+  (() => {
+    const ensureD3 = (cb) => {
+      if (window.d3 && typeof window.d3.select === 'function') return cb();
+      let s = document.getElementById('d3-cdn-script');
+      if (!s) { s = document.createElement('script'); s.id = 'd3-cdn-script'; s.src = 'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js'; document.head.appendChild(s); }
+      const onReady = () => { if (window.d3 && typeof window.d3.select === 'function') cb(); };
+      s.addEventListener('load', onReady, { once: true }); if (window.d3) onReady();
+    };
+
+    const bootstrap = () => {
+      const scriptEl = document.currentScript;
+      let container = scriptEl ? scriptEl.previousElementSibling : null;
+      if (!(container && container.classList && container.classList.contains('feature-heatmap'))) {
+        const cs = Array.from(document.querySelectorAll('.feature-heatmap')).filter(el => !(el.dataset && el.dataset.mounted === 'true'));
+        container = cs[cs.length - 1] || null;
+      }
+      if (!container) return;
+      if (container.dataset) { if (container.dataset.mounted === 'true') return; container.dataset.mounted = 'true'; }
+
+      const d3 = window.d3;
+
+      // Tooltip
+      container.style.position = container.style.position || 'relative';
+      let tip = container.querySelector('.d3-tooltip'); let tipInner;
+      if (!tip) {
+        tip = document.createElement('div'); tip.className = 'd3-tooltip';
+        Object.assign(tip.style, { position: 'absolute', top: '0px', left: '0px', transform: 'translate(-9999px, -9999px)', pointerEvents: 'none', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', lineHeight: '1.35', border: '1px solid var(--border-color)', background: 'var(--surface-bg)', color: 'var(--text-color)', boxShadow: '0 4px 24px rgba(0,0,0,.18)', opacity: '0', transition: 'opacity .12s ease', zIndex: '10', maxWidth: '300px' });
+        tipInner = document.createElement('div'); tipInner.className = 'd3-tooltip__inner'; tipInner.style.textAlign = 'left'; tip.appendChild(tipInner); container.appendChild(tip);
+      } else { tipInner = tip.querySelector('.d3-tooltip__inner') || tip; }
+
+      const showTip = (evt, html) => {
+        tipInner.innerHTML = html;
+        tip.style.opacity = '1';
+        const pt = d3.pointer(evt, container);
+        const tipW = tip.offsetWidth || 200;
+        const tipH = tip.offsetHeight || 60;
+        const cW = container.clientWidth;
+        let x = pt[0] + 14, y = pt[1] - tipH - 8;
+        if (x + tipW > cW) x = pt[0] - tipW - 14;
+        if (y < 0) y = pt[1] + 16;
+        tip.style.transform = `translate(${x}px, ${y}px)`;
+      };
+      const hideTip = () => { tip.style.opacity = '0'; setTimeout(() => { tip.style.transform = 'translate(-9999px, -9999px)'; }, 120); };
+
+      // SVG
+      const svg = d3.select(container).append('svg').attr('width', '100%').style('display', 'block');
+      const gRoot = svg.append('g');
+      const gCells = gRoot.append('g').attr('class', 'cells');
+      const gAxes = gRoot.append('g').attr('class', 'axes');
+
+      let width = 800, height = 500;
+      const margin = { top: 64, right: 20, bottom: 40, left: 50 };
+
+      // State
+      let activeModel = 'gemma2b';
+      let rawData = null;
+      let selectedCell = null;
+
+      // Theme detection
+      const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
+      const themeTextColor = () => isDark() ? 'rgba(255,255,255,0.85)' : '#333';
+      const themeMutedColor = () => isDark() ? 'rgba(255,255,255,0.6)' : '#666';
+      const themeAxisColor = () => isDark() ? 'rgba(255,255,255,0.3)' : '#ccc';
+
+      // Model names for display
+      const modelLabels = { gemma2b: 'Gemma-2 2B', llama8: 'LLaMA-3.1 8B' };
+
+      // Color scale
+      const getColorScale = (minVal, maxVal) => {
+        return d3.scaleSequential()
+          .domain([minVal, maxVal])
+          .interpolator(d3.interpolate('#2563eb', '#e0eaf8'));
+      };
+
+      // Controls
+      const controlsDiv = document.createElement('div');
+      controlsDiv.className = 'controls';
+      const tabGroup = document.createElement('div');
+      tabGroup.className = 'control-group';
+      const tabLabel = document.createElement('label');
+      tabLabel.textContent = 'Model';
+      tabLabel.style.color = themeTextColor();
+      tabGroup.appendChild(tabLabel);
+      const tabContainer = document.createElement('div');
+      tabContainer.className = 'model-tabs';
+      Object.entries(modelLabels).forEach(([key, label]) => {
+        const btn = document.createElement('button');
+        btn.className = 'model-tab' + (key === activeModel ? ' active' : '');
+        btn.textContent = label;
+        btn.dataset.model = key;
+        btn.addEventListener('click', () => {
+          activeModel = key;
+          tabContainer.querySelectorAll('.model-tab').forEach(b => b.classList.toggle('active', b.dataset.model === key));
+          selectedCell = null;
+          detailPanel.classList.remove('visible');
+          render();
+        });
+        tabContainer.appendChild(btn);
+      });
+      tabGroup.appendChild(tabContainer);
+      controlsDiv.appendChild(tabGroup);
+      container.appendChild(controlsDiv);
+
+      // Legend with colorbar
+      const legendDiv = document.createElement('div');
+      legendDiv.className = 'legend';
+      container.appendChild(legendDiv);
+
+      function buildLegend(colorScale, minVal, maxVal) {
+        legendDiv.innerHTML = '';
+        const title = document.createElement('div');
+        title.className = 'legend-title'; title.textContent = 'Legend';
+        title.style.color = themeTextColor();
+        legendDiv.appendChild(title);
+
+        const items = document.createElement('div');
+        items.className = 'items';
+
+        // Color bar
+        const barContainer = document.createElement('div');
+        barContainer.className = 'colorbar-container';
+
+        const lowLabel = document.createElement('span');
+        lowLabel.className = 'colorbar-label';
+        lowLabel.textContent = minVal.toFixed(2);
+        lowLabel.style.color = themeMutedColor();
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'colorbar-canvas';
+        canvas.width = 140; canvas.height = 14;
+        const ctx = canvas.getContext('2d');
+        for (let i = 0; i < 140; i++) {
+          const val = minVal + (maxVal - minVal) * (i / 139);
+          ctx.fillStyle = colorScale(val);
+          ctx.fillRect(i, 0, 1, 14);
+        }
+
+        const highLabel = document.createElement('span');
+        highLabel.className = 'colorbar-label';
+        highLabel.textContent = maxVal.toFixed(2);
+        highLabel.style.color = themeMutedColor();
+
+        const corrLabel = document.createElement('span');
+        corrLabel.style.cssText = `font-size:11px;color:${themeMutedColor()};margin-right:4px;`;
+        corrLabel.textContent = 'Correlation:';
+
+        barContainer.appendChild(corrLabel);
+        barContainer.appendChild(lowLabel);
+        barContainer.appendChild(canvas);
+        barContainer.appendChild(highLabel);
+        items.appendChild(barContainer);
+
+        // Click instruction
+        const clickHint = document.createElement('span');
+        clickHint.className = 'item';
+        clickHint.style.cssText = `font-size:11px;color:${themeMutedColor()};`;
+        clickHint.textContent = 'Click a cell for details';
+        items.appendChild(clickHint);
+
+        legendDiv.appendChild(items);
+      }
+
+      // Detail panel
+      const detailPanel = document.createElement('div');
+      detailPanel.className = 'detail-panel';
+      container.appendChild(detailPanel);
+
+      function showDetail(d) {
+        selectedCell = d;
+        const saeBase = activeModel === 'gemma2b' ? 'gemma-2-2b' : 'Meta-Llama-3.1-8B';
+        const saeSuffix = activeModel === 'gemma2b' ? 'gemmascope-res-16k' : 'llamascope-res-16k';
+        const npUrl = `https://neuronpedia.org/${saeBase}/${d.layer}-${saeSuffix}/${d.feature_index}`;
+        detailPanel.innerHTML = `
+          <button class="detail-close" aria-label="Close detail panel">&times;</button>
+          <div class="detail-title">Layer ${d.layer} / ${d.task.toUpperCase()} - Feature #${d.feature_index}</div>
+          <div class="detail-row"><span class="detail-key">Correlation</span><span>${d.correlation.toFixed(4)}</span></div>
+          <div class="detail-row"><span class="detail-key">Coefficient</span><span>${d.coefficient.toFixed(4)}</span></div>
+          <div class="detail-row"><span class="detail-key">Frequency</span><span>${d.frequency.toFixed(1)}%</span></div>
+          <div class="detail-row"><span class="detail-key">Description</span><span>${d.description || 'No description available'}</span></div>
+          <div class="detail-row"><span class="detail-key">Neuronpedia</span><a class="detail-link" href="${npUrl}" target="_blank" rel="noopener">${npUrl}</a></div>
+        `;
+        detailPanel.classList.add('visible');
+        detailPanel.querySelector('.detail-close').addEventListener('click', () => {
+          selectedCell = null;
+          detailPanel.classList.remove('visible');
+          render();
+        });
+      }
+
+      function updateSize() {
+        width = container.clientWidth || 800;
+        const modelData = rawData ? rawData[activeModel] : null;
+        const tasks = modelData ? Object.keys(modelData) : [];
+        const layers = modelData && tasks.length > 0 ? modelData[tasks[0]].map(d => d.layer) : [];
+        const numRows = layers.length || 25;
+        const cellH = Math.max(14, Math.min(22, (width - margin.left - margin.right) / (tasks.length || 8) * 0.7));
+        height = margin.top + numRows * cellH + margin.bottom + 10;
+        svg.attr('width', width).attr('height', height);
+        gRoot.attr('transform', `translate(${margin.left},${margin.top})`);
+        return {
+          innerWidth: width - margin.left - margin.right,
+          innerHeight: height - margin.top - margin.bottom,
+          cellH
+        };
+      }
+
+      function render() {
+        if (!rawData || !rawData[activeModel]) return;
+        const modelData = rawData[activeModel];
+        const tasks = Object.keys(modelData);
+        const layers = modelData[tasks[0]].map(d => d.layer);
+
+        const { innerWidth, innerHeight, cellH } = updateSize();
+
+        // Build flat data with task as property
+        const flatData = [];
+        let minCorr = Infinity, maxCorr = -Infinity;
+        tasks.forEach(task => {
+          modelData[task].forEach(d => {
+            flatData.push({ ...d, task });
+            if (d.correlation < minCorr) minCorr = d.correlation;
+            if (d.correlation > maxCorr) maxCorr = d.correlation;
+          });
+        });
+
+        const colorScale = getColorScale(minCorr, maxCorr);
+        buildLegend(colorScale, minCorr, maxCorr);
+
+        // Scales
+        const xScale = d3.scaleBand().domain(tasks).range([0, innerWidth]).padding(0.06);
+        const yScale = d3.scaleBand().domain(layers).range([0, innerHeight]).padding(0.06);
+
+        // Task labels function for display
+        const taskDisplayName = (t) => {
+          const names = {
+            mmlu: 'MMLU', mmlupro: 'MMLU-Pro', simpleqa: 'SimpleQA',
+            bbq_ambig: 'BBQ-A', bbq_disambig: 'BBQ-D', harmbench: 'HarmBench',
+            xstest: 'XSTest', gsm8k: 'GSM8K'
+          };
+          return names[t] || t.toUpperCase();
+        };
+
+        // X axis (task names on top)
+        const xAxisG = gAxes.selectAll('.x-axis').data([0]).join('g').attr('class', 'x-axis axes')
+          .attr('transform', `translate(0, -4)`);
+        xAxisG.call(d3.axisTop(xScale).tickSize(0).tickFormat(taskDisplayName));
+        xAxisG.select('.domain').remove();
+        xAxisG.selectAll('text')
+          .attr('text-anchor', 'start')
+          .attr('transform', 'rotate(-40)')
+          .attr('dx', '4px')
+          .attr('dy', '4px')
+          .style('font-size', '11px')
+          .style('fill', themeMutedColor());
+        xAxisG.selectAll('path, line').style('stroke', themeAxisColor());
+
+        // Y axis (layer numbers)
+        const yAxisG = gAxes.selectAll('.y-axis').data([0]).join('g').attr('class', 'y-axis axes');
+        yAxisG.call(d3.axisLeft(yScale).tickSize(0).tickFormat(d => d));
+        yAxisG.select('.domain').remove();
+        yAxisG.selectAll('text').style('font-size', '11px').style('fill', themeMutedColor());
+        yAxisG.selectAll('path, line').style('stroke', themeAxisColor());
+
+        // Y axis label
+        gAxes.selectAll('.y-label').data([0]).join('text').attr('class', 'y-label axis-label')
+          .attr('transform', `translate(${-36}, ${innerHeight / 2}) rotate(-90)`)
+          .attr('text-anchor', 'middle').text('Layer')
+          .style('fill', themeTextColor());
+
+        // Cells
+        const cells = gCells.selectAll('.hm-cell').data(flatData, d => `${d.task}-${d.layer}`);
+
+        const getTextStyle = (bgColor) => {
+          const rgb = d3.color(bgColor);
+          if (!rgb) return { fill: 'var(--text-color)' };
+          const lum = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+          return { fill: lum > 160 ? '#333' : '#fff' };
+        };
+
+        cells.join(
+          enter => {
+            const g = enter.append('g').attr('class', 'hm-cell')
+              .attr('transform', d => `translate(${xScale(d.task)}, ${yScale(d.layer)})`)
+              .style('cursor', 'pointer');
+
+            g.append('rect')
+              .attr('class', 'hm-rect')
+              .attr('width', xScale.bandwidth())
+              .attr('height', yScale.bandwidth())
+              .attr('rx', 2)
+              .attr('fill', d => colorScale(d.correlation))
+              .attr('stroke', 'none')
+              .attr('stroke-width', 2)
+              .attr('opacity', 0)
+              .transition().duration(500)
+              .attr('opacity', 1);
+
+            g.append('text')
+              .attr('class', 'hm-text')
+              .attr('x', xScale.bandwidth() / 2)
+              .attr('y', yScale.bandwidth() / 2)
+              .attr('text-anchor', 'middle')
+              .attr('dominant-baseline', 'central')
+              .style('font-size', Math.min(10, yScale.bandwidth() * 0.55) + 'px')
+              .style('pointer-events', 'none')
+              .style('opacity', 0)
+              .text(d => d.correlation.toFixed(2))
+              .each(function (d) {
+                const style = getTextStyle(colorScale(d.correlation));
+                d3.select(this).style('fill', style.fill);
+              })
+              .transition().duration(500).delay(200)
+              .style('opacity', yScale.bandwidth() > 16 ? 1 : 0);
+
+            g.on('mouseenter', function (evt, d) {
+              d3.select(this).select('.hm-rect').attr('stroke', 'var(--text-color)');
+              showTip(evt, `
+                <div style="font-weight:700;">${taskDisplayName(d.task)} - Layer ${d.layer}</div>
+                <div style="margin-top:4px;">Correlation: <strong>${d.correlation.toFixed(4)}</strong></div>
+                <div>Coefficient: ${d.coefficient.toFixed(4)}</div>
+                <div>Feature: #${d.feature_index}</div>
+                <div>Frequency: ${d.frequency.toFixed(1)}%</div>
+                <div style="font-size:11px;margin-top:3px;color:var(--muted-color);">${d.description || 'No description'}</div>
+              `);
+            })
+              .on('mouseleave', function () {
+                const isSelected = selectedCell && selectedCell.task === d3.select(this).datum().task && selectedCell.layer === d3.select(this).datum().layer;
+                d3.select(this).select('.hm-rect').attr('stroke', isSelected ? 'var(--text-color)' : 'none');
+                hideTip();
+              })
+              .on('click', function (evt, d) {
+                showDetail(d);
+                // Highlight selected cell
+                gCells.selectAll('.hm-rect').attr('stroke', 'none');
+                d3.select(this).select('.hm-rect').attr('stroke', 'var(--text-color)');
+              });
+
+            return g;
+          },
+          update => {
+            update.transition().duration(500)
+              .attr('transform', d => `translate(${xScale(d.task)}, ${yScale(d.layer)})`);
+
+            update.select('.hm-rect')
+              .transition().duration(500)
+              .attr('width', xScale.bandwidth())
+              .attr('height', yScale.bandwidth())
+              .attr('fill', d => colorScale(d.correlation))
+              .attr('opacity', 1);
+
+            update.select('.hm-text')
+              .attr('x', xScale.bandwidth() / 2)
+              .attr('y', yScale.bandwidth() / 2)
+              .style('font-size', Math.min(10, yScale.bandwidth() * 0.55) + 'px')
+              .text(d => d.correlation.toFixed(2))
+              .each(function (d) {
+                const style = getTextStyle(colorScale(d.correlation));
+                d3.select(this).style('fill', style.fill);
+              })
+              .transition().duration(500)
+              .style('opacity', yScale.bandwidth() > 16 ? 1 : 0);
+
+            // Rebind events
+            update
+              .on('mouseenter', function (evt, d) {
+                d3.select(this).select('.hm-rect').attr('stroke', 'var(--text-color)');
+                showTip(evt, `
+                  <div style="font-weight:700;">${taskDisplayName(d.task)} - Layer ${d.layer}</div>
+                  <div style="margin-top:4px;">Correlation: <strong>${d.correlation.toFixed(4)}</strong></div>
+                  <div>Coefficient: ${d.coefficient.toFixed(4)}</div>
+                  <div>Feature: #${d.feature_index}</div>
+                  <div>Frequency: ${d.frequency.toFixed(1)}%</div>
+                  <div style="font-size:11px;margin-top:3px;color:var(--muted-color);">${d.description || 'No description'}</div>
+                `);
+              })
+              .on('mouseleave', function () {
+                const datum = d3.select(this).datum();
+                const isSelected = selectedCell && selectedCell.task === datum.task && selectedCell.layer === datum.layer;
+                d3.select(this).select('.hm-rect').attr('stroke', isSelected ? 'var(--text-color)' : 'none');
+                hideTip();
+              })
+              .on('click', function (evt, d) {
+                showDetail(d);
+                gCells.selectAll('.hm-rect').attr('stroke', 'none');
+                d3.select(this).select('.hm-rect').attr('stroke', 'var(--text-color)');
+              });
+
+            return update;
+          },
+          exit => exit.transition().duration(300).style('opacity', 0).remove()
+        );
+      }
+
+      // Data loading
+      const JSON_PATHS = [
+        '/data/feature_heatmap_data.json',
+        './assets/data/feature_heatmap_data.json',
+        '../assets/data/feature_heatmap_data.json',
+        '../../assets/data/feature_heatmap_data.json'
+      ];
+
+      const fetchFirstAvailable = async (paths) => {
+        for (const p of paths) {
+          try { const r = await fetch(p, { cache: 'no-cache' }); if (r.ok) return await r.json(); } catch (_) { }
+        }
+        throw new Error('Data not found');
+      };
+
+      fetchFirstAvailable(JSON_PATHS)
+        .then(data => {
+          rawData = data;
+          // Set default model (prefer gemma2b if available)
+          if (!rawData[activeModel]) {
+            activeModel = Object.keys(rawData)[0];
+            tabContainer.querySelectorAll('.model-tab').forEach(b => b.classList.toggle('active', b.dataset.model === activeModel));
+          }
+          render();
+
+          // Resize handling
+          if (window.ResizeObserver) {
+            const ro = new ResizeObserver(() => render());
+            ro.observe(container);
+          } else {
+            window.addEventListener('resize', render);
+          }
+
+          // Theme change: re-render for correct text colors
+          const mo = new MutationObserver((muts) => {
+            for (const m of muts) {
+              if (m.attributeName === 'data-theme') { render(); break; }
+            }
+          });
+          mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+        })
+        .catch(err => {
+          const pre = document.createElement('pre');
+          pre.style.cssText = 'color:red;font-size:12px;padding:12px;';
+          pre.textContent = 'Failed to load heatmap data: ' + err.message;
+          container.appendChild(pre);
+        });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => ensureD3(bootstrap), { once: true });
+    } else {
+      ensureD3(bootstrap);
+    }
+  })();
+</script>

@@ -1,0 +1,122 @@
+name: Test ClimaFlora edaphic v2 enrichment code
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [edaphic-v2.0-enrichment]
+    paths:
+      - '.github/workflows/test-edaphic-v2-enrichment-code.yml'
+      - '.github/tools/collect_edaphic_v2_sources.py'
+      - '.github/tools/collect_edaphic_v2_usda_synonyms.py'
+      - '.github/tools/normalize_edaphic_v2_sources.py'
+      - '.github/tools/build_edaphic_v2_0.py'
+      - '.github/tools/edaphic_v2_common.py'
+      - 'tests/test_edaphic_v2_builder_contract.py'
+      - 'tests/test_edaphic_v2_range_semantics.py'
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Install dependencies
+        run: python -m pip install --quiet requests openpyxl pytest pydantic
+      - name: Compile v2 tools
+        run: |
+          python -m py_compile \
+            .github/tools/collect_edaphic_v2_sources.py \
+            .github/tools/collect_edaphic_v2_usda_synonyms.py \
+            .github/tools/normalize_edaphic_v2_sources.py \
+            .github/tools/build_edaphic_v2_0.py \
+            .github/tools/edaphic_v2_common.py
+      - name: Run v2 scoring and builder regression contracts
+        run: |
+          python -m pip install --quiet -e .
+          pytest -q tests/test_edaphic_v2_builder_contract.py tests/test_edaphic_v2_range_semantics.py
+      - name: Exercise accepted-name and synonym normalization
+        run: |
+          python - <<'PY'
+          import csv,json,sqlite3,subprocess,sys,tempfile
+          from pathlib import Path
+          from openpyxl import Workbook,load_workbook
+
+          root=Path(tempfile.mkdtemp())
+          db=root/'catalog.sqlite'
+          with sqlite3.connect(db) as c:
+              c.execute('CREATE TABLE plant_index(taxon_id TEXT PRIMARY KEY,scientific_name TEXT)')
+              c.execute('CREATE TABLE wcvp_names(taxon_id TEXT,scientific_name TEXT,accepted_name_usage_id TEXT)')
+              c.executemany('INSERT INTO plant_index VALUES(?,?)',[('1','Accepted alpha'),('2','Accepted beta')])
+              c.executemany('INSERT INTO wcvp_names VALUES(?,?,?)',[
+                  ('10','Old alpha','1'),('11','Accepted alpha','1'),('20','Old beta','2'),('21','Accepted beta','2')])
+
+          primary=root/'primary.jsonl'; synonym=root/'synonym.jsonl'; combined=root/'combined.jsonl'
+          primary.write_text(json.dumps({'taxon_id':'1','symbol':'AA','scientific_name':'Accepted alpha','match_strategy':'accepted_name','outcome':'NO_CHARACTERISTICS'})+'\n')
+          synonym.write_text(
+              json.dumps({'taxon_id':'1','symbol':'OA','scientific_name':'Accepted alpha','source_scientific_name':'Old alpha','match_strategy':'exact_unambiguous_wcvp_synonym','outcome':'NO_CHARACTERISTICS'})+'\n'+
+              json.dumps({'taxon_id':'2','symbol':'BB','scientific_name':'Accepted beta','source_scientific_name':'Old beta','match_strategy':'exact_unambiguous_wcvp_synonym','outcome':'NO_CHARACTERISTICS'})+'\n'
+          )
+
+          wb=Workbook(); ws=wb.active; ws.title='baseflor'
+          ws.append(['rang_taxinomique','nomH','Humidité_édaphique','Réaction_du_sol_(pH)','Niveau_trophique','Salinité','Texture','Matière_organique'])
+          ws.append(['esp','Accepted alpha',5,4,3,0,6,4])
+          ws.append(['esp','Old beta',7,8,5,2,4,3])
+          raw=root/'baseflor.xlsx'; normalized=root/'baseflor_norm.xlsx'; wb.save(raw)
+          report=root/'report.json'
+          subprocess.run([
+              sys.executable,'.github/tools/normalize_edaphic_v2_sources.py',
+              '--catalog',str(db),'--usda-primary',str(primary),'--usda-synonyms',str(synonym),
+              '--usda-output',str(combined),'--baseflor',str(raw),'--baseflor-output',str(normalized),'--report',str(report)
+          ],check=True)
+          r=json.loads(report.read_text())
+          assert r['usda']['combined_rows']==2,r
+          assert r['usda']['combined_taxa']==2,r
+          assert r['usda']['duplicate_taxon_rows_dropped']==1,r
+          assert r['usda']['taxa_with_both_accepted_and_synonym_candidates']==1,r
+          combined_rows=[json.loads(x) for x in combined.read_text().splitlines() if x.strip()]
+          by_taxon={x['taxon_id']:x for x in combined_rows}
+          assert by_taxon['1']['symbol']=='AA',by_taxon
+          assert by_taxon['1']['match_strategy']=='accepted_name',by_taxon
+          assert by_taxon['2']['symbol']=='BB',by_taxon
+          assert r['baseflor']['accepted_matches']==1,r
+          assert r['baseflor']['synonym_matches']==1,r
+          nwb=load_workbook(normalized,data_only=True); nws=nwb['baseflor']
+          h=[x.value for x in nws[1]]; i={v:k+1 for k,v in enumerate(h)}
+          assert nws.cell(3,i['nomH']).value=='Accepted beta'
+          assert nws.cell(3,i['CLIMAFLORA_SOURCE_NOMH']).value=='Old beta'
+          assert nws.cell(3,i['CLIMAFLORA_MATCH_STRATEGY']).value=='exact_unambiguous_wcvp_synonym'
+          assert nws.cell(3,i['CLIMAFLORA_TAXON_ID']).value=='2'
+
+          plantlist=root/'plantlst.txt'
+          with plantlist.open('w',newline='',encoding='utf-8') as f:
+              w=csv.DictWriter(f,fieldnames=['Symbol','Synonym Symbol','Scientific Name with Author','Common Name','Family'])
+              w.writeheader(); w.writerow({'Symbol':'OB','Synonym Symbol':'','Scientific Name with Author':'Old beta Author','Common Name':'','Family':'X'})
+          sys.path.insert(0,str(Path('.github/tools').resolve()))
+          from collect_edaphic_v2_usda_synonyms import load_taxonomy,load_synonym_candidates
+          accepted,synonyms,ambiguous=load_taxonomy(db)
+          candidates,stats=load_synonym_candidates(plantlist,accepted,synonyms,ambiguous)
+          assert len(candidates)==1,(candidates,stats)
+          assert candidates[0]['taxon_id']=='2'
+          assert candidates[0]['scientific_name']=='Accepted beta'
+          assert candidates[0]['source_scientific_name']=='Old beta'
+          print(json.dumps({'normalization':r,'candidate':candidates[0]},indent=2))
+          PY
+      - name: Record QA status
+        run: |
+          cat > /tmp/edaphic-v2-code-test.json <<EOF
+          {"status":"ready","commit":"$GITHUB_SHA","normalization_test":true,"python_compile":true,"regression_contracts":true,"accepted_name_priority_test":true}
+          EOF
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin edaphic-v2.0-enrichment && git reset --hard origin/edaphic-v2.0-enrichment
+            cp /tmp/edaphic-v2-code-test.json .github/edaphic-v2-code-test.json
+            git add .github/edaphic-v2-code-test.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record ClimaFlora v2 enrichment code QA [skip ci]'
+            git push origin HEAD:edaphic-v2.0-enrichment && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

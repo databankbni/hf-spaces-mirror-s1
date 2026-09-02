@@ -1,0 +1,94 @@
+name: Verify Search v0.10.1 cold acquisition
+
+on:
+  push:
+    branches:
+      - fix/search-cold-acquisition-v0101
+    paths:
+      - 'app/services/climate.py'
+      - 'app/routers/search.py'
+      - 'tests/test_climate_parallel_point_profile.py'
+      - '.github/cold-acquisition-trigger.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cold-climate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout validation branch
+        uses: actions/checkout@v6
+        with:
+          ref: fix/search-cold-acquisition-v0101
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Measure two real cold CHELSA profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 170s python - <<'PY'
+          import json
+          import time
+          from app.domain.models import Horizon, Scenario
+          from app.services.climate import make_climate_provider
+
+          provider = make_climate_provider('chelsa', 'data/climate_manifest.json')
+          required = {'bio01','bio05','bio06','bio12','bio15'}
+          sites = [
+              ('Geneva', 46.2044, 6.1432),
+              ('Bordeaux', 44.8378, -0.5792),
+          ]
+          results = []
+          for name, lat, lon in sites:
+              started = time.perf_counter()
+              profile = provider.profile(lat, lon, Horizon.Y2050, Scenario.MEDIUM)
+              elapsed = time.perf_counter() - started
+              missing = sorted(v for v in required if profile.variables.get(v) is None)
+              row = {
+                  'site': name,
+                  'seconds': round(elapsed, 3),
+                  'variables': profile.variables,
+                  'missing': missing,
+                  'method': profile.provenance.get('method'),
+              }
+              print(json.dumps(row, ensure_ascii=False), flush=True)
+              results.append(row)
+              if missing:
+                  raise SystemExit(f'{name}: missing CHELSA variables: {missing}')
+              if elapsed >= 75.0:
+                  raise SystemExit(f'{name}: cold CHELSA acquisition {elapsed:.2f}s >= 75s')
+          with open('/tmp/cold-acquisition.json', 'w', encoding='utf-8') as handle:
+              json.dump({'status':'ready','results':results}, handle, indent=2, ensure_ascii=False)
+          PY
+
+      - name: Persist cold acquisition status on branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f /tmp/cold-acquisition.json ]; then
+            cp /tmp/cold-acquisition.json /tmp/status.json
+          else
+            printf '{"status":"failed","run_id":"%s"}\n' "$GITHUB_RUN_ID" > /tmp/status.json
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin fix/search-cold-acquisition-v0101
+          git reset --hard origin/fix/search-cold-acquisition-v0101
+          cp /tmp/status.json .github/search-v0101-cold-acquisition-status.json
+          git add .github/search-v0101-cold-acquisition-status.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Record v0.10.1 cold acquisition status [skip ci]'
+            git push origin HEAD:fix/search-cold-acquisition-v0101
+          fi

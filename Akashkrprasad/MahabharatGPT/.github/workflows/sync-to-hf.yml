@@ -1,0 +1,25 @@
+name: Sync to Hugging Face Spaces
+
+# Mirror every push to GitHub's main branch over to the Hugging Face Space,
+# which triggers an automatic Docker rebuild there.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:        # also lets you run it manually from the Actions tab
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          TOKEN="$(printf '%s' "$HF_TOKEN" | tr -d '[:space:]')"
+          git push --force "https://Akashkrprasad:${TOKEN}@huggingface.co/spaces/Akashkrprasad/MahabharatGPT" HEAD:main

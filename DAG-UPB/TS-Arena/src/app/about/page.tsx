@@ -64,11 +64,20 @@ export default function AboutPage() {
           </div>
 
           <div className="mb-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-1">
-              TS-Arena: A Live Forecast Pre-Registration Platform
-            </h3>
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <h3 className="text-lg font-medium text-gray-900">
+                TS-Arena: A Live Forecast Pre-Registration Platform
+              </h3>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-200 whitespace-nowrap">
+                KDD &rsquo;26
+              </span>
+            </div>
             <p className="text-sm text-gray-500">
               Marcel Meyer, Sascha Kaltenpoth, Henrik Albers, Kevin Zalipski, Oliver Müller &mdash; Paderborn University, Data Analytics Group, 2026
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              Published in the Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and
+              Data Mining (KDD &rsquo;26), Datasets &amp; Benchmarks Track, pp. 9558&ndash;9568.
             </p>
           </div>
 
@@ -84,13 +93,13 @@ export default function AboutPage() {
           </div>
 
           <a
-            href="https://arxiv.org/abs/2512.20761"
+            href="https://doi.org/10.1145/3770855.3817515"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
           >
             <BookOpen className="w-4 h-4" />
-            Read on arXiv
+            Read in the ACM Digital Library
           </a>
         </div>
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import html
 import math
 import re
+from dataclasses import replace
 from itertools import groupby
 from pathlib import Path
 
@@ -20,14 +21,19 @@ import website_texts
 from constants import Constants, model_type_color, model_type_emoji, variant_color
 from data_loading import (
     BEYOND_SUBSET_LABELS,
+    DATASET_LABELS,
+    SYSTEM_CATEGORY_LABELS,
     DATASET_SIZE_NOTE,
+    TASK_LABELS,
     BeyondSubset,
     LBContainer,
     Subset,
     load_leaderboard_csv,
     parse_model,
+    entrants_categories,
     subset_name,
     unzip_png,
+    widest_entrants_key,
 )
 
 # --------------------------------------------------------------------------- #
@@ -45,8 +51,8 @@ _IMPUTED_INFO = (
 
 
 # Variants a model is evaluated in; all selected by default, and any combination is
-# valid. Reference pipelines (AutoGluon) carry no variant tag of their own but are
-# tuned ensembles, so they belong with those.
+# valid. Systems carry no variant tag of their own but tune and ensemble internally, so
+# they belong with those.
 VARIANT_VALUES = ["default", "tuned", "tuned + ensembled"]
 
 # Columns that drive the filters or are folded into another cell; kept on the frame,
@@ -74,7 +80,7 @@ _LB_TOOLTIP_METRIC = {
 }
 _LB_FIXED_TOOLTIPS = {
     "#": "Position in this subset's Elo ranking, as published.",
-    "Type": "Model family — see the legend above the table.",
+    "Type": "Model family; see the legend above the table.",
     "Model": (
         "The model, its configuration variant in brackets, and ✔️ when the "
         "implementation was verified by its authors or the maintainers. Links to the "
@@ -176,9 +182,12 @@ def _prepare_leaderboard(raw: pd.DataFrame) -> pd.DataFrame:
     df = raw.copy()
     parsed = [parse_model(str(m)) for m in raw["Model"]]
     df["_base"] = [base for base, _, _ in parsed]
+    # A system has no variant tag of its own, but it tunes and ensembles internally, so the
+    # variant filter groups it with the tuned ensembles. Keyed off the family rather than the
+    # name, so this holds for every system and not only AutoGluon.
     df["_variant"] = [
-        "tuned + ensembled" if not variant and "AutoGluon" in base else variant
-        for base, variant, _ in parsed
+        "tuned + ensembled" if not variant and type_name == Constants.system else variant
+        for (_, variant, _), type_name in zip(parsed, raw["TypeName"], strict=True)
     ]
     df["_search"] = [
         f"{base} {variant} {type_name}".lower()
@@ -377,7 +386,7 @@ def leaderboard_table_html(df: pd.DataFrame, columns: list[str], table_id: str) 
     )
 
 
-def make_leaderboard(lb: LBContainer) -> None:
+def make_leaderboard(lb: LBContainer, *, collapsible: bool = False) -> None:
     """The full leaderboard table for one subset.
 
     The table is a generated artifact (`leaderboard_table.html`, built by
@@ -393,24 +402,36 @@ def make_leaderboard(lb: LBContainer) -> None:
     if content is None:
         make_leaderboard_gradio(lb)
         return
-    with gr.Column(elem_classes="ta-lb"):
-        gr.HTML(
-            '<div class="ta-lb-bar">'
-            '<span class="ta-lb-title">⭐ Full Leaderboard Table</span>'
-            '<span class="ta-lb-sub">every column sorts · hover a header for what it '
-            "means · filter by family, model or variant</span>"
-            # The frame owns the download: only it knows the current filters,
-            # columns and sort order (see main.taLeaderboardCsv).
-            '<button class="ta-viewbtn ta-exportbtn ta-csvbtn" '
-            'onclick="taLeaderboardCsv(this)" '
-            'title="Download the rows and columns shown, in the current sort order">'
-            "Download CSV</button></div>"
-        )
-        gr.HTML(
-            _interactive_plot_iframe(
-                content, f"Full leaderboard table — {lb.name}", height=1100
-            )
-        )
+    if collapsible:
+        # Collapsed by default: the table is the detailed reference at the end of the page,
+        # not the thing a reader arrives for, and it is 80-odd rows tall when open. The
+        # accordion carries the anchor so the contents chip above can open it.
+        with gr.Accordion(
+            "⭐ Full Leaderboard Table", open=False, elem_id=_panel_uid(lb, "leaderboard_table")
+        ):
+            _leaderboard_card(lb, content, show_title=False)
+        return
+    with gr.Column(elem_classes="ta-lb", elem_id=_panel_uid(lb, "leaderboard_table")):
+        _leaderboard_card(lb, content, show_title=True)
+
+
+def _leaderboard_card(lb: LBContainer, content: str, *, show_title: bool) -> None:
+    """The table's header bar and its frame. ``show_title`` is off inside an accordion, whose
+    own label already names it.
+    """
+    gr.HTML(
+        '<div class="ta-lb-bar">'
+        + ('<span class="ta-lb-title">⭐ Full Leaderboard Table</span>' if show_title else "")
+        + '<span class="ta-lb-sub">every column sorts · hover a header for what it '
+        "means · filter by family, model or variant</span>"
+        # The frame owns the download: only it knows the current filters,
+        # columns and sort order (see main.taLeaderboardCsv).
+        '<button class="ta-viewbtn ta-exportbtn ta-csvbtn" '
+        'onclick="taLeaderboardCsv(this)" '
+        'title="Download the rows and columns shown, in the current sort order">'
+        "Download CSV</button></div>"
+    )
+    gr.HTML(_interactive_plot_iframe(content, f"Full leaderboard table, {lb.name}", height=1100))
 
 
 def make_leaderboard_gradio(lb: LBContainer) -> None:
@@ -458,7 +479,7 @@ def make_leaderboard_gradio(lb: LBContainer) -> None:
         chosen = [c for c in renderable if c in set(columns or []) or c in _ALWAYS_SHOWN]
         return leaderboard_table_html(sub, chosen, table_id)
 
-    with gr.Column(elem_classes="ta-lb"):
+    with gr.Column(elem_classes="ta-lb", elem_id=_panel_uid(lb, "leaderboard_table")):
         gr.HTML(
             # The table borrows the overview's stylesheet; inject it here rather than
             # relying on the legend, which this card no longer draws (the family chips
@@ -575,7 +596,7 @@ def make_leaderboard_gradio(lb: LBContainer) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def _interactive_plot_iframe(content: str, title: str, height: int = 720) -> str:
+def _interactive_plot_iframe(content: str, title: str, height: int = 720, extra_attrs: str = "") -> str:
     """Wrap a self-contained interactive plot page in a sandboxed iframe.
 
     ``srcdoc`` + a ``sandbox`` runs the page's inline JS without granting it
@@ -593,13 +614,16 @@ def _interactive_plot_iframe(content: str, title: str, height: int = 720) -> str
       placeholder until the first message arrives.
     - The paper view is toggled from the panel header over the same channel
       (see ``main.taPaperView``), since the frame is cross-origin.
+
+    ``extra_attrs`` is spliced into the tag for frames the host has to configure once they are
+    up (the per-dataset browser reads its opening filters off ``data-`` attributes).
     """
     content = content.replace('<html lang="en">', '<html lang="en" data-theme="dark">', 1)
     return (
         f'<iframe srcdoc="{html.escape(content, quote=True)}" class="ta-explorer" '
         f'style="width:100%;height:{height}px;border:1px solid var(--border-color-primary,#80808033);'
         'border-radius:8px;background:transparent" '
-        f'sandbox="allow-scripts allow-downloads" loading="lazy" '
+        f'sandbox="allow-scripts allow-downloads" loading="lazy" {extra_attrs}'
         f'title="{html.escape(title, quote=True)}"></iframe>'
     )
 
@@ -617,41 +641,51 @@ def _switchable_figure(
     label: str,
     height: int = 500,
 ) -> None:
-    """A figure panel: the interactive explorer with a switch to the static PNG.
+    """A figure panel: the interactive explorer, with a switch to the static PNG when one ships.
 
-    Both views are rendered up front and flipped client-side by
-    ``main.taSwitchView`` (no server round trip). The static PNG is the
-    published, paper-ready figure and stays the fallback in two senses: it is
-    one click away here, and it is *all* that renders for a subset whose
-    artifacts predate the explorer (or for a benchmark that does not ship one).
+    Both views are rendered up front and flipped client-side by ``main.taSwitchView`` (no
+    server round trip).
+
+    Either half can be absent. TabArena ships explorers only: the static PNGs were a second
+    copy of what the explorer already renders and exports, so they are no longer published
+    and the "🖼️ Static figure" button is dropped. BeyondArena is the other way round for most
+    of its figures, and a subset whose artifacts predate the explorers still falls back to
+    the PNG on its own.
     """
+    uid = _panel_uid(lb, html_name)
     content = lb.html_content(html_name)
     if content is None:
+        # Static-only fallback still answers to the anchor, so a contents chip works either way.
         gr.Image(
             value=lb.image_path(img_name),
             label=label,
             height=height,
             show_label=True,
+            elem_id=uid,
         )
         return
-
-    uid = _panel_uid(lb, html_name)
+    has_static = lb.has_image(img_name)
     # "Name [subset]" -> the name as the heading, the subset as a quiet qualifier,
     # so the eye finds where each figure block starts.
     name, _, subset = label.partition(" [")
     subset_html = f'<span class="ta-figbar-sub">{html.escape(subset.rstrip("]"))}</span>' if subset else ""
-    with gr.Column(elem_classes="ta-figpanel"):
+    # `elem_id` on the card itself: this is what the contents chips scroll to.
+    with gr.Column(elem_classes="ta-figpanel", elem_id=uid):
         gr.HTML(
             f'<div class="ta-figbar"><span class="ta-figbar-title">{html.escape(name)}</span>{subset_html}'
             # The panel opens in paper view, so this invites the reader into the
             # controls; `aria-pressed` tracks whether paper view is on.
             f'<button type="button" class="ta-viewbtn ta-editbtn" id="{uid}-paper" aria-pressed="true" '
             f"onclick=\"taPaperView('{uid}')\">✏️ Edit view</button>"
-            f'<button type="button" class="ta-viewbtn" id="{uid}-btn" aria-pressed="false" '
-            f"onclick=\"taSwitchView('{uid}')\">🖼️ Static figure</button>"
+            + (
+                f'<button type="button" class="ta-viewbtn" id="{uid}-btn" aria-pressed="false" '
+                f"onclick=\"taSwitchView('{uid}')\">🖼️ Static figure</button>"
+                if has_static
+                else ""
+            )
             # Right-aligned, and shown from the start since paper view is the
             # default: downloading the figure is what that view is for.
-            f'<span class="ta-exportgroup" id="{uid}-export">'
+            + f'<span class="ta-exportgroup" id="{uid}-export">'
             f'<span class="ta-exportlabel">Download</span>'
             + "".join(
                 f'<button type="button" class="ta-viewbtn ta-exportbtn" '
@@ -662,21 +696,76 @@ def _switchable_figure(
         )
         with gr.Column(elem_id=f"{uid}-i", elem_classes="ta-figview"):
             gr.HTML(_interactive_plot_iframe(content, title=label))
-        with gr.Column(elem_id=f"{uid}-s", elem_classes=["ta-figview", "ta-hidden"]):
-            # No fixed height: the CSS lets the PNG span the panel width and
-            # take whatever height its aspect ratio needs, so a wide figure is
-            # not letterboxed inside a tall box (and a tall one is not shrunk).
-            gr.Image(
-                value=lb.image_path(img_name),
-                show_label=False,
-            )
+        if has_static:
+            with gr.Column(elem_id=f"{uid}-s", elem_classes=["ta-figview", "ta-hidden"]):
+                # No fixed height: the CSS lets the PNG span the panel width and
+                # take whatever height its aspect ratio needs, so a wide figure is
+                # not letterboxed inside a tall box (and a tall one is not shrunk).
+                gr.Image(
+                    value=lb.image_path(img_name),
+                    show_label=False,
+                )
 
 
-def make_overview_images(lb: LBContainer) -> None:
-    name = subset_name(lb.subset)
-    # The panels are stacked full-width (side-by-side columns were too cramped
-    # for the chips + chart). Each pairs an interactive explorer with the static
-    # figure it replaces, switchable from the panel header.
+# What the reader is optimizing for -> which figure answers it first, and (for the Pareto
+# panel) which time axis it plots against. Both Pareto explorers are generated from the same
+# points upstream, so switching axis is a different artifact, not a different computation.
+# Insertion order = selector order; first = default.
+# Prediction speed before training speed: it is what serving costs, so it is the constraint
+# more readers arrive with.
+CARE_LABELS = {
+    "quality": "🏆 Best quality",
+    "infer": "⚡ Fast predictions",
+    "train": "⏱️ Fast to train",
+}
+
+# The second half of "I care about": which headline metric leads. Elo and Improvability
+# answer different questions, and the leaderboard has always reported both.
+METRIC_LABELS = {
+    "elo": "🏅 Consistent wins",
+    "imp": "📉 Relative gains",
+}
+
+METRIC_NOTES = {
+    "elo": (
+        "Ranks by Elo: how reliably a method beats the others head to head, whatever the margin."
+    ),
+    "imp": (
+        "Ranks by Improvability: how far a method sits from the best one on each dataset, in percent."
+    ),
+}
+
+# The overview metric each choice selects, and the complement one panel stays pinned to.
+METRIC_TO_OVERVIEW = {"elo": "Elo", "imp": "Improvability (%)"}
+METRIC_COMPLEMENT = {"elo": "imp", "imp": "elo"}
+
+CARE_NOTES = {
+    "quality": "Ranked purely on accuracy. Start here if compute is not your constraint.",
+    "infer": "Leads with the accuracy-versus-prediction-time trade-off, which is what serving costs.",
+    "train": "Leads with the accuracy-versus-training-time trade-off.",
+}
+
+_PARETO_PANELS = {
+    "train": ("pareto_front_explorer_time_train", "pareto_front_improvability_vs_time_train", "train time"),
+    "infer": ("pareto_front_explorer", "pareto_front_improvability_vs_time_infer", "inference time"),
+}
+
+
+def _pareto_panel(lb: LBContainer, name: str, axis: str) -> None:
+    """The Pareto panel plotted against one time axis, falling back to the other."""
+    html_name, img_name, axis_label = _PARETO_PANELS[axis]
+    # A subset generated before the train-time explorer shipped only has the inference one.
+    if lb.html_content(html_name) is None and not lb.has_image(img_name):
+        html_name, img_name, axis_label = _PARETO_PANELS["infer"]
+    _switchable_figure(
+        lb,
+        html_name=html_name,
+        img_name=img_name,
+        label=f"Pareto Front, {axis_label} [{name}]",
+    )
+
+
+def _overview_panel(lb: LBContainer, name: str) -> None:
     _switchable_figure(
         lb,
         html_name="leaderboard_overview_explorer",
@@ -685,18 +774,170 @@ def make_overview_images(lb: LBContainer) -> None:
         # The static bar figure is ~7:1; a taller box only letterboxes it.
         height=320,
     )
-    _switchable_figure(
-        lb,
-        html_name="pareto_front_explorer",
-        img_name="pareto_front_improvability_vs_time_infer",
-        label=f"Pareto Front [{name}]",
+
+
+def _figure_plan(lb: LBContainer, care: str, metric: str) -> list[tuple[str, str, str]]:
+    """The figure stack for this subset as ``(panel key, chip label, pinned metric)``, in order.
+
+    `care` sets the order, the Pareto time axis, and which figure gets the metric the reader
+    chose: whichever leads. Asking for quality puts it on the Leaderboard Overview; asking for
+    speed puts it on the Pareto front. The figure that does not lead carries the other metric,
+    which is what keeps both on the page whichever was picked.
+
+    The Pareto front and the tuning trajectories always match each other, because they are read
+    together (where a method lands on the trade-off, and how it got there) and one showing Elo
+    while the other showed Improvability would make that comparison nonsense.
+
+    One list drives both the jump links and the panels themselves, so the contents page cannot
+    promise a figure the page does not render, or list them in the wrong order.
+    """
+    axis = "train" if care == "train" else "infer"
+    other = METRIC_COMPLEMENT[metric]
+    # The lead figure gets the chosen metric; the one under it gets the complement.
+    overview_metric, pareto_metric = (metric, other) if care == "quality" else (other, metric)
+    pareto_label = "Pareto Front, " + _PARETO_PANELS[axis][2]
+    stack = [
+        ("leaderboard_overview_explorer", "Leaderboard Overview", overview_metric),
+        (axis, pareto_label, pareto_metric),
+    ]
+    if care != "quality":
+        stack.reverse()
+    # Read alongside the Pareto front, so it shares its metric.
+    stack.append(("tuning_trajectories_explorer", "Tuning Trajectories", pareto_metric))
+    # Neither the win-rate matrix nor the two collapsed blocks have an Elo/Improvability
+    # switch, so their pins are no-ops; they are listed because the contents should name
+    # everything below.
+    stack.append(("winrate_explorer", "Win-rate Matrix", pareto_metric))
+    stack.append(("per_dataset_explorer", "Per-dataset Results", pareto_metric))
+    stack.append(("leaderboard_table", "Full Leaderboard Table", pareto_metric))
+    return stack
+
+
+#: Panels that live inside a collapsed accordion. Their contents chip carries the anchor id a
+#: second time so the click handler can open the section as well as scroll to it.
+_COLLAPSED_PANELS = frozenset({"per_dataset_explorer", "leaderboard_table"})
+
+#: Panels that have a page section of their own. The chip scrolls to that section's heading
+#: rather than to the panel, so the reader lands on the title and its one-line explanation.
+_PANEL_SECTIONS = {"per_dataset_explorer": "ta-perdataset-section"}
+
+
+def make_figure_contents(lb: LBContainer, care: str = "quality", metric: str = "elo") -> None:
+    """A row of buttons naming the figures below, in the order they appear, each jumping to one.
+
+    The order changes with "I care about", so saying what is coming and in what sequence saves
+    the reader scrolling to find out.
+    """
+    # A plain anchor, deliberately. These used to call `scrollIntoView` and cancel the default,
+    # which did nothing at all inside a Hugging Face Space: the section is often below the
+    # bottom of the Space's own frame, and a *scripted* scroll is not allowed to move a
+    # cross-origin parent, while following an anchor is -- it is the reader's own navigation.
+    # Cancelling the default therefore threw away the one mechanism that works. Smoothness comes
+    # from `scroll-behavior` in the stylesheet instead, and the offset from `scroll-margin-top`.
+    links = []
+    for key, label, _ in _figure_plan(lb, care, metric):
+        html_name = _PARETO_PANELS[key][0] if key in _PARETO_PANELS else key
+        uid = _panel_uid(lb, html_name)
+        # A collapsed section has to be opened as well as scrolled to; `main.taOpenSection`
+        # reads this attribute and clicks the accordion's own header.
+        expand = f' data-open="{uid}"' if key in _COLLAPSED_PANELS else ""
+        target = _PANEL_SECTIONS.get(key, uid)
+        links.append(f'<a class="ta-jumpchip"{expand} href="#{target}">{html.escape(label)}</a>')
+    gr.HTML('<div class="ta-contents"><span class="ta-contents-lead">Below:</span>' + "".join(links) + "</div>")
+
+
+def make_overview_images(lb: LBContainer, care: str = "quality", metric: str = "elo") -> None:
+    """The subset's figure stack, ordered by what the reader said they care about.
+
+    Every figure appears exactly once. `care` decides the order and which time axis the Pareto
+    panel plots against; `metric` decides which headline metric the panels open on. The order
+    comes from :func:`_figure_plan`, which also drives the jump links above.
+    """
+    name = subset_name(lb.subset)
+    plan = _figure_plan(lb, care, metric)
+    for key, _label, pinned in plan[:2]:
+        # Gradio cannot set an arbitrary data attribute, so the pin travels as a class that
+        # `main.taSetMetric` reads off the panel's wrapper.
+        with gr.Column(elem_classes=["ta-figstack", f"ta-pin-{pinned}"]):
+            if key in _PARETO_PANELS:
+                _pareto_panel(lb, name, key)
+            else:
+                _overview_panel(lb, name)
+    # Wrapped like the two above so it is told its metric the same way.
+    with gr.Column(elem_classes=["ta-figstack", f"ta-pin-{plan[2][2]}"]):
+        _switchable_figure(
+            lb,
+            html_name="tuning_trajectories_explorer",
+            img_name="pareto_n_configs_imp",
+            label=f"Tuning Trajectories [{name}]",
+        )
+
+
+def make_per_dataset_block(lb: LBContainer, *, opened: bool) -> gr.Button:
+    """The per-dataset browser panel, returned so the caller can wire its show/hide button.
+
+    The artifact is published once per (entrants, imputation, splits) rather than for all 60
+    task/dataset cells: a dataset's own numbers do not depend on which *other* datasets share
+    its leaderboard, so the browser is read from the unrestricted cell and told which slice the
+    reader currently has selected. It filters itself from there, and the reader can widen it
+    again from inside without leaving the page.
+
+    The show/hide control lives in the panel's own title bar rather than in an accordion around
+    it: an accordion would wrap this panel in a second box with its own padding and its own
+    title, for one button. That button is HTML inside the bar, so it needs a real Gradio button
+    to reach the server (`main.taTogglePerDataset` clicks the hidden one) — the content is only
+    built when ``opened``, since the page it embeds carries every dataset's results and is the
+    largest artifact the site ships.
+    """
+    uid = _panel_uid(lb, "per_dataset_explorer")
+    source = LBContainer(
+        data_root=lb.data_root,
+        subset=replace(lb.subset, tasks="all", datasets="all"),
+        name=lb.name,
     )
-    _switchable_figure(
-        lb,
-        html_name="tuning_trajectories_explorer",
-        img_name="pareto_n_configs_imp",
-        label=f"Tuning Trajectories [{name}]",
-    )
+    content = source.html_content("per_dataset_explorer") if opened else ""
+    with gr.Column(elem_classes="ta-figpanel", elem_id=uid):
+        gr.HTML(
+            '<div class="ta-figbar"><span class="ta-figbar-title">Dataset by dataset</span>'
+            f'<span class="ta-figbar-sub">{html.escape(lb.name)}</span>'
+            f'<button type="button" class="ta-viewbtn ta-pdtoggle" aria-pressed="{str(opened).lower()}" '
+            f"onclick=\"taTogglePerDataset('{uid}')\">"
+            + ("▾ Hide" if opened else "▸ Show the dataset browser")
+            + "</button>"
+            + (
+                f'<span class="ta-exportgroup" id="{uid}-export">'
+                '<span class="ta-exportlabel">Download the chart</span>'
+                + "".join(
+                    f'<button type="button" class="ta-viewbtn ta-exportbtn" '
+                    f"onclick=\"taExport('{uid}','{fmt}')\">{fmt.upper()}</button>"
+                    for fmt in ("svg", "pdf", "png")
+                )
+                + "</span>"
+                if opened and content
+                else ""
+            )
+            + "</div>"
+        )
+        toggle = gr.Button("toggle", elem_id=f"{uid}-toggle", elem_classes="ta-offscreen-btn")
+        if opened and content is None:
+            gr.HTML(f'<p class="ta-pd-teaser">{website_texts.PER_DATASET_MISSING}</p>')
+        elif opened:
+            # `-i` matches what `taExport` and `taPaperView` look for on the other panels.
+            with gr.Column(elem_id=f"{uid}-i", elem_classes=["ta-figview", "ta-figview-flush"]):
+                gr.HTML(
+                    _interactive_plot_iframe(
+                        content,
+                        f"Per-dataset results, {lb.name}",
+                        height=1020,
+                        # Read back by `main.taSendPerDatasetFilter` once the frame reports its
+                        # height, so the browser opens on the slice selected above it.
+                        extra_attrs=(
+                            f'data-task="{html.escape(lb.subset.tasks, quote=True)}" '
+                            f'data-size="{html.escape(lb.subset.datasets, quote=True)}" '
+                        ),
+                    )
+                )
+    return toggle
 
 
 def make_winrate_image(lb: LBContainer, *, interactive: bool = True) -> None:
@@ -729,21 +970,42 @@ def make_winrate_image(lb: LBContainer, *, interactive: bool = True) -> None:
 # Cross-subset overview (Elo heatmap, rendered as HTML for links + grouping)
 # --------------------------------------------------------------------------- #
 
-# Columns of the overview: (label, group, subset). Always imputation=yes/splits=all.
-_OVERVIEW_COLUMNS: list[tuple[str, str, Subset]] = [
-    ("Overall", "overall", Subset(tasks="all", datasets="all")),
-    ("Class.", "task", Subset(tasks="classification", datasets="all")),
-    ("Regr.", "task", Subset(tasks="regression", datasets="all")),
-    ("Binary", "task", Subset(tasks="binary", datasets="all")),
-    ("Multi.", "task", Subset(tasks="multiclass", datasets="all")),
-    ("Small", "size", Subset(tasks="all", datasets="small")),
-    ("Medium", "size", Subset(tasks="all", datasets="medium")),
+# Columns of the overview: (label, group, subset, value_column). Always imputation=yes /
+# splits=all. `value_column` is None for the subset columns, which report whichever metric the
+# selector picked; the two cost columns pin their own instead, so the table reads as
+# "how good, and what it costs" before it fans out per subset.
+_TRAIN_TIME_COLUMN = "Median Train Time (s/1K) [⬇️]"
+_PREDICT_TIME_COLUMN = "Median Predict Time (s/1K) [⬇️]"
+_FIXED_COLUMN_SPECS = {
+    "Fit (s/1K)": (_TRAIN_TIME_COLUMN, False, lambda v: f"{v:.2f}"),
+    "Infer (s/1K)": (_PREDICT_TIME_COLUMN, False, lambda v: f"{v:.3f}"),
+}
+
+_OVERVIEW_COLUMNS: list[tuple[str, str, Subset, str | None]] = [
+    ("Overall", "overall", Subset(tasks="all", datasets="all"), None),
+    ("Fit (s/1K)", "cost", Subset(tasks="all", datasets="all"), _TRAIN_TIME_COLUMN),
+    ("Infer (s/1K)", "cost", Subset(tasks="all", datasets="all"), _PREDICT_TIME_COLUMN),
+    ("Class.", "task", Subset(tasks="classification", datasets="all"), None),
+    ("Regr.", "task", Subset(tasks="regression", datasets="all"), None),
+    ("Binary", "task", Subset(tasks="binary", datasets="all"), None),
+    ("Multi.", "task", Subset(tasks="multiclass", datasets="all"), None),
+    ("Small", "size", Subset(tasks="all", datasets="small"), None),
+    ("Medium", "size", Subset(tasks="all", datasets="medium"), None),
 ]
-_GROUP_TITLE = {"task": "By Task", "size": "By Dataset Size"}
+_GROUP_TITLE = {"cost": "What it costs", "task": "By Task", "size": "By Dataset Size"}
 # Hover tooltips for the overview's subset column headers (rendered as a native `title=`).
 # Size definitions are reused from DATASET_SIZE_NOTE so they can't drift from the subset blurbs.
 _COLUMN_TOOLTIPS: dict[str, str] = {
-    "Overall": "All tasks across every dataset size — the headline ranking.",
+    "Overall": "All tasks across every dataset size. This is the headline ranking.",
+    "Fit (s/1K)": (
+        "Median seconds to train per 1000 rows, across all datasets, for the variant shown. "
+        "Tuning fits 200 configurations, so a tuned variant costs far more than its default. "
+        "Lower is better."
+    ),
+    "Infer (s/1K)": (
+        "Median seconds to predict per 1000 rows, across all datasets, for the variant shown. "
+        "Lower is better."
+    ),
     "Class.": "Classification tasks only (binary + multiclass).",
     "Regr.": "Regression tasks only.",
     "Binary": "Binary classification tasks only.",
@@ -774,33 +1036,60 @@ OVERVIEW_METRIC_TLDR = {
     "Improvability (%)": "How much lower the best model's error is than this one's, per dataset. Lower is better.",
     "Score": "Error rescaled per dataset to 1 (best) … 0 (median), then averaged. Higher is better.",
     "Average Rank": "The model's mean rank across datasets. Lower is better.",
-    "Harmonic Rank": "Harmonic mean of per-dataset ranks — rewards being excellent on some datasets. Lower is better.",
+    "Harmonic Rank": "Harmonic mean of per-dataset ranks, which rewards being excellent on some datasets. Lower is better.",
 }
 
 
-def _subset_best(df: pd.DataFrame, column: str, higher_is_better: bool) -> pd.DataFrame:
-    """Best variant per model in a subset for `column`; excludes reference pipelines."""
-    df = df[~df["TypeName"].isin([Constants.reference])].copy()
-    df = df.dropna(subset=[column])
+#: Selector value -> the overview column it points at. A selection of "all" points at nothing,
+#: because the Overall column already is that view.
+_TASK_TO_COLUMN = {"classification": "Class.", "regression": "Regr.", "binary": "Binary", "multiclass": "Multi."}
+_DATASET_TO_COLUMN = {"small": "Small", "medium": "Medium"}
+_CARE_TO_COLUMN = {"train": "Fit (s/1K)", "infer": "Infer (s/1K)"}
+
+
+def _selected_overview_columns(tasks: str, datasets: str, care: str) -> list[str]:
+    """The overview columns matching the current selectors, in the order they should lead."""
+    wanted = [_CARE_TO_COLUMN.get(care), _TASK_TO_COLUMN.get(tasks), _DATASET_TO_COLUMN.get(datasets)]
+    return [c for c in wanted if c]
+
+
+_SUBSET_FIELDS = ["base", "TypeName", "Type", "variant", "url", "verified", "imputed"]
+
+
+def _subset_rows(df: pd.DataFrame, column: str) -> pd.DataFrame:
+    """A subset's rows, `Model` split into base/variant/url and `column` renamed to `val`.
+
+    Systems stay in. Which entrants compete is decided by the pool the reader selected, and
+    the overview reports the numbers computed for that pool, so dropping a competitor here
+    would show a field the numbers were not computed against.
+    """
+    df = df.dropna(subset=[column]).copy()
     parsed = df["Model"].map(parse_model)
     df["base"] = [p[0] for p in parsed]
     df["variant"] = [p[1] for p in parsed]
     df["url"] = [p[2] for p in parsed]
     df["imputed"] = df["Imputed"].astype(bool) if "Imputed" in df.columns else False
     df["verified"] = df["Verified"] if "Verified" in df.columns else ""
-    grouped = df.groupby("base")[column]
-    best = df.loc[grouped.idxmax() if higher_is_better else grouped.idxmin()]
-    return best[
-        ["base", "TypeName", "Type", "variant", "url", column, "verified", "imputed"]
-    ].rename(columns={column: "val"})
+    return df.rename(columns={column: "val"})[[*_SUBSET_FIELDS, "val"]]
 
 
-def _overview_th(label: str, *, rowspan: int | None = None) -> str:
+def _subset_best(rows: pd.DataFrame, higher_is_better: bool) -> pd.DataFrame:
+    """Best-performing variant per model, one row each."""
+    grouped = rows.groupby("base")["val"]
+    return rows.loc[grouped.idxmax() if higher_is_better else grouped.idxmin()]
+
+
+def _overview_th(label: str, *, rowspan: int | None = None, selected: bool = False) -> str:
     """A subset column header `<th>`; gets a hover tooltip + 'help' affordance when defined."""
     attrs = f' rowspan="{rowspan}"' if rowspan else ""
+    classes = ["ta-th-info"] if label in _COLUMN_TOOLTIPS else []
+    if selected:
+        classes.append("ta-col-sel")
+    if classes:
+        attrs += f' class="{" ".join(classes)}"'
     tooltip = _COLUMN_TOOLTIPS.get(label)
     if tooltip:
-        attrs += f' class="ta-th-info" title="{html.escape(tooltip, quote=True)}"'
+        attrs += f' title="{html.escape(tooltip, quote=True)}"'
     return f"<th{attrs}>{label}</th>"
 
 
@@ -863,11 +1152,12 @@ _OVERVIEW_CSS = """
 """
 
 
-def type_legend_html(include_reference: bool = True) -> str:
+def type_legend_html(include_systems: bool = True) -> str:
     """A small legend explaining the model-type symbols (shared across tables).
 
     Baseline and Other share one color, so they are shown as a single entry.
-    `include_reference` is False for the overview, which excludes reference pipelines.
+    `include_systems` adds the System entry; pass False for a models-only pool, where no
+    system is on screen to explain.
     """
     e = model_type_emoji
     entries = [
@@ -876,8 +1166,8 @@ def type_legend_html(include_reference: bool = True) -> str:
         (Constants.tree, e[Constants.tree], "Tree-based"),
         (Constants.baseline, f"{e[Constants.baseline]} {e[Constants.other]}", "Baseline / Other"),
     ]
-    if include_reference:
-        entries.append((Constants.reference, e[Constants.reference], "Reference Pipeline"))
+    if include_systems:
+        entries.append((Constants.system, e[Constants.system], "System"))
     chips = []
     for type_name, symbols, label in entries:
         color = model_type_color.get(type_name, "#9e9e9e")
@@ -889,28 +1179,131 @@ def type_legend_html(include_reference: bool = True) -> str:
     return f'{_OVERVIEW_CSS}<div class="ta-legend">{"".join(chips)}</div>'
 
 
-def make_cross_subset_overview(data_root: Path, metric: str = "Elo") -> gr.HTML:
-    """Heatmap of the best `metric` per model (rows) and subset (columns)."""
+#: Anchor on the control card; the sticky selection bar watches it and scrolls back to it.
+CONTROLS_ANCHOR = "ta-controls-anchor"
+
+
+def make_selection_bar(
+    *,
+    entrants: str,
+    care: str,
+    metric: str,
+    tasks: str,
+    datasets: str,
+    imputation: str,
+    splits: str,
+) -> None:
+    """A fixed bar summarising the current selection, shown once the controls scroll away.
+
+    The controls decide every number on a long page, so once they are off screen there is
+    nothing left saying which leaderboard you are reading. This restates it and clicks back up
+    to the card. Read-only on purpose: a second set of live controls means two widgets per axis
+    to keep in step, and the card is one scroll away.
+    """
+    parts = [
+        _entrants_short(entrants),
+        TASK_LABELS[tasks],
+        DATASET_LABELS[datasets],
+        CARE_LABELS[care],
+        METRIC_LABELS[metric],
+    ]
+    if imputation == "no":
+        parts.append("no imputed")
+    if splits == "lite":
+        parts.append("Lite")
+    chips = "".join(f'<span class="ta-selchip">{html.escape(p)}</span>' for p in parts)
+    gr.HTML(
+        f'<button type="button" class="ta-selbar" title="Back to the selectors" '
+        f"onclick=\"var e=document.getElementById('{CONTROLS_ANCHOR}');"
+        "if(e)e.scrollIntoView({behavior:'smooth',block:'start'});\">"
+        '<span class="ta-selbar-lead">Viewing</span>'
+        f"{chips}"
+        '<span class="ta-selbar-go">change</span>'
+        "</button>"
+    )
+
+
+def _entrants_short(key: str) -> str:
+    """A pool name short enough for the bar: the categories, not their full sentences."""
+    selected = entrants_categories(key)
+    if not selected:
+        return "🤖 Models only"
+    return "🤖 + " + " + ".join(SYSTEM_CATEGORY_LABELS[k].split(" ", 1)[0] for k in selected)
+
+
+def make_cross_subset_overview(
+    data_root: Path,
+    metric: str = "Elo",
+    entrants: str = "models",
+    tasks: str = "all",
+    datasets: str = "all",
+    care: str = "quality",
+    one_per_model: bool = False,
+) -> gr.HTML:
+    """Heatmap of `metric` per entrant (rows) and subset (columns), within one pool.
+
+    A row is one model *variant* — default, tuned, or tuned + ensembled — so its quality and its
+    cost are always the same run's. With `one_per_model` only each model's best-performing
+    variant is kept, decided by the leading column, as the win-rate matrix's button of the same
+    name does.
+
+    `entrants` selects the pool. Every column is read from that pool's artifacts, so the whole
+    grid is one consistent field of competitors.
+
+    `tasks`, `datasets` and `care` do not change what the table contains, only where the eye
+    lands: the column each of them points at leads its group and is tinted, so the reader can
+    find their own view without hunting along the header. Reordering happens inside a group
+    rather than across the whole table, which would leave the grouped header describing columns
+    that had moved out from under it.
+    """
     if metric not in _OVERVIEW_METRIC_SPECS:
         metric = "Elo"
     column, higher_is_better, fmt = _OVERVIEW_METRIC_SPECS[metric]
 
-    val_by_col: dict[str, dict[str, float]] = {}
-    imp_by_col: dict[str, dict[str, bool]] = {}
-    meta: dict[str, dict] = {}
+    val_by_col: dict[str, dict[tuple[str, str], float]] = {}
+    imp_by_col: dict[str, dict[tuple[str, str], bool]] = {}
+    meta: dict[tuple[str, str], dict] = {}
     present: list[tuple[str, str]] = []  # (label, group)
 
-    for label, group, subset in _OVERVIEW_COLUMNS:
+    # Read every column first. A cost column reports its own metric, the rest the selected one.
+    loaded: list[tuple[str, str, pd.DataFrame]] = []
+    for label, group, subset, value_column in _OVERVIEW_COLUMNS:
+        subset = replace(subset, entrants=entrants)
         path = Path(data_root) / subset.rel_path / "website_leaderboard.csv"
         if not path.exists():
             continue
-        best = _subset_best(load_leaderboard_csv(str(path.resolve())), column, higher_is_better)
-        val_by_col[label] = dict(zip(best["base"], best["val"]))
-        imp_by_col[label] = dict(zip(best["base"], best["imputed"]))
+        df = load_leaderboard_csv(str(path.resolve()))
+        col = _FIXED_COLUMN_SPECS[label][0] if value_column is not None else column
+        if col not in df.columns:
+            continue
+        rows = _subset_rows(df, col)
+        if not rows.empty:
+            loaded.append((label, group, rows))
+
+    if not loaded:
+        return gr.HTML("<p>No overview data available.</p>")
+
+    # The leading column decides which variant stands for each model, so the kept row is the one
+    # the reader is ranking by.
+    keep = None
+    if one_per_model:
+        lead = next((r for lbl, _, r in loaded if lbl not in _FIXED_COLUMN_SPECS), loaded[0][2])
+        best = _subset_best(lead, higher_is_better)
+        keep = set(zip(best["base"], best["variant"]))
+
+    for label, group, rows in loaded:
+        keys = list(zip(rows["base"], rows["variant"]))
+        if keep is not None:
+            rows = rows[[k in keep for k in keys]]
+            keys = [k for k in keys if k in keep]
+        if rows.empty:
+            continue
+        val_by_col[label] = dict(zip(keys, rows["val"]))
+        imp_by_col[label] = dict(zip(keys, rows["imputed"]))
         present.append((label, group))
-        for _, row in best.iterrows():
+        for key, (_, row) in zip(keys, rows.iterrows()):
             meta.setdefault(
-                row["base"],
+                key,
                 {
                     "type_name": row["TypeName"],
                     "emoji": row["Type"],
@@ -923,16 +1316,32 @@ def make_cross_subset_overview(data_root: Path, metric: str = "Elo") -> gr.HTML:
     if not present:
         return gr.HTML("<p>No overview data available.</p>")
 
+    # Bring each selected column to the front of its own group, keeping the group order intact.
+    highlighted = [c for c in _selected_overview_columns(tasks, datasets, care) if c in val_by_col]
+    if highlighted:
+        ordered: list[tuple[str, str]] = []
+        for _group, items in groupby(present, key=lambda x: x[1]):
+            items = list(items)
+            lead = [i for i in items if i[0] in highlighted]
+            ordered.extend(lead + [i for i in items if i not in lead])
+        present = ordered
+
+    # Only explain the System pill when one is actually on screen.
+    has_systems = any(m["type_name"] == Constants.system for m in meta.values())
+
     sort_label = present[0][0]
     worst_sort = float("-inf") if higher_is_better else float("inf")
-    bases = sorted(
-        meta, key=lambda b: val_by_col[sort_label].get(b, worst_sort), reverse=higher_is_better
+    entries = sorted(
+        meta, key=lambda k: val_by_col[sort_label].get(k, worst_sort), reverse=higher_is_better
     )
 
     rank_by_col, bounds = {}, {}
     for label, _ in present:
+        col_higher_better = (
+            _FIXED_COLUMN_SPECS[label][1] if label in _FIXED_COLUMN_SPECS else higher_is_better
+        )
         col = val_by_col[label]
-        ranked = sorted(col, key=lambda b: col[b], reverse=higher_is_better)
+        ranked = sorted(col, key=lambda b: col[b], reverse=col_higher_better)
         rank_by_col[label] = {b: i + 1 for i, b in enumerate(ranked[:3])}
         bounds[label] = (min(col.values()), max(col.values())) if col else (0.0, 1.0)
 
@@ -946,15 +1355,15 @@ def make_cross_subset_overview(data_root: Path, metric: str = "Elo") -> gr.HTML:
                 row1.append(_overview_th(label, rowspan=2))
         else:
             row1.append(f'<th colspan="{len(items)}" class="ta-group-h">{_GROUP_TITLE[group]}</th>')
-            row2.extend(_overview_th(label) for label, _ in items)
+            row2.extend(_overview_th(label, selected=label in highlighted) for label, _ in items)
     header = f"<thead><tr>{''.join(row1)}</tr><tr>{''.join(row2)}</tr></thead>"
 
     # -- Body
     body = []
-    for base in bases:
-        m = meta[base]
+    for key in entries:
+        m = meta[key]
         color = model_type_color.get(m["type_name"], "#9e9e9e")
-        name = html.escape(base)
+        name = html.escape(key[0])
         if m["variant"]:
             name += f' <span class="ta-variant">({html.escape(m["variant"])})</span>'
         if m.get("verified") == "✔️":
@@ -972,41 +1381,52 @@ def make_cross_subset_overview(data_root: Path, metric: str = "Elo") -> gr.HTML:
             f'<td class="ta-model-cell">{name_html}</td>',
         ]
         for label, _ in present:
-            val = val_by_col[label].get(base)
+            val = val_by_col[label].get(key)
             if val is None:
                 cells.append('<td class="ta-na">–</td>')
                 continue
             lo, hi = bounds[label]
+            col_higher_better = higher_is_better
+            col_fmt = fmt
+            if label in _FIXED_COLUMN_SPECS:
+                _, col_higher_better, col_fmt = _FIXED_COLUMN_SPECS[label]
             if hi <= lo:
                 frac_best = 0.5
             else:
-                frac_best = (val - lo) / (hi - lo) if higher_is_better else (hi - val) / (hi - lo)
+                frac_best = (val - lo) / (hi - lo) if col_higher_better else (hi - val) / (hi - lo)
             bg = _interp_color(1 - frac_best)
-            medal = _MEDALS.get(rank_by_col[label].get(base), "")
+            medal = _MEDALS.get(rank_by_col[label].get(key), "")
             imp = (
                 '<sup class="ta-imp" title="Score is (partly) imputed">*</sup>'
-                if imp_by_col[label].get(base)
+                if imp_by_col[label].get(key)
                 else ""
             )
+            sel = " ta-col-sel" if label in highlighted else ""
             cells.append(
-                f'<td class="ta-num" style="background:{bg};color:#f7f7f7;">'
+                f'<td class="ta-num{sel}" style="background:{bg};color:#f7f7f7;">'
                 f'<span class="ta-cell"><span class="ta-medal">{medal}</span>'
-                f'<span class="ta-val">{fmt(val)}{imp}</span></span></td>'
+                f'<span class="ta-val">{col_fmt(val)}{imp}</span></span></td>'
             )
         body.append(f"<tr>{''.join(cells)}</tr>")
 
     direction = "Higher is better" if higher_is_better else "Lower is better"
+    scope = (
+        "Each model shows its best-performing variant."
+        if one_per_model
+        else "One row per model variant, so a row's cost is the cost of the run it scores."
+    )
     caption = (
-        f'<div class="ta-cap">Best <b>{html.escape(metric)}</b> per model across subsets '
+        f'<div class="ta-cap"><b>{html.escape(metric)}</b> per entrant across subsets '
         f"(with imputation, all repeats). {direction}; 🥇🥈🥉 mark the top 3 in each column. "
-        "Each model shows its best-performing variant.</div>"
+        f"{scope}</div>"
         '<div class="ta-cap ta-cap-legend">✔️ = verified implementation &nbsp;·&nbsp; '
         '<span class="ta-imp">*</span> = (partly) imputed score &nbsp;·&nbsp; '
         "💡 Click any <u>underlined</u> model name (↗) to open its paper or code.</div>"
     )
     table = f'<table class="ta-overview">{header}<tbody>{"".join(body)}</tbody></table>'
     return gr.HTML(
-        f'{type_legend_html(include_reference=False)}{caption}<div class="ta-scroll">{table}</div>',
+        f"{type_legend_html(include_systems=has_systems)}{caption}"
+        f'<div class="ta-scroll">{table}</div>',
         elem_classes="ta-overview-block",
     )
 
@@ -1024,9 +1444,10 @@ def make_hero_stats(data_root: Path) -> gr.HTML:
     """A compact strip of headline-fact cards shown above the info boxes."""
     lb = LBContainer(data_root, Subset(), "")
     n_datasets = lb.n_datasets or "—"
-    df = lb.load_df()
-    df = df[~df["TypeName"].isin([Constants.reference])]
-    n_models = len({parse_model(m)[0] for m in df["Model"]})
+    # Headline count of everything TabArena covers, so it is read from the widest entrant pool
+    # rather than from whichever one the page happens to open on.
+    widest = LBContainer(data_root, Subset(entrants=widest_entrants_key()), "")
+    n_entrants = len({parse_model(m)[0] for m in widest.load_df()["Model"]})
     paper = "https://tabarena.ai/paper-tabular-ml-iid-study"
     code = "https://tabarena.ai/code"
 
@@ -1036,7 +1457,7 @@ def make_hero_stats(data_root: Path) -> gr.HTML:
             f"{n_datasets} datasets",
             f'curated from 1,053 (<a href="{paper}" target="_blank" rel="noopener">see paper</a>)',
         ),
-        ("🤖", f"{n_models}+ models", "state-of-the-art, each tuned to its peak"),
+        ("🤖", f"{n_entrants}+ models and systems", "state-of-the-art, each tuned to its peak"),
         (
             "✅",
             "Open-source",
@@ -1092,7 +1513,7 @@ def make_beyond_hero_stats(data_root: Path) -> gr.HTML:
     lb = LBContainer(data_root, BeyondSubset("full"), "")
     n_datasets = lb.n_datasets or "—"
     df = lb.load_df()
-    df = df[~df["TypeName"].isin([Constants.reference])]
+    df = df[~df["TypeName"].isin([Constants.system])]
     n_models = len({parse_model(m)[0] for m in df["Model"]})
     # Curated subsets = every subset tab except the "full" (whole-benchmark) view.
     n_subsets = len(BEYOND_SUBSET_LABELS) - 1

@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KOMBAZ × ABUNDANCE OS</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Bebas+Neue&family=Space+Mono:wght@400;700&family=IBM+Plex+Mono:wght@300;400;700&family=Noto+Sans+Hebrew:wght@300;400;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
   --gold:#C9A84C;--gold-light:#E8C97A;--gold-dark:#8B6914;
@@ -66,6 +68,35 @@ body{background:var(--black);color:var(--cream);font-family:var(--serif);overflo
 .qg-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;}
 .qg-row input[type=number]{width:80px;background:#111;border:1px solid rgba(0,200,255,0.3);color:#fff;padding:6px;border-radius:4px;font-family:var(--mono);text-align:center;}
 .qg-pos{color:#00ff64;}.qg-neg{color:#ff3b5c;}
+/* DOUBLE-SLIT V2 */
+.q-lab{position:relative;background:radial-gradient(ellipse at center,rgba(0,200,255,0.04) 0%,transparent 70%);border-radius:12px;padding:20px 10px;}
+.q-lab-glow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 0%,rgba(0,200,255,0.06),transparent 60%);}
+.q-live-desc{text-align:center;font-family:var(--mono);font-size:12.5px;color:#00c8ff;min-height:20px;margin:14px auto 4px;max-width:440px;line-height:1.6;transition:opacity 0.3s;}
+.q-guess-box{max-width:480px;margin:18px auto 6px;text-align:center;}
+.q-guess-q{font-size:13px;color:#aaa;margin-bottom:10px;}
+.q-guess-btn{transition:all 0.2s;}
+.q-guess-btn.picked{background:#00c8ff;color:#000;}
+.q-guess-btn.correct{background:#00ff64!important;border-color:#00ff64!important;color:#000!important;box-shadow:0 0 20px rgba(0,255,100,0.5);}
+.q-guess-btn.wrong{background:#ff3b5c!important;border-color:#ff3b5c!important;color:#fff!important;}
+.q-feedback{text-align:center;font-size:13px;color:#00c8ff;min-height:22px;margin-bottom:6px;font-weight:600;}
+.q-fire-btn{position:relative;animation:qpulse 2.4s ease-in-out infinite;}
+@keyframes qpulse{0%,100%{box-shadow:0 0 0 rgba(0,200,255,0.5);}50%{box-shadow:0 0 18px rgba(0,200,255,0.6);}}
+.q-pf-stats{display:flex;justify-content:center;gap:28px;margin-top:20px;flex-wrap:wrap;}
+.q-pf-num{font-family:var(--mono);font-size:22px;font-weight:700;color:#00c8ff;text-align:center;}
+.q-pf-lbl{font-size:10px;color:#888;text-align:center;letter-spacing:.04em;}
+.q-unlock-wrap{max-width:420px;margin:20px auto 0;}
+.q-unlock-lbl{text-align:center;font-family:var(--mono);font-size:10.5px;color:#888;margin-bottom:6px;}
+.q-unlock-track{height:6px;background:#111;border-radius:3px;overflow:hidden;border:1px solid rgba(0,200,255,0.15);}
+.q-unlock-fill{height:100%;background:linear-gradient(90deg,#00c8ff,#00ff9d);transition:width 0.4s ease;}
+.q-lvl2{margin-top:36px;padding:26px 18px;border-radius:12px;background:linear-gradient(180deg,rgba(0,200,255,0.05),transparent);border:1px solid rgba(0,200,255,0.25);position:relative;overflow:hidden;}
+.q-lvl2::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(0,200,255,0.06) 0%,transparent 60%);animation:qspin 18s linear infinite;pointer-events:none;}
+@keyframes qspin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.q-lvl2-tag{position:relative;text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.15em;color:#00ff9d;margin-bottom:8px;}
+.q-lvl2-title{position:relative;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.02em;font-weight:700;color:#fff;line-height:1.2;margin-bottom:10px;}
+.q-lvl2-sub{position:relative;text-align:center;font-size:13px;color:#bbb;max-width:460px;margin:0 auto 20px;line-height:1.7;}
+.q-lvl2-pending{position:relative;text-align:center;font-family:var(--mono);font-size:12px;color:#ffd700;margin-bottom:14px;animation:qflicker 1.6s ease-in-out infinite;}
+@keyframes qflicker{0%,100%{opacity:0.6;}50%{opacity:1;}}
+#qLvl2Stage1{position:relative;text-align:center;}
 body.a11y-large *{font-size:115%!important;}
 body.a11y-contrast{filter:contrast(1.25);}
 body.a11y-dyslexia *{font-family:Arial,sans-serif!important;letter-spacing:0.05em!important;line-height:1.9!important;}
@@ -74,7 +105,9 @@ body.a11y-reduce-motion *{animation:none!important;transition:none!important;}
 /* HERO */
 .hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;background:radial-gradient(ellipse at 50% 0%,#1a1200 0%,var(--black) 70%);text-align:center;padding:106px 20px 60px;overflow:hidden;}
 .hero::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(201,168,76,0.03) 40px,rgba(201,168,76,0.03) 41px),repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(201,168,76,0.03) 40px,rgba(201,168,76,0.03) 41px);}
-.crown{font-size:clamp(60px,12vw,120px);line-height:1;animation:pulse-gold 3s ease-in-out infinite;margin-bottom:20px;}
+.crown{line-height:1;margin-bottom:20px;display:flex;justify-content:center;}
+.crown-svg{width:clamp(80px,14vw,130px);height:auto;animation:pulse-crown 3s ease-in-out infinite;}
+@keyframes pulse-crown{0%,100%{filter:drop-shadow(0 0 14px rgba(201,168,76,0.45));}50%{filter:drop-shadow(0 0 28px rgba(201,168,76,0.85)) drop-shadow(0 0 50px rgba(201,168,76,0.3));}}
 @keyframes pulse-gold{0%,100%{text-shadow:0 0 30px rgba(201,168,76,0.5);}50%{text-shadow:0 0 60px rgba(201,168,76,0.9),0 0 120px rgba(201,168,76,0.3);}}
 .hero-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,10vw,110px);letter-spacing:0.08em;line-height:0.9;background:linear-gradient(135deg,var(--gold-light) 0%,var(--gold) 40%,var(--gold-dark) 70%,var(--gold-light) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:12px;animation:shimmer 4s linear infinite;background-size:200% 200%;}
 @keyframes shimmer{0%{background-position:0% 50%;}100%{background-position:200% 50%;}}
@@ -329,7 +362,30 @@ footer{border-top:1px solid rgba(201,168,76,0.15);padding:40px 20px;text-align:c
 <!-- ═══ ABUNDANCE WORLD ═══ -->
 <div id="wAbundance">
 <section class="hero">
-  <div class="crown">👑</div>
+  <div class="crown"><svg class="crown-svg" viewBox="0 0 240 170" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="crownGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#F5E3A8"/>
+        <stop offset="45%" stop-color="#E8C97A"/>
+        <stop offset="100%" stop-color="#8B6914"/>
+      </linearGradient>
+      <linearGradient id="crownBand" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#8B6914"/>
+        <stop offset="50%" stop-color="#F5E3A8"/>
+        <stop offset="100%" stop-color="#8B6914"/>
+      </linearGradient>
+    </defs>
+    <polygon points="24,150 24,78 66,112 96,42 120,84 144,42 174,112 216,78 216,150" fill="none" stroke="url(#crownGrad)" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+    <rect x="22" y="140" width="196" height="18" rx="4" fill="url(#crownBand)"/>
+    <circle cx="96" cy="42" r="7" fill="#4FB8A6"/>
+    <circle cx="120" cy="84" r="8.5" fill="#D95C5C"/>
+    <circle cx="144" cy="42" r="7" fill="#4FB8A6"/>
+    <circle cx="24" cy="78" r="5" fill="#F5E3A8"/>
+    <circle cx="216" cy="78" r="5" fill="#F5E3A8"/>
+    <rect x="60" y="147" width="10" height="6" rx="1.5" fill="#0a0a0a" opacity="0.35"/>
+    <rect x="115" y="147" width="10" height="6" rx="1.5" fill="#0a0a0a" opacity="0.35"/>
+    <rect x="170" y="147" width="10" height="6" rx="1.5" fill="#0a0a0a" opacity="0.35"/>
+  </svg></div>
   <div class="hero-title">MULTI-MILLIONAIRE<br>ABUNDANCE OS</div>
   <div class="hero-sub">Weekly Operating System — Spirit × Matter × Money</div>
   <p class="manifesto">Not just rich in money — <span>rich in soul</span>. Not just spiritual — <span>rich in cash</span>. This is the operating system of a new breed of wealthy: grounded in both worlds, flying business class, giving generously, leveraging everything, and waking every day in <span>total abundance frequency</span>.</p>
@@ -339,6 +395,38 @@ footer{border-top:1px solid rgba(201,168,76,0.15);padding:40px 20px;text-align:c
     <span class="pillar-tag">🎁 Giving</span><span class="pillar-tag">✈️ Business Class Life</span>
   </div>
   <button class="enter-btn" onclick="openModal()">ENTER THE VAULT 🔐</button>
+</section>
+
+<section style="max-width:480px;margin:0 auto 40px;padding:0 16px;">
+  <div id="kombazWallet" style="background:linear-gradient(135deg,rgba(201,168,76,0.08),rgba(157,123,255,0.04));border:1px solid rgba(201,168,76,0.3);padding:16px;font-family:'Space Mono',monospace;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="font-size:9px;letter-spacing:0.2em;color:var(--gold);">💳 KOMBAZ CREDITS</div>
+      <button onclick="toggleWalletHistory()" id="walletHistoryBtn" style="display:none;background:none;border:none;color:var(--silver);font-size:9px;cursor:pointer;">היסטוריה ↓</button>
+    </div>
+
+    <!-- Logged-out state -->
+    <div id="walletLoggedOut">
+      <div style="font-size:11px;color:var(--silver);margin-bottom:10px;">התחבר כדי לצפות ביתרת הקרדיט שלך ולטעון</div>
+      <div style="display:flex;gap:8px;">
+        <input id="walletEmail" type="email" placeholder="האימייל שלך" style="flex:1;background:rgba(0,0,0,0.3);border:1px solid rgba(201,168,76,0.3);color:var(--cream);font-size:11px;padding:8px 10px;">
+        <button onclick="walletSendMagicLink()" style="font-size:10px;letter-spacing:0.1em;padding:8px 16px;border:1px solid var(--gold);background:rgba(201,168,76,0.12);color:var(--gold);cursor:pointer;white-space:nowrap;">שלח לינק</button>
+      </div>
+      <div id="walletLoginMsg" style="font-size:9px;color:var(--silver);margin-top:6px;"></div>
+    </div>
+
+    <!-- Logged-in state -->
+    <div id="walletLoggedIn" style="display:none;">
+      <div style="font-size:28px;font-weight:700;color:var(--cream);" id="walletBalance">—</div>
+      <div style="font-size:9px;color:var(--silver);margin-top:2px;">יתרה זמינה — לשימוש בקומבז בלבד, לא ניתן למשיכה</div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <a href="https://gumroad.com/l/REPLACE-CREDITS-50"  target="_blank" rel="noopener" style="flex:1;text-align:center;padding:8px;background:rgba(201,168,76,0.15);border:1px solid var(--gold);color:var(--gold);font-size:10px;text-decoration:none;">+₪50</a>
+        <a href="https://gumroad.com/l/REPLACE-CREDITS-150" target="_blank" rel="noopener" style="flex:1;text-align:center;padding:8px;background:rgba(201,168,76,0.15);border:1px solid var(--gold);color:var(--gold);font-size:10px;text-decoration:none;">+₪150</a>
+        <a href="https://gumroad.com/l/REPLACE-CREDITS-500" target="_blank" rel="noopener" style="flex:1;text-align:center;padding:8px;background:rgba(201,168,76,0.15);border:1px solid var(--gold);color:var(--gold);font-size:10px;text-decoration:none;">+₪500</a>
+      </div>
+      <button onclick="walletLogout()" style="margin-top:10px;background:none;border:none;color:var(--silver);font-size:9px;cursor:pointer;text-decoration:underline;">התנתק</button>
+      <div id="walletHistory" style="display:none;margin-top:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;"></div>
+    </div>
+  </div>
 </section>
 
 <div class="modal-overlay" id="modalOverlay">
@@ -506,19 +594,36 @@ footer{border-top:1px solid rgba(201,168,76,0.15);padding:40px 20px;text-align:c
 
   <!-- SCANNER PAGE -->
   <div class="vault-page" id="vault-scanner">
+    <div style="background:linear-gradient(135deg,rgba(157,123,255,0.08),rgba(0,200,255,0.04));border:1px solid rgba(157,123,255,0.3);padding:18px;margin-bottom:14px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.25em;color:#9d7bff;margin-bottom:8px;">⚛ ניתוח קוונטי — Monte Carlo Particle Simulation</div>
+      <div style="font-size:12px;color:var(--silver);line-height:1.7;margin-bottom:14px;">
+        משגר אלפי "חלקיקים" (הליכה אקראית מסוג Geometric Brownian Motion + jump-diffusion) דרך מרחב המחיר, מכויל על סטיית התקן והדריפט ההיסטוריים האמיתיים של המניה. מחזיר את ההסתברות להגיע ליעד מבצע-1050 לפני הסטופ.
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+        <input id="qcTicker" placeholder="טיקר (למשל ASML)" value="ASML" style="flex:1;min-width:110px;background:rgba(0,0,0,0.3);border:1px solid rgba(157,123,255,0.3);color:var(--cream);font-family:var(--mono);font-size:11px;padding:8px 10px;">
+        <input id="qDays" placeholder="ימים" value="30" style="width:70px;background:rgba(0,0,0,0.3);border:1px solid rgba(157,123,255,0.3);color:var(--cream);font-family:var(--mono);font-size:11px;padding:8px 10px;">
+        <input id="qTarget" placeholder="יעד %" value="10" style="width:80px;background:rgba(0,0,0,0.3);border:1px solid rgba(157,123,255,0.3);color:var(--cream);font-family:var(--mono);font-size:11px;padding:8px 10px;">
+        <input id="qStop" placeholder="סטופ %" value="-8" style="width:80px;background:rgba(0,0,0,0.3);border:1px solid rgba(157,123,255,0.3);color:var(--cream);font-family:var(--mono);font-size:11px;padding:8px 10px;">
+        <input id="qPaths" placeholder="חלקיקים" value="2000" style="width:90px;background:rgba(0,0,0,0.3);border:1px solid rgba(157,123,255,0.3);color:var(--cream);font-family:var(--mono);font-size:11px;padding:8px 10px;">
+        <button onclick="runQuantum()" style="font-family:var(--mono);font-size:10px;letter-spacing:0.15em;padding:9px 20px;border:1px solid #9d7bff;background:rgba(157,123,255,0.12);color:#c9b6ff;cursor:pointer;text-transform:uppercase;">הרץ סימולציה →</button>
+      </div>
+      <div id="qTickerPicker" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
+      <div id="quantumResult" style="margin-top:14px;"></div>
+    </div>
     <div class="pf-strip" id="scanStrip">
       <div class="pf-card"><div class="pf-lbl">שוחרר</div><div class="pf-val r" id="s-sell">—</div></div>
       <div class="pf-card"><div class="pf-lbl">הון שהתפנה</div><div class="pf-val go" id="s-freed">—</div></div>
       <div class="pf-card"><div class="pf-lbl">נכנסו חדש</div><div class="pf-val g" id="s-buy">—</div></div>
-      <div class="pf-card"><div class="pf-lbl">רוטציה</div><div class="pf-val" style="color:var(--blue)">שבבים → תוכנה</div></div>
+      <div class="pf-card"><div class="pf-lbl">רוטציה</div><div class="pf-val" style="color:var(--blue)">שבבים → ETF ממונף</div></div>
       <div class="pf-card"><div class="pf-lbl">שיטה</div><div class="pf-val go">Simons+Ackman</div></div>
     </div>
     <div style="background:linear-gradient(135deg,rgba(0,255,100,0.06),rgba(0,200,255,0.04));border:1px solid rgba(0,255,100,0.2);padding:18px;margin-bottom:14px;">
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.25em;color:var(--green);margin-bottom:8px;">🔄 ROTATION LIVE — מבצע 1050 | 16.06.2026</div>
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.25em;color:var(--green);margin-bottom:8px;">🔄 ROTATION LIVE — מבצע 1050 | 14.08.2026</div>
       <div style="font-size:13px;color:var(--cream);line-height:1.8;">
-        מומש: <strong style="color:var(--green)">IBM (+17%)</strong> | בתור לשחרור שני: <strong style="color:var(--red)">MSTY, NVDY, MSFT, AVGO, INTC, ORCL, QCOM, P, GOOGL, META, PLTR</strong><br>
-        יעדי ריכוז: <strong style="color:var(--gold)">MU + ASML</strong> | זנבות $1,050: <strong style="color:var(--blue)">AMD, IONQ, RKLB, TER, DELL, NVDA, AAPL, AMZN, ALOY</strong><br>
-        עיקרון: <strong style="color:var(--green)">הכסף לא עומד — גם מניה שנמכרה חוזרת כזנב אם המומנטום חוזר</strong>
+        מנוע קציר: <strong style="color:var(--green)">SNXX (+66.99%)</strong> — הפוזיציה הגדולה והרווחית בתיק, מקור עיקרי לזנבות $1,050<br>
+        יעד ריכוז/ליבה: <strong style="color:var(--gold)">ASML</strong> | זנבות פעילים: <strong style="color:var(--blue)">AMD, IONQ, DELL, TER, AVGO, RGTI, AAPL</strong><br>
+        לעקוב מקרוב: <strong style="color:var(--red)">INTW (-19.38%)</strong>, <strong style="color:var(--red)">IONX (-9.47%)</strong> — ETF ממונפים 2x, דעיכת נפח בשוק דשדוש<br>
+        עיקרון: <strong style="color:var(--green)">הכסף לא עומד — ETF ממונפים ננעלים לעסקאות יום עם 2 יעדי יציאה קבועים, לא לוגיקת זנב</strong>
       </div>
     </div>
     <div class="filters">
@@ -553,6 +658,8 @@ footer{border-top:1px solid rgba(201,168,76,0.15);padding:40px 20px;text-align:c
         <button class="fb" onclick="filterWl('semi',this)">⚡ שבבים</button>
         <button class="fb" onclick="filterWl('soft',this)">💻 תוכנה</button>
         <button class="fb" onclick="filterWl('infra',this)">🏗️ תשתיות</button>
+        <button class="fb" onclick="filterWl('quant',this)">⚛ קוונטום</button>
+        <button class="fb" onclick="filterWl('lev',this)">🔺 ממונף</button>
         <button class="fb" onclick="filterWl('owned',this)">✅ בתיק</button>
       </div>
       <div class="tw"><table>
@@ -630,7 +737,7 @@ footer{border-top:1px solid rgba(201,168,76,0.15);padding:40px 20px;text-align:c
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
         <div style="background:#071210;border:1px solid var(--border);padding:14px;"><div style="font-family:var(--mono);font-size:8px;color:var(--gold);letter-spacing:0.2em;margin-bottom:7px">RULE 01</div><div style="font-size:13px;color:var(--cream);font-weight:700;margin-bottom:5px">70/30 Rule</div><div style="font-size:12px;color:var(--silver);line-height:1.7">70% מההכנסה לחיים. 30% חוזר לתיק תמיד.</div></div>
         <div style="background:#071210;border:1px solid var(--border);padding:14px;"><div style="font-family:var(--mono);font-size:8px;color:var(--gold);letter-spacing:0.2em;margin-bottom:7px">RULE 02</div><div style="font-size:13px;color:var(--cream);font-weight:700;margin-bottom:5px">הקרן לא נגמרת</div><div style="font-size:12px;color:var(--silver);line-height:1.7">מוציאים רק מהרווח הרץ. הקרן עובדת 24/7.</div></div>
-        <div style="background:#071210;border:1px solid var(--border);padding:14px;"><div style="font-family:var(--mono);font-size:8px;color:var(--gold);letter-spacing:0.2em;margin-bottom:7px">RULE 03</div><div style="font-size:13px;color:var(--cream);font-weight:700;margin-bottom:5px">החזקה ארוכה = לא מוכרים בפאניקה</div><div style="font-size:12px;color:var(--silver);line-height:1.7">META, MSFT, AAPL — 5-10 שנים. Trailing Stop בלבד.</div></div>
+        <div style="background:#071210;border:1px solid var(--border);padding:14px;"><div style="font-family:var(--mono);font-size:8px;color:var(--gold);letter-spacing:0.2em;margin-bottom:7px">RULE 03</div><div style="font-size:13px;color:var(--cream);font-weight:700;margin-bottom:5px">החזקה ארוכה = לא מוכרים בפאניקה</div><div style="font-size:12px;color:var(--silver);line-height:1.7">ASML, AAPL — 5-10 שנים. Trailing Stop בלבד.</div></div>
         <div style="background:#071210;border:1px solid var(--border);padding:14px;"><div style="font-family:var(--mono);font-size:8px;color:var(--gold);letter-spacing:0.2em;margin-bottom:7px">RULE 04</div><div style="font-size:13px;color:var(--cream);font-weight:700;margin-bottom:5px">כרית מזומן ₪10K</div><div style="font-size:12px;color:var(--silver);line-height:1.7">תמיד שמור ₪10K נגיש. לא לגעת. ביטוח חיים.</div></div>
       </div>
     </div>
@@ -639,7 +746,7 @@ footer{border-top:1px solid rgba(201,168,76,0.15);padding:40px 20px;text-align:c
   <!-- GROWTH PAGE -->
   <div class="vault-page" id="vault-growth">
     <div class="pf-strip">
-      <div class="pf-card"><div class="pf-lbl">הון תיק (01.06)</div><div class="pf-val s">₪122,820</div></div>
+      <div class="pf-card"><div class="pf-lbl">הון תיק (14.08)</div><div class="pf-val s">₪159,660</div></div>
       <div class="pf-card"><div class="pf-lbl">ROI שנתי</div><div class="pf-val g">54.9%</div></div>
       <div class="pf-card"><div class="pf-lbl">ROI עם מסחר</div><div class="pf-val go">65%</div></div>
       <div class="pf-card"><div class="pf-lbl">זמן הכפלה</div><div class="pf-val go">1.3 שנים</div></div>
@@ -656,7 +763,7 @@ footer{border-top:1px solid rgba(201,168,76,0.15);padding:40px 20px;text-align:c
     <div class="vsec" style="margin-top:16px;">
       <div class="vsec-title">// אבני דרך</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
-        <div style="background:#071210;border:1px solid var(--border);padding:13px;text-align:center;border-bottom:2px solid var(--green)"><div style="font-size:18px;margin-bottom:5px">🎯</div><div style="font-family:var(--mono);font-size:8px;color:var(--silver);margin-bottom:4px">הכפלה</div><div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--green)">₪241K</div><div style="font-family:var(--mono);font-size:8px;color:var(--silver);margin-top:3px">סוף 2027</div></div>
+        <div style="background:#071210;border:1px solid var(--border);padding:13px;text-align:center;border-bottom:2px solid var(--green)"><div style="font-size:18px;margin-bottom:5px">🎯</div><div style="font-family:var(--mono);font-size:8px;color:var(--silver);margin-bottom:4px">הכפלה</div><div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--green)">₪319K</div><div style="font-family:var(--mono);font-size:8px;color:var(--silver);margin-top:3px">סוף 2027</div></div>
         <div style="background:#071210;border:1px solid var(--border);padding:13px;text-align:center;border-bottom:2px solid var(--gold)"><div style="font-size:18px;margin-bottom:5px">👑</div><div style="font-family:var(--mono);font-size:8px;color:var(--silver);margin-bottom:4px">מיליון</div><div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--gold)">₪1M</div><div style="font-family:var(--mono);font-size:8px;color:var(--silver);margin-top:3px">2028</div></div>
         <div style="background:#071210;border:1px solid var(--border);padding:13px;text-align:center;border-bottom:2px solid var(--orange)"><div style="font-size:18px;margin-bottom:5px">🚀</div><div style="font-family:var(--mono);font-size:8px;color:var(--silver);margin-bottom:4px">2 מיליון</div><div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--orange)">₪2M</div><div style="font-family:var(--mono);font-size:8px;color:var(--silver);margin-top:3px">2029-2030</div></div>
         <div style="background:#071210;border:1px solid var(--border);padding:13px;text-align:center;border-bottom:2px solid var(--blue)"><div style="font-size:18px;margin-bottom:5px">✈️</div><div style="font-family:var(--mono);font-size:8px;color:var(--silver);margin-bottom:4px">5 מיליון</div><div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--blue)">₪5M</div><div style="font-family:var(--mono);font-size:8px;color:var(--silver);margin-top:3px">2031-2032</div></div>
@@ -715,7 +822,7 @@ footer{border-top:1px solid rgba(201,168,76,0.15);padding:40px 20px;text-align:c
     <div class="sched-day">
       <div class="sched-dh"><span class="sched-dname">יום ראשון</span><span class="sched-dtheme">חזון ואסטרטגיה · שבט יהודה</span></div>
       <div class="sched-row"><span class="sched-time">04:00–06:00</span><span class="sched-txt">🐯 שעת הנמר — פיסול / ציור. יצירה טהורה לפני שהעולם מתעורר. פריט חדש למלאי הדוכן.</span></div>
-      <div class="sched-row"><span class="sched-time">06:00–07:00</span><span class="sched-txt"><span class="sb sb2">T02</span> סקירת שווקים אסיה-אירופה. כתוב 3 תובנות ליומן ההשקעות.</span></div>
+      <div class="sched-row"><span class="sched-time">06:00–07:00</span><span class="sched-txt"><span class="sb sb2">T02</span> סקירת שווקים אסיה-אירופה. כתוב 3 תובנות ליומן ההשקעות. ⚛ הרץ סימולציית קוונטים על ASML + הזנבות הפעילים (VAULT → סורק רוטציה).</span></div>
       <div class="sched-row"><span class="sched-time">09:00–12:00</span><span class="sched-txt"><span class="sb sb1">T01</span> כתיבת מערך סדנה / עריכת מצגת לקורס הדיגיטלי.</span></div>
       <div class="sched-row"><span class="sched-time">12:00–14:00</span><span class="sched-txt"><span class="sb sb2">T02</span> סריקת מומנטום — 10 מניות + AI. עדכן סטופים.</span></div>
       <div class="sched-row"><span class="sched-time">16:00–18:00</span><span class="sched-txt"><span class="sb sb4">T04</span> הקלטת פרק קצר — "הקשר בין אמנות להשקעות".</span></div>
@@ -726,7 +833,7 @@ footer{border-top:1px solid rgba(201,168,76,0.15);padding:40px 20px;text-align:c
     <div class="sched-day">
       <div class="sched-dh"><span class="sched-dname">יום שני</span><span class="sched-dtheme">יצירה ועסקים · ארנב אש + נמר</span></div>
       <div class="sched-row"><span class="sched-time">04:00–07:00</span><span class="sched-txt">🔥 הכנת מלאי לדוכן — ליטוש, הרכבת פסלים, אריזות.</span></div>
-      <div class="sched-row"><span class="sched-time">08:00–10:00</span><span class="sched-txt"><span class="sb sb2">T02</span> פתיחת שוק ארה"ב — עסקאות רוטציה (מבצע 1050). ניהול סיכון.</span></div>
+      <div class="sched-row"><span class="sched-time">08:00–10:00</span><span class="sched-txt"><span class="sb sb2">T02</span> פתיחת שוק ארה"ב — עסקאות רוטציה (מבצע 1050). ⚛ בדוק הסתברות יעד/סטופ בסימולציה לפני ביצוע. ניהול סיכון.</span></div>
       <div class="sched-row"><span class="sched-time">10:00–12:00</span><span class="sched-txt"><span class="sb sb3">T03</span> שליחת הזמנות לאמנים ויזמים למפגש בבאר שבע. רשימה של 10.</span></div>
       <div class="sched-row"><span class="sched-time">13:00–15:00</span><span class="sched-txt"><span class="sb sb1">T01</span> שיחת ייעוץ בזום עם יזם צעיר (חינם — לבניית מוניטין).</span></div>
       <div class="sched-row"><span class="sched-time">17:00–19:00</span><span class="sched-txt"><span class="sb sb4">T04</span> צילום מקצועי — פסלים חדשים. 20+ תמונות.</span></div>
@@ -980,30 +1087,176 @@ footer{border-top:1px solid rgba(201,168,76,0.15);padding:40px 20px;text-align:c
 מקום למודעת Google (728×90)
 </div>
 
-<section class="ks" id="q-puzzle"><div class="ks-tag">🔬 פאזל אינטראקטיבי</div><div class="ks-title">DOUBLE-SLIT<br>EXPERIMENT</div><div class="ks-sub">ירה חלקיקים דרך שני סדקים. נחש מה יקרה כשיש גלאי-מסלול (מדידה) לעומת בלי. תראה בעיניים את קריסת הפונקציית-גל.</div>
-<div style="display:flex;justify-content:center;"><canvas id="qCanvas" width="520" height="280" style="max-width:100%;background:#050505;border:1px solid rgba(0,200,255,0.25);border-radius:6px;"></canvas></div>
-<div id="qGuessRow" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:16px 0 6px;">
-<span style="align-self:center;font-size:13px;color:#aaa;">אם נדליק גלאי-מסלול (נמדוד דרך איזה סדק עבר החלקיק)...</span>
+<section class="ks" id="q-puzzle">
+<div class="ks-tag">🔬 פאזל אינטראקטיבי · LIVE PHYSICS ENGINE</div>
+<div class="ks-title">DOUBLE-SLIT<br>EXPERIMENT</div>
+<div class="ks-sub">ירה חלקיקים דרך שני סדקים. נחש מה יקרה כשיש גלאי-מסלול (מדידה) לעומת בלי — ותראה בעיניים את קריסת הפונקציה-גל, חלקיק אחר חלקיק.</div>
+
+<div class="q-lab">
+<div class="q-lab-glow"></div>
+<div style="display:flex;justify-content:center;position:relative;z-index:1;">
+<canvas id="qCanvas" width="560" height="320" style="max-width:100%;background:#020304;border:1px solid rgba(0,200,255,0.3);border-radius:8px;box-shadow:0 0 40px rgba(0,200,255,0.08) inset;"></canvas>
 </div>
-<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;">
-<button onclick="qpGuess(true)" class="kb-g" id="qpGuessKeep" style="border-color:#00c8ff;color:#00c8ff">ההתאבכות תישאר</button>
-<button onclick="qpGuess(false)" class="kb-g" id="qpGuessLose" style="border-color:#00c8ff;color:#00c8ff">ההתאבכות תיעלם</button>
-</div>
-<div id="qpFeedback" style="text-align:center;font-size:13px;color:#00c8ff;min-height:20px;margin-bottom:10px;"></div>
+
+<div id="qLiveDesc" class="q-live-desc">🌊 הכל עדיין בסופרפוזיציה — לחץ "ירה" כדי להתחיל</div>
+
+<div class="q-guess-box">
+<div class="q-guess-q">אם נדליק גלאי-מסלול (נמדוד דרך איזה סדק עבר החלקיק)...</div>
 <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-<button onclick="qpFire()" class="kb-p" style="background:#00c8ff;color:#000;border-color:#00c8ff">🔫 ירה 300 חלקיקים</button>
+<button onclick="qpGuess(true)" class="kb-g q-guess-btn" id="qpGuessKeep">🌊 ההתאבכות תישאר</button>
+<button onclick="qpGuess(false)" class="kb-g q-guess-btn" id="qpGuessLose">💥 ההתאבכות תיעלם</button>
+</div>
+</div>
+<div id="qpFeedback" class="q-feedback"></div>
+
+<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:6px;">
+<button onclick="qpFire()" class="kb-p q-fire-btn" style="background:#00c8ff;color:#000;border-color:#00c8ff">🔫 ירה 300 חלקיקים</button>
 <button onclick="qpToggleDetector()" id="qpDetBtn" class="kb-g" style="border-color:#666;color:#999">🔍 גלאי-מסלול: כבוי</button>
+<button onclick="qpToggleSound()" id="qpSndBtn" class="kb-g" style="border-color:#666;color:#999">🔊</button>
 <button onclick="qpClear()" class="kb-g" style="border-color:#666;color:#999">↺ נקה מסך</button>
 </div>
-<div style="text-align:center;margin-top:12px;font-family:var(--mono);font-size:11px;color:#888;">חלקיקים שנורו: <span id="qpCount" style="color:#00c8ff">0</span> · ניחושים נכונים: <span id="qpScore" style="color:#00c8ff">0</span></div>
+
+<div class="q-pf-stats">
+<div><div class="q-pf-num" id="qpCount">0</div><div class="q-pf-lbl">חלקיקים (סבב)</div></div>
+<div><div class="q-pf-num" id="qpLifetime">0</div><div class="q-pf-lbl">חלקיקים (כל הזמנים)</div></div>
+<div><div class="q-pf-num" id="qpScore">0</div><div class="q-pf-lbl">ניחושים נכונים</div></div>
+</div>
+
+<div id="qpUnlockBar" class="q-unlock-wrap">
+<div class="q-unlock-lbl"><span id="qpUnlockText">🔒 עוד <span id="qpUnlockLeft">1200</span> חלקיקים עד למצב המתקדם</span></div>
+<div class="q-unlock-track"><div class="q-unlock-fill" id="qpUnlockFill" style="width:0%"></div></div>
+</div>
+</div>
+
+<div id="qLevel2" class="q-lvl2" style="display:none;">
+<div class="q-lvl2-tag">🔓 נפתח · מצב מתקדם</div>
+<div class="q-lvl2-title">DELAYED CHOICE<br><span style="color:#00c8ff">— העתיד בלתי נמנע —</span></div>
+<div class="q-lvl2-sub">עכשיו נורה חלקיקים <strong>בלי</strong> להחליט עדיין אם נמדוד אותם. ההחלטה — אם למדוד או לא — תתקבל <strong>אחרי</strong> שהם כבר "נחתו". הבחירה שלך בעתיד קובעת מה נראה בעבר. (הדגמה מפושטת בהשראת ניסויי הבחירה-המושהית של ג'ון ויילר.)</div>
+<div id="qLvl2Stage1">
+<button onclick="qpLvl2Fire()" class="kb-p" style="background:#00c8ff;color:#000;border-color:#00c8ff">🌌 ירה 200 חלקיקים מוסתרים</button>
+</div>
+<div id="qLvl2Stage2" style="display:none;">
+<div class="q-lvl2-pending">⏳ 200 חלקיקים כבר פגעו במסך... אבל עדיין לא הוחלט מה קרה להם.</div>
+<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+<button onclick="qpLvl2Reveal(false)" class="kb-g" style="border-color:#00c8ff;color:#00c8ff">🌊 בחר: לא למדוד — שמור התאבכות</button>
+<button onclick="qpLvl2Reveal(true)" class="kb-g" style="border-color:#00c8ff;color:#00c8ff">🔍 בחר: למדוד בדיעבד</button>
+</div>
+</div>
+<div style="display:flex;justify-content:center;margin-top:14px;"><canvas id="qCanvas2" width="480" height="200" style="max-width:100%;background:#020304;border:1px solid rgba(0,200,255,0.3);border-radius:8px;"></canvas></div>
+<div id="qLvl2Result" class="q-live-desc" style="margin-top:10px;"></div>
+<button onclick="qpLvl2Reset()" class="kb-g" style="border-color:#666;color:#999;margin-top:10px;">↺ סבב חדש</button>
+</div>
+
 <div class="q-disclaimer">🔬 הדמיה חינוכית פשוטה, לא סימולציה פיזיקלית מדויקת — הכוונה היא לתחושת-בטן ויזואלית לגבי סופרפוזיציה וקריסה, לא מדידה מדעית.</div>
 </section>
+
 
 <section class="k-cta"><div class="k-cta-title">FROM LAB TO <span style="color:#00c8ff">P&L?</span></div><p class="k-cta-sub">הפער בין מעבדה לשוק הוא ההזדמנות — וגם הסיכון.<br><strong>עקוב אחרי קיוביטים לוגיים, לא אחרי כותרות.</strong></p><div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;"><button onclick="kScroll('q-gap')" class="kb-p" style="background:#00c8ff;color:#000;border-color:#00c8ff">חזרה למפת הדרכים</button><button onclick="switchWorld('abundance')" class="kb-g">← Abundance OS</button></div></section>
 <footer class="k-footer"><div><div class="k-footer-logo" style="color:#00c8ff">QUANTUM</div><div class="k-footer-tag">Physics · Computing · Markets · 2026</div></div><div class="k-footer-links"><a onclick="kScroll('q-gap')">הפער הגדול</a><a onclick="kScroll('q-stocks')">מניות</a><a href="/privacy" target="_blank">פרטיות</a><a href="https://kombaz.me" target="_blank">kombaz.me</a></div></footer>
 </div>
 
 <script>
+// ═══ KOMBAZ CREDITS — WALLET ═══
+// REPLACE these two with your actual Supabase project values (Project Settings → API).
+// The anon key is safe to expose client-side by design — it only allows what your
+// Row Level Security policies permit (read-your-own-data only, per wallet_schema.sql).
+const SUPABASE_URL = 'https://mqktdtccstrffklsirmj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_7CzwUwJ6bpV1c_tNe3e06w_EYKYgoXJ';
+const WALLET_API = ''; // same-origin; set to full URL if the API lives elsewhere
+
+let sb = null;
+try{
+  if(window.supabase && !SUPABASE_URL.includes('REPLACE')){
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+}catch(e){ console.warn('Supabase not configured yet', e); }
+
+async function walletAuthHeader(){
+  if(!sb) return null;
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session) return null;
+  return { 'Authorization': `Bearer ${session.access_token}` };
+}
+
+async function walletRefreshUI(){
+  const h = await walletAuthHeader();
+  const out = document.getElementById('walletLoggedOut');
+  const inn = document.getElementById('walletLoggedIn');
+  const histBtn = document.getElementById('walletHistoryBtn');
+  if(!h){ out.style.display='block'; inn.style.display='none'; histBtn.style.display='none'; return; }
+  out.style.display='none'; inn.style.display='block'; histBtn.style.display='inline-block';
+  loadWalletBalance();
+}
+
+async function loadWalletBalance(){
+  const h = await walletAuthHeader();
+  const el = document.getElementById('walletBalance');
+  if(!h) return;
+  try{
+    const r = await fetch(WALLET_API+'/api/wallet/balance', { headers: h });
+    const d = await r.json();
+    el.textContent = '₪' + d.balance_ils.toLocaleString('he-IL', {minimumFractionDigits:2});
+  }catch(e){ el.textContent = 'שגיאה בטעינה'; }
+}
+
+let walletHistoryLoaded = false;
+async function toggleWalletHistory(){
+  const box = document.getElementById('walletHistory');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if(box.style.display === 'block' && !walletHistoryLoaded){
+    const h = await walletAuthHeader();
+    if(!h) return;
+    const r = await fetch(WALLET_API+'/api/wallet/history', { headers: h });
+    const rows = await r.json();
+    box.innerHTML = (Array.isArray(rows)?rows:[]).map(row => {
+      const sign = row.amount_cents > 0 ? '+' : '';
+      const color = row.amount_cents > 0 ? 'var(--green)' : 'var(--red)';
+      const ils = (row.amount_cents/100).toLocaleString('he-IL', {minimumFractionDigits:2});
+      const date = new Date(row.created_at).toLocaleDateString('he-IL');
+      return `<div style="display:flex;justify-content:space-between;font-size:10px;padding:4px 0;color:var(--silver);">
+        <span>${row.description||row.kind}</span>
+        <span style="color:${color}">${sign}₪${ils}</span>
+        <span style="opacity:.6">${date}</span>
+      </div>`;
+    }).join('') || '<div style="font-size:10px;color:var(--silver);">אין תנועות עדיין</div>';
+    walletHistoryLoaded = true;
+  }
+}
+
+async function walletSendMagicLink(){
+  const msg = document.getElementById('walletLoginMsg');
+  if(!sb){ msg.textContent='⚠ הארנק עדיין לא מוגדר (חסר Supabase URL/Key)'; msg.style.color='var(--red)'; return; }
+  const email = document.getElementById('walletEmail').value.trim();
+  if(!email){ msg.textContent='הזן אימייל תקין'; return; }
+  msg.style.color='var(--silver)'; msg.textContent='שולח...';
+  const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: window.location.href } });
+  msg.textContent = error ? ('⚠ '+error.message) : '✅ נשלח לינק כניסה למייל — לחץ עליו כדי להתחבר';
+}
+
+async function walletLogout(){
+  if(sb) await sb.auth.signOut();
+  walletHistoryLoaded = false;
+  walletRefreshUI();
+}
+
+async function spendWalletCredits(amountIls, source, referenceId, description){
+  const h = await walletAuthHeader();
+  if(!h){ alert('התחבר קודם'); return null; }
+  const r = await fetch(WALLET_API+'/api/wallet/spend', {
+    method:'POST', headers:{...h, 'Content-Type':'application/json'},
+    body: JSON.stringify({amount_ils:amountIls, source, reference_id:referenceId, description})
+  });
+  if(r.status === 402){ alert('אין מספיק יתרה — טען קרדיט קודם'); return null; }
+  const d = await r.json();
+  loadWalletBalance();
+  return d;
+}
+
+if(sb){
+  sb.auth.onAuthStateChange((_event, _session) => walletRefreshUI());
+}
+walletRefreshUI();
+
 // ═══ WORLD SWITCHER ═══
 function switchWorld(w){
   document.getElementById('wAbundance').style.display=(w==='abundance')?'block':'none';
@@ -1016,9 +1269,9 @@ function switchWorld(w){
   ab.classList.remove('km','qm');ap.classList.remove('km','qm');
   document.querySelectorAll('.a11y-toggle').forEach(t=>t.classList.remove('kr','qr'));
   document.querySelectorAll('.a11y-slider').forEach(s=>s.classList.remove('kr','qr'));
-  if(w==='kombaz'){ab.classList.add('km');ap.classList.add('km');at.className='a11y-title kr';document.querySelectorAll('.a11y-toggle').forEach(t=>t.classList.add('kr'));document.querySelectorAll('.a11y-slider').forEach(s=>s.classList.add('kr'));initKombaz();}
+  if(w==='kombaz'){ab.classList.add('km');ap.classList.add('km');at.className='a11y-title kr';document.querySelectorAll('.a11y-toggle').forEach(t=>t.classList.add('kr'));document.querySelectorAll('.a11y-slider').forEach(s=>s.classList.add('kr'));initKombaz();if(typeof qpStopDrone==='function')qpStopDrone();}
   else if(w==='quantum'){ab.classList.add('qm');ap.classList.add('qm');at.className='a11y-title qr';document.querySelectorAll('.a11y-toggle').forEach(t=>t.classList.add('qr'));document.querySelectorAll('.a11y-slider').forEach(s=>s.classList.add('qr'));initQuantum();}
-  else{at.className='a11y-title';}
+  else{at.className='a11y-title';if(typeof qpStopDrone==='function')qpStopDrone();}
   window.scrollTo(0,0);
 }
 function kScroll(id){var el=document.getElementById(id);if(el)el.scrollIntoView({behavior:'smooth'});}
@@ -1172,72 +1425,265 @@ function qgRenderStats(){
   }
 }
 
-// ═══ GAME 2: DOUBLE-SLIT PUZZLE ═══
+// ═══ GAME 2: DOUBLE-SLIT PUZZLE V2 ═══
 var QP_KEY='kombazQPuzzleScore';
-var qpState={detector:false,count:0,score:0,pendingGuess:null};
-function qpLoad(){try{var s=JSON.parse(localStorage.getItem(QP_KEY));if(s)return s;}catch(e){}return {score:0,count:0};}
-function qpSave(){try{localStorage.setItem(QP_KEY,JSON.stringify({score:qpState.score,count:qpState.count}));}catch(e){}}
+var QP_UNLOCK_TARGET=1200;
+var QP_NBINS=54;
+var qpState={detector:false,count:0,score:0,lifetime:0,pendingGuess:null,bins:new Array(QP_NBINS).fill(0),soundOn:true,unlocked:false,animating:false};
+var qpAudioCtx=null,qpMaster=null,qpDry=null,qpReverbSend=null,qpDroneOscA=null,qpDroneOscB=null,qpDroneGain=null,qpDroneOn=false;
+function qpLoad(){try{var s=JSON.parse(localStorage.getItem(QP_KEY));if(s)return s;}catch(e){}return {score:0,lifetime:0,unlocked:false};}
+function qpSave(){try{localStorage.setItem(QP_KEY,JSON.stringify({score:qpState.score,lifetime:qpState.lifetime,unlocked:qpState.unlocked}));}catch(e){}}
 function qpInit(){
-  var saved=qpLoad();qpState.score=saved.score||0;qpState.count=saved.count||0;
+  var saved=qpLoad();qpState.score=saved.score||0;qpState.lifetime=saved.lifetime||0;qpState.unlocked=!!saved.unlocked;
   var c=document.getElementById('qCanvas');if(!c)return;
   qpDrawBase();
   qpUpdateCounters();
+  qpUpdateUnlockUI();
+  if(qpState.unlocked)qpShowLevel2();
+  if(qpState.soundOn)qpStartDrone();
+}
+function qpSetDesc(t){var el=document.getElementById('qLiveDesc');if(el){el.style.opacity='0';setTimeout(function(){el.textContent=t;el.style.opacity='1';},150);}}
+function qpToggleSound(){
+  qpState.soundOn=!qpState.soundOn;
+  document.getElementById('qpSndBtn').textContent=qpState.soundOn?'🔊':'🔇';
+  if(qpState.soundOn)qpStartDrone();else qpStopDrone();
+}
+// ── Audio engine: master bus + simple multi-tap reverb ──
+function qpEnsureAudio(){
+  if(qpAudioCtx)return;
+  try{
+    qpAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    qpMaster=qpAudioCtx.createGain();qpMaster.gain.value=0.55;qpMaster.connect(qpAudioCtx.destination);
+    qpDry=qpAudioCtx.createGain();qpDry.gain.value=1;qpDry.connect(qpMaster);
+    qpReverbSend=qpAudioCtx.createGain();qpReverbSend.gain.value=0.3;
+    [0.17,0.29,0.41].forEach(function(t){
+      var d=qpAudioCtx.createDelay();d.delayTime.value=t;
+      var fb=qpAudioCtx.createGain();fb.gain.value=0.3;
+      var lp=qpAudioCtx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2200;
+      qpReverbSend.connect(d);d.connect(lp);lp.connect(fb);fb.connect(d);lp.connect(qpMaster);
+    });
+    qpDry.connect(qpReverbSend);
+  }catch(e){}
+}
+function qpTone(freq,dur,type,vol,slideTo){
+  if(!qpState.soundOn)return;
+  qpEnsureAudio();if(!qpAudioCtx)return;
+  var t=qpAudioCtx.currentTime,o=qpAudioCtx.createOscillator(),g=qpAudioCtx.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(freq,t);
+  if(slideTo)o.frequency.exponentialRampToValueAtTime(slideTo,t+dur*0.85);
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(vol||0.07,t+0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g);g.connect(qpDry);
+  o.start(t);o.stop(t+dur+0.05);
+}
+function qpBeep(freq){qpTone(freq,0.28,'sine',0.07);}
+function qpChime(){ // richer achievement chord, used on unlock
+  [440,554.4,659.3,880].forEach(function(f,i){setTimeout(function(){qpTone(f,1.1,'sine',0.05);},i*95);});
+}
+function qpStartDrone(){
+  if(qpDroneOn)return;
+  qpEnsureAudio();if(!qpAudioCtx)return;
+  qpDroneOscA=qpAudioCtx.createOscillator();qpDroneOscA.type='sine';qpDroneOscA.frequency.value=55;
+  qpDroneOscB=qpAudioCtx.createOscillator();qpDroneOscB.type='sine';qpDroneOscB.frequency.value=55.6;
+  qpDroneGain=qpAudioCtx.createGain();qpDroneGain.gain.value=0.0001;
+  qpDroneOscA.connect(qpDroneGain);qpDroneOscB.connect(qpDroneGain);qpDroneGain.connect(qpDry);
+  qpDroneOscA.start();qpDroneOscB.start();
+  qpDroneGain.gain.exponentialRampToValueAtTime(0.03,qpAudioCtx.currentTime+3);
+  qpDroneOn=true;
+}
+function qpStopDrone(){
+  if(!qpDroneOn||!qpAudioCtx)return;
+  var t=qpAudioCtx.currentTime;
+  qpDroneGain.gain.exponentialRampToValueAtTime(0.0001,t+1);
+  var a=qpDroneOscA,b=qpDroneOscB;
+  setTimeout(function(){try{a.stop();b.stop();}catch(e){}},1100);
+  qpDroneOn=false;
 }
 function qpDrawBase(){
-  var c=document.getElementById('qCanvas');if(!c)return;var ctx=c.getContext('2d');
-  ctx.fillStyle='#050505';ctx.fillRect(0,0,c.width,c.height);
-  ctx.fillStyle='#333';ctx.fillRect(40,0,4,c.height);
-  ctx.fillStyle='#050505';ctx.fillRect(40,c.height/2-40,4,24);ctx.fillRect(40,c.height/2+16,4,24);
-  ctx.fillStyle='#00c8ff';ctx.beginPath();ctx.arc(15,c.height/2,6,0,7);ctx.fill();
-  ctx.strokeStyle='rgba(0,200,255,.3)';ctx.beginPath();ctx.moveTo(c.width-15,0);ctx.lineTo(c.width-15,c.height);ctx.stroke();
+  var c=document.getElementById('qCanvas');if(!c)return;var ctx=c.getContext('2d'),w=c.width,h=c.height,midY=h/2;
+  ctx.fillStyle='#020304';ctx.fillRect(0,0,w,h);
+  // emitter glow
+  var g=ctx.createRadialGradient(24,midY,1,24,midY,26);g.addColorStop(0,'rgba(0,200,255,0.9)');g.addColorStop(1,'rgba(0,200,255,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(24,midY,26,0,7);ctx.fill();
+  ctx.fillStyle='#00c8ff';ctx.beginPath();ctx.arc(24,midY,5,0,7);ctx.fill();
+  // barrier with two slits
+  var bx=100;
+  ctx.fillStyle='#2a3540';ctx.fillRect(bx,0,5,h);
+  ctx.fillStyle='#020304';ctx.fillRect(bx-1,midY-42,7,26);ctx.fillRect(bx-1,midY+16,7,26);
+  ctx.strokeStyle='rgba(0,200,255,0.5)';ctx.lineWidth=1;
+  ctx.strokeRect(bx-1,midY-42,7,26);ctx.strokeRect(bx-1,midY+16,7,26);
+  // screen
+  var sx=w-34;
+  ctx.strokeStyle='rgba(0,200,255,.35)';ctx.beginPath();ctx.moveTo(sx,10);ctx.lineTo(sx,h-10);ctx.stroke();
+  // labels
+  ctx.fillStyle='#555';ctx.font='10px monospace';ctx.textAlign='center';
+  ctx.fillText('פליטה',24,h-8);ctx.fillText('מחסום',bx+2,h-8);ctx.fillText('מסך',sx,h-8);
+  qpDrawBins(ctx,w,h,sx);
 }
-function qpClear(){qpDrawBase();}
+function qpDrawBins(ctx,w,h,sx){
+  var top=24,bottom=h-24,area=bottom-top,binH=area/QP_NBINS,maxV=Math.max(1,Math.max.apply(null,qpState.bins));
+  for(var i=0;i<QP_NBINS;i++){
+    var v=qpState.bins[i];if(v<=0)continue;
+    var y=top+i*binH,len=(v/maxV)*(sx-120),alpha=Math.min(0.9,0.15+v/maxV*0.75);
+    ctx.fillStyle='rgba(0,200,255,'+alpha+')';
+    ctx.shadowColor='rgba(0,200,255,0.8)';ctx.shadowBlur=6;
+    ctx.fillRect(sx-len,y,len,Math.max(1.4,binH*0.8));
+    ctx.shadowBlur=0;
+  }
+}
+function qpClear(){qpState.bins=new Array(QP_NBINS).fill(0);qpState.count=0;qpDrawBase();qpUpdateCounters();qpSetDesc('🌊 הכל עדיין בסופרפוזיציה — לחץ "ירה" כדי להתחיל');}
 function qpToggleDetector(){
   qpState.detector=!qpState.detector;
   document.getElementById('qpDetBtn').textContent=qpState.detector?'🔍 גלאי-מסלול: דלוק':'🔍 גלאי-מסלול: כבוי';
   document.getElementById('qpDetBtn').style.color=qpState.detector?'#00c8ff':'#999';
   document.getElementById('qpDetBtn').style.borderColor=qpState.detector?'#00c8ff':'#666';
   if(qpState.pendingGuess!==null){
-    var correct=(qpState.pendingGuess===false); // guessed "interference disappears"
-    if(correct){qpState.score++;}
-    qpState.count++;qpSave();
-    document.getElementById('qpFeedback').textContent=correct?'✅ נכון! מדידת "איזה סדק" הורסת את ההתאבכות — זו קריסת הסופרפוזיציה.':'❌ למעשה ההתאבכות נעלמת ברגע שיודעים איזה סדק — נסה שוב בסבב הבא.';
+    var correct=(qpState.pendingGuess===false && qpState.detector)||(qpState.pendingGuess===true && !qpState.detector);
+    var kEl=document.getElementById('qpGuessKeep'),lEl=document.getElementById('qpGuessLose');
+    [kEl,lEl].forEach(function(b){b.classList.remove('correct','wrong');});
+    var pickedBtn=(qpState.pendingGuess===true)?kEl:lEl;
+    if(correct){qpState.score++;pickedBtn.classList.add('correct');qpBeep(1200);}
+    else{pickedBtn.classList.add('wrong');qpBeep(220);}
+    qpSave();
+    document.getElementById('qpFeedback').innerHTML=correct?'✅ נכון! מדידת "איזה סדק" הורסת את ההתאבכות — זו קריסת הסופרפוזיציה.':'❌ למעשה זה הפוך — נסה שוב בסבב הבא.';
     qpState.pendingGuess=null;qpUpdateCounters();
+    setTimeout(function(){[kEl,lEl].forEach(function(b){b.classList.remove('correct','wrong');});},2200);
   }
-  qpClear();
+  qpState.bins=new Array(QP_NBINS).fill(0);qpState.count=0;
+  qpDrawBase();qpUpdateCounters();
+  qpSetDesc(qpState.detector?'🔍 גלאי-מסלול דלוק — כל חלקיק "נבחר" סדק אחד. נראה כמו כדורים, לא גלים.':'🌊 גלאי-מסלול כבוי — הכל בסופרפוזיציה. תצפה לפסי התאבכות.');
 }
 function qpGuess(keepsInterference){
   qpState.pendingGuess=keepsInterference;
-  document.getElementById('qpFeedback').textContent='נרשם! עכשיו תדליק/תכבה את הגלאי ותירה חלקיקים כדי לבדוק.';
+  var kEl=document.getElementById('qpGuessKeep'),lEl=document.getElementById('qpGuessLose');
+  [kEl,lEl].forEach(function(b){b.classList.remove('picked');});
+  (keepsInterference?kEl:lEl).classList.add('picked');
+  document.getElementById('qpFeedback').textContent='נרשם! עכשיו תדליק/תכבה את הגלאי כדי לבדוק.';
+}
+function qpSampleY(h,midY,detector){
+  if(detector){
+    var slit=Math.random()<0.5?-28:28;
+    return midY+slit+(Math.random()-0.5)*30;
+  }else{
+    var y,tries=0;
+    do{
+      y=midY+(Math.random()-0.5)*(h-70);
+      var rel=(y-midY)/(h-70);
+      var intensity=Math.pow(Math.cos(rel*Math.PI*3.4),2)*Math.exp(-Math.pow(rel*1.5,2));
+      tries++;
+    }while(Math.random()>intensity && tries<40);
+    return y;
+  }
 }
 function qpFire(){
-  var c=document.getElementById('qCanvas');if(!c)return;var ctx=c.getContext('2d');
-  var midY=c.height/2,screenX=c.width-15;
-  for(var i=0;i<300;i++){
-    var y;
-    if(qpState.detector){
-      // which-path known: two gaussian blobs, no interference
-      var slit=Math.random()<0.5?-28:28;
-      y=midY+slit+(Math.random()-0.5)*30;
+  if(qpState.animating)return;
+  var c=document.getElementById('qCanvas');if(!c)return;var ctx=c.getContext('2d'),w=c.width,h=c.height,midY=h/2,sx=w-34,top=24,bottom=h-24,binH=(bottom-top)/QP_NBINS;
+  qpState.animating=true;
+  qpSetDesc(qpState.detector?'🔫 יורה חלקיקים כ"כדורים" בדידים דרך אחד הסדקים...':'🔫 יורה חלקיקים כגלים העוברים דרך שני הסדקים בו-זמנית...');
+  var batch=[];
+  for(var i=0;i<300;i++)batch.push(qpSampleY(h,midY,qpState.detector));
+  // sonification: sample a handful of hits and turn them into a pitched arpeggio as they land
+  var sIdx=[];for(var k=0;k<12;k++)sIdx.push(Math.floor(Math.random()*batch.length));
+  sIdx.forEach(function(idx,i){
+    var y=batch[idx],norm=Math.max(0,Math.min(1,(y-top)/(bottom-top)));
+    var freq=260+(1-norm)*560;
+    setTimeout(function(){qpTone(freq,0.22,qpState.detector?'square':'triangle',0.045);},220+i*36);
+  });
+  var frame=0,totalFrames=26;
+  (function anim(){
+    frame++;
+    qpDrawBase();
+    // traveling wavefront / particle-beam visual
+    var progress=frame/totalFrames;
+    if(!qpState.detector){
+      [midY-29,midY+29].forEach(function(sy){
+        var r=progress*(sx-100);
+        ctx.strokeStyle='rgba(0,200,255,'+(0.35*(1-progress))+')';
+        ctx.lineWidth=1;ctx.beginPath();ctx.arc(100,sy,r,0,7);ctx.stroke();
+      });
     }else{
-      // interference: sample from fringe pattern via rejection sampling
-      var tries=0;
-      do{
-        y=midY+(Math.random()-0.5)*220;
-        var rel=(y-midY)/220;
-        var intensity=Math.pow(Math.cos(rel*Math.PI*3.2),2)*Math.exp(-Math.pow(rel*1.6,2));
-        tries++;
-      }while(Math.random()>intensity && tries<40);
+      [midY-29,midY+29].forEach(function(sy){
+        var x=100+progress*(sx-100);
+        ctx.fillStyle='rgba(0,200,255,0.9)';ctx.beginPath();ctx.arc(x,sy,2.2,0,7);ctx.fill();
+      });
     }
-    ctx.fillStyle='rgba(0,200,255,0.35)';
-    ctx.beginPath();ctx.arc(screenX+(Math.random()*8-4),y,1.4,0,7);ctx.fill();
-  }
-  qpState.count+=300;qpSave();qpUpdateCounters();
+    if(frame<totalFrames){requestAnimationFrame(anim);}
+    else{
+      batch.forEach(function(y){
+        var idx=Math.floor((y-top)/binH);
+        if(idx>=0&&idx<QP_NBINS)qpState.bins[idx]++;
+      });
+      qpState.count+=300;qpState.lifetime+=300;qpSave();qpUpdateCounters();qpUpdateUnlockUI();
+      qpDrawBase();qpTone(qpState.detector?680:420,0.5,'sine',0.06,qpState.detector?420:900);
+      qpSetDesc(qpState.detector?'💥 שני גושים נפרדים — כל חלקיק "בחר" סדק. אין התאבכות.':'🌊 פסי התאבכות מתחדדים — הגל עבר דרך שני הסדקים בו-זמנית.');
+      qpState.animating=false;
+      qpCheckUnlock();
+    }
+  })();
 }
 function qpUpdateCounters(){
-  var ce=document.getElementById('qpCount'),se=document.getElementById('qpScore');
+  var ce=document.getElementById('qpCount'),se=document.getElementById('qpScore'),le=document.getElementById('qpLifetime');
   if(ce)ce.textContent=qpState.count.toLocaleString();
   if(se)se.textContent=qpState.score;
+  if(le)le.textContent=qpState.lifetime.toLocaleString();
+}
+function qpUpdateUnlockUI(){
+  var bar=document.getElementById('qpUnlockBar');if(!bar)return;
+  if(qpState.unlocked){bar.style.display='none';return;}
+  var left=Math.max(0,QP_UNLOCK_TARGET-qpState.lifetime),pct=Math.min(100,qpState.lifetime/QP_UNLOCK_TARGET*100);
+  document.getElementById('qpUnlockLeft').textContent=left.toLocaleString();
+  document.getElementById('qpUnlockFill').style.width=pct+'%';
+}
+function qpCheckUnlock(){
+  if(qpState.unlocked)return;
+  if(qpState.lifetime>=QP_UNLOCK_TARGET||qpState.score>=3){
+    qpState.unlocked=true;qpSave();qpUpdateUnlockUI();qpChime();
+    qpShowLevel2();
+  }
+}
+function qpShowLevel2(){
+  var el=document.getElementById('qLevel2');if(el)el.style.display='block';
+  var bar=document.getElementById('qpUnlockBar');if(bar)bar.style.display='none';
+  var c2=document.getElementById('qCanvas2');if(c2){var ctx2=c2.getContext('2d');ctx2.fillStyle='#020304';ctx2.fillRect(0,0,c2.width,c2.height);}
+}
+
+// ═══ LEVEL 2: DELAYED CHOICE ═══
+var qpLvl2Pending=null;
+function qpLvl2Fire(){
+  qpLvl2Pending=true;
+  document.getElementById('qLvl2Stage1').style.display='none';
+  document.getElementById('qLvl2Stage2').style.display='block';
+  document.getElementById('qLvl2Result').textContent='';
+  var c=document.getElementById('qCanvas2');if(c){var ctx=c.getContext('2d');ctx.fillStyle='#020304';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#666';ctx.font='12px monospace';ctx.textAlign='center';ctx.fillText('· · · 200 חלקיקים ממתינים · · ·',c.width/2,c.height/2);}
+  qpBeep(700);
+}
+function qpLvl2Reveal(measureAfter){
+  var c=document.getElementById('qCanvas2');if(!c)return;var ctx=c.getContext('2d'),w=c.width,h=c.height,midY=h/2,sx=w-30,top=20,bottom=h-20,nb=40,binH=(bottom-top)/nb,bins=new Array(nb).fill(0);
+  for(var i=0;i<200;i++){
+    var y=qpSampleY(h,midY,measureAfter);
+    var idx=Math.floor((y-top)/binH);if(idx>=0&&idx<nb)bins[idx]++;
+  }
+  ctx.fillStyle='#020304';ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='rgba(0,200,255,.3)';ctx.beginPath();ctx.moveTo(sx,10);ctx.lineTo(sx,h-10);ctx.stroke();
+  var maxV=Math.max(1,Math.max.apply(null,bins));
+  for(var j=0;j<nb;j++){
+    var v=bins[j];if(v<=0)continue;
+    var y2=top+j*binH,len=(v/maxV)*(sx-100),alpha=Math.min(0.9,0.15+v/maxV*0.75);
+    ctx.fillStyle='rgba(0,200,255,'+alpha+')';ctx.shadowColor='rgba(0,200,255,0.8)';ctx.shadowBlur=6;
+    ctx.fillRect(sx-len,y2,len,Math.max(1.4,binH*0.8));ctx.shadowBlur=0;
+  }
+  document.getElementById('qLvl2Result').innerHTML=measureAfter?
+    '🔍 בחרת למדוד <strong>בדיעבד</strong> — והדפוס שנחשף הוא דפוס-חלקיקים (שני גושים, בלי פסים), כאילו כל חלקיק "כבר ידע" איזה סדק לבחור עוד לפני שהוחלט. זה בדיוק המוזרות שהניסויים האמיתיים של ויילר בדקו.'
+    :'🌊 בחרת <strong>לא</strong> למדוד — והדפוס שנחשף הוא פסי התאבכות מלאים, כאילו הבחירה "בדיעבד" קבעה גם את מה שכבר "קרה". (הדגמה מפושטת — לא הוכחה פיזיקלית מדויקת.)';
+  qpTone(measureAfter?680:420,0.5,'sine',0.06,measureAfter?420:900);
+}
+function qpLvl2Reset(){
+  qpLvl2Pending=null;
+  document.getElementById('qLvl2Stage1').style.display='block';
+  document.getElementById('qLvl2Stage2').style.display='none';
+  document.getElementById('qLvl2Result').textContent='';
+  var c=document.getElementById('qCanvas2');if(c){var ctx=c.getContext('2d');ctx.fillStyle='#020304';ctx.fillRect(0,0,c.width,c.height);}
 }
 var _ki=false;
 function initKombaz(){
@@ -1263,26 +1709,27 @@ function checkPw(){var pw=document.getElementById('pwInput').value;if(pw==='Shai
 document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')checkPw();});
 function showVault(id,btn){document.querySelectorAll('.vault-page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.vnav-btn').forEach(b=>b.classList.remove('on'));document.getElementById('vault-'+id).classList.add('on');btn.classList.add('on');}
 
-// ═══ PORTFOLIO DATA — עודכן 21.06.2026 20:51 ═══
-// שווי תיק כולל: ₪171,674 | שינוי יומי: +3.59% (+₪5,942) | שינוי מקנייה: +10.39% (+₪16,163)
+// ═══ PORTFOLIO DATA — עודכן 17.08.2026 17:00, קציר SNXX 17:50 ═══
+// שווי תיק כולל: ~₪168,683 (שווי כולל לא משתנה ממימוש — רק עובר משווי מניה למזומן, בניכוי עמלה)
+// קציר SNXX: מומש חצי (378/757 מניות) ב-$19.45, תמורה $7,352.10, רווח ~$3,704 (~₪10,928), מסולק 18.08.26
+// יתרת מזומן ₪: -49,408.58 (חובה/אשראי) | יתרת מזומן $: 1.01
 const PF=[
   // ⚓ ליבה
-  {t:"MU",   n:"Micron Technology",      qty:10,  avg:999.78,  v:33532, p:13.42,  l:"hold"},
-  {t:"ASML", n:"ASML Holding",           qty:4,   avg:1782.19, v:22824, p:8.28,   l:"hold"},
-  {t:"SPCX", n:"SpaceX ETF",             qty:40,  avg:198.54,  v:21882, p:-6.82,  l:"hold"},
-  {t:"NVDY", n:"YieldMax NVDA",          qty:300, avg:13.81,   v:11603, p:-5.29,  l:"hold"},
-  // ↗ זנבות
-  {t:"AMD",  n:"Advanced Micro Devices", qty:10,  avg:394.36,  v:15890, p:36.26,  l:"tail"},
-  {t:"NVDA", n:"NVIDIA",                 qty:15,  avg:192.31,  v:9345,  p:9.56,   l:"tail"},
-  {t:"AAPL", n:"Apple",                  qty:10,  avg:260.63,  v:8812,  p:14.34,  l:"tail"},
-  {t:"IONQ", n:"IonQ",                   qty:54,  avg:48.21,   v:9030,  p:17.30,  l:"tail"},
-  {t:"AVGO", n:"Broadcom",               qty:5,   avg:375.54,  v:6082,  p:9.53,   l:"tail"},
-  {t:"RGTI", n:"Rigetti Computing",      qty:100, avg:20.82,   v:6316,  p:2.59,   l:"tail"},
-  {t:"DELL", n:"Dell Technologies",      qty:5,   avg:351.70,  v:6054,  p:16.43,  l:"tail"},
-  {t:"TER",  n:"Teradyne",               qty:5,   avg:335.06,  v:6475,  p:30.70,  l:"tail"},
-  {t:"QCOM", n:"Qualcomm",               qty:8,   avg:211.87,  v:5349,  p:6.72,   l:"tail"},
-  {t:"INTC", n:"Intel",                  qty:15,  avg:114.48,  v:5943,  p:17.05,  l:"tail"},
-  {t:"RKLB", n:"Rocket Lab USA",         qty:8,   avg:67.02,   v:2537,  p:60.01,  l:"tail"},
+  {t:"ASML", n:"ASML Holding NV",                       qty:4,   avg:5257.38, v:22118.86, p:5.18,   l:"hold"},
+  // ↗ זנבות (כולל ETF ממונפים)
+  {t:"SNXX", n:"Tradr 2X Long SNDK Daily ETF",          qty:379, avg:28.47,   v:21746.07, p:101.55, l:"tail"},
+  {t:"IONX", n:"Defiance Dly T 2X L IonQ ETF",          qty:270, avg:109.65,  v:26499.56, p:-10.49, l:"tail"},
+  {t:"MULL", n:"GraniteShares 2X Long MU ETF",          qty:258, avg:57.70,   v:18905.72, p:26.99,  l:"tail"},
+  {t:"INTW", n:"GraniteShares 2X Long INTC ETF",        qty:196, avg:90.27,   v:14455.00, p:-18.30, l:"tail"},
+  {t:"AMD",  n:"Advanced Micro Devices",                qty:5,   avg:1610.13, v:7537.84,  p:-6.37,  l:"tail"},
+  {t:"IONQ", n:"IonQ Inc",                              qty:54,  avg:142.22,  v:7333.38,  p:-4.51,  l:"tail"},
+  {t:"DELL", n:"Dell Technologies -C",                  qty:5,   avg:1037.51, v:7037.45,  p:35.66,  l:"tail"},
+  {t:"TER",  n:"Teradyne Inc",                          qty:5,   avg:988.45,  v:6385.86,  p:29.21,  l:"tail"},
+  {t:"AVGO", n:"Broadcom Inc",                          qty:5,   avg:1107.87, v:5806.34,  p:4.82,   l:"tail"},
+  {t:"RGTI", n:"Rigetti Computing Inc",                 qty:100, avg:55.87,   v:5531.25,  p:-1.00,  l:"tail"},
+  {t:"AAPL", n:"Apple Inc",                             qty:5,   avg:768.84,  v:4503.89,  p:17.16,  l:"tail"},
+  // 🟡 עקוב (דיבידנד)
+  {t:"PSEC", n:"Prospect Capital Corp",                 qty:7,   avg:6.16,    v:46.46,    p:7.66,   l:"watch"},
 ];
 const cost=pos=>pos.v/(1+pos.p/100);
 const stop=p=>p>=50?15:p>=10?12:p>=0?10:8;
@@ -1305,9 +1752,10 @@ function buildPortfolio(filter){
     <div class="pf-card"><div class="pf-lbl">P&L כולל</div><div class="pf-val go">+₪${Math.round(tpnl).toLocaleString()}</div></div>
     <div class="pf-card"><div class="pf-lbl">ROI תיק</div><div class="pf-val go">+${troi.toFixed(1)}%</div></div>
     <div class="pf-card"><div class="pf-lbl">פוזיציות</div><div class="pf-val" style="color:var(--blue)">${data.length}</div></div>
-    <div class="pf-card"><div class="pf-lbl">תאריך</div><div class="pf-val s" style="font-size:11px">21.06.2026</div></div>
-    <div class="pf-card"><div class="pf-lbl">שווי כולל</div><div class="pf-val go">₪171,674</div></div>
-    <div class="pf-card"><div class="pf-lbl">יומי</div><div class="pf-val g">+3.59%</div></div>
+    <div class="pf-card"><div class="pf-lbl">תאריך</div><div class="pf-val s" style="font-size:11px">17.08.2026 17:00</div></div>
+    <div class="pf-card"><div class="pf-lbl">שווי כולל</div><div class="pf-val go">₪168,683</div></div>
+    <div class="pf-card"><div class="pf-lbl">יומי</div><div class="pf-val g">+5.18% (₪8,306)</div></div>
+    <div class="pf-card"><div class="pf-lbl">מזומן ₪ (חובה)</div><div class="pf-val r">-₪49,409</div></div>
   `;
   const tbody=document.getElementById('pfTable');tbody.innerHTML='';
   data.forEach(pos=>{
@@ -1323,27 +1771,126 @@ function buildPortfolio(filter){
 }
 function filterPf(f,btn){document.querySelectorAll('#vault-portfolio .fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');buildPortfolio(f);}
 
-// ═══ SCANNER ═══
+function buildQTickerPicker(){
+  const el=document.getElementById('qTickerPicker');if(!el)return;
+  el.innerHTML=PF.map(p=>`<button onclick="document.getElementById('qcTicker').value='${p.t}';runQuantum();" style="font-family:var(--mono);font-size:9px;letter-spacing:0.08em;padding:5px 10px;border:1px solid rgba(157,123,255,0.25);background:rgba(157,123,255,0.06);color:#c9b6ff;cursor:pointer;">${p.t}</button>`).join('');
+}
+buildQTickerPicker();
+
+// ═══ QUANTUM MONTE CARLO ═══
+let lastQuantum=null, qCharts={};
+async function runQuantum(){
+  const t=document.getElementById('qcTicker').value.trim();if(!t)return;
+  const days=parseInt(document.getElementById('qDays').value)||30;
+  const target=parseFloat(document.getElementById('qTarget').value)||10;
+  const stop=parseFloat(document.getElementById('qStop').value)||-8;
+  const nPaths=parseInt(document.getElementById('qPaths').value)||2000;
+  const out=document.getElementById('quantumResult');
+  out.innerHTML='<div style="font-family:var(--mono);font-size:10px;color:var(--silver);padding:10px 0;">⚛ משגר חלקיקים דרך מרחב ההסתברות…</div>';
+  try{
+    const r=await fetch('/api/quantum/'+encodeURIComponent(t),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({days,target_pct:target,stop_pct:stop,n_paths:nPaths})});
+    const d=await r.json();
+    if(d.error){out.innerHTML='<div style="font-family:var(--mono);font-size:10px;color:var(--red);padding:10px 0;">⚠ '+d.error+'</div>';return;}
+    lastQuantum=d;renderQuantum(d);
+  }catch(x){out.innerHTML='<div style="font-family:var(--mono);font-size:10px;color:var(--red);padding:10px 0;">⏳ ה-API מתחמם — נסה שוב בעוד רגע</div>';}
+}
+function qKpi(label,val,sub,color){
+  return `<div style="background:rgba(0,0,0,0.25);border:1px solid rgba(157,123,255,0.2);padding:10px 12px;">
+    <div style="font-family:var(--mono);font-size:8px;letter-spacing:0.15em;color:var(--silver);margin-bottom:4px;">${label}</div>
+    <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${color||'var(--cream)'}">${val}</div>
+    <div style="font-family:var(--mono);font-size:8px;color:var(--silver);margin-top:2px;">${sub}</div></div>`;
+}
+function renderQuantum(d){
+  const out=document.getElementById('quantumResult');
+  out.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:8px;">
+      ${qKpi('מחיר נוכחי','$'+d.price0,d.ticker,'var(--gold)')}
+      ${qKpi('הסתברות ליעד',d.prob_target_first+'%','$'+d.target_price,'var(--green)')}
+      ${qKpi('הסתברות לסטופ',d.prob_stop_first+'%','$'+d.stop_price,'var(--red)')}
+      ${qKpi('לא הגיע לאף אחד',d.prob_neither+'%',d.days+' ימים','var(--blue)')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:14px;">
+      ${qKpi('מחיר צפוי','$'+d.expected_final_price,d.n_paths+' חלקיקים','var(--cream)')}
+      ${qKpi('ימים ליעד (ממוצע)',d.avg_days_to_target!=null?d.avg_days_to_target:'—','כאשר היעד הושג','var(--gold)')}
+      ${qKpi('דריפט יומי',(d.drift_daily_pct>=0?'+':'')+d.drift_daily_pct+'%','תנודתיות: '+d.vol_daily_pct+'%','var(--cream)')}
+      ${qKpi('תנודתיות שנתית',d.vol_annualized_pct+'%','annualized','var(--cream)')}
+    </div>
+    <div style="background:rgba(0,0,0,0.2);border:1px solid rgba(157,123,255,0.15);padding:12px;margin-bottom:10px;">
+      <div style="font-family:var(--mono);font-size:9px;color:var(--silver);margin-bottom:8px;">התפלגות מחירים סופית — ${d.n_paths} מסלולים</div>
+      <div style="position:relative;height:180px;"><canvas id="qHist"></canvas></div>
+    </div>
+    <div style="background:rgba(0,0,0,0.2);border:1px solid rgba(157,123,255,0.15);padding:12px;margin-bottom:10px;">
+      <div style="font-family:var(--mono);font-size:9px;color:var(--silver);margin-bottom:8px;">30 מסלולי חלקיקים לדוגמה</div>
+      <div style="position:relative;height:180px;"><canvas id="qPathsChart"></canvas></div>
+    </div>
+    <div style="background:rgba(0,0,0,0.2);border:1px solid rgba(157,123,255,0.15);padding:12px;margin-bottom:10px;">
+      <div style="font-family:var(--mono);font-size:9px;color:var(--silver);margin-bottom:8px;">הסתברות מצטברת ביום — יעד מול סטופ</div>
+      <div style="position:relative;height:160px;"><canvas id="qCum"></canvas></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">
+      ${qKpi('אחוז ניצחון',d.win_rate_pct+'%','מבין מסלולים שהוכרעו',d.win_rate_pct>=50?'var(--green)':'var(--red)')}
+      ${qKpi('יחס תשלום',d.payoff_ratio+':1','יעד לעומת סטופ','var(--blue)')}
+      ${qKpi('קלי %',d.kelly_pct+'%','תיאורטי — לא המלצת גודל','var(--gold)')}
+    </div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--silver);margin-top:8px;">⚛ ${d.jump_calibrated?'קפיצות מכוילות מהיסטוריה אמיתית':'קפיצות סינתטיות (fallback)'} (${d.jump_prob_daily_pct}%/יום)</div>`;
+  drawQHist(d.histogram,d.target_price,d.stop_price);
+  drawQPaths(d.sample_paths,d.target_price,d.stop_price);
+  drawQCum(d.cumulative,d.days);
+}
+function qDestroy(id){if(qCharts[id]){qCharts[id].destroy();delete qCharts[id];}}
+function drawQHist(hist,target,stop){
+  const el=document.getElementById('qHist');if(!el||!hist)return;qDestroy('qHist');
+  const labels=hist.counts.map((_,i)=>((hist.edges[i]+hist.edges[i+1])/2).toFixed(1));
+  const colors=hist.counts.map((_,i)=>{const mid=(hist.edges[i]+hist.edges[i+1])/2;return mid>=target?'rgba(0,255,100,0.6)':mid<=stop?'rgba(255,59,92,0.6)':'rgba(201,168,76,0.5)';});
+  qCharts['qHist']=new Chart(el,{type:'bar',data:{labels,datasets:[{data:hist.counts,backgroundColor:colors,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#8a8a8a',font:{size:8},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{display:false}},
+              y:{ticks:{color:'#8a8a8a',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'}}}}});
+}
+function drawQPaths(paths,target,stop){
+  const el=document.getElementById('qPathsChart');if(!el||!paths||!paths.length)return;qDestroy('qPaths');
+  const labels=Array.from({length:paths[0].length},(_,i)=>i);
+  const datasets=paths.map(p=>({data:p,borderColor:'rgba(201,168,76,0.3)',borderWidth:1,pointRadius:0,fill:false,tension:.15}));
+  datasets.push({data:labels.map(()=>target),borderColor:'rgba(0,255,100,0.8)',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false});
+  datasets.push({data:labels.map(()=>stop),borderColor:'rgba(255,59,92,0.8)',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false});
+  qCharts['qPaths']=new Chart(el,{type:'line',data:{labels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#8a8a8a',font:{size:9}},grid:{display:false}},
+              y:{ticks:{color:'#8a8a8a',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'}}}}});
+}
+function drawQCum(cum,days){
+  const el=document.getElementById('qCum');if(!el||!cum)return;qDestroy('qCum');
+  const labels=Array.from({length:days},(_,i)=>i+1);
+  qCharts['qCum']=new Chart(el,{type:'line',data:{labels,datasets:[
+      {label:'יעד',data:cum.target,borderColor:'#00ff64',backgroundColor:'rgba(0,255,100,0.08)',borderWidth:1.5,fill:true,pointRadius:0,tension:.2},
+      {label:'סטופ',data:cum.stop,borderColor:'#ff3b5c',backgroundColor:'rgba(255,59,92,0.08)',borderWidth:1.5,fill:true,pointRadius:0,tension:.2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#8a8a8a',font:{size:9}}}},
+      scales:{x:{ticks:{color:'#8a8a8a',font:{size:9}},grid:{display:false}},
+              y:{ticks:{color:'#8a8a8a',font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.05)'}}}}});
+}
+
+// ═══ SCAN ═══
 const SCAN=[
-  {t:"IBM",  n:"IBM",             sec:"תוכנה",  roi:15.55, mom:"חזק",   st:"זנב",     score:8,act:"hold", val:2365, why:"חזר לתיק כזנב $2,365 — +15.5%"},
-  {t:"MSTY", n:"YieldMax MSTR",   sec:"ETF",    roi:-23.66,mom:"יורד",  st:"לשחרר",   score:2,act:"sold", val:12715,why:"מבצע 1050 — שחרור יום שני"},
-  {t:"NVDY", n:"YieldMax NVDA",   sec:"ETF",    roi:-6.59, mom:"חלש",   st:"לשחרר",   score:3,act:"sold", val:11358,why:"מבצע 1050 — שחרור יום שני"},
-  {t:"PLTR", n:"Palantir",        sec:"AI/Gov", roi:-20.99,mom:"יורד",  st:"לשחרר",   score:2,act:"sold", val:1878, why:"חיתוך הפסד סופי"},
-  {t:"MU",   n:"Micron",          sec:"שבבים",  roi:-1.82, mom:"ניטרלי",st:"עוגן",    score:8,act:"buy",  val:28810,why:"יעד ריכוז — 10.6% ל-$1050 לבד"},
-  {t:"ASML", n:"ASML",            sec:"שבבים",  roi:12.91, mom:"חזק",   st:"הגדל",    score:9,act:"buy",  val:10939,why:"מומנטום — יעד ריכוז שני"},
-  {t:"ALOY", n:"REalloys",        sec:"חומרים", roi:-4.79, mom:"תנודתי",st:"Swing",   score:7,act:"hold", val:17868,why:"מימוש 331 בתיקון 16.30+, זנב 69"},
-  {t:"AMD",  n:"AMD",             sec:"שבבים",  roi:151.89,mom:"מאט",   st:"זנב",     score:8,act:"hold", val:6005, why:"+151% — חיתוך לזנב $1,023"},
-  {t:"IONQ", n:"IonQ",            sec:"קוונטום",roi:72.74, mom:"חזק",   st:"זנב",     score:8,act:"hold", val:3226, why:"כבר בגודל זנב — רץ חופשי"},
-  {t:"RKLB", n:"Rocket Lab",      sec:"חלל",    roi:52.78, mom:"תנודתי",st:"זנב",     score:7,act:"hold", val:2404, why:"זנב קיים +52%"},
-  {t:"NVDA", n:"Nvidia",          sec:"שבבים",  roi:6.68,  mom:"ניטרלי",st:"חיתוך",   score:7,act:"hold", val:9031, why:"חיתוך לזנב 5 מניות"},
-  {t:"AAPL", n:"Apple",           sec:"Hyper",  roi:11.68, mom:"ניטרלי",st:"חיתוך",   score:7,act:"hold", val:8543, why:"חיתוך לזנב 4 מניות"},
+  {t:"SNXX", n:"Tradr 2X SNDK",   sec:"ETF ממונף",roi:66.99, mom:"חזק",   st:"קציר",    score:9,act:"hold", val:36047,why:"מנוע הקציר — הרווח הגדול ביותר בתיק, מקור למבצע 1050"},
+  {t:"IONX", n:"Defiance 2X IonQ",sec:"ETF ממונף",roi:-9.47, mom:"יורד",  st:"עסקת יום",score:4,act:"hold", val:26839,why:"ETF ממונף — לא Buy&Hold, שני יעדי יציאה קבועים בלבד"},
+  {t:"ASML", n:"ASML Holding",    sec:"שבבים",  roi:2.31,  mom:"ניטרלי",st:"ליבה",    score:8,act:"buy",  val:21545,why:"יעד ריכוז יחיד — מונופול ליטוגרפיה, עוגן התיק"},
+  {t:"MULL", n:"GraniteShares 2X MU",sec:"ETF ממונף",roi:13.57, mom:"מאט",   st:"עסקת יום",score:6,act:"hold", val:16931,why:"ETF ממונף — דעיכת נפח בשוק דשדוש, לנהל בזהירות"},
+  {t:"INTW", n:"GraniteShares 2X INTC",sec:"ETF ממונף",roi:-19.38,mom:"חלש",   st:"בדיקה",   score:2,act:"hold", val:14284,why:"⚠ מינוס 19.4% — בדוק סטופ, שקול שחרור"},
+  {t:"AMD",  n:"AMD",             sec:"שבבים",  roi:-6.78, mom:"ניטרלי",st:"זנב",     score:6,act:"hold", val:7515, why:"זנב קיים — 5 מניות, לתת לרוץ"},
+  {t:"IONQ", n:"IonQ",            sec:"קוונטום",roi:-3.84, mom:"ניטרלי",st:"זנב",     score:6,act:"hold", val:7395, why:"תנודתי מטבעו — 54 מניות זנב"},
+  {t:"DELL", n:"Dell Technologies",sec:"חומרה",  roi:40.68, mom:"חזק",   st:"זנב",     score:8,act:"hold", val:7308, why:"מומנטום חזק — שקול חיתוך רווח חלקי"},
+  {t:"TER",  n:"Teradyne",        sec:"שבבים",  roi:20.45, mom:"חזק",   st:"זנב",     score:8,act:"hold", val:5961, why:"מומנטום חיובי, זנב 5 מניות"},
+  {t:"AVGO", n:"Broadcom",        sec:"שבבים",  roi:3.68,  mom:"ניטרלי",st:"זנב",     score:6,act:"hold", val:5751, why:"יציב, זנב קטן"},
+  {t:"RGTI", n:"Rigetti Computing",sec:"קוונטום",roi:-1.32, mom:"ניטרלי",st:"זנב",     score:6,act:"hold", val:5521, why:"100 מניות — תנודתי, בדוק סטופ"},
+  {t:"AAPL", n:"Apple",           sec:"Hyper",  roi:17.31, mom:"חזק",   st:"זנב",     score:8,act:"hold", val:4516, why:"תזרים יציב, זנב 5 מניות"},
+  {t:"PSEC", n:"Prospect Capital",sec:"BDC/דיבידנד",roi:10.77, mom:"חזק",   st:"דיבידנד", score:7,act:"hold", val:48,   why:"פוזיציית דיבידנד קטנה — הכנסה שוטפת"},
 ];
 const BUY_LIST=[
   {t:"META", n:"Meta Platforms", sec:"Hyper",  price:632, target:1200, pot:90,  budget:7000, why:"Hyper-Scaler חסר, 5-10 שנים, AI+Social"},
   {t:"PLTR", n:"Palantir",       sec:"AI/Gov", price:130, target:350,  pot:169, budget:4000, why:"AI Government, מומנטום גבוה, 5-10 שנים"},
   {t:"SNOW", n:"Snowflake",      sec:"Data",   price:185, target:400,  pot:116, budget:3500, why:"Data Cloud, IGV רכיב מוביל"},
   {t:"TSM",  n:"TSMC",           sec:"שבבים",  price:185, target:380,  pot:105, budget:4000, why:"ייצור שבבים AI, מונופול, 5-10 שנים"},
-  {t:"ASML", n:"ASML",           sec:"שבבים",  price:720, target:1500, pot:108, budget:4000, why:"מונופול ציוד שבבים, 10 שנים"},
 ];
 const actLbl={sold:"✅ שוחרר",hold:"◎ החזק",buy:"↗ רכוש",new:"🆕 נכנס"};
 const actCls={sold:"sell",hold:"watch",buy:"hold",new:"tail"};
@@ -1355,7 +1902,7 @@ function runScan(filter,btn){
   data.forEach(s=>{if(s.act==='sold'){freed+=s.val;soldN++;}});
   document.getElementById('s-sell').textContent=soldN+' מניות';
   document.getElementById('s-freed').textContent='₪'+freed.toLocaleString();
-  document.getElementById('s-buy').textContent='NOW, CRM, INTU, ADBE ✅';
+  document.getElementById('s-buy').textContent='ASML (ליבה) ✅';
   const tbody=document.getElementById('scanTable');tbody.innerHTML='';
   data.forEach(s=>{
     const rs=roiStyle(s.roi);
@@ -1375,27 +1922,37 @@ function buildBuyList(){
 
 // ═══ WATCHLIST ═══
 const WL=[
-  {t:"MSFT",n:"Microsoft",   cat:"hyper",price:450,entry:420,target:900, owned:true},
-  {t:"GOOGL",n:"Alphabet",   cat:"hyper",price:380,entry:350,target:750, owned:true},
-  {t:"AMZN",n:"Amazon",      cat:"hyper",price:270,entry:250,target:550, owned:true},
+  {t:"MSFT",n:"Microsoft",   cat:"hyper",price:450,entry:420,target:900, owned:false},
+  {t:"GOOGL",n:"Alphabet",   cat:"hyper",price:380,entry:350,target:750, owned:false},
+  {t:"AMZN",n:"Amazon",      cat:"hyper",price:270,entry:250,target:550, owned:false},
   {t:"META",n:"Meta",        cat:"hyper",price:632,entry:600,target:1200,owned:false},
-  {t:"NVDA",n:"Nvidia",      cat:"semi", price:211,entry:195,target:420, owned:true},
+  {t:"NVDA",n:"Nvidia",      cat:"semi", price:211,entry:195,target:420, owned:false},
   {t:"TSM", n:"TSMC",        cat:"semi", price:185,entry:175,target:380, owned:false},
-  {t:"AVGO",n:"Broadcom",    cat:"semi", price:446,entry:420,target:900, owned:true},
-  {t:"AMD", n:"AMD",         cat:"semi", price:516,entry:480,target:1000,owned:true},
-  {t:"ASML",n:"ASML",        cat:"semi", price:720,entry:700,target:1500,owned:false},
-  {t:"ORCL",n:"Oracle",      cat:"soft", price:225,entry:210,target:450, owned:true},
-  {t:"NOW", n:"ServiceNow",  cat:"soft", price:133,entry:130,target:280, owned:true},
-  {t:"CRM", n:"Salesforce",  cat:"soft", price:200,entry:195,target:420, owned:true},
-  {t:"ADBE",n:"Adobe",       cat:"soft", price:269,entry:260,target:560, owned:true},
-  {t:"INTU",n:"Intuit",      cat:"soft", price:341,entry:335,target:700, owned:true},
+  {t:"AVGO",n:"Broadcom",    cat:"semi", price:318,entry:306,target:900, owned:true},
+  {t:"AMD", n:"AMD",         cat:"semi", price:415,entry:445,target:1000,owned:true},
+  {t:"ASML",n:"ASML",        cat:"semi", price:1488,entry:1454,target:2500,owned:true},
+  {t:"TER", n:"Teradyne",    cat:"semi", price:329,entry:273,target:700, owned:true},
+  {t:"ORCL",n:"Oracle",      cat:"soft", price:225,entry:210,target:450, owned:false},
+  {t:"NOW", n:"ServiceNow",  cat:"soft", price:133,entry:130,target:280, owned:false},
+  {t:"CRM", n:"Salesforce",  cat:"soft", price:200,entry:195,target:420, owned:false},
+  {t:"ADBE",n:"Adobe",       cat:"soft", price:269,entry:260,target:560, owned:false},
+  {t:"INTU",n:"Intuit",      cat:"soft", price:341,entry:335,target:700, owned:false},
   {t:"SNOW",n:"Snowflake",   cat:"soft", price:185,entry:170,target:400, owned:false},
+  {t:"DELL",n:"Dell Technologies",cat:"soft",price:404,entry:287,target:700, owned:true},
   {t:"PLTR",n:"Palantir",    cat:"infra",price:130,entry:120,target:350, owned:false},
-  {t:"IBM", n:"IBM",         cat:"soft", price:297,entry:280,target:600, owned:true},
-  {t:"QCOM",n:"Qualcomm",    cat:"semi", price:251,entry:235,target:500, owned:true},
+  {t:"IBM", n:"IBM",         cat:"soft", price:297,entry:280,target:600, owned:false},
+  {t:"QCOM",n:"Qualcomm",    cat:"semi", price:251,entry:235,target:500, owned:false},
+  {t:"IONQ",n:"IonQ",        cat:"quant",price:38,  entry:39, target:120, owned:true},
+  {t:"RGTI",n:"Rigetti Computing",cat:"quant",price:15,entry:15,target:60, owned:true},
+  {t:"AAPL",n:"Apple",       cat:"hyper",price:250,entry:213,target:400, owned:true},
+  {t:"PSEC",n:"Prospect Capital",cat:"div",price:2,entry:2,target:3,     owned:true},
+  {t:"SNXX",n:"Tradr 2X SNDK ETF",cat:"lev",price:13,entry:8,  target:20, owned:true},
+  {t:"IONX",n:"Defiance 2X IonQ ETF",cat:"lev",price:27,entry:30,target:40, owned:true},
+  {t:"MULL",n:"GraniteShares 2X MU ETF",cat:"lev",price:18,entry:16,target:30, owned:true},
+  {t:"INTW",n:"GraniteShares 2X INTC ETF",cat:"lev",price:20,entry:25,target:35, owned:true},
 ];
-const catLabel={hyper:"👑 Hyper",semi:"⚡ שבבים",soft:"💻 תוכנה",infra:"🏗️ תשתיות"};
-const catClass={hyper:"ch",semi:"cs",soft:"cf",infra:"ci"};
+const catLabel={hyper:"👑 Hyper",semi:"⚡ שבבים",soft:"💻 תוכנה",infra:"🏗️ תשתיות",quant:"⚛ קוונטום",div:"💵 דיבידנד",lev:"🔺 ETF ממונף"};
+const catClass={hyper:"ch",semi:"cs",soft:"cf",infra:"ci",quant:"ci",div:"cf",lev:"ci"};
 function buildWatchlist(filter){
   const data=filter==='all'?[...WL]:filter==='owned'?WL.filter(x=>x.owned):WL.filter(x=>x.cat===filter);
   const tbody=document.getElementById('wlTable');tbody.innerHTML='';
@@ -1410,7 +1967,7 @@ function filterWl(f,btn){document.querySelectorAll('#vault-watchlist .fb').forEa
 
 // ═══ GROWTH ═══
 function buildGrowth(){
-  const START=122820,EXP=72000;
+  const START=159660,EXP=72000;
   const YEARS=[2026,2027,2028,2029,2030,2031,2032,2033];
   function proj(rate,addM,deduct){const vals=[START];let v=START;for(let m=0;m<9;m++){v=v*(1+rate/12)+addM-(deduct?6000:0);}vals.push(Math.max(v,0));for(let i=1;i<YEARS.length-1;i++){for(let m=0;m<12;m++){v=v*(1+rate/12)+addM-(deduct?6000:0);}vals.push(Math.max(v,0));}return vals;}
   const base=proj(0.549,0,false),trade=proj(0.65,8000,false),net=proj(0.65,8000,true);
@@ -1426,50 +1983,41 @@ function buildGrowth(){
 }
 
 
-// ═══ ROTATION 1050 — תוכנית 15.06.2026 | זנב = פוזיציה בשווי ~$1,050 ═══
-// act: sell=מכור הכל, trim=מכור עודף והשאר זנב $1050, tailhold=כבר זנב (שווי ≤$1,100), core=ליבה
+// ═══ ROTATION 1050 — תוכנית 14.08.2026 | קציר = מימוש רווח לכיוון יעד $1,050, זנב = פוזיציה קיימת שרצה חופשי ═══
+// act: harvest=קציר רווח מהפוזיציה, tailhold=כבר בגודל זנב סביר — לתת לרוץ, watch=דורש בדיקת סטופ, core=ליבה, income=דיבידנד
 const ROT=[
   // ⚓ ליבה
-  {t:"MU",   qty:10, px:1087.99, p:-1.82,  sell:0,  keep:10, stop:1025,   act:"core", note:"עוגן הריכוז — $9,860"},
-  {t:"ALOY", qty:400,px:15.40,  p:-4.79,  sell:331,keep:69, stop:14.90, act:"core", note:"מימוש 332 בתיקון 16.30+, זנב 68 × $15.40 = $1,047 ≈ יעד"},
-  // ✂️ חיתוך לזנב $1,050
-  {t:"AMD",  qty:4,  px:547.26, p:151.89, sell:2,  keep:2,  stop:520,   act:"trim", note:"זנב 2 × $547 = $1,094 ✅"},
-  {t:"ASML", qty:2,  px:1892.66,p:12.91,  sell:1,  keep:1,  stop:1840,  act:"trim", note:"זנב 1 = $1,892 — מעל היעד +14.7%, רץ חופשי"},
-  {t:"NVDA", qty:15, px:212.45, p:6.68,   sell:10, keep:5,  stop:202,   act:"trim", note:"זנב 5 = $1,026"},
-  {t:"AAPL", qty:10, px:296.42, p:11.68,  sell:6,  keep:4,  stop:285,   act:"trim", note:"זנב 4 = $1,164"},
-  {t:"TER",  qty:5,  px:432.41, p:20.34,  sell:2,  keep:3,  stop:415,   act:"trim", note:"זנב 3 = $1,210"},
-  {t:"DELL", qty:5,  px:409.07, p:12.47,  sell:2,  keep:3,  stop:395,   act:"trim", note:"זנב 3 = $1,187"},
-  // 🔵 כבר זנב — שווי ≤ $1,100, לא נוגעים
-  {t:"IONQ", qty:19, px:61.18,  p:72.74,  sell:0,  keep:19, stop:58,    act:"tailhold", note:"$1,162 — כבר בגודל זנב, +82.7%"},
-  {t:"RKLB", qty:8,  px:109.25, p:52.78,  sell:0,  keep:8,  stop:104,    act:"tailhold", note:"$874 — זנב קיים, +63%"},
-  {t:"AMZN", qty:3,  px:246.02, p:14.06,  sell:0,  keep:3,  stop:237,   act:"tailhold", note:"$738 — זנב קיים, +17.7%"},
-  // 🔴 מכור הכל — ההון רץ הלאה (רוטציה: אפשר לקנות חזרה כזנב אחרי מימוש)
-  {t:"MSTY", qty:250,px:18.11,  p:-23.66, sell:250,keep:0,  stop:17.20, act:"sell", note:"מינוס 23.7% — ₪12.7K משוחרר"},
-  {t:"NVDY", qty:300,px:12.90,  p:-6.59,  sell:300,keep:0,  stop:12.30, act:"sell", note:"✅ מומש קודם — לא בתיק"},
-  {t:"MSFT", qty:7,  px:399.76, p:-7.49,  sell:7,  keep:0,  stop:384,   act:"sell", note:"ללא מומנטום — אפשר חזרה כזנב בהמשך"},
-  {t:"AVGO", qty:5,  px:393.94, p:1.74,   sell:5,  keep:0,  stop:378,   act:"sell", note:"דשדוש — ההון יעיל יותר בריכוז"},
-  {t:"INTC", qty:15, px:127.86, p:8.82,   sell:15, keep:0,  stop:129,   act:"sell", note:"מימוש ברווח +8.8%"},
-  {t:"ORCL", qty:10, px:192.64, p:-2.13,  sell:10, keep:0,  stop:185,   act:"sell", note:"שחרור"},
-  {t:"QCOM", qty:8,  px:220.81, p:-0.07,  sell:8,  keep:0,  stop:213,   act:"sell", note:"אפס תזוזה — שחרור"},
-  {t:"P",    qty:22, px:72.31,  p:-10.33, sell:22, keep:0,  stop:69,    act:"sell", note:"מינוס 10.3% — חיתוך"},
-  {t:"GOOGL",qty:4,  px:369.35, p:-7.13,  sell:4,  keep:0,  stop:355,   act:"sell", note:"שחרור — חזרה אפשרית כזנב"},
-  {t:"META", qty:2,  px:593.48, p:-10.27, sell:2,  keep:0,  stop:570,   act:"sell", note:"מינוס 10.3% — חיתוך"},
-  {t:"PLTR", qty:5,  px:134.71, p:-20.99, sell:5,  keep:0,  stop:129,   act:"sell", note:"מינוס 21% — חיתוך סופי"},
+  {t:"ASML", qty:4,   px:5386.35, p:2.31,   sell:0,  keep:4,   stop:"5,264 (-6%)",  act:"core",     note:"עוגן ריכוז יחיד — 13.5% מהתיק"},
+  // 🌾 קציר — מקור עיקרי למבצע 1050
+  {t:"SNXX", qty:757, px:47.62,   p:66.99,  sell:202,keep:555, stop:"28.52 (עלות)", act:"harvest",  note:"מימוש 202 מניות ≈ $1,065 רווח נקי, 555 ממשיכות לרוץ"},
+  // 🔵 זנבות קיימים — גודל סביר, לא נוגעים
+  {t:"DELL", qty:5,   px:403.76,  p:40.68,  sell:0,  keep:5,   stop:"356 (-12%)",   act:"tailhold", note:"$2,019 — זנב חזק +40.7%, שקול קציר משני בהמשך"},
+  {t:"TER",  qty:5,   px:329.34,  p:20.45,  sell:0,  keep:5,   stop:"296 (-10%)",   act:"tailhold", note:"$1,647 — מומנטום חיובי"},
+  {t:"AAPL", qty:5,   px:249.50,  p:17.31,  sell:0,  keep:5,   stop:"229 (-8%)",    act:"tailhold", note:"$1,247 — תזרים יציב"},
+  {t:"AVGO", qty:5,   px:317.73,  p:3.68,   sell:0,  keep:5,   stop:"302 (-5%)",    act:"tailhold", note:"$1,589 — יציב, זנב קטן"},
+  {t:"AMD",  qty:5,   px:415.19,  p:-6.78,  sell:0,  keep:5,   stop:"388 (-6.5%)",  act:"tailhold", note:"$2,076 — מתחת לעלות, לעקוב"},
+  {t:"IONQ", qty:54,  px:37.83,   p:-3.84,  sell:0,  keep:54,  stop:"35 (-7.5%)",   act:"tailhold", note:"$2,043 — תנודתי מטבעו"},
+  {t:"RGTI", qty:100, px:15.25,   p:-1.32,  sell:0,  keep:100, stop:"14 (-8%)",     act:"tailhold", note:"$1,525 — קוונטום, סטופ הדוק"},
+  {t:"MULL", qty:258, px:18.13,   p:13.57,  sell:0,  keep:258, stop:"15.96 (עלות)", act:"tailhold", note:"$4,677 — ETF ממונף, עסקאות יום בלבד, לא Buy&Hold"},
+  // ⚠️ לבדוק סטופ — הפסד משמעותי
+  {t:"IONX", qty:270, px:27.46,   p:-9.47,  sell:0,  keep:270, stop:"25 (-9%)",     act:"watch",    note:"$7,414 — ETF ממונף 2x, דעיכת נפח, בדוק סטופ בקפידה"},
+  {t:"INTW", qty:196, px:20.13,   p:-19.38, sell:0,  keep:196, stop:"18 (-10%)",    act:"watch",    note:"$3,946 — ⚠ מינוס 19.4%, שקול שחרור אם לא מתאושש"},
+  // 💵 הכנסה
+  {t:"PSEC", qty:7,   px:1.89,    p:10.77,  sell:0,  keep:7,   stop:"1.70 (-10%)",  act:"income",   note:"$13 — פוזיציית דיבידנד קטנה"},
 ];
-const FX=2.921; // שער ₪/$ משוער 12.06.26
-const rotLbl={sell:"🔴 מכור הכל",trim:"✂️ חיתוך לזנב",tailhold:"🔵 כבר זנב",core:"⚓ ליבה"};
-const rotCls={sell:"sell",trim:"tail",tailhold:"new",core:"hold"};
+const FX=3.62; // שער ₪/$ משוער 14.08.26
+const rotLbl={harvest:"🌾 קציר רווח",tailhold:"🔵 זנב פעיל",watch:"⚠️ בדוק סטופ",core:"⚓ ליבה",income:"💵 דיבידנד"};
+const rotCls={harvest:"tail",tailhold:"hold",watch:"sell",core:"hold",income:"watch"};
 
 const ROT_BUY=[
-  {t:"MU (הגדלה)", px:1087.99, alloc:60000, why:"העוגן — נזילות גבוהה, טווח שבועי 3-5% ריאלי"},
-  {t:"ASML (הגדלה)", px:1892.66, alloc:30000, why:"מומנטום +12.9% מקנייה, מונופול ליטוגרפיה"},
-  {t:"מניה חמה (סורק)", px:0, alloc:16000, why:"לפי סורק הרוטציה ביום שני בפתיחה — מומנטום יומי"},
+  {t:"ASML (הגדלה)", px:5386.35, alloc:20000, why:"העמקת הליבה — מונופול ליטוגרפיה, יעד ריכוז יחיד"},
+  {t:"מניה חמה (סורק)", px:0, alloc:16000, why:"לפי הסורק הקוונטי / סורק הרוטציה — מומנטום שבועי"},
 ];
 
 function buildRotation(filter){
   const data=filter==='all'?[...ROT]:ROT.filter(x=>x.act===filter);
   let freed=0,tails=0,sells=0;
-  ROT.forEach(r=>{const f=r.sell*r.px*FX;freed+=f;if(r.act==='sell')sells++;if(r.keep>0&&r.act!=='sell')tails++;});
+  ROT.forEach(r=>{const f=r.sell*r.px*FX;freed+=f;if(r.act==='harvest')sells++;if(r.keep>0&&(r.act==='tailhold'||r.act==='harvest'))tails++;});
   const target=1050,fees=15,gross=target+fees;
   const needPct=(gross/(freed/FX)*100);
   document.getElementById('rotStrip').innerHTML=`
@@ -1477,7 +2025,7 @@ function buildRotation(filter){
     <div class="pf-card"><div class="pf-lbl">הון משוחרר</div><div class="pf-val g">₪${Math.round(freed).toLocaleString()}</div></div>
     <div class="pf-card"><div class="pf-lbl">בדולרים</div><div class="pf-val g">$${Math.round(freed/FX).toLocaleString()}</div></div>
     <div class="pf-card"><div class="pf-lbl">% נדרש על הריכוז</div><div class="pf-val go">${needPct.toFixed(2)}%</div></div>
-    <div class="pf-card"><div class="pf-lbl">מכירות מלאות</div><div class="pf-val r">${sells}</div></div>
+    <div class="pf-card"><div class="pf-lbl">מחזורי קציר</div><div class="pf-val r">${sells}</div></div>
     <div class="pf-card"><div class="pf-lbl">זנבות פעילים</div><div class="pf-val" style="color:var(--blue)">${tails}</div></div>
   `;
   const tbody=document.getElementById('rotTable');tbody.innerHTML='';
@@ -1511,26 +2059,27 @@ function buildRotation(filter){
 function filterRot(f,btn){document.querySelectorAll('#vault-rotation .fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');buildRotation(f);}
 
 // ═══ FUND 70/20/10 — קרן משולבת ═══
-const FUND_TOTAL=178468;
+// ═══ FUND — הרכב בפועל מול מודל 70/20/10 ═══
+const FUND_TOTAL=159660;
+const MARGIN_DEBT=-49409; // יתרת חובה בשקלים — לא חלק מ-100% ההקצאה, מוצג כדגל סיכון נפרד
 const SCHOOLS=[
-  {n:"וורן באפט",  pr:"מעט חברות מעולות, להחזיק שנים",          pos:"5-6",  hz:"שנים",        role:"⚓ הליבה — 70%"},
-  {n:"ביל אקמן",   pr:"ריכוז עם קטליזטור, אקטיביזם",            pos:"8-12", hz:"חודשים-שנים", role:"⚓ בחירת מניות הליבה"},
-  {n:"בנג'מין גרהאם",pr:"מרווח ביטחון, ערך מול מחיר",            pos:"מפוזר",hz:"ארוך",        role:"🛡️ כללי הסטופ + 10% מזומן"},
-  {n:"ג'ים סימונס", pr:"סטטיסטיקה, מהירות, אף עסקה לא הורגת",   pos:"רבות", hz:"ימים-שבועות", role:"⚡ השכבה הטקטית — 20%"},
+  {n:"וורן באפט",  pr:"מעט חברות מעולות, להחזיק שנים",          pos:"5-6",  hz:"שנים",        role:"⚓ הליבה — יעד 70%"},
+  {n:"ביל אקמן",   pr:"ריכוז עם קטליזטור, אקטיביזם",            pos:"8-12", hz:"חודשים-שנים", role:"⚓ בחירת מניית הליבה"},
+  {n:"בנג'מין גרהאם",pr:"מרווח ביטחון, ערך מול מחיר",            pos:"מפוזר",hz:"ארוך",        role:"🛡️ כללי הסטופ + כרית מזומן"},
+  {n:"ג'ים סימונס", pr:"סטטיסטיקה, מהירות, אף עסקה לא הורגת",   pos:"רבות", hz:"ימים-שבועות", role:"⚡ השכבה הטקטית — יעד 20%"},
 ];
 const FUND_ALLOC=[
-  // ⚓ ליבה 70% ≈ ₪119,500
-  {layer:"core",t:"MU",   alloc:30000,px:981.61, stop:"$920 (רחב -6%)",  hz:"6-12 ח'", why:"זיכרון AI — מנוע הליבה"},
-  {layer:"core",t:"ASML", alloc:27000,px:1863.55,stop:"$1,750 (-6%)",    hz:"12-18 ח'",why:"מונופול ליטוגרפיה, +12.9% מומנטום"},
-  {layer:"core",t:"NVDA", alloc:25000,px:205.15, stop:"$190 (-7%)",      hz:"12-18 ח'",why:"ליבת AI — באפט-סטייל החזקה"},
-  {layer:"core",t:"AAPL", alloc:20000,px:291.08, stop:"$272 (-6.5%)",    hz:"12-18 ח'",why:"תזרים + Buyback — עוגן יציבות"},
-  {layer:"core",t:"AMZN", alloc:17500,px:238.50, stop:"$222 (-7%)",      hz:"12-18 ח'",why:"AWS + Retail — צמיחה כפולה"},
-  // ⚡ טקטי 20% ≈ ₪34,000
-  {layer:"tact",t:"סבב מומנטום (ALOY וכו')",alloc:24000,px:0,stop:"-3% הדוק",hz:"ימים",  why:"משחק ה-$1,050 — סבבים שבועיים + זנבות"},
-  {layer:"tact",t:"זנבות מנצחים (AMD,IONQ,RKLB)",alloc:10000,px:0,stop:"מחיר כניסה",hz:"פתוח",why:"אפס סיכון קפיטל — ריצה חופשית"},
-  // 🛡️ מזומן 10% ≈ ₪17,000
-  {layer:"cash",t:"מזומן / קרן כספית",alloc:17214,px:0,stop:"—",hz:"—",why:"גרהאם: תחמושת לירידות + כרית ביטחון"},
+  // ⚓ ליבה בפועל — 13.5%, הרחק מיעד 70%
+  {layer:"core",t:"ASML",   alloc:21545,px:5386.35,stop:"$5,264 (-6%)",  hz:"12-18 ח'", why:"מונופול ליטוגרפיה — עוגן הליבה היחיד כרגע"},
+  // ⚡ טקטי בפועל — 86.5%, הרחק מעל יעד 20% (ריכוז גבוה בזנבות + ETF ממונפים)
+  {layer:"tact",t:"SNXX (ETF ממונף)",  alloc:36047,px:47.62,  stop:"עלות $28.52", hz:"עסקת יום",why:"מנוע קציר — הפוזיציה הגדולה ביותר"},
+  {layer:"tact",t:"IONX (ETF ממונף)",  alloc:26839,px:27.46,  stop:"-9% מהיר",    hz:"עסקת יום",why:"⚠ במינוס — לבדוק סטופ"},
+  {layer:"tact",t:"MULL (ETF ממונף)",  alloc:16931,px:18.13,  stop:"עלות $15.96", hz:"עסקת יום",why:"דעיכת נפח בדשדוש"},
+  {layer:"tact",t:"INTW (ETF ממונף)",  alloc:14284,px:20.13,  stop:"-10% מהיר",   hz:"עסקת יום",why:"⚠ מינוס 19.4% — הכי דחוף לבדיקה"},
+  {layer:"tact",t:"זנבות (AMD,IONQ,DELL,TER,AVGO,RGTI,AAPL)",alloc:38666,px:0,stop:"מחיר כניסה",hz:"פתוח",why:"7 פוזיציות זנב — אפס סיכון עודף, ריצה חופשית"},
+  {layer:"tact",t:"PSEC (דיבידנד)",    alloc:48,   px:1.89,   stop:"-10%",        hz:"ארוך",   why:"הכנסה שוטפת קטנה"},
 ];
+
 const layerLbl={core:"⚓ ליבה 70%",tact:"⚡ טקטי 20%",cash:"🛡️ מזומן 10%"};
 const layerCol={core:"var(--gold)",tact:"var(--blue)",cash:"var(--green)"};
 const FUND_VS=[
@@ -1544,15 +2093,17 @@ const FUND_VS=[
 ];
 
 function buildFund(){
-  let core=0,tact=0,cash=0;
-  FUND_ALLOC.forEach(a=>{if(a.layer==='core')core+=a.alloc;else if(a.layer==='tact')tact+=a.alloc;else cash+=a.alloc;});
+  let core=0,tact=0;
+  FUND_ALLOC.forEach(a=>{if(a.layer==='core')core+=a.alloc;else tact+=a.alloc;});
+  const corePct=Math.round(core/FUND_TOTAL*100), tactPct=Math.round(tact/FUND_TOTAL*100);
+  const marginPct=Math.round(Math.abs(MARGIN_DEBT)/FUND_TOTAL*100);
   document.getElementById('fundStrip').innerHTML=`
-    <div class="pf-card"><div class="pf-lbl">שווי הקרן</div><div class="pf-val g">₪${FUND_TOTAL.toLocaleString()}</div></div>
-    <div class="pf-card"><div class="pf-lbl">⚓ ליבה</div><div class="pf-val go">₪${core.toLocaleString()} (${Math.round(core/FUND_TOTAL*100)}%)</div></div>
-    <div class="pf-card"><div class="pf-lbl">⚡ טקטי</div><div class="pf-val" style="color:var(--blue)">₪${tact.toLocaleString()} (${Math.round(tact/FUND_TOTAL*100)}%)</div></div>
-    <div class="pf-card"><div class="pf-lbl">🛡️ מזומן</div><div class="pf-val g">₪${cash.toLocaleString()} (${Math.round(cash/FUND_TOTAL*100)}%)</div></div>
-    <div class="pf-card"><div class="pf-lbl">יעד טקטי</div><div class="pf-val go">$1,050/חודש</div></div>
-    <div class="pf-card"><div class="pf-lbl">פוזיציות ליבה</div><div class="pf-val" style="color:var(--blue)">5</div></div>
+    <div class="pf-card"><div class="pf-lbl">שווי התיק</div><div class="pf-val g">₪${FUND_TOTAL.toLocaleString()}</div></div>
+    <div class="pf-card"><div class="pf-lbl">⚓ ליבה בפועל</div><div class="pf-val go">₪${core.toLocaleString()} (${corePct}%)</div><div style="font-size:9px;color:var(--red);margin-top:2px">יעד: 70%</div></div>
+    <div class="pf-card"><div class="pf-lbl">⚡ טקטי בפועל</div><div class="pf-val" style="color:var(--blue)">₪${tact.toLocaleString()} (${tactPct}%)</div><div style="font-size:9px;color:var(--red);margin-top:2px">יעד: 20%</div></div>
+    <div class="pf-card"><div class="pf-lbl">🛡️ חוב מרג'ין</div><div class="pf-val r">-₪${Math.abs(MARGIN_DEBT).toLocaleString()} (${marginPct}%)</div><div style="font-size:9px;color:var(--red);margin-top:2px">אין כרית מזומן 10%</div></div>
+    <div class="pf-card"><div class="pf-lbl">יעד טקטי</div><div class="pf-val go">$1,050/מחזור</div></div>
+    <div class="pf-card"><div class="pf-lbl">פוזיציות ליבה</div><div class="pf-val" style="color:var(--blue)">1</div></div>
   `;
   const st=document.getElementById('fundSchoolTable');st.innerHTML='';
   SCHOOLS.forEach(s=>{st.innerHTML+=`<tr><td><span class="tk">${s.n}</span></td><td class="s">${s.pr}</td><td class="s">${s.pos}</td><td class="s">${s.hz}</td><td class="go">${s.role}</td></tr>`;});
@@ -1562,8 +2113,11 @@ function buildFund(){
     at.innerHTML+=`<tr><td style="color:${layerCol[a.layer]};font-family:var(--mono);font-size:10px;white-space:nowrap">${layerLbl[a.layer]}</td><td><span class="tk">${a.t}</span></td><td class="g">₪${a.alloc.toLocaleString()}</td><td class="go">${qty>0?qty:'—'}</td><td class="s">${a.px>0?'$'+a.px.toLocaleString():'—'}</td><td class="r" style="font-size:10px">${a.stop}</td><td class="s">${a.hz}</td><td class="s" style="font-size:10px">${a.why}</td></tr>`;
   });
   const tot=document.createElement('tr');tot.className='tot';
-  tot.innerHTML=`<td class="go" style="font-size:9px">סה"כ</td><td></td><td class="go" style="font-weight:700">₪${(core+tact+cash).toLocaleString()}</td><td colspan="5"></td>`;
+  tot.innerHTML=`<td class="go" style="font-size:9px">סה"כ</td><td></td><td class="go" style="font-weight:700">₪${(core+tact).toLocaleString()}</td><td colspan="5"></td>`;
   at.appendChild(tot);
+  const margin=document.createElement('tr');
+  margin.innerHTML=`<td style="color:var(--red);font-family:var(--mono);font-size:10px">🛡️ חוב</td><td><span class="tk" style="color:var(--red)">מרג'ין</span></td><td class="r">-₪${Math.abs(MARGIN_DEBT).toLocaleString()}</td><td colspan="5" class="s" style="font-size:10px">${marginPct}% מהתיק ממומן בחוב — אין כרית מזומן 10% כרגע, ריבית מרג'ין שוחקת באופן קבוע</td>`;
+  at.appendChild(margin);
   const vt=document.getElementById('fundVsTable');vt.innerHTML='';
   FUND_VS.forEach(r=>{vt.innerHTML+=`<tr><td class="go" style="font-weight:700">${r[0]}</td><td class="s">${r[1]}</td><td class="g">${r[2]}</td></tr>`;});
 }
@@ -1606,3 +2160,4 @@ document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
 </script>
 </body>
 </html>
+

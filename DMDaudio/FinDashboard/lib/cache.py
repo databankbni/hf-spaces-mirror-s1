@@ -20,6 +20,7 @@ top of ``app.py`` into this dedicated module. Two goals:
 
 from __future__ import annotations
 
+import datetime
 import os
 import sqlite3
 
@@ -32,6 +33,7 @@ from lib.data_loader import (
     get_form_type as _get_form_type,
     get_report_pdf_urls as _get_report_pdf_urls,
     get_company_ownership as _get_company_ownership,
+    get_bia_directory as _get_bia_directory,
     get_dividends as _get_dividends,
     get_ownership_edges as _get_ownership_edges,
     get_consolidated_idcodes as _get_consolidated_idcodes,
@@ -112,6 +114,56 @@ def company_ownership(db_path: str, idcode: str) -> dict | None:
     ``company_ownership`` table so the Single-Company page needs no live API call.
     """
     return _company_ownership_cached(_db_version(db_path), db_path, idcode)
+
+
+@st.cache_data(show_spinner=False)
+def _bia_directory_cached(db_version: str, db_path: str, idcode: str) -> dict | None:
+    return _get_bia_directory(db_path, idcode)
+
+
+def bia_directory(db_path: str, idcode: str) -> dict | None:
+    """Code-VERIFIED bia.ge directory detail for a company (or None).
+
+    Trademarks, products, activity categories and NACE codes, served from the
+    ``bia_directory`` table. Only rows whose page id-code matched this company are
+    returned — see ``lib/bia.py`` for why that gate is absolute.
+    """
+    return _bia_directory_cached(_db_version(db_path), db_path, idcode)
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _trade_name_index_cached(db_version: str, db_path: str) -> dict[str, list[str]]:
+    """``{IdCode: [distinct bia.ge trade name, ...]}`` for the whole corpus.
+
+    One streamed pass over ``bia_directory`` (~0.7s for 7k gzip payloads),
+    memoized on the DB version — cheap enough that the trade names need no
+    column of their own, so they can never go stale against the scrape or be
+    dropped by a ``company_search`` rebuild.
+    """
+    from lib.bia_brand import build_trade_name_index
+    from lib.data_loader import iter_bia_directory
+
+    conn = sqlite3.connect(db_path)
+    try:
+        names = {str(r[0]): (r[1] or "")
+                 for r in conn.execute("SELECT IdCode, CompanyName FROM companies")}
+    except sqlite3.OperationalError:
+        return {}
+    finally:
+        conn.close()
+    return build_trade_name_index(
+        (idcode, names.get(idcode, ""), detail)
+        for idcode, detail in iter_bia_directory(db_path)
+        if idcode in names
+    )
+
+
+def trade_name_index(db_path: str) -> dict[str, list[str]]:
+    """Distinct bia.ge trade names per company (cached, DB-versioned).
+
+    Empty on a DB with no ``bia_directory`` table, so callers degrade silently.
+    """
+    return _trade_name_index_cached(_db_version(db_path), db_path)
 
 
 @st.cache_data(show_spinner=False)
@@ -514,8 +566,24 @@ def _finder_universe_cached(db_version: str, db_path: str) -> pd.DataFrame:
         conn.close()
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def _finder_universe_with_brands(db_version: str, db_path: str) -> pd.DataFrame:
+    """The finder universe plus a ``TradeNames`` column (bia.ge brands, joined).
+
+    Attached here rather than in SQL because the trade names are DERIVED (the
+    ``lib.bia_brand`` gate over the scrape), not a stored column. Companies with
+    no distinct brand get "" so the finder's substring query is total.
+    """
+    df = _finder_universe_cached(db_version, db_path).copy()
+    index = _trade_name_index_cached(db_version, db_path)
+    df["TradeNames"] = df["IdCode"].astype(str).map(
+        lambda i: " | ".join(index.get(i, ()))
+    )
+    return df
+
+
 def finder_universe(db_path: str) -> pd.DataFrame:
-    return _finder_universe_cached(_db_version(db_path), db_path)
+    return _finder_universe_with_brands(_db_version(db_path), db_path)
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
@@ -684,6 +752,30 @@ def _audit_engagements_cached(db_version: str, db_path: str, idcode: str) -> lis
     ]
 
 
+@st.cache_data(show_spinner=False)
+def _nace_codes_for_cached(db_version: str, db_path: str, idcode: str) -> list[dict]:
+    conn = sqlite3.connect(db_path)
+    try:
+        have = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='nace_codes'"
+        ).fetchone()
+        if not have:
+            return []
+        rows = conn.execute(
+            "SELECT NACE_CODE, NACE_NAME, NACE_MAIN, ReportYear FROM nace_codes "
+            "WHERE IdCode = ? ORDER BY NACE_CODE", (idcode,)).fetchall()
+        return [{"code": r[0], "name": r[1], "main": r[2], "year": r[3]} for r in rows]
+    finally:
+        conn.close()
+
+
+def nace_codes_for(db_path: str, idcode: str) -> list[dict]:
+    """The company's official NACE Rev.2 activity codes from its own RMS
+    filing (``nace_codes`` table). Independent of our curated Sector tag.
+    Empty when the table is absent — the display degrades to invisible."""
+    return _nace_codes_for_cached(_db_version(db_path), db_path, idcode)
+
+
 def audit_engagements(db_path: str, idcode: str) -> list[dict]:
     """This company's ``auditors`` rows — year/basis/opinion/firm/partner/fee.
 
@@ -721,6 +813,40 @@ def _company_sector_cached(db_version: str, db_path: str, idcode: str) -> str:
 
 def company_sector(db_path: str, idcode: str) -> str:
     return _company_sector_cached(_db_version(db_path), db_path, idcode)
+
+
+@st.cache_data(show_spinner=False)
+def _company_taxonomy_cached(
+    db_version: str, db_path: str, idcode: str
+) -> tuple[str, str]:
+    conn = sqlite3.connect(db_path)
+    try:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(companies)").fetchall()}
+        if not {"Sector", "SubSector"} <= cols:
+            return "", ""
+        row = conn.execute(
+            "SELECT COALESCE(Sector,''), COALESCE(SubSector,'') "
+            "FROM companies WHERE IdCode = ?", (idcode,)
+        ).fetchone()
+    except sqlite3.Error:
+        return "", ""
+    finally:
+        conn.close()
+    if not row:
+        return "", ""
+    return (row[0] or "").strip(), (row[1] or "").strip()
+
+
+def company_taxonomy(db_path: str, idcode: str) -> tuple[str, str]:
+    """``(Sector, SubSector)`` for one company — blank strings when unset.
+
+    Deliberately INDEPENDENT of the curated-Description gate in
+    ``company_description``: a company can carry a Sector and SubSector with no
+    write-up at all (2,170 have no Sector, and the sub-sector seeders fill
+    SubSector without touching Description), and the tearsheet's taxonomy chips
+    must not vanish just because nobody has written a blurb yet.
+    """
+    return _company_taxonomy_cached(_db_version(db_path), db_path, idcode)
 
 
 # ---------------------------------------------------------------------------
@@ -1070,6 +1196,48 @@ def _macro_series_cached(db_version: str, db_path: str, dataset: str,
 def macro_series(db_path: str, dataset: str, period_type: str | None = None) -> pd.DataFrame:
     """Tidy rows for one macro dataset (optionally filtered to a period_type)."""
     return _macro_series_cached(_db_version(db_path), db_path, dataset, period_type)
+
+
+def _period_end(period: str) -> tuple[int, int]:
+    """(year, last month covered) for a macro period label — 'YYYY' | 'YYYY-Qn' | 'YYYY-MM'.
+
+    Periods of different frequencies don't sort against each other as text: '2026-Q2'
+    beats '2026-07' alphabetically ('Q' > '0') even though the quarter ends in June.
+    """
+    s = str(period)
+    year = int(s[:4])
+    if len(s) == 4:
+        return (year, 12)
+    tail = s[5:]
+    if tail[:1].upper() == "Q":
+        return (year, int(tail[1:]) * 3)
+    return (year, int(tail))
+
+
+@st.cache_data(show_spinner=False)
+def _macro_latest_period_cached(db_version: str, db_path: str, this_year: str) -> str | None:
+    # An ANNUAL row for the running year is a year-to-date figure (Geostat files
+    # 5 months of trade as "2026"), so it can't be the page's freshest *reading*.
+    with sqlite3.connect(db_path) as conn:
+        try:
+            rows = conn.execute(
+                "SELECT MAX(period) FROM macro_series WHERE value IS NOT NULL "
+                "AND NOT (period_type = 'annual' AND period >= ?) GROUP BY period_type",
+                (this_year,)).fetchall()
+        except sqlite3.DatabaseError:
+            return None
+    periods = [r[0] for r in rows if r[0]]
+    return max(periods, key=_period_end) if periods else None
+
+
+def macro_latest_period(db_path: str) -> str | None:
+    """Freshest period anywhere in ``macro_series`` that carries a value.
+
+    Read live rather than from ``macro_dataset.max_period`` so the page's "data up
+    to …" line can't outrun a stale catalog row written by an older importer.
+    """
+    return _macro_latest_period_cached(_db_version(db_path), db_path,
+                                       str(datetime.date.today().year))
 
 
 def has_macro_data(db_path: str) -> bool:

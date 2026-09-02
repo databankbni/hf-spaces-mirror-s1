@@ -1,0 +1,83 @@
+name: Apply Search v0.10.1 cold acquisition hotfix
+
+on:
+  push:
+    branches:
+      - hotfix/search-cold-acquisition-v0101
+    paths:
+      - scripts/apply_search_cold_acquisition_hotfix.py
+      - .github/workflows/apply-search-cold-acquisition-v0101.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - scripts/apply_search_cold_acquisition_hotfix.py
+      - .github/workflows/apply-search-cold-acquisition-v0101.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout hotfix branch
+        uses: actions/checkout@v6
+        with:
+          ref: hotfix/search-cold-acquisition-v0101
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Apply hotfix
+        run: python scripts/apply_search_cold_acquisition_hotfix.py
+
+      - name: Install package and test dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Compile
+        run: python -m compileall -q app
+
+      - name: Run regression suite
+        run: pytest -q
+
+      - name: Lint
+        run: ruff check app tests
+
+      - name: Validate frontend JavaScript syntax
+        run: |
+          node --check frontend/static/app.js
+          node --check frontend/static/search-v2.js
+          node --check frontend/static/search-progress.js
+
+      - name: Commit hotfix output
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/services/climate.py app/routers/search.py app/version.py pyproject.toml \
+                  frontend/index.html frontend/static/search-v2.js frontend/static/search-progress.js \
+                  tests/test_climate_parallel_point_profile.py
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Fix cold search acquisition latency in v0.10.1'
+          git push origin HEAD:hotfix/search-cold-acquisition-v0101
+
+      - name: Package corrected frontend
+        run: |
+          cd frontend
+          zip -qr ../ClimaFlora_Frontend_v101_cold_acquisition.zip .
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClimaFlora_Frontend_v101_cold_acquisition
+          path: ClimaFlora_Frontend_v101_cold_acquisition.zip
+          retention-days: 7

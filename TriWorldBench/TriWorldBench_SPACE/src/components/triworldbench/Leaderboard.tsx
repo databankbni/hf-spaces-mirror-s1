@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { FaMedal } from "react-icons/fa";
 import { contentValue, type LocalizedText } from "@/lib/i18n";
 import {
   TRIWORLD_COLORS,
@@ -9,6 +8,7 @@ import {
   type TriWorldBoardEntry,
 } from "./metrics";
 import { LocalizedMarkdown } from "./LocalizedMarkdown";
+import { RankingMedal } from "./RankingMedal";
 
 type MetricText = {
   code: string;
@@ -94,6 +94,7 @@ export function TriWorldLeaderboard({ rows, metricTexts, descriptionText }: Prop
   const [highlightedName, setHighlightedName] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const rangeMenuRef = useRef<HTMLDetailsElement>(null);
+  const tableWrapRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
 
   const ranges = useMemo(() => {
@@ -129,6 +130,24 @@ export function TriWorldLeaderboard({ rows, metricTexts, descriptionText }: Prop
     return ranksByMetric;
   }, [rows]);
 
+  const scrollToRow = useCallback((modelName: string, block: "start" | "center") => {
+    const container = tableWrapRef.current;
+    const row = rowRefs.current.get(modelName);
+    if (!container || !row) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const headerHeight = container.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+    const targetTop = block === "center"
+      ? container.scrollTop + rowRect.top - containerRect.top - (container.clientHeight - rowRect.height) / 2
+      : container.scrollTop + rowRect.top - containerRect.top - headerHeight;
+
+    container.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: "smooth",
+    });
+  }, []);
+
   const locate = useCallback((name = query) => {
     const normalized = name.trim().toLocaleLowerCase();
     if (!normalized) {
@@ -147,9 +166,9 @@ export function TriWorldLeaderboard({ rows, metricTexts, descriptionText }: Prop
     setHighlightedName(matched.modelName);
     setMessage(`Located ${matched.modelName} at rank ${matched.rank}.`);
     window.requestAnimationFrame(() => {
-      rowRefs.current.get(matched.modelName)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      scrollToRow(matched.modelName, "center");
     });
-  }, [query, rows]);
+  }, [query, rows, scrollToRow]);
 
   const jumpToRange = (start: number) => {
     const row = rows[start];
@@ -158,7 +177,7 @@ export function TriWorldLeaderboard({ rows, metricTexts, descriptionText }: Prop
     setMessage("");
     rangeMenuRef.current?.removeAttribute("open");
     window.requestAnimationFrame(() => {
-      rowRefs.current.get(row.modelName)?.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+      scrollToRow(row.modelName, "start");
     });
   };
 
@@ -204,7 +223,7 @@ export function TriWorldLeaderboard({ rows, metricTexts, descriptionText }: Prop
       </div>
       {message ? <p className="twb-locator-message" role="status">{message}</p> : null}
 
-      <div className="twb-table-wrap" tabIndex={0} aria-label="TriWorldBench leaderboard">
+      <div ref={tableWrapRef} className="twb-table-wrap" tabIndex={0} aria-label="TriWorldBench leaderboard">
         <table
           className="twb-dense-table"
           style={{ "--twb-score-column-count": TRIWORLD_TABLE_METRICS.length } as React.CSSProperties}
@@ -246,9 +265,12 @@ export function TriWorldLeaderboard({ rows, metricTexts, descriptionText }: Prop
                 >
                   <td className="twb-model-col twb-sticky-col">
                     <b>{row.modelName}</b>
-                    {row.teamName ? <small>{row.teamName}</small> : null}
                   </td>
-                  <td className="twb-col-rank twb-sticky-rank"><span className="twb-rank-badge">{row.rank}</span></td>
+                  <td className="twb-col-rank twb-sticky-rank">
+                    <span className={`twb-rank-badge rank-${row.rank <= 3 ? row.rank : "other"}`}>
+                      {row.rank <= 3 ? <RankingMedal rank={row.rank} className="twb-row-medal" /> : row.rank}
+                    </span>
+                  </td>
                   {TRIWORLD_TABLE_METRICS.map((metric) => {
                     const value = valueFor(row, metric.code);
                     const metricRank = metricRanks.get(metric.code)?.get(row) ?? null;
@@ -265,16 +287,13 @@ export function TriWorldLeaderboard({ rows, metricTexts, descriptionText }: Prop
                               className={`twb-cell-rank rank-${metricRank <= 3 ? metricRank : "other"}`}
                               aria-label={`Rank ${metricRank}`}
                             >
-                              {metricRank <= 3 ? (
-                                <FaMedal
-                                  aria-hidden="true"
-                                  className={`twb-cell-medal medal-${metricRank}`}
-                                />
-                              ) : null}
+                              {metricRank <= 3 ? <RankingMedal rank={metricRank} className="twb-cell-medal" /> : null}
                               #{metricRank}
                             </span>
                           ) : null}
-                          <span className="twb-score-value">{displayScore(value)}</span>
+                          <span className={`twb-score-value${metric.isOverall ? " is-overall" : ""}`}>
+                            {displayScore(value)}
+                          </span>
                         </div>
                       </td>
                     );

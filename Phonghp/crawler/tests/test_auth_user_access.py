@@ -1,3 +1,6 @@
+import importlib
+import os
+import sys
 import unittest
 
 from routes.auth import _get_user_value
@@ -35,6 +38,22 @@ class AuthUserAccessTests(unittest.TestCase):
         self.assertEqual(_get_user_value(user, "email"), "attr@example.com")
         self.assertEqual(_get_user_value(user, "password_hash"), "attr-hash")
         self.assertEqual(_get_user_value(user, "name"), "Attr")
+
+    def test_auth_requires_explicit_secret_in_production(self):
+        original_env = os.environ.copy()
+        try:
+            for key in ("APP_ENV", "APP_SECRET", "JWT_SECRET", "JWT_ALGO"):
+                os.environ.pop(key, None)
+            os.environ["APP_ENV"] = "production"
+            os.environ["DATABASE_URL"] = "postgresql://user:pass@localhost:5432/test"
+            sys.modules.pop("auth", None)
+
+            with self.assertRaisesRegex(RuntimeError, "APP_SECRET|JWT_SECRET"):
+                importlib.import_module("auth")
+        finally:
+            os.environ.clear()
+            os.environ.update(original_env)
+            sys.modules.pop("auth", None)
 
 
 if __name__ == "__main__":

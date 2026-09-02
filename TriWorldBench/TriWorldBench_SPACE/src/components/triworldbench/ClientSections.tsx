@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FaMedal } from "react-icons/fa";
 import {
   TRIWORLD_COLORS,
   TRIWORLD_RADAR_DIMS,
@@ -10,6 +9,7 @@ import {
 } from "./metrics";
 import { hasLocalizedText, type LocalizedText } from "@/lib/i18n";
 import { LocalizedMarkdown } from "./LocalizedMarkdown";
+import { RankingMedal } from "./RankingMedal";
 
 const CLEAN_CASES = [
   "blocks_ranking_rgb.mp4",
@@ -429,7 +429,11 @@ function OverallRadar({
             style={{ "--c": color, "--dash": dashPattern } as React.CSSProperties}
           >
             <polygon className="twb-radar-area" points={points} />
-            <polyline className="twb-radar-line" points={`${points} ${points.split(" ")[0]}`} />
+            <polyline
+              className="twb-radar-line"
+              fill="none"
+              points={`${points} ${points.split(" ")[0]}`}
+            />
           </g>
         );
       })}
@@ -691,11 +695,6 @@ export function TriWorldVisualization({
             const isHighlighted = highlightName === row.modelName;
             const isDimmed = Boolean(highlightName && !isHighlighted);
             const width = row.value === null ? 0 : (Number(row.value) / maxValue) * 100;
-            const medalColor = row.visualRank === 1
-              ? "#c58b13"
-              : row.visualRank === 2
-                ? "#6b7280"
-                : "#b56736";
             return (
               <button
                 type="button"
@@ -713,17 +712,12 @@ export function TriWorldVisualization({
                 }
               >
                 {row.visualRank <= 3 ? (
-                  <FaMedal
-                    className={`twb-ranking-medal rank-${row.visualRank}`}
-                    style={{ "--medal-color": medalColor } as React.CSSProperties}
-                    aria-label={`Rank ${row.visualRank}`}
-                    title={`Rank ${row.visualRank}`}
-                  />
+                  <RankingMedal rank={row.visualRank} className="twb-ranking-medal" />
                 ) : (
                   <em className="twb-ranking-number">{row.visualRank}</em>
                 )}
                 <b>{row.modelName}</b>
-                <i>{fmt(row.value)}</i>
+                <i className={activePanel.kind === "overall" ? "is-overall" : undefined}>{fmt(row.value)}</i>
               </button>
             );
           })}

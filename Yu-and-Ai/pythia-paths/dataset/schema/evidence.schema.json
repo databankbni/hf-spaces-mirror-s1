@@ -1,0 +1,281 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pythia-paths:schema:trajectory-evidence:0.2",
+  "title": "Pythia Paths trajectory evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "evidence_id",
+    "source_reviewed_at",
+    "subject",
+    "artifact",
+    "metric_observation",
+    "training_source",
+    "selection",
+    "claims",
+    "authority",
+    "unknowns"
+  ],
+  "properties": {
+    "schema": { "const": "pythia-paths/trajectory-evidence/0.2" },
+    "evidence_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "source_reviewed_at": { "type": "string", "format": "date-time" },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "repo_type",
+        "repo_id",
+        "declared_ref",
+        "observed_branch_target_commit",
+        "branch_target_observed_at",
+        "step",
+        "tokens_seen"
+      ],
+      "properties": {
+        "provider": { "const": "huggingface" },
+        "repo_type": { "const": "model" },
+        "repo_id": { "const": "EleutherAI/pythia-70m-deduped" },
+        "declared_ref": { "type": "string", "pattern": "^step[0-9]+$" },
+        "observed_branch_target_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "branch_target_observed_at": { "type": "string", "format": "date-time" },
+        "step": { "type": "integer", "minimum": 0 },
+        "tokens_seen": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "status", "method", "source_repo", "source_commit", "source_path"],
+          "properties": {
+            "value": { "type": "integer", "minimum": 0 },
+            "status": { "const": "derived" },
+            "method": { "const": "step * 2097152" },
+            "source_repo": { "const": "EleutherAI/pythia-70m-deduped" },
+            "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "source_path": { "const": "README.md" }
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "storage",
+        "bytes",
+        "reported_lfs_oid",
+        "retrieval_status",
+        "execution_status",
+        "format_equivalence",
+        "relationship_to_evaluation"
+      ],
+      "properties": {
+        "path": { "const": "model.safetensors" },
+        "storage": { "const": "lfs" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "reported_lfs_oid": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "retrieval_status": { "const": "metadata_only" },
+        "execution_status": { "const": "not_run" },
+        "format_equivalence": { "const": "not_tested" },
+        "relationship_to_evaluation": { "const": "not_proven" }
+      }
+    },
+    "metric_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "task",
+        "metric",
+        "direction",
+        "value",
+        "stderr",
+        "task_version",
+        "fewshot",
+        "sample_count",
+        "harness_revision",
+        "comparison_status",
+        "source_repo",
+        "source_commit",
+        "source_path",
+        "source_blob_sha1",
+        "evaluated_model_commit",
+        "evaluated_artifact_digest",
+        "metric_to_observed_branch_artifact_binding",
+        "reported_run_config"
+      ],
+      "properties": {
+        "status": { "const": "reported_upstream" },
+        "task": { "const": "piqa" },
+        "metric": { "const": "acc_norm" },
+        "direction": { "const": "higher_is_conventionally_better" },
+        "value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "stderr": { "type": "number", "minimum": 0 },
+        "task_version": { "const": 0 },
+        "fewshot": { "const": 0 },
+        "sample_count": { "type": "null" },
+        "harness_revision": { "type": "null" },
+        "comparison_status": { "const": "not_proven" },
+        "source_repo": { "const": "EleutherAI/pythia" },
+        "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "source_path": { "type": "string", "minLength": 1 },
+        "source_blob_sha1": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "evaluated_model_commit": { "type": "null" },
+        "evaluated_artifact_digest": { "type": "null" },
+        "metric_to_observed_branch_artifact_binding": { "const": "not_proven" },
+        "reported_run_config": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "model_args",
+            "batch_size",
+            "device",
+            "no_cache",
+            "limit",
+            "bootstrap_iters"
+          ],
+          "properties": {
+            "model": { "const": "hf-causal" },
+            "model_args": { "type": "string" },
+            "batch_size": { "type": "integer", "minimum": 1 },
+            "device": { "type": ["string", "null"] },
+            "no_cache": { "const": true },
+            "limit": { "type": "null" },
+            "bootstrap_iters": { "const": 100000 }
+          }
+        }
+      }
+    },
+    "training_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "commit", "config_path", "config_blob_sha1"],
+      "properties": {
+        "repo": { "const": "EleutherAI/pythia" },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "config_path": { "const": "models/70M/pythia-70m-deduped.yml" },
+        "config_blob_sha1": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_checkpoint_frame_count",
+        "published_evaluation_report_frame_count",
+        "visualized_report_count",
+        "visualization_scope",
+        "detailed_receipt_steps",
+        "published_report_without_detailed_receipt_count",
+        "checkpoint_without_published_report_count",
+        "detail_selection_method",
+        "detail_selected_before_outcomes_seen",
+        "detail_representativeness",
+        "detail_selection_reason",
+        "task_sampling_frame",
+        "included_task_metric",
+        "omitted_task_count",
+        "task_selection_method",
+        "task_selected_before_outcomes_seen"
+      ],
+      "properties": {
+        "model_checkpoint_frame_count": { "const": 154 },
+        "published_evaluation_report_frame_count": { "const": 27 },
+        "visualized_report_count": { "const": 27 },
+        "visualization_scope": { "const": "all-reports-in-pinned-directory" },
+        "detailed_receipt_steps": {
+          "const": [0, 1000, 73000, 143000]
+        },
+        "published_report_without_detailed_receipt_count": { "const": 23 },
+        "checkpoint_without_published_report_count": { "const": 127 },
+        "detail_selection_method": { "const": "illustrative-hand-selection" },
+        "detail_selected_before_outcomes_seen": { "const": false },
+        "detail_representativeness": { "const": "not_claimed" },
+        "detail_selection_reason": { "const": "provide richer receipts for four sparse non-monotonic examples" },
+        "task_sampling_frame": { "const": "87-common-reported-tasks" },
+        "included_task_metric": { "const": "piqa.acc_norm" },
+        "omitted_task_count": { "const": 86 },
+        "task_selection_method": { "const": "illustrative-hand-selection" },
+        "task_selected_before_outcomes_seen": { "const": false }
+      }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint_reference",
+        "artifact_pointer",
+        "artifact_bytes_verified",
+        "artifact_executability",
+        "digest_status",
+        "metric_value",
+        "metric_to_observed_branch_artifact_binding",
+        "metric_comparability",
+        "safety",
+        "deployment_readiness",
+        "resume_file_completeness",
+        "resume_replay_equivalence"
+      ],
+      "properties": {
+        "checkpoint_reference": { "const": "observed_remote" },
+        "artifact_pointer": { "const": "observed_remote" },
+        "artifact_bytes_verified": { "const": "not_tested" },
+        "artifact_executability": { "const": "not_tested" },
+        "digest_status": { "const": "reported_lfs_oid" },
+        "metric_value": { "const": "reported_upstream" },
+        "metric_to_observed_branch_artifact_binding": { "const": "not_proven" },
+        "metric_comparability": { "const": "not_proven" },
+        "safety": { "const": "not_proven" },
+        "deployment_readiness": { "const": "not_proven" },
+        "resume_file_completeness": { "const": "not_proven" },
+        "resume_replay_equivalence": { "const": "not_tested" }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carried_by_this_record",
+        "established_by_this_view",
+        "external_authority_status"
+      ],
+      "properties": {
+        "carried_by_this_record": { "const": false },
+        "established_by_this_view": { "const": false },
+        "external_authority_status": { "const": "not_checked" }
+      }
+    },
+    "unknowns": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exact_evaluation_harness_revision",
+        "evaluation_sample_count",
+        "optimizer_state_for_exact_resume",
+        "scheduler_state_for_exact_resume",
+        "dataloader_cursor_for_exact_resume",
+        "rng_state_for_exact_resume",
+        "gradient_scaler_applicability",
+        "data_order_index_for_exact_resume",
+        "software_environment_for_exact_resume",
+        "distributed_state_completeness",
+        "artifact_format_equivalence"
+      ],
+      "properties": {
+        "exact_evaluation_harness_revision": { "const": "unknown" },
+        "evaluation_sample_count": { "const": "unknown" },
+        "optimizer_state_for_exact_resume": { "const": "not_established" },
+        "scheduler_state_for_exact_resume": { "const": "not_established" },
+        "dataloader_cursor_for_exact_resume": { "const": "not_established" },
+        "rng_state_for_exact_resume": { "const": "not_established" },
+        "gradient_scaler_applicability": { "const": "not_checked" },
+        "data_order_index_for_exact_resume": { "const": "not_established" },
+        "software_environment_for_exact_resume": { "const": "not_established" },
+        "distributed_state_completeness": { "const": "not_checked" },
+        "artifact_format_equivalence": { "const": "not_tested" }
+      }
+    }
+  }
+}

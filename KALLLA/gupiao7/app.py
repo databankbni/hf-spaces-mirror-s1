@@ -22,8 +22,9 @@ RAW_HK_TICKERS = [
 SYMBOLS = [str(t).zfill(4) + '.HK' for t in RAW_HK_TICKERS]
 SYMBOLS = list(set(SYMBOLS))
 
-DISCORD_WEBHOOK = "https://discord.faratronic-distributor.com/api/webhooks/1447855731171655764/vtWWHN1hD5gmLV8WQL7pWEqEjFi_Jel3SM4WFzKb02kouLxTAi0_PKjxjDXCZLZc81m8"
-US_TZ = pytz.timezone('US/Eastern')
+DISCORD_WEBHOOK = "https://discord.bydsemi-distributor.com/api/webhooks/1447557568124682323/xJgMHLNypaD7m0yfshc28vnhRCZXp-hGQ8aVQvclTUuwKub-2C36XJ7V9cIHYmlXWj54"
+# 全局时区修正为香港/北京时间
+HK_TZ = pytz.timezone('Asia/Hong_Kong')
 
 ICONS = {
     'multi_res_buy': '💎', 'multi_res_sell': '💣',
@@ -54,14 +55,14 @@ class GlobalState:
 state = GlobalState()
 
 def log(msg):
-    ts = datetime.datetime.now(US_TZ).strftime('%H:%M:%S')
+    ts = datetime.datetime.now(HK_TZ).strftime('%H:%M:%S')
     entry = f"[{ts}] {msg}"
     print(entry)
     state.logs.append(entry)
 
 def get_period_key(symbol, strategy, direction, tf):
     """根据周期生成去重key，确保每根K线只触发一次"""
-    now = datetime.datetime.now(US_TZ)
+    now = datetime.datetime.now(HK_TZ)
     
     if tf == '1d' or tf == '1h' or tf == '4h' or tf == '2h' or tf == '3h' or tf == '30m' or tf == '15m' or tf == '5m' or tf == '10m':
         period_key = f"{symbol}_{strategy}_{direction}_{tf}_{now.strftime('%Y-%m-%d')}"
@@ -89,12 +90,20 @@ class DataManager:
     def is_market_open(self):
         if state.force_run_once:
             return True
-        now = datetime.datetime.now(US_TZ)
-        if now.weekday() >= 5:
+        now = datetime.datetime.now(HK_TZ)
+        if now.weekday() >= 5: # 周六周日休市
             return False
-        start = now.replace(hour=9, minute=30, second=0, microsecond=0)
-        end = now.replace(hour=16, minute=0, second=0, microsecond=0)
-        return start <= now <= end
+        
+        # 港股精确开盘时间：上午 09:30 - 12:00, 下午 13:00 - 16:00
+        current_time = now.time()
+        morning_start = datetime.time(9, 30)
+        morning_end = datetime.time(12, 0)
+        afternoon_start = datetime.time(13, 0)
+        afternoon_end = datetime.time(16, 0)
+        
+        if (morning_start <= current_time <= morning_end) or (afternoon_start <= current_time <= afternoon_end):
+            return True
+        return False
 
     def fetch_realtime_prices(self):
         """使用1分钟K线收盘价作为实时价格近似"""
@@ -201,7 +210,7 @@ class DataManager:
                 df = df.rename(columns={'adjclose': 'close'})
             if 'date' in df.columns:
                 df['date'] = pd.to_datetime(df['date'], utc=True)
-                df['date'] = df['date'].dt.tz_convert(US_TZ)
+                df['date'] = df['date'].dt.tz_convert(HK_TZ)
             for symbol, group in df.groupby('symbol'):
                 group = group.set_index('date').sort_index()
                 if interval in ['5m', '15m', '30m']:
@@ -242,6 +251,12 @@ class IndicatorEngine:
         if df is None:
             return df
         df = df.copy()
+        
+        # 【修改重点】：移除 if len(df) < 89 的判断。
+        # 无论数据长短，Pandas 的 ewm(span=N, adjust=False) 完美等价于 TradingView 的 ta.ema 逻辑。
+        # TV源码：ema = na(ema[1]) ? src : alpha * src + (1 - alpha) * ema[1]
+        # 这意味着TV会从第一根可用的K线就开始平滑计算（即使数据不够89根），我们这里完全复刻此逻辑。
+        
         df['UP1'] = df['high'].ewm(span=26, adjust=False).mean()
         df['DW1'] = df['low'].ewm(span=26, adjust=False).mean()
         df['UP2'] = df['high'].ewm(span=89, adjust=False).mean()
@@ -250,6 +265,7 @@ class IndicatorEngine:
 
     @staticmethod
     def calc_macd_cd_strict(df, realtime_price=None):
+        # 满足：“抄底，卖出信号的len值还是50不要变，逻辑不变，保持原样”
         if df is None or len(df) < 50:
             return df, False, False
         if realtime_price is not None:
@@ -344,40 +360,28 @@ class StrategyAnalyzer:
         self.ie = IndicatorEngine()
 
     def _is_data_fresh(self, df, tf):
-        """宽松新鲜度检查，用于决定是否跳过整个周期（支撑/压力窗口需要此检查）"""
         if df is None or df.empty:
             return False
         last_dt = df.index[-1]
-        now = datetime.datetime.now(US_TZ)
+        now = datetime.datetime.now(HK_TZ)
         delta = (now - last_dt).days
-        if tf == '1d':
-            return delta <= 7   # 允许一周内的数据
-        if tf == '1wk':
-            return delta <= 10
-        if tf == '1mo':
-            return delta <= 45
-        if tf == '3mo':
-            return delta <= 120
+        if tf == '1d': return delta <= 7
+        if tf == '1wk': return delta <= 10
+        if tf == '1mo': return delta <= 45
+        if tf == '3mo': return delta <= 120
         return True
 
     def _is_data_fresh_for_macro(self, df, tf):
-        """严格新鲜度检查，用于大级别单点信号，避免陈旧数据触发"""
         if df is None or df.empty:
             return False
         last_dt = df.index[-1]
-        now = datetime.datetime.now(US_TZ)
+        now = datetime.datetime.now(HK_TZ)
         delta = (now - last_dt).days
-        if tf == '1d':
-            return delta <= 1   # 只允许昨天或今天的数据
-        if tf == '1wk':
-            return delta <= 7   # 最近一周内
-        if tf == '1mo':
-            return delta <= 35
-        if tf == '3mo':
-            return delta <= 100
-        if tf == '4h':
-            # 4小时线也要求较新鲜
-            return delta <= 1
+        if tf == '1d': return delta <= 1
+        if tf == '1wk': return delta <= 7
+        if tf == '1mo': return delta <= 35
+        if tf == '3mo': return delta <= 100
+        if tf == '4h': return delta <= 1
         return True
 
     def _check_breakdown(self, symbol, tf_name, tf_key, df, realtime_price, alerts):
@@ -388,6 +392,11 @@ class StrategyAnalyzer:
 
         up2 = df['UP2'].iloc[-1]
         dw1 = df['DW1'].iloc[-1]
+        
+        # 防错保护
+        if pd.isna(up2) or pd.isna(dw1):
+            return
+            
         prev_close = df['close'].iloc[-2]
         threshold = up2 * 1.015
 
@@ -401,7 +410,7 @@ class StrategyAnalyzer:
             hist_up2 = df['UP2'].iloc[i]
             hist_dw1 = df['DW1'].iloc[i]
             hist_low = df['low'].iloc[i]
-            if hist_up2 == 0:
+            if hist_up2 == 0 or pd.isna(hist_up2) or pd.isna(hist_dw1):
                 continue
             if hist_low <= hist_up2 * 1.015 and hist_dw1 > hist_up2:
                 return
@@ -430,17 +439,13 @@ class StrategyAnalyzer:
                     continue
 
                 raw_tfs = {}
-                if has_micro:
-                    raw_tfs.update(dm.micro_data[symbol])
-                if has_hourly:
-                    raw_tfs['1h'] = dm.hourly_data[symbol]
+                if has_micro: raw_tfs.update(dm.micro_data[symbol])
+                if has_hourly: raw_tfs['1h'] = dm.hourly_data[symbol]
                 if symbol + '_synth' in dm.hourly_data:
                     raw_tfs.update(dm.hourly_data[symbol + '_synth'])
-                if has_macro:
-                    raw_tfs.update(dm.macro_data[symbol])
+                if has_macro: raw_tfs.update(dm.macro_data[symbol])
 
                 stats['analyzed'] += 1
-
                 processed = {}
                 signals = {}
                 ladders = {}
@@ -450,16 +455,16 @@ class StrategyAnalyzer:
                         if len(df) < 2:
                             continue
                     else:
+                        # 满足：“抄底，卖出信号的len值还是50不要变”
                         if len(df) < 50:
                             continue
-                    # 宽松新鲜度检查：决定是否跳过整个周期（支撑/压力窗口需要）
+                    
                     if tf in ['1d', '1wk', '1mo', '3mo'] and not self._is_data_fresh(df, tf):
                         continue
 
                     df = self.ie.calc_ladder(df)
                     df, buy, sell = self.ie.calc_macd_cd_strict(df, realtime_price)
 
-                    # 对于大级别单点信号，应用严格新鲜度检查，防止陈旧数据触发
                     if tf in ['4h', '1d', '1wk', '1mo', '3mo']:
                         if not self._is_data_fresh_for_macro(df, tf):
                             buy = False
@@ -467,41 +472,34 @@ class StrategyAnalyzer:
 
                     processed[tf] = df
                     signals[tf] = {'buy': buy, 'sell': sell}
-                    if buy:
-                        stats['buy'] += 1
-                    if sell:
-                        stats['sell'] += 1
+                    if buy: stats['buy'] += 1
+                    if sell: stats['sell'] += 1
 
                     ladders[tf] = {
                         'UP1': df['UP1'].iloc[-1],
                         'DW1': df['DW1'].iloc[-1],
                         'UP2': df['UP2'].iloc[-1],
                         'DW2': df['DW2'].iloc[-1],
-                        'prev_UP1': df['UP1'].iloc[-2],
-                        'prev_UP2': df['UP2'].iloc[-2],
+                        'prev_UP1': df['UP1'].iloc[-2] if len(df) >= 2 else np.nan,
+                        'prev_UP2': df['UP2'].iloc[-2] if len(df) >= 2 else np.nan,
                         'low': df['low'].iloc[-1],
                         'close': df['close'].iloc[-1]
                     }
 
-                    if buy:
-                        self._record_signal(symbol, 'buy', tf)
-                    if sell:
-                        self._record_signal(symbol, 'sell', tf)
+                    if buy: self._record_signal(symbol, 'buy', tf)
+                    if sell: self._record_signal(symbol, 'sell', tf)
 
-                # 下穿UP2（日/周/月/季）
+                # 下穿UP2
                 self._check_breakdown(symbol, "日线", "1d", processed.get('1d'), realtime_price, alerts)
                 self._check_breakdown(symbol, "周线", "1wk", processed.get('1wk'), realtime_price, alerts)
                 self._check_breakdown(symbol, "月线", "1mo", processed.get('1mo'), realtime_price, alerts)
                 self._check_breakdown(symbol, "季线", "3mo", processed.get('3mo'), realtime_price, alerts)
 
-                daily_df = processed.get('1d')
-                v_supp_blue = v_supp_yellow = False
-                if daily_df is not None:
-                    v_supp_blue = self._validate_support(daily_df, 'DW1', 'UP1')
-                    v_supp_yellow = self._validate_support(daily_df, 'DW2', 'UP2')
-                is_valid_support_any = v_supp_blue or v_supp_yellow
-
-                # 大级别单点（实时信号，带周期去重）—— 已经通过 buy/sell 过滤
+                # 支撑/压力窗口（不受严格新鲜度影响，使用原始 signals 中的小周期信号）
+                self._check_window(symbol, processed, ladders, signals, alerts)
+                self._check_resonance(symbol, alerts)
+                
+                # 大级别单点（实时信号，带周期去重）
                 for tf in ['4h', '1d', '1wk', '1mo', '3mo']:
                     if signals.get(tf, {}).get('buy'):
                         period_key = get_period_key(symbol, "大级别单点", "抄底", tf)
@@ -513,10 +511,6 @@ class StrategyAnalyzer:
                         if period_key not in state.sent_cache:
                             price = ladders.get(tf, {}).get('close', realtime_price)
                             alerts.append(self._make_alert(symbol, "大级别单点", "卖出", price, tf, 'macro_sell', period_key))
-
-                # 支撑/压力窗口（不受严格新鲜度影响，使用原始 signals 中的小周期信号）
-                self._check_window(symbol, processed, ladders, signals, alerts)
-                self._check_resonance(symbol, alerts)
 
             except Exception:
                 continue
@@ -533,6 +527,8 @@ class StrategyAnalyzer:
         u = hist[up_col].values
         d = hist[dw_col].values
         for i in range(len(hist)-1, -1, -1):
+            if pd.isna(u[i]) or pd.isna(d[i]):
+                return False
             if c[i] > u[i]:
                 if i == len(hist)-1:
                     return True
@@ -549,6 +545,8 @@ class StrategyAnalyzer:
         u = hist[up_col].values
         d = hist[dw_col].values
         for i in range(len(hist)-1, -1, -1):
+            if pd.isna(u[i]) or pd.isna(d[i]):
+                return False
             if c[i] < d[i]:
                 if i == len(hist)-1:
                     return True
@@ -611,9 +609,9 @@ class StrategyAnalyzer:
                             alerts.append(self._make_alert(symbol, f"压力窗口({name}黄)", "卖出", price, s_tf, 'win_res', period_key))
 
     def _record_signal(self, symbol, type_, tf):
-        now = datetime.datetime.now(US_TZ)
+        now = datetime.datetime.now(HK_TZ)
         state.signal_history.append({'time': now, 'symbol': symbol, 'type': type_, 'tf': tf})
-        cutoff = now - datetime.timedelta(hours=1)
+        cutoff = now - datetime.timedelta(hours=4)
         state.signal_history = [x for x in state.signal_history if x['time'] > cutoff]
 
     def _check_resonance(self, symbol, alerts):
@@ -655,7 +653,7 @@ class StrategyAnalyzer:
 
     def _make_alert(self, symbol, strategy, direction, price, tf, icon_key, period_key=None):
         return {
-            'time': datetime.datetime.now(US_TZ).strftime('%Y-%m-%d %H:%M:%S'),
+            'time': datetime.datetime.now(HK_TZ).strftime('%Y-%m-%d %H:%M:%S'),
             'symbol': symbol,
             'strategy': strategy,
             'direction': direction,
@@ -693,11 +691,11 @@ def send_discord_alerts(alerts):
 def background_task():
     dm = DataManager()
     sa = StrategyAnalyzer()
-    log("🔵 US Monitor Start (大级别单点严格新鲜度，支撑窗口保留T,T+1)")
+    log("🔵 HK Monitor Start (大级别单点严格新鲜度，支撑窗口保留T,T+1)")
     while True:
         try:
             if dm.is_market_open():
-                state.last_scan_time = datetime.datetime.now(US_TZ).strftime('%Y-%m-%d %H:%M:%S')
+                state.last_scan_time = datetime.datetime.now(HK_TZ).strftime('%Y-%m-%d %H:%M:%S')
                 if state.force_run_once:
                     log("⚡ Force Run...")
                 else:
@@ -727,8 +725,8 @@ def get_dash():
     status = f"St: {state.status} | {state.progress} | Dat: {state.data_health} | Upd: {state.last_scan_time}"
     return status, "\n".join(list(state.logs)), df
 
-with gr.Blocks(title="US Quant Pro") as demo:
-    gr.Markdown("# 🇺🇸 美股量化 (大级别单点严格新鲜度)")
+with gr.Blocks(title="HK Quant Pro") as demo:
+    gr.Markdown("# 🇭🇰 港股量化 (大级别单点严格新鲜度)")
     status_box = gr.Textbox(label="Status", interactive=False)
     with gr.Row():
         log_box = gr.TextArea(label="Logs", lines=20, max_lines=20, interactive=False)

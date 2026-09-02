@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <!-- 모바일 화면 반응형 대응을 위한 뷰포트 설정 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>엄마와 함께한 추억</title>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 40px; 
+            overflow-x: hidden; 
+            color: #222222; 
+            font-family: 'Malgun Gothic', sans-serif; 
+            text-align: center; 
+            box-sizing: border-box;
+        }
+        .video-background { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -999; }
+        body::before { content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(255, 255, 255, 0.2); z-index: -998; }
+        
+        h1 { 
+            font-size: 13.5rem; 
+            margin-bottom: 10px; 
+            display: inline-block; 
+            color: #1a202c; 
+            text-shadow: 2px 2px 10px rgba(255, 255, 255, 0.8); 
+        }
+        h1 .part-1 { opacity: 0; animation: fadeInOut1 9s infinite; }
+        h1 .part-2 { opacity: 0; animation: fadeInOut2 9s infinite; }
+        h1 .part-3 { opacity: 0; animation: fadeInOut3 9s infinite; }
+        @keyframes fadeInOut1 { 0%, 22.22% { opacity: 0; } 22.23%, 99.99% { opacity: 1; } 100% { opacity: 0; } }
+        @keyframes fadeInOut2 { 0%, 44.44% { opacity: 0; } 44.45%, 99.99% { opacity: 1; } 100% { opacity: 0; } }
+        @keyframes fadeInOut3 { 0%, 66.66% { opacity: 0; } 66.67%, 99.99% { opacity: 1; } 100% { opacity: 0; } }
+        
+        .subtitle { 
+            font-size: 6.17rem; 
+            color: #4a5568; 
+            margin-bottom: 30px; 
+            animation: blinkEffect 6s infinite; 
+            text-shadow: 1px 1px 5px rgba(255, 255, 255, 0.8); 
+        }
+        @keyframes blinkEffect { 0%, 83.33% { opacity: 1; } 83.34%, 100% { opacity: 0; } }
+        
+        .guide-text { 
+            font-size: 2.77rem; 
+            color: #c05621; 
+            margin-bottom: 60px; 
+            font-weight: bold; 
+            text-shadow: 1px 1px 4px rgba(255, 255, 255, 0.9); 
+        }
+        
+        .nav-buttons { 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            gap: 24px; 
+            margin-bottom: 70px; 
+        }
+        .nav-btn { 
+            background-color: rgba(255, 255, 255, 0.9); 
+            color: #2d3748; 
+            border: 2px solid #cbd5e0; 
+            padding: 15.82px 27.64px; 
+            font-size: 3.75rem; 
+            font-weight: bold; 
+            border-radius: 16px; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            text-decoration: none; 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            box-shadow: 0 8px 12px rgba(0,0,0,0.1); 
+        }
+        .nav-btn:hover, .nav-btn.active { 
+            background-color: #3182ce; 
+            color: #ffffff; 
+            border-color: #3182ce; 
+        }
+        .youtube-link-btn { 
+            background-color: rgba(254, 215, 215, 0.9); 
+            border-color: #feb2b2; 
+            color: #9b2c2c; 
+            gap: 20px; 
+            line-height: 1.2; 
+        }
+        
+        .sliders-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 80px; 
+            max-width: 3400px; 
+            margin: 0 auto; 
+            justify-items: center; 
+        }
+        .slider-card { 
+            background: rgba(255, 255, 255, 0.9); 
+            border: 2px solid #e2e8f0; 
+            border-radius: 30px; 
+            padding: 60px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15); 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            width: 100%; 
+            backdrop-filter: blur(10px); 
+            transition: transform 0.5s ease; 
+            box-sizing: border-box;
+        }
+        .slider-card.zoomed-card { 
+            transform: scale(2.5); 
+            z-index: 100; 
+            background: rgba(255, 255, 255, 0.98); 
+        }
+        .slider-card.hidden { display: none; }
+        
+        .slider-title { 
+            font-size: 4.4rem; 
+            font-weight: bold; 
+            margin-bottom: 40px; 
+            color: #e53e3e; 
+        }
+        .slide-container { 
+            position: relative; 
+            width: 100%; 
+            height: 700px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            border-radius: 20px; 
+            overflow: hidden; 
+            background-color: #1a202c; 
+            cursor: pointer; 
+            transition: height 0.3s ease; 
+        }
+        .slide-image { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+            display: none; 
+            border-radius: 20px; 
+        }
+        .slide-image.active { display: block; }
+        
+        .slide-caption { 
+            position: absolute; 
+            bottom: 30px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            color: #ffffff; 
+            font-size: 3rem; 
+            font-weight: 900; 
+            text-shadow: 3px 3px 12px rgba(0, 0, 0, 0.9); 
+            background: rgba(0, 0, 0, 0.75); 
+            padding: 20px 40px; 
+            border-radius: 12px; 
+            width: 85%; 
+            z-index: 10; 
+            box-sizing: border-box;
+        }
+        .slide-info-bar { 
+            margin-top: 36px; 
+            font-size: 3.2rem; 
+            color: #2d3748; 
+            font-weight: bold; 
+            text-align: center; 
+            width: 100%; 
+        }
+        
+        .sliders-grid.single-mode { display: block; max-width: 2400px; }
+        .sliders-grid.single-mode .slide-container { height: 2000px; }
+
+        /* =========================================
+           모바일 반응형 스타일 (화면 너비 768px 이하)
+           ========================================= */
+        @media screen and (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 3.2rem;
+            }
+
+            .subtitle {
+                font-size: 1.5rem;
+                margin-bottom: 20px;
+            }
+
+            .guide-text {
+                font-size: 1.1rem;
+                margin-bottom: 30px;
+                padding: 0 10px;
+            }
+
+            .nav-buttons {
+                gap: 10px;
+                margin-bottom: 40px;
+            }
+
+            .nav-btn {
+                font-size: 1.2rem;
+                padding: 10px 18px;
+                border-radius: 10px;
+            }
+
+            /* 모바일에서는 그리드를 한 줄로 변경 */
+            .sliders-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+                max-width: 100%;
+            }
+
+            .slider-card {
+                padding: 20px;
+                border-radius: 20px;
+            }
+
+            .slider-title {
+                font-size: 2rem;
+                margin-bottom: 20px;
+            }
+
+            /* 모바일에서 슬라이더 높이를 화면에 맞게 축소 */
+            .slide-container {
+                height: 350px !important;
+            }
+
+            .sliders-grid.single-mode .slide-container {
+                height: 380px !important;
+            }
+
+            /* 모바일에서는 과도한 확대(scale 2.5) 방지 (화면 밖으로 나감 방지) */
+            .slider-card.zoomed-card {
+                transform: scale(1.05);
+            }
+
+            .slide-caption {
+                font-size: 1rem;
+                padding: 10px 15px;
+                bottom: 15px;
+                width: 90%;
+            }
+
+            .slide-info-bar {
+                font-size: 1.2rem;
+                margin-top: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <video autoplay muted loop playsinline class="video-background">
+        <source src="static/13407753_3840_2160_60fps.mp4" type="video/mp4">
+    </video>
+    <h1><span class="part-1">엄마</span><span class="part-2">엄마</span><span class="part-3">우리엄마</span></h1>
+    <div class="subtitle">"시간이 흘러도 지워지지 않는 그리운 엄마의 흔적..."</div>
+    <div class="guide-text">사진을 클릭하시면 전체 박스가 5초간 확대됩니다.</div>
+    <div class="nav-buttons" id="nav-buttons-container">
+        <button class="nav-btn active" onclick="filterSliders('all', event)">전체보기</button>
+        <a href="https://youtu.be/oSK2mFVrO_8?si=GsNvoy0HZ6Rt5xzQ" target="_blank" class="nav-btn youtube-link-btn">
+            <span style="text-align: center; display: inline-block;">우리엄마는<br>유튜브스타</span>
+            <span style="font-size: 2.8rem;">➔</span>
+        </a>
+    </div>
+    <div class="sliders-grid" id="sliders-container"></div>
+    <script>
+        const photosData = {
+            "고복저수지": { name: "고복저수지", caption: "고복저수지에서의 평온한 풍경", images: ["20190812_182214_HDR.jpg", "20190812_182226_HDR.jpg", "20190812_182229_HDR.jpg", "20190812_182641_HDR.jpg", "20190812_182656_HDR.jpg"] },
+            "고성여행": { name: "고성여행", caption: "푸른 바다와 함께한 고성 여행", images: ["20190427_100919.jpg", "20190427_100922.jpg", "20190427_100923.jpg", "20190427_100955.jpg", "20190427_100959.jpg", "20190427_122137.jpg", "20190427_122143.jpg", "20190427_122154.jpg", "20190427_122311.jpg", "20190427_125318.jpg", "20190428-1.jpg", "20190428-2.jpg", "20190428-3.jpg", "20190428-4.jpg", "20190428-5.jpg", "20190428-6.jpg"] },
+            "부산여행": { name: "부산여행", caption: "부산에서 보낸 따뜻한 시간", images: ["20200804_163148.jpg", "20200804_163152.jpg", "20200804_163155.jpg", "20200804_163158.jpg", "20200805_113242.jpg", "20200805_113246.jpg", "20200805_113256.jpg"] },
+            "새만금": { name: "새만금", caption: "탁 트인 새만금 방조제를 달리며", images: ["20190729_193754.jpg", "20190729_193808.jpg", "20190729_195303.jpg", "20190729_195306.jpg"] },
+            "여수마지막여행": { name: "여수마지막여행", caption: "엄마와 마지막으로 함께한 여수여행", images: ["20260603_135905.jpg", "20260603_135918.jpg", "20260603_135919.jpg", "20260603_135943.jpg", "20260603_135945.jpg", "20260603_135946.jpg", "20260603_140807.jpg", "20260603_140814.jpg", "20260603_140817.jpg", "20260603_141240.jpg", "20260603_141322.jpg", "20260603_141324.jpg", "20260603_141418.jpg", "20260603_141809.jpg", "20260603_142040.jpg", "20260603_143153.jpg", "20260603_145753.jpg", "20260603_145800.jpg", "20260603_145825.jpg", "20260603_145827.jpg", "20260603_145833.jpg", "20260603_145835.jpg", "20260603_145836.jpg", "20260603_170755.jpg", "IMG-20260603-WA0020.jpg", "IMG-20260603-WA0021.jpg", "IMG-20260603-WA0022.jpg", "IMG-20260603-WA0023.jpg", "IMG-20260604-WA0000.jpg", "IMG-20260604-WA0001.jpg", "IMG-20260604-WA0002.jpg", "IMG-20260607-WA0000.jpg", "IMG-20260607-WA0001.jpg", "IMG-20260607-WA0002.jpg"] },
+            "외암민속마을": { name: "외암민속마을", caption: "고즈넉한 외암민속마을의 옛 정취", images: ["20250426_145213.jpg", "20250426_145216.jpg", "20250426_145237.jpg", "20250426_145466.jpg", "20250426_145313.jpg", "20250426_145316.jpg"] },
+            "제주도여행": { name: "제주도여행", caption: "아름다운 섬 제주에서의 기억", images: ["19910326_111928.jpg", "19910326_111929.jpg", "20180326_111928.jpg", "20180326_123638.jpg", "20180326_123727.jpg", "20180326_123728.jpg", "20180326_123728(1).jpg", "20180326_143412.jpg", "20180326_143414.jpg", "20180328_112309.jpg", "20180328_112315.jpg", "20180328_112332.jpg", "20180328_112337_HDR.jpg", "20180328_112338_HDR.jpg", "20180328_142037.jpg", "20180328_142040.jpg", "20181103_171847.jpg", "20181103_171853.jpg"] },
+            "탕정과시골": { name: "탕정과시골", caption: "마음이 편안해지는 탕정과 시골 풍경", images: ["20171004_173616.jpg", "20171004_173627.jpg", "20190706_194130.jpg", "20200329_170015.jpg", "20230929_132948.jpg", "20230929_132950.jpg", "20230929_132951.jpg", "20230929_132952.jpg", "20230929_132953.jpg", "20240815_133616.jpg", "20240815_133618.jpg", "20240815_133640.jpg", "20240821_145510.jpg", "20240821_145513.jpg", "20240821_145518.jpg", "20240821_145527.jpg", "20240821_175245.jpg", "20240821_175257.jpg"] },
+            "태우졸업식": { name: "태우졸업식", caption: "축하와 감동이 가득했던 태우 졸업식", images: ["20200131_115213.jpg", "20200131_115214.jpg", "20200131_115215.jpg", "20200131_115216.jpg"] }
+        };
+
+        window.onload = function() {
+            const container = document.getElementById('sliders-container');
+            const nav = document.getElementById('nav-buttons-container');
+            for (let key in photosData) {
+                const folder = photosData[key];
+                const btn = document.createElement('button');
+                btn.className = 'nav-btn';
+                btn.innerText = folder.name;
+                btn.onclick = (e) => filterSliders(key, e);
+                nav.appendChild(btn);
+
+                let imagesHtml = folder.images.map((img, i) => `<img src="photos/${key}/${encodeURIComponent(img)}" class="slide-image ${i===0?'active':''}">`).join('');
+                container.innerHTML += `<div class="slider-card" id="card-${key}"><div class="slider-title">${folder.name}</div><div class="slide-container" onclick="pauseSlider('${key}')">${imagesHtml}<div class="slide-caption">${folder.caption}</div></div><div class="slide-info-bar">사진 (1 / ${folder.images.length})</div></div>`;
+                if (folder.images.length > 1) startSlider(key, folder.images);
+            }
+        };
+
+        function startSlider(key, imgs) {
+            let idx = 0;
+            setInterval(() => {
+                if (activeTimers[key]?.isPaused) return;
+                const card = document.getElementById(`card-${key}`);
+                const images = card.querySelectorAll('.slide-image');
+                images[idx].classList.remove('active');
+                idx = (idx + 1) % imgs.length;
+                images[idx].classList.add('active');
+                card.querySelector('.slide-info-bar').innerText = `사진 (${idx + 1} / ${imgs.length})`;
+            }, 3000);
+        }
+        let activeTimers = {};
+        function pauseSlider(key) {
+            activeTimers[key] = { isPaused: true };
+            const card = document.getElementById(`card-${key}`);
+            card.classList.add('zoomed-card');
+            setTimeout(() => { 
+                card.classList.remove('zoomed-card'); 
+                activeTimers[key].isPaused = false; 
+            }, 5000);
+        }
+        function filterSliders(key, e) {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            if(e && e.target) e.target.closest('.nav-btn').classList.add('active');
+            const grid = document.getElementById('sliders-container');
+            grid.classList.toggle('single-mode', key !== 'all');
+            document.querySelectorAll('.slider-card').forEach(c => c.classList.toggle('hidden', key !== 'all' && c.id !== `card-${key}`));
+        }
+    </script>
+</body>
+</html>

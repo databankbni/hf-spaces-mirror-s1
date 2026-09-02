@@ -311,6 +311,12 @@ UNIT_RECONCILER_YEAR_OVERRIDES: dict[tuple[str, int], int] = {
     # 2022-24 TA cluster; the M-scale 2016-21 years look genuine). Likely real
     # fixes, pending analyst confirm: ×1000 on 2023+2024 (whole-year shrink:
     # Rev ₾14K/₾18K, TA ₾37K), 2022 is row-level (Rev ₾15.98M OK, TA ₾42K off).
+    #   UPDATE 2026-08-06: the RMS Auditors file CONFIRMS all three claims to the
+    #   unit (FY2023 Income 14,062,000 / Assets 36,979,000 vs panel 14,062/36,979;
+    #   FY2024 18,289,000 / 37,876,000 vs 18,289/37,876 — on BOTH filing bases).
+    #   The pending entries are staged (commented, inert) in the STAGED block at
+    #   the end of this dict; FY2022's row-level set is in the ROW dict's STAGED
+    #   block. Evidence: docs/reviews/2026-08-06-rms-unit-triage.md.
     ("404537809", 2022): 1000,  # ბკ ქონსთრაქშენი — 888x shrink ** (pair 989x)
     ("404537809", 2023): 1000,  # ბკ ქონსთრაქშენი — 1100x shrink **
     ("405406109", 2023): 1000,  # მოსავლის მართვის კომპანია — 773x shrink **
@@ -336,6 +342,52 @@ UNIT_RECONCILER_YEAR_OVERRIDES: dict[tuple[str, int], int] = {
     # for the ROW_OVERRIDES tier. See docs/reviews/triage-revenue-matrix.md.
     ("205049197", 2017): 1,     # სანტა-ტრანსი — TA ₾1.50B vs ~₾1.3M peers (Rev/EBITDA are 0)
     ("225384312", 2017): 1,     # აუტო ვეი — TA ₾8.71B vs ~₾1.9M peers (Rev/EBITDA are 0)
+
+    # ======================================================================
+    # STAGED — NOT ACTIVE. RMS unit-triage batch, 2026-08-06.
+    # ----------------------------------------------------------------------
+    # These lines are deliberately COMMENTED OUT. This dict has no "pending"
+    # tier — every live key here is honoured by `rebuild_db.py all`, so an
+    # un-reviewed entry would apply itself on the next rebuild. That is exactly
+    # what CLAUDE.md hard constraint #6 forbids. Un-commenting a line IS the
+    # act of approval.
+    #
+    # Source: `python scripts/build_auditors.py --check-units` →
+    #   docs/reviews/2026-08-05-rms-units-check-current-db.txt (37 hits
+    #   corroborated on both Revenue and TotalAssets), triaged in
+    #   docs/reviews/2026-08-06-rms-unit-triage.md.
+    #
+    # Direction (constraint #6): all of these are the DB being ×1000 too
+    # SMALL → target 1000. Verified on ≥2 independent signals each — the RMS
+    # Income/Assets tie plus own-history continuity plus a wage-per-head
+    # check (|Personnel expense| / RMS Employees, which lands under ₾30 per
+    # employee per YEAR at the stored scale and in the ₾13–26K range at ×1000).
+    # 26 of the 37 hits look like "the DB is ×1000 too LARGE" and are NOT —
+    # they are the RMS row presented in thousands. Do not add ×1 entries for
+    # them; see §2 of the triage doc.
+    #
+    # ⚠ GATE: `apply_year_overrides.py` skips ("already_applied") any entry
+    # whose year sits within ~500× of the company's other-year TA median.
+    #   * 400013873 passes ONLY if 2019+2020+2021 are staged together.
+    #   * 206268741 and 404582055 are gate-skipped at this tier no matter what
+    #     (their TA grew ~5× mid-series) and this script has no --force-entry,
+    #     so they are staged in the ROW dict instead.
+    #
+    # ("236035517", 2023): 1000,  # რეგიონული ჯანდაცვის ცენტრი — RMS 14,062,000/36,979,000 vs panel 14,062/36,979 (exact, both bases)
+    # ("236035517", 2024): 1000,  # ditto — RMS 18,289,000/37,876,000 vs panel 18,289/37,876
+    # ("400013873", 2019): 1000,  # სოფთ გრუპ — cluster companion (continuity only); REQUIRED or FY2021 is gate-skipped
+    # ("400013873", 2020): 1000,  # ditto — matrix '*' entry "TA'20 3K vs med 2.20M"
+    # ("400013873", 2021): 1000,  # ditto — RMS 5,280,442/3,230,759 vs panel 5,205/3,231
+    # ("405116422", 2019): 1000,  # კომფორტი — cluster companion (continuity only)
+    # ("405116422", 2020): 1000,  # ditto — matrix '*' entry "TA'20 4K vs med 3.18M"
+    # ("405116422", 2021): 1000,  # ditto — RMS 7,529,519/4,408,065 vs panel 7,523/4,411
+    #
+    # NOT staged — 405127937 (დომუს - ვაკის პარკი) and 405356305 (ჯი ენ ერ
+    # მენეჯმენტი) are whole-COMPANY mistags: every filed year is K-scale, so
+    # continuity has no anchor and only UNIT_RECONCILER_COMPANY_OVERRIDES could
+    # express the fix — a tier with NO sanity gate at all. Resolve from the
+    # filed PDF first (report_pdf_links has both). Triage doc §5.
+    # ======================================================================
 }
 
 
@@ -843,6 +895,254 @@ UNIT_RECONCILER_ROW_OVERRIDES: dict[tuple[str, int, str], int] = {
     ("404392082", 2021, "Total current liabilities"): 1000,  # BS 15,897 -> 15,897,000
     ("404392082", 2022, "Total Liabilities"): 1000,  # BS 23,420 -> 23,420,000 (= A-E)
     ("404392082", 2022, "Total current liabilities"): 1000,  # BS 23,420 -> 23,420,000
+    # ======================================================================
+    # STAGED — NOT ACTIVE. RMS unit-triage batch, 2026-08-06.
+    # ----------------------------------------------------------------------
+    # Deliberately COMMENTED OUT. Every live key in this dict is honoured by
+    # `rebuild_db.py all`, so an un-reviewed entry would apply itself on the
+    # next rebuild — CLAUDE.md hard constraint #6. Un-commenting IS approval.
+    # Full evidence: docs/reviews/2026-08-06-rms-unit-triage.md.
+    #
+    # All three blocks are the DB ×1000 too SMALL → target 1000. Each is
+    # backed by >=2 independent signals (RMS Income/Assets tie + own-history
+    # continuity, or a closed roll-up identity). They live at the ROW tier
+    # rather than the YEAR tier for the reasons stated per block.
+    # ======================================================================
+
+    # ---- სს ლილო 1 (206268741) FY2023 + FY2024 — whole-year shrink, ROW tier ----
+    # The year is unit-CLEAN (0 rows already on scale), so a YEAR override
+    # would be correct in principle — but `apply_year_overrides.py` GATE-SKIPS
+    # it and has no --force-entry escape. The company's TA jumped ₾13.6M
+    # (FY2020) → ₾70.5M (FY2021), so the all-year TA median sits ₾13.9M and
+    # the shrunk year reads only ~190× below it, under the 500× gate. The ROW
+    # tier compares each line against ITS OWN other-year median (~1000× off)
+    # and passes, and it has --force-entry if any single line still gates out.
+    # PROOF: RMS ties EXACTLY at ×1000 on both metrics, both years —
+    #   FY2023 Income 11,143,000 / Assets 73,068,000 vs panel 11,143 / 73,068
+    #   FY2024 Income 11,201,000 / Assets 81,239,000 vs panel 11,201 / 81,239
+    # plus FY2022 is on-scale (Rev ₾9.67M, TA ₾70.41M, RMS ties 1:1), plus
+    # |Personnel expense| / RMS Employees = ₾26 per employee per YEAR at the
+    # stored scale (impossible) → ₾25.8K/₾26.2K at ×1000 (normal).
+    # -- FY2023 --
+    # ('206268741', 2023, 'Cash advances made to other parties'): 1000,  # BS_Assets 178 -> 178,000
+    # ('206268741', 2023, 'Cash and Cash Equivalents'): 1000,  # BS_Assets 2,554 -> 2,554,000
+    # ('206268741', 2023, 'Current Inventory'): 1000,  # BS_Assets 55 -> 55,000
+    # ('206268741', 2023, 'Investment Property'): 1000,  # BS_Assets 67,220 -> 67,220,000
+    # ('206268741', 2023, 'Other intangible assets'): 1000,  # BS_Assets 111 -> 111,000
+    # ('206268741', 2023, 'Property, Plant and Equipment'): 1000,  # BS_Assets 1,697 -> 1,697,000
+    # ('206268741', 2023, 'Revaluation reserve of property, plant and equipment'): 1000,  # BS_Assets -1 -> -1,000
+    # ('206268741', 2023, 'Total Assets'): 1000,  # BS_Assets 73,068 -> 73,068,000
+    # ('206268741', 2023, 'Total current assets'): 1000,  # BS_Assets 4,040 -> 4,040,000
+    # ('206268741', 2023, 'Trade Receivables'): 1000,  # BS_Assets 1,253 -> 1,253,000
+    # ('206268741', 2023, 'Property, plant and equipment revaluation reserve'): 1000,  # BS_Equity 128 -> 128,000
+    # ('206268741', 2023, 'Retained earnings / (Accumulated deficit)'): 1000,  # BS_Equity 35,836 -> 35,836,000
+    # ('206268741', 2023, 'Share capital (in case of Limited Liability Company - "capital", in case of cooperative entity - "unit capital"'): 1000,  # BS_Equity 19,836 -> 19,836,000
+    # ('206268741', 2023, 'Total Equity'): 1000,  # BS_Equity 55,800 -> 55,800,000
+    # ('206268741', 2023, 'Current Borrowings'): 1000,  # BS_Liabilities 2,766 -> 2,766,000
+    # ('206268741', 2023, 'Finance lease payable'): 1000,  # BS_Liabilities 831 -> 831,000
+    # ('206268741', 2023, 'Non current borrowings'): 1000,  # BS_Liabilities 13,390 -> 13,390,000
+    # ('206268741', 2023, 'Other current liabilities'): 1000,  # BS_Liabilities 52 -> 52,000
+    # ('206268741', 2023, 'Total Liabilities'): 1000,  # BS_Liabilities 17,268 -> 17,268,000
+    # ('206268741', 2023, 'Total Liabilities and Equity'): 1000,  # BS_Liabilities 73,068 -> 73,068,000
+    # ('206268741', 2023, 'Total current liabilities'): 1000,  # BS_Liabilities 3,047 -> 3,047,000
+    # ('206268741', 2023, 'Trade payables'): 1000,  # BS_Liabilities 229 -> 229,000
+    # ('206268741', 2023, 'Cash at the beginning of the year'): 1000,  # CF 758 -> 758,000
+    # ('206268741', 2023, 'Cash at the end of the year'): 1000,  # CF 2,554 -> 2,554,000
+    # ('206268741', 2023, 'Net Cash from Operating Activities'): 1000,  # CF 5,124 -> 5,124,000
+    # ('206268741', 2023, 'Net cash inflow for the year'): 1000,  # CF 1,796 -> 1,796,000
+    # ('206268741', 2023, 'Net cash raised in financing activities'): 1000,  # CF -1,835 -> -1,835,000
+    # ('206268741', 2023, 'Net cash used in investing activities'): 1000,  # CF -1,493 -> -1,493,000
+    # ('206268741', 2023, 'Auditors remuneration'): 1000,  # IS -14 -> -14,000
+    # ('206268741', 2023, 'Consultancy fee'): 1000,  # IS -170 -> -170,000
+    # ('206268741', 2023, 'Cost of Goods Sold'): 1000,  # IS -1,475 -> -1,475,000
+    # ('206268741', 2023, 'Depreciation and amortisation'): 1000,  # IS -299 -> -299,000
+    # ('206268741', 2023, 'Gross Profit'): 1000,  # IS 9,668 -> 9,668,000
+    # ('206268741', 2023, 'Interest Expense'): 1000,  # IS -2,293 -> -2,293,000
+    # ('206268741', 2023, 'Net Gains/(losses) from revaluation and disposal of investment properties'): 1000,  # IS -436 -> -436,000
+    # ('206268741', 2023, 'Net Revenue'): 1000,  # IS 11,143 -> 11,143,000
+    # ('206268741', 2023, 'Net gain (loss) from foreign exchange operations'): 1000,  # IS -3 -> -3,000
+    # ('206268741', 2023, 'Operating income'): 1000,  # IS 6,343 -> 6,343,000
+    # ('206268741', 2023, 'Other administrative and operating expenses'): 1000,  # IS -650 -> -650,000
+    # ('206268741', 2023, 'Other financial income'): 1000,  # IS 107 -> 107,000
+    # ('206268741', 2023, 'Other income'): 1000,  # IS -20 -> -20,000
+    # ('206268741', 2023, 'Personnel expense'): 1000,  # IS -1,728 -> -1,728,000
+    # ('206268741', 2023, 'Profit/(loss)'): 1000,  # IS 3,698 -> 3,698,000
+    # ('206268741', 2023, 'Profit/(loss) before tax from continuing operations'): 1000,  # IS 3,698 -> 3,698,000
+    # ('206268741', 2023, 'Profit/(loss) from continuing operations'): 1000,  # IS 3,698 -> 3,698,000
+    # ('206268741', 2023, 'Rental expenses'): 1000,  # IS -116 -> -116,000
+    # ('206268741', 2023, 'Taxes other than on income'): 1000,  # IS -348 -> -348,000
+    # ('206268741', 2023, 'Total Comprehensive Income / (Loss)'): 1000,  # IS 3,697 -> 3,697,000
+    # ('206268741', 2023, 'Total other comprehensive (loss) income'): 1000,  # IS -1 -> -1,000
+    # -- FY2024 --
+    # ('206268741', 2024, 'Cash advances made to other parties'): 1000,  # BS_Assets 3,521 -> 3,521,000
+    # ('206268741', 2024, 'Cash and Cash Equivalents'): 1000,  # BS_Assets 3,194 -> 3,194,000
+    # ('206268741', 2024, 'Current Inventory'): 1000,  # BS_Assets 41 -> 41,000
+    # ('206268741', 2024, 'Investment Property'): 1000,  # BS_Assets 71,102 -> 71,102,000
+    # ('206268741', 2024, 'Other intangible assets'): 1000,  # BS_Assets 85 -> 85,000
+    # ('206268741', 2024, 'Property, Plant and Equipment'): 1000,  # BS_Assets 2,007 -> 2,007,000
+    # ('206268741', 2024, 'Revaluation reserve of property, plant and equipment'): 1000,  # BS_Assets 7 -> 7,000
+    # ('206268741', 2024, 'Total Assets'): 1000,  # BS_Assets 81,239 -> 81,239,000
+    # ('206268741', 2024, 'Total current assets'): 1000,  # BS_Assets 8,045 -> 8,045,000
+    # ('206268741', 2024, 'Trade Receivables'): 1000,  # BS_Assets 1,289 -> 1,289,000
+    # ('206268741', 2024, 'Property, plant and equipment revaluation reserve'): 1000,  # BS_Equity 129 -> 129,000
+    # ('206268741', 2024, 'Retained earnings / (Accumulated deficit)'): 1000,  # BS_Equity 41,960 -> 41,960,000
+    # ('206268741', 2024, 'Share capital (in case of Limited Liability Company - "capital", in case of cooperative entity - "unit capital"'): 1000,  # BS_Equity 19,836 -> 19,836,000
+    # ('206268741', 2024, 'Total Equity'): 1000,  # BS_Equity 61,925 -> 61,925,000
+    # ('206268741', 2024, 'Current Borrowings'): 1000,  # BS_Liabilities 2,070 -> 2,070,000
+    # ('206268741', 2024, 'Finance lease payable'): 1000,  # BS_Liabilities 775 -> 775,000
+    # ('206268741', 2024, 'Non current borrowings'): 1000,  # BS_Liabilities 15,753 -> 15,753,000
+    # ('206268741', 2024, 'Other current liabilities'): 1000,  # BS_Liabilities 345 -> 345,000
+    # ('206268741', 2024, 'Total Liabilities'): 1000,  # BS_Liabilities 19,314 -> 19,314,000
+    # ('206268741', 2024, 'Total Liabilities and Equity'): 1000,  # BS_Liabilities 81,239 -> 81,239,000
+    # ('206268741', 2024, 'Total current liabilities'): 1000,  # BS_Liabilities 2,786 -> 2,786,000
+    # ('206268741', 2024, 'Trade payables'): 1000,  # BS_Liabilities 371 -> 371,000
+    # ('206268741', 2024, 'Cash at the beginning of the year'): 1000,  # CF 2,554 -> 2,554,000
+    # ('206268741', 2024, 'Cash at the end of the year'): 1000,  # CF 3,194 -> 3,194,000
+    # ('206268741', 2024, 'Effect of exchange rate changes on cash and cash equivalents'): 1000,  # CF 8 -> 8,000
+    # ('206268741', 2024, 'Net Cash from Operating Activities'): 1000,  # CF 1,911 -> 1,911,000
+    # ('206268741', 2024, 'Net cash inflow for the year'): 1000,  # CF 632 -> 632,000
+    # ('206268741', 2024, 'Net cash raised in financing activities'): 1000,  # CF 1,131 -> 1,131,000
+    # ('206268741', 2024, 'Net cash used in investing activities'): 1000,  # CF -2,410 -> -2,410,000
+    # ('206268741', 2024, 'Auditors remuneration'): 1000,  # IS -14 -> -14,000
+    # ('206268741', 2024, 'Consultancy fee'): 1000,  # IS -194 -> -194,000
+    # ('206268741', 2024, 'Cost of Goods Sold'): 1000,  # IS -1,602 -> -1,602,000
+    # ('206268741', 2024, 'Depreciation and amortisation'): 1000,  # IS -266 -> -266,000
+    # ('206268741', 2024, 'Gross Profit'): 1000,  # IS 9,599 -> 9,599,000
+    # ('206268741', 2024, 'Interest Expense'): 1000,  # IS -1,714 -> -1,714,000
+    # ('206268741', 2024, 'Net Gains/(losses) from revaluation and disposal of investment properties'): 1000,  # IS 2,045 -> 2,045,000
+    # ('206268741', 2024, 'Net Revenue'): 1000,  # IS 11,201 -> 11,201,000
+    # ('206268741', 2024, 'Net gain (loss) from foreign exchange operations'): 1000,  # IS 7 -> 7,000
+    # ('206268741', 2024, 'Operating income'): 1000,  # IS 6,069 -> 6,069,000
+    # ('206268741', 2024, 'Other administrative and operating expenses'): 1000,  # IS -664 -> -664,000
+    # ('206268741', 2024, 'Other financial income'): 1000,  # IS 205 -> 205,000
+    # ('206268741', 2024, 'Other income'): 1000,  # IS 1 -> 1,000
+    # ('206268741', 2024, 'Personnel expense'): 1000,  # IS -1,726 -> -1,726,000
+    # ('206268741', 2024, 'Profit/(loss)'): 1000,  # IS 6,613 -> 6,613,000
+    # ('206268741', 2024, 'Profit/(loss) before tax from continuing operations'): 1000,  # IS 6,613 -> 6,613,000
+    # ('206268741', 2024, 'Profit/(loss) from continuing operations'): 1000,  # IS 6,613 -> 6,613,000
+    # ('206268741', 2024, 'Rental expenses'): 1000,  # IS -205 -> -205,000
+    # ('206268741', 2024, 'Taxes other than on income'): 1000,  # IS -461 -> -461,000
+    # ('206268741', 2024, 'Total Comprehensive Income / (Loss)'): 1000,  # IS 6,620 -> 6,620,000
+    # ('206268741', 2024, 'Total other comprehensive (loss) income'): 1000,  # IS 7 -> 7,000
+
+    # ---- რეგიონული ჯანდაცვის ცენტრი (236035517) FY2022 — inverse Bucket B ----
+    # NOT one of the 37 RMS hits (the RMS file has no FY2022 row for this
+    # company) but the best-proved case in the batch, entirely from our own
+    # data. The IS + CF block is on scale (Net Revenue ₾15,980,000, Personnel
+    # -₾14,445,000); the whole BS block is ×1000 short. The standing NOTE in
+    # UNIT_RECONCILER_YEAR_OVERRIDES already predicted this ("2022 is
+    # row-level (Rev ₾15.98M OK, TA ₾42K off)").
+    # PROOF 1 (cross-statement): CF "Cash at the end of the year" = 6,098,000
+    #   while BS "Cash and Cash Equivalents" = 6,098 — same figure, two
+    #   statements, exactly ×1000 apart.
+    # PROOF 2 (roll-ups close to the unit at the stored scale):
+    #   Total current assets 14,012 = Cash 6,098 + Inventory 5,127 + TR 2,787
+    #   TA 42,136 = current 14,012 + PP&E 28,114 + intangibles 10
+    #   TE 38,115 = Share capital 37,382 + Other Reserves 2,430 + RE (-1,697)
+    #   TA 42,136 = TL 4,021 + TE 38,115
+    # PROOF 3 (continuity): FY2021 TA ₾42,209,000; RMS FY2023 Assets
+    #   ₾36,979,000. Post-fix ₾42,136,000 lands between them.
+    # EXCLUDED: 'Changes in finished goods inventory and work in progress'
+    #   (-5,963,000) — an IS row mis-sectioned into BS_Assets by the
+    #   name-keyed taxonomy; it is ALREADY on the IS scale.
+    # ('236035517', 2022, 'Cash and Cash Equivalents'): 1000,  # BS_Assets 6,098 -> 6,098,000
+    #   EXCLUDED — DO NOT STAGE: ('236035517', 2022, 'Changes in finished goods inventory
+    #   and work in progress') is at -5,963,000, i.e. ALREADY on the IS scale (it is an IS
+    #   row mis-sectioned into BS_Assets). ×1000 would make it -₾5.963B.
+    # ('236035517', 2022, 'Current Inventory'): 1000,  # BS_Assets 5,127 -> 5,127,000
+    # ('236035517', 2022, 'Other intangible assets'): 1000,  # BS_Assets 10 -> 10,000
+    # ('236035517', 2022, 'Property, Plant and Equipment'): 1000,  # BS_Assets 28,114 -> 28,114,000
+    # ('236035517', 2022, 'Total Assets'): 1000,  # BS_Assets 42,136 -> 42,136,000
+    # ('236035517', 2022, 'Total current assets'): 1000,  # BS_Assets 14,012 -> 14,012,000
+    # ('236035517', 2022, 'Trade Receivables'): 1000,  # BS_Assets 2,787 -> 2,787,000
+    # ('236035517', 2022, 'Other Reserves'): 1000,  # BS_Equity 2,430 -> 2,430,000
+    # ('236035517', 2022, 'Retained earnings / (Accumulated deficit)'): 1000,  # BS_Equity -1,697 -> -1,697,000
+    # ('236035517', 2022, 'Share capital (in case of Limited Liability Company - "capital", in case of cooperative entity - "unit capital"'): 1000,  # BS_Equity 37,382 -> 37,382,000
+    # ('236035517', 2022, 'Total Equity'): 1000,  # BS_Equity 38,115 -> 38,115,000
+    # ('236035517', 2022, 'Total equity attributable to owners of parent'): 1000,  # BS_Equity 38,115 -> 38,115,000
+    # ('236035517', 2022, 'Other current liabilities'): 1000,  # BS_Liabilities 303 -> 303,000
+    # ('236035517', 2022, 'Post-employment benefits'): 1000,  # BS_Liabilities 1,884 -> 1,884,000
+    # ('236035517', 2022, 'Total Liabilities'): 1000,  # BS_Liabilities 4,021 -> 4,021,000
+    # ('236035517', 2022, 'Total Liabilities and Equity'): 1000,  # BS_Liabilities 42,136 -> 42,136,000
+    # ('236035517', 2022, 'Total current liabilities'): 1000,  # BS_Liabilities 4,022 -> 4,022,000
+    # ('236035517', 2022, 'Trade payables'): 1000,  # BS_Liabilities 1,834 -> 1,834,000
+
+    # ---- აჭარა.ქომ (404582055) FY2024 — MIXED-unit year, ROW tier mandatory ----
+    # 41 of 48 rows are ~500-2000× below their own other-year median; ONE row,
+    # 'Investments in Subsidiaries', is already on full-GEL scale at 701,000.
+    # It was 5,000 in every year FY2019-FY2023 (a literal ₾5,000 stake printed
+    # as "5" in a thousands column) — i.e. that single line kept its ×1000
+    # treatment in FY2024 while the other 47 lost it. A YEAR override would
+    # inflate it to ₾701M against a ₾57M balance sheet.
+    # PROOF it must be excluded — the asset roll-up closes EXACTLY without it:
+    #   TA 57,319 = current 27,779 + advances 23,580 + PP&E 4,314
+    #               + other non-current 1,324 + intangibles 322
+    # PROOF of direction: RMS FY2024 consolidated Assets 57,319,000 == panel
+    #   TA × 1000 EXACTLY; FY2023 is on scale (Rev ₾35.87M / TA ₾68.04M);
+    #   |Personnel| / 317 employees = ₾65 per employee per YEAR at the stored
+    #   scale → ₾64,896 at ×1000.
+    # PROOF the IS block moves as one — the PBT identity closes at the stored
+    #   scale: 3,046 + 287 + 206 - 2,008 - 11,507 = -9,976 = PBT.
+    # ALSO EXCLUDED (analyst call, immaterial): 'Loans and advances' (90) and
+    #   'Finance lease payable' (1,407) sit outside every roll-up identity and
+    #   have no same-line reference year. Everything metrics_panel reads is in
+    #   the staged set, so the panel-visible fix is complete either way.
+    # ('404582055', 2024, 'Cash advances made to other parties'): 1000,  # BS_Assets 23,580 -> 23,580,000
+    # ('404582055', 2024, 'Cash and Cash Equivalents'): 1000,  # BS_Assets 761 -> 761,000
+    # ('404582055', 2024, 'Current Inventory'): 1000,  # BS_Assets 65 -> 65,000
+    #   EXCLUDED: 'Investments in Subsidiaries' = 701,000
+    #   EXCLUDED: 'Loans and advances' = 90
+    # ('404582055', 2024, 'Other intangible assets'): 1000,  # BS_Assets 322 -> 322,000
+    # ('404582055', 2024, 'Other non current assets'): 1000,  # BS_Assets 1,324 -> 1,324,000
+    # ('404582055', 2024, 'Property, Plant and Equipment'): 1000,  # BS_Assets 4,314 -> 4,314,000
+    # ('404582055', 2024, 'Total Assets'): 1000,  # BS_Assets 57,319 -> 57,319,000
+    # ('404582055', 2024, 'Total current assets'): 1000,  # BS_Assets 27,779 -> 27,779,000
+    # ('404582055', 2024, 'Trade Receivables'): 1000,  # BS_Assets 26,863 -> 26,863,000
+    # ('404582055', 2024, 'Retained earnings / (Accumulated deficit)'): 1000,  # BS_Equity -66,834 -> -66,834,000
+    # ('404582055', 2024, 'Share capital (in case of Limited Liability Company - "capital", in case of cooperative entity - "unit capital"'): 1000,  # BS_Equity 104,697 -> 104,697,000
+    # ('404582055', 2024, 'Total Equity'): 1000,  # BS_Equity 37,863 -> 37,863,000
+    # ('404582055', 2024, 'Total equity attributable to owners of parent'): 1000,  # BS_Equity 37,863 -> 37,863,000
+    # ('404582055', 2024, 'Current Borrowings'): 1000,  # BS_Liabilities 11,052 -> 11,052,000
+    #   EXCLUDED: 'Finance lease payable' = 1,407
+    # ('404582055', 2024, 'Other current liabilities'): 1000,  # BS_Liabilities 452 -> 452,000
+    # ('404582055', 2024, 'Post-employment benefits'): 1000,  # BS_Liabilities 619 -> 619,000
+    # ('404582055', 2024, 'Total Liabilities'): 1000,  # BS_Liabilities 19,456 -> 19,456,000
+    # ('404582055', 2024, 'Total Liabilities and Equity'): 1000,  # BS_Liabilities 57,319 -> 57,319,000
+    # ('404582055', 2024, 'Total current liabilities'): 1000,  # BS_Liabilities 18,308 -> 18,308,000
+    # ('404582055', 2024, 'Trade payables'): 1000,  # BS_Liabilities 5,926 -> 5,926,000
+    # ('404582055', 2024, 'Cash at the beginning of the year'): 1000,  # CF 352 -> 352,000
+    # ('404582055', 2024, 'Cash at the end of the year'): 1000,  # CF 761 -> 761,000
+    # ('404582055', 2024, 'Effect of exchange rate changes on cash and cash equivalents'): 1000,  # CF -193 -> -193,000
+    # ('404582055', 2024, 'Net Cash from Operating Activities'): 1000,  # CF -5,510 -> -5,510,000
+    # ('404582055', 2024, 'Net cash inflow for the year'): 1000,  # CF 602 -> 602,000
+    # ('404582055', 2024, 'Net cash raised in financing activities'): 1000,  # CF 6,436 -> 6,436,000
+    # ('404582055', 2024, 'Net cash used in investing activities'): 1000,  # CF -324 -> -324,000
+    # ('404582055', 2024, 'Advertising and marketing expenses'): 1000,  # IS -5,429 -> -5,429,000
+    # ('404582055', 2024, 'Depreciation and amortisation'): 1000,  # IS -2,502 -> -2,502,000
+    # ('404582055', 2024, 'Gross Profit'): 1000,  # IS 39,797 -> 39,797,000
+    # ('404582055', 2024, 'Impairment (loss)/reversal of non- financial assets'): 1000,  # IS -11,507 -> -11,507,000
+    # ('404582055', 2024, 'Interest Expense'): 1000,  # IS -2,008 -> -2,008,000
+    # ('404582055', 2024, 'Net Revenue'): 1000,  # IS 39,797 -> 39,797,000
+    # ('404582055', 2024, 'Net gain (loss) from foreign exchange operations'): 1000,  # IS 287 -> 287,000
+    # ('404582055', 2024, 'Operating income'): 1000,  # IS 3,046 -> 3,046,000
+    # ('404582055', 2024, 'Other administrative and operating expenses'): 1000,  # IS -8,662 -> -8,662,000
+    # ('404582055', 2024, 'Other financial income'): 1000,  # IS 206 -> 206,000
+    # ('404582055', 2024, 'Other operating income'): 1000,  # IS 830 -> 830,000
+    # ('404582055', 2024, 'Owners of the parent'): 1000,  # IS -9,976 -> -9,976,000
+    # ('404582055', 2024, 'Personnel expense'): 1000,  # IS -20,572 -> -20,572,000
+    # ('404582055', 2024, 'Profit/(loss)'): 1000,  # IS -9,976 -> -9,976,000
+    # ('404582055', 2024, 'Profit/(loss) before tax from continuing operations'): 1000,  # IS -9,976 -> -9,976,000
+    # ('404582055', 2024, 'Profit/(loss) from continuing operations'): 1000,  # IS -9,976 -> -9,976,000
+    # ('404582055', 2024, 'Rental expenses'): 1000,  # IS -416 -> -416,000
+    # ('404582055', 2024, 'Total Comprehensive Income / (Loss)'): 1000,  # IS -9,976 -> -9,976,000
+
+    # ---- NOT staged ----
+    # 405127937 (დომუს - ვაკის პარკი) and 405356305 (ჯი ენ ერ მენეჯმენტი) are
+    # whole-COMPANY mistags — every filed year is K-scale, so continuity has no
+    # anchor and only UNIT_RECONCILER_COMPANY_OVERRIDES could express the fix,
+    # a tier with NO sanity gate. Resolve from the filed PDF first
+    # (report_pdf_links: GetFile/32606 and GetFile/30363). Triage doc §5.
+    # ======================================================================
 }
 
 

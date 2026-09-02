@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rocky Pest — Quote Generator</title>
+<style>
+  :root{
+    --red:#d60700;
+    --red-dark:#ad0200;
+    --red-deep:#790000;
+    --red-light:#ffdfe0;
+    --blue:#5593b5;
+    --blue-dark:#4987a9;
+    --ink:#333333;
+    --muted:#666666;
+    --line:#e0e0e0;
+    --bg:#f7f7f7;
+    --white:#ffffff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5;
+  }
+  .topbar{
+    background:linear-gradient(135deg,var(--red-deep),var(--red));
+    color:#fff;padding:18px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .topbar .logo{width:46px;height:46px;flex:0 0 46px;}
+  .topbar h1{font-size:20px;letter-spacing:.5px;}
+  .topbar p{font-size:12.5px;opacity:.9;}
+  .topbar .badge{
+    margin-left:auto;background:var(--blue);color:#fff;font-weight:700;
+    font-size:11px;padding:5px 10px;border-radius:999px;letter-spacing:.5px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:22px;display:grid;grid-template-columns:400px 1fr;gap:22px;}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr;}}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+  .card h2{font-size:15px;margin-bottom:14px;color:var(--red-deep);display:flex;align-items:center;gap:8px;}
+  .card h2 .step{background:var(--red);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:0 0 22px;}
+  label{display:block;font-size:12.5px;font-weight:600;color:#374151;margin:12px 0 5px;}
+  input,select,textarea{
+    width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:9px;font-size:14px;
+    background:#fff;color:var(--ink);font-family:inherit;
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--red);border-color:var(--red);}
+  .addons{margin-top:10px;}
+  .addon{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;margin-bottom:7px;background:#fafafa;cursor:pointer;font-size:13.5px;}
+  .addon:hover{border-color:var(--red);}
+  .addon input{width:16px;height:16px;accent-color:var(--red);flex:0 0 16px;}
+  .addon .price{margin-left:auto;color:var(--red);font-weight:700;}
+  .btn{
+    width:100%;padding:13px;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;
+    background:var(--red);color:#fff;margin-top:16px;
+  }
+  .btn:hover{background:var(--red-dark);}
+  .btn:active{transform:scale(.99);}
+  .btn.blue{background:var(--blue);color:#fff;margin-top:8px;}
+  .btn.blue:hover{background:var(--blue-dark);}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:10px;text-align:center;}
+  .quote-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;border-bottom:3px solid var(--red);padding-bottom:14px;}
+  .quote-head .brand{display:flex;align-items:center;gap:10px;}
+  .quote-head .brand svg{width:40px;height:40px;}
+  .quote-head .brand strong{font-size:19px;color:var(--red-deep);display:block;line-height:1.1;}
+  .quote-head .brand span{font-size:11.5px;color:var(--muted);}
+  .quote-meta{font-size:12.5px;color:#374151;text-align:right;}
+  .quote-meta b{display:block;font-size:15px;color:var(--ink);}
+  .quote-title{font-size:13px;letter-spacing:2px;color:var(--muted);font-weight:700;margin:18px 0 4px;}
+  .quote-title span{color:var(--red);}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px;}
+  th{background:var(--red-light);color:var(--red-deep);text-align:left;padding:9px 10px;font-size:12px;letter-spacing:.4px;}
+  td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  td.num,th.num{text-align:right;white-space:nowrap;}
+  tfoot td{border-bottom:none;padding:6px 10px;font-size:13.5px;}
+  tfoot .total-row td{font-size:16px;font-weight:800;color:var(--red-deep);}
+  .gst-note{font-size:11.5px;color:var(--muted);margin-top:6px;text-align:right;}
+  .notes{margin-top:16px;background:#fafafa;border:1px dashed #d1d5db;border-radius:10px;padding:12px;font-size:12.5px;color:#374151;}
+  .notes b{color:var(--red-deep);}
+  .quote-foot{margin-top:16px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap;gap:8px;}
+  .sig{font-family:Georgia,serif;font-style:italic;color:var(--red-deep);font-size:16px;}
+  .email-box{position:relative;}
+  .email-box textarea{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;min-height:170px;line-height:1.55;background:#fafafa;}
+  .copy-btn{
+    position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:7px;
+    font-size:12px;font-weight:700;padding:7px 12px;cursor:pointer;
+  }
+  .copy-btn:hover{background:var(--red-dark);}
+  .copy-btn.ok{background:var(--blue);color:#fff;}
+  .empty{color:var(--muted);text-align:center;padding:60px 20px;font-size:14px;}
+  .empty svg{width:60px;height:60px;opacity:.25;margin-bottom:10px;}
+  @media print{
+    body{background:#fff;}
+    .topbar,.form-col,.print-hide{display:none !important;}
+    .wrap{display:block;padding:0;max-width:100%;}
+    .card{border:none;box-shadow:none;padding:0;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+    <path d="M50 6 L90 22 V50 C90 72 73 88 50 95 C27 88 10 72 10 50 V22 Z" fill="#ffffff"/>
+    <path d="M50 14 L82 27 V50 C82 68 68 81 50 87 C32 81 18 68 18 50 V27 Z" fill="#d60700"/>
+    <path d="M33 42 L67 42 L67 52 L33 52 Z" fill="#ffffff"/>
+    <path d="M36 52 L42 52 L42 76 L36 76 Z M58 52 L64 52 L64 76 L58 76 Z" fill="#ffffff"/>
+    <path d="M50 52 L50 76" stroke="#790000" stroke-width="3"/>
+    <circle cx="50" cy="40" r="9" fill="#790000"/>
+    <line x1="42" y1="32" x2="58" y2="48" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  </svg>
+  <div>
+    <h1>ROCKY PEST</h1>
+    <p>Pest Control &amp; Management · Rockingham, WA</p>
+  </div>
+  <div class="badge">DEMO — REAL PRICE LIST</div>
+</div>
+
+<div class="wrap">
+  <div class="form-col">
+    <div class="card">
+      <h2><span class="step">1</span> Job details</h2>
+
+      <label>Client name</label>
+      <input id="client" type="text" placeholder="e.g. Sarah Mitchell" value="Sarah Mitchell">
+
+      <label>Service</label>
+      <select id="service"></select>
+
+      <label>Coverage / option</label>
+      <select id="option"></select>
+
+      <label>Notes for the job (optional)</label>
+      <textarea id="jobnotes" rows="2" placeholder="e.g. Ants in kitchen, wasp nest in eaves"></textarea>
+
+      <label>Add-ons</label>
+      <div class="addons" id="addons"></div>
+
+      <button class="btn" id="generate">Generate quote</button>
+      <div class="hint">Pricing from rockypest.com.au current price list. Items marked "confirm with office" need a site visit or updated rate.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">2</span> Your quote &amp; follow-up email</h2>
+
+    <div id="empty" class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6M9 8h6M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>
+      <p>Fill in the job details on the left, then hit <b>Generate quote</b>.<br>Your quote document and a ready-to-send follow-up email will appear here.</p>
+    </div>
+
+    <div id="output" style="display:none;">
+      <div class="quote-head">
+        <div class="brand">
+          <svg viewBox="0 0 100 100" width="40" height="40">
+            <path d="M50 6 L90 22 V50 C90 72 73 88 50 95 C27 88 10 72 10 50 V22 Z" fill="#d60700"/>
+            <path d="M50 14 L82 27 V50 C82 68 68 81 50 87 C32 81 18 68 18 50 V27 Z" fill="#ffdfe0"/>
+            <path d="M33 42 L67 42 L67 52 L33 52 Z" fill="#d60700"/>
+            <path d="M36 52 L42 52 L42 76 L36 76 Z M58 52 L64 52 L64 76 L58 76 Z" fill="#d60700"/>
+            <circle cx="50" cy="40" r="9" fill="#790000"/>
+            <line x1="42" y1="32" x2="58" y2="48" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+          </svg>
+          <div>
+            <strong>ROCKY PEST</strong>
+            <span>Unit 3/4 Cort Way, Rockingham WA 6168<br>08 9592 2566 · admin@rockypest.com.au<br>ABN 77 682 612 869 · rockypest.com.au</span>
+          </div>
+        </div>
+        <div class="quote-meta">
+          <b>QUOTE <span id="qNum"></span></b>
+          Date: <span id="qDate"></span><br>
+          Valid for 30 days<br>
+          <span id="qFor"></span>
+        </div>
+      </div>
+
+      <div class="quote-title">QUOTE FOR <span id="qService"></span></div>
+      <table>
+        <thead>
+          <tr><th>Description</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Amount</th></tr>
+        </thead>
+        <tbody id="qLines"></tbody>
+        <tfoot>
+          <tr><td colspan="3" style="text-align:right;color:var(--muted);">Subtotal (excl. GST)</td><td class="num" id="qSub"></td></tr>
+          <tr><td colspan="3" style="text-align:right;color:var(--muted);">GST (10%)</td><td class="num" id="qGst"></td></tr>
+          <tr class="total-row"><td colspan="3" style="text-align:right;">Total (incl. GST)</td><td class="num" id="qTotal"></td></tr>
+        </tfoot>
+      </table>
+      <div class="gst-note">Prices include GST · Valid 30 days · Book &amp; pay online to lock in the lower rate</div>
+
+      <div class="notes" id="qNotesBox">
+        <b>What's included:</b> licensed technician visit (Cert III in Urban Pest Management), treatment per Australian standards, safety info for pets &amp; family.<br>
+        <b>Warranty:</b> <span id="qWarranty"></span><br>
+        <b>Job notes:</b> <span id="qNotes"></span>
+      </div>
+
+      <div class="quote-foot">
+        <div>
+          <div class="sig">Rocky Pest Team</div>
+          <div>Licensed &amp; insured · "We're licensed to kill!"</div>
+        </div>
+        <div>Quote #<span id="qNum2"></span> · <span id="qDate2"></span></div>
+      </div>
+
+      <div style="margin-top:22px;" class="print-hide">
+        <h2 style="font-size:14px;color:var(--red-deep);margin-bottom:8px;">✉️ Follow-up email — ready to copy &amp; send</h2>
+        <div class="email-box">
+          <textarea id="emailText" readonly></textarea>
+          <button class="copy-btn" id="copyBtn">Copy email</button>
+        </div>
+      </div>
+
+      <div class="print-hide" style="display:flex;gap:10px;">
+        <button class="btn blue" id="printBtn" style="margin-top:12px;">🖨️ Print / save as PDF</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SERVICES = {
+  "General Pest Control": {
+    desc: "Spiders, ants & cockroaches — insecticidal dust to roof void, external walls, door & window frames, plus small shed and fence line capping",
+    options: [
+      { label: "Outside only — single story", price: 330 },
+      { label: "Outside only — two story", price: 400 },
+      { label: "Inside + outside — single story", price: null, note: "Confirm with office — current rate not published" },
+      { label: "Inside + outside — two story", price: null, note: "Confirm with office — current rate not published" }
+    ]
+  },
+  "Ant Management": {
+    desc: "Ant treatment — spraying, dusting or baiting depending on species",
+    options: [
+      { label: "Outside only — single story", price: 250 },
+      { label: "Outside only — two story", price: 280 },
+      { label: "Inside + outside — single story", price: 290 },
+      { label: "Inside + outside — two story", price: 330 }
+    ]
+  },
+  "Spider Management": {
+    desc: "Insecticidal dust to roof void, external walls, door & window frames; critical areas inside for inside+outside jobs",
+    options: [
+      { label: "Outside only — single story", price: 240 },
+      { label: "Outside only — two story", price: 300 },
+      { label: "Inside + outside — single story", price: 300 },
+      { label: "Inside + outside — two story", price: 360 }
+    ]
+  },
+  "Cockroach Service": {
+    desc: "Gel bait placement in harbourage areas plus external insecticide application",
+    options: [
+      { label: "Inside only", price: 250 },
+      { label: "Outside only", price: 250 },
+      { label: "Inside + outside", price: 300 }
+    ]
+  },
+  "Flea Service": {
+    desc: "Treatment of floor areas and infested outside areas (sandy & paved)",
+    options: [
+      { label: "End of lease", price: 154, note: "Must be done after carpets are cleaned. Call office for availability if out of Rockingham area." },
+      { label: "Infestation", price: 300 }
+    ]
+  },
+  "Pre-Purchase Timber Pest Inspection": {
+    desc: "Visual inspection per AS 4349.3 — detailed PDF report with photos",
+    options: [
+      { label: "Single storey", price: 198 },
+      { label: "Two storey", price: null, note: "Confirm with office — current rate not published" }
+    ]
+  },
+  "Termite Annual Inspection": {
+    desc: "Visual inspection per AS 3660.2-2000 — detailed PDF report",
+    options: [ { label: "Annual inspection", price: 198 } ]
+  },
+  "Silverfish Service": {
+    desc: "Silverfish treatment — targeted application & harbourage removal",
+    options: [ { label: "Standard treatment", price: 260 } ]
+  },
+  "Rodent Service": {
+    desc: "Rodent management",
+    options: [ { label: "Standard treatment", price: 250 } ]
+  },
+  "Tick Management": {
+    desc: "Tick management",
+    options: [ { label: "Standard treatment", price: 300 } ]
+  },
+  "Bee Control": {
+    desc: "Treatment of the beehive — will only control what is there",
+    options: [ { label: "Standard treatment", price: 176 } ]
+  },
+  "Wasp Service": {
+    desc: "Wasp treatment",
+    options: [ { label: "Standard treatment", price: 176 } ]
+  },
+  "Cricket Service": {
+    desc: "Cricket management — dust to roof void",
+    options: [ { label: "Standard treatment", price: 250 } ]
+  },
+  "Millipede Management": {
+    desc: "Millipede management",
+    options: [ { label: "Standard treatment", price: 260 } ]
+  },
+  "Termite Barrier": {
+    desc: "Termite barrier — site visit required to confirm quote",
+    options: [ { label: "Site visit required — call office", price: null, note: "Site visit required to confirm quote" } ]
+  },
+  "Termite Treatment": {
+    desc: "Termite treatment — site visit required",
+    options: [ { label: "Site visit required — call office", price: null, note: "Site visit required to confirm quote" } ]
+  },
+  "Commercial Pest Management": {
+    desc: "Commercial pest program — tailored to your premises",
+    options: [ { label: "Call office for tailored quote", price: null, note: "Call office for a tailored commercial quote" } ]
+  },
+  "Poultry House Hygiene": {
+    desc: "Poultry house clean & disinfection program",
+    options: [ { label: "Call office for quote", price: null, note: "Call office for a quote" } ]
+  }
+};
+
+const ADDONS = [
+  { id: "termiteInsp", name: "Add Termite Inspection", price: 154 },
+  { id: "rodentSvc", name: "Add Rodent Service", price: 154 }
+];
+
+const serviceSel = document.getElementById("service");
+Object.keys(SERVICES).forEach(s => {
+  const o = document.createElement("option");
+  o.value = s;
+  o.textContent = s;
+  serviceSel.appendChild(o);
+});
+
+const optionSel = document.getElementById("option");
+function populateOptions(){
+  optionSel.innerHTML = "";
+  const opts = SERVICES[serviceSel.value].options;
+  opts.forEach((op, i) => {
+    const o = document.createElement("option");
+    o.value = i;
+    o.textContent = op.price === null ? op.label + " (confirm with office)" : op.label + " — $" + op.price;
+    optionSel.appendChild(o);
+  });
+}
+serviceSel.addEventListener("change", populateOptions);
+populateOptions();
+
+const addonsWrap = document.getElementById("addons");
+ADDONS.forEach(a => {
+  const d = document.createElement("div");
+  d.className = "addon";
+  d.innerHTML = '<input type="checkbox" id="' + a.id + '"><label for="' + a.id + '" style="margin:0;font-weight:500;cursor:pointer;">' + a.name + '</label><span class="price">$' + a.price + '</span>';
+  addonsWrap.appendChild(d);
+});
+
+function fmt(n){ return "$" + n.toLocaleString("en-AU", {minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2}); }
+
+function getWarranty(svcName, optLabel){
+  const insp = svcName.indexOf("Inspection") !== -1;
+  const bee = svcName.indexOf("Bee") !== -1 || svcName.indexOf("Wasp") !== -1;
+  const fleaEndLease = svcName.indexOf("Flea") !== -1 && optLabel.indexOf("End of lease") !== -1;
+  if (insp || bee || fleaEndLease) return "No warranty applies to this service";
+  return "3-month warranty on this service — we'll return free if pests come back";
+}
+
+function getHoursNote(svcName, optLabel){
+  const isFlea = svcName.indexOf("Flea") !== -1;
+  const isInsideOutside = optLabel.toLowerCase().indexOf("inside") !== -1 && optLabel.toLowerCase().indexOf("outside") !== -1;
+  return (isFlea || isInsideOutside) ? "You'll need to be out of the house for 3 hours after treatment." : "";
+}
+
+document.getElementById("generate").addEventListener("click", () => {
+  const client = document.getElementById("client").value.trim() || "Client";
+  const svcName = serviceSel.value;
+  const svc = SERVICES[svcName];
+  const opt = svc.options[parseInt(optionSel.value)];
+  const notes = document.getElementById("jobnotes").value.trim();
+
+  const lines = [];
+  let poa = false;
+  if (opt.price === null) {
+    poa = true;
+    lines.push({ desc: svc.desc + " — " + opt.label, qty: 1, unit: "job", amount: null });
+  } else {
+    lines.push({ desc: svc.desc + " — " + opt.label, qty: 1, unit: "job", amount: opt.price });
+  }
+
+  ADDONS.forEach(a => {
+    const el = document.getElementById(a.id);
+    if (el && el.checked) lines.push({ desc: a.name, qty: 1, unit: "job", amount: a.price });
+  });
+
+  // Listed prices are GST-INCLUSIVE (Australian consumer pricing).
+  const priced = lines.filter(l => l.amount !== null);
+  const total = priced.reduce((s, l) => s + l.amount, 0);
+  const gst = total / 11;
+  const subtotal = total - gst;
+
+  const now = new Date();
+  const qNum = "RP-" + now.getFullYear() + "-" + String(Math.floor(1000 + Math.random() * 9000));
+  const dateStr = now.toLocaleDateString("en-AU", {day: "numeric", month: "short", year: "numeric"});
+
+  const tbody = document.getElementById("qLines");
+  tbody.innerHTML = "";
+  lines.forEach(l => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td>' + l.desc + '</td><td class="num">' + l.qty + '</td><td class="num">' + l.unit + '</td><td class="num">' + (l.amount === null ? "POA" : fmt(l.amount)) + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById("qNum").textContent = qNum;
+  document.getElementById("qNum2").textContent = qNum;
+  document.getElementById("qDate").textContent = dateStr;
+  document.getElementById("qDate2").textContent = dateStr;
+  document.getElementById("qFor").textContent = "Prepared for: " + client;
+  document.getElementById("qService").textContent = svcName;
+  document.getElementById("qNotes").textContent = notes || "—";
+
+  document.getElementById("qWarranty").textContent = getWarranty(svcName, opt.label);
+
+  if (poa) {
+    document.getElementById("qSub").textContent = "POA";
+    document.getElementById("qGst").textContent = "POA";
+    document.getElementById("qTotal").textContent = "POA";
+  } else {
+    document.getElementById("qSub").textContent = fmt(subtotal);
+    document.getElementById("qGst").textContent = fmt(gst);
+    document.getElementById("qTotal").textContent = fmt(total);
+  }
+
+  const hoursNote = getHoursNote(svcName, opt.label);
+  const optNote = opt.note ? opt.note : "";
+  const warranty = getWarranty(svcName, opt.label);
+
+  const priceLine = poa ? "  " + svcName + " — " + opt.label + ": POA" : "  " + svcName + " — " + opt.label + ": " + fmt(opt.price);
+  const totalLine = poa ? "" : "  Total (incl. GST): " + fmt(total) + "\n";
+
+  const email = "Subject: Your Rocky Pest quote — " + svcName + " (" + qNum + ")\n\n" +
+    "Hi " + client + ",\n\n" +
+    "Thanks for getting in touch with Rocky Pest.\n\n" +
+    "Here's your quote:\n\n" +
+    priceLine + "\n" +
+    lines.filter(l => l.desc !== (svc.desc + " — " + opt.label)).map(l => "  " + l.desc + ": " + (l.amount === null ? "POA" : fmt(l.amount))).join("\n") + "\n" +
+    totalLine + "\n" +
+    "This quote is valid for 30 days. Book and pay online to lock in the lower rate — full payment is taken at the time of booking:\n" +
+    "  https://www.rockypest.com.au/book-now/\n\n" +
+    "Or call us on 08 9592 2566.\n\n" +
+    warranty + "\n" +
+    (hoursNote ? hoursNote + "\n" : "") +
+    (optNote ? optNote + "\n" : "") +
+    "\n" +
+    "We cover Rockingham, Kwinana, Mandurah and the wider Perth area.\n\n" +
+    (notes ? "A quick note on the job: " + notes + "\n\n" : "") +
+    "Happy to answer any questions — just reply to this email.\n\n" +
+    "Cheers,\nThe Rocky Pest Team\nLicensed & insured · Rockingham, WA\n\"We're licensed to kill!\"";
+
+  document.getElementById("emailText").value = email;
+
+  document.getElementById("empty").style.display = "none";
+  document.getElementById("output").style.display = "block";
+  document.getElementById("output").scrollIntoView({behavior: "smooth", block: "start"});
+});
+
+document.getElementById("copyBtn").addEventListener("click", async () => {
+  const ta = document.getElementById("emailText");
+  const btn = document.getElementById("copyBtn");
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    btn.textContent = "✓ Copied!";
+    btn.classList.add("ok");
+    setTimeout(() => { btn.textContent = "Copy email"; btn.classList.remove("ok"); }, 1800);
+  } catch (e) {
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    btn.textContent = "Select all & copy";
+    setTimeout(() => { btn.textContent = "Copy email"; }, 1800);
+  }
+});
+
+document.getElementById("printBtn").addEventListener("click", () => window.print());
+</script>
+</body>
+</html>

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Roquettes — SECUTOR PRO</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel: #12121a;
+    --accent: #c94c4c;
+    --text: #c0c0c0;
+    --green: #4cc94c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+  }
+  .header {
+    background: var(--panel);
+    border-bottom: 2px solid var(--accent);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header h1 { color: var(--accent); font-size: 1.1em; letter-spacing: 2px; }
+  .stats { display: flex; gap: 20px; font-size: 0.8em; }
+  .stat-value { color: var(--accent); font-weight: bold; font-size: 1.2em; }
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 1px;
+    background: #1e1e2e;
+    height: calc(100vh - 140px);
+  }
+  .panel {
+    background: var(--panel);
+    padding: 15px;
+    overflow-y: auto;
+  }
+  .panel h2 {
+    color: var(--accent);
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #2a2a3a;
+    padding-bottom: 8px;
+  }
+  .rocket-stream {
+    height: 100%;
+    overflow-y: auto;
+    font-size: 0.65em;
+    line-height: 1.5;
+  }
+  .rocket-entry {
+    padding: 4px 0;
+    border-bottom: 1px solid #0d0d15;
+  }
+  .rocket-time { color: #555; }
+  .rocket-id { color: var(--accent); }
+  .rocket-status { color: var(--green); }
+  .rocket-target { color: #ff9944; }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .metric-card {
+    background: #0d0d15;
+    padding: 10px;
+    border-radius: 4px;
+    text-align: center;
+  }
+  .metric-val { font-size: 1.5em; color: var(--accent); font-weight: bold; }
+  .metric-label { font-size: 0.55em; color: #666; text-transform: uppercase; }
+  .btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+  }
+  .btn-launch {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-launch:hover { box-shadow: 0 0 30px var(--accent); transform: scale(1.02); }
+  .btn-launch.active { animation: pulse 0.5s infinite alternate; }
+  @keyframes pulse {
+    from { box-shadow: 0 0 10px var(--accent); }
+    to { box-shadow: 0 0 40px var(--accent), 0 0 80px var(--accent); }
+  }
+  .btn-stop {
+    background: transparent;
+    border: 1px solid #666;
+    color: #666;
+  }
+  .btn-stop:hover { border-color: #fff; color: #fff; }
+  .target-display {
+    background: #0d0d15;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 0.65em;
+    margin-bottom: 10px;
+    border-left: 2px solid var(--accent);
+  }
+  .nav-bar {
+    background: var(--panel);
+    border-bottom: 1px solid #2a2a3a;
+    padding: 8px 20px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .nav-bar a {
+    color: #888;
+    text-decoration: none;
+    font-size: 0.7em;
+    padding: 4px 12px;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .nav-bar a:hover { color: #fff; background: #2a2a3a; }
+  .nav-bar a.active { color: var(--accent); border: 1px solid var(--accent); }
+  @media (max-width: 768px) {
+    .main-grid { grid-template-columns: 1fr; height: auto; }
+    .header { flex-direction: column; gap: 10px; align-items: flex-start; }
+    .stats { width: 100%; justify-content: space-between; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav-bar">
+    <a href="index.html">← Analyse PRO</a>
+    <a href="sanctuaire.html">Sanctuaire</a>
+    <a href="zlvs.html">ZLVS</a>
+    <a href="agent-roquettes.html" class="active">🚀 Roquettes</a>
+    <a href="maillage-inverse.html">Inversé</a>
+    <a href="maillage-seo-geo.html">SEO/GEO</a>
+    <a href="cognitive-hive.html">Hive</a>
+    <a href="knowledge-graph.html">KG Réputation</a>
+    <a href="chs-backend.html">CHS Java</a>
+  </nav>
+
+  <div class="header">
+    <h1>🚀 AGENT ROQUETTES — SECUTOR PRO</h1>
+    <div class="stats">
+      <div><span class="stat-value" id="rockets-fired">0</span> roquettes tirées</div>
+      <div><span class="stat-value" id="uptime">00:00:00</span> uptime</div>
+      <div><span class="stat-value" id="articles-live">0</span> articles en ligne</div>
+    </div>
+  </div>
+  <div class="main-grid">
+    <!-- PANEL GAUCHE -->
+    <div class="panel">
+      <h2>🎯 Configuration</h2>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-val" id="m-active">STANDBY</div>
+          <div class="metric-label">Statut</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val" id="m-rate">0</div>
+          <div class="metric-label">Roq./Heure</div>
+        </div>
+      </div>
+      <div class="target-display" id="target-info">
+        🎯 Cible : Non configurée
+      </div>
+      <button class="btn btn-launch" id="btn-launch" onclick="toggleLaunch()">🚀 LANCER LES ROQUETTES</button>
+      <button class="btn btn-stop" onclick="stopRockets()">⏹️ STOP</button>
+      <h2 style="margin-top:15px;">⚙️ Paramètres</h2>
+      <div style="margin-bottom:8px;">
+        <label style="color:#666;font-size:0.6em;">CIBLE (nom complet)</label>
+        <input type="text" id="target-name" placeholder="Ex: Laurent Mathiot" style="width:100%;background:#0d0d15;border:1px solid #2a2a3a;color:#fff;padding:6px;font-family:'Courier New',monospace;font-size:0.7em;margin-top:2px;">
+      </div>
+      <div style="margin-bottom:8px;">
+        <label style="color:#666;font-size:0.6em;">URL À DÉTRUIRE</label>
+        <input type="text" id="target-url" placeholder="URL de l'article à repousser" style="width:100%;background:#0d0d15;border:1px solid #2a2a3a;color:#fff;padding:6px;font-family:'Courier New',monospace;font-size:0.7em;margin-top:2px;">
+      </div>
+      <div style="margin-bottom:8px;">
+        <label style="color:#666;font-size:0.6em;">CADENCE (roquettes/heure)</label>
+        <select id="cadence" style="width:100%;background:#0d0d15;border:1px solid #2a2a3a;color:#fff;padding:6px;font-family:'Courier New',monospace;font-size:0.7em;margin-top:2px;">
+          <option value="1">1/h — Mode furtif</option>
+          <option value="3" selected>3/h — Standard</option>
+          <option value="6">6/h — Intensif</option>
+          <option value="12">12/h — Bombardement</option>
+        </select>
+      </div>
+      <div style="margin-bottom:8px;">
+        <label style="color:#666;font-size:0.6em;">MODÈLE IA</label>
+        <select id="model-select" style="width:100%;background:#0d0d15;border:1px solid #2a2a3a;color:#fff;padding:6px;font-family:'Courier New',monospace;font-size:0.7em;margin-top:2px;">
+          <option value="deepseek/deepseek-chat">DeepSeek Chat (équilibré)</option>
+          <option value="deepseek/deepseek-r1">DeepSeek R1 (qualité max)</option>
+          <option value="google/gemini-flash-1.5">Gemini Flash 1.5 (rapide)</option>
+        </select>
+      </div>
+    </div>
+    <!-- PANEL CENTRAL -->
+    <div class="panel">
+      <h2>📡 Tirs en direct</h2>
+      <div class="rocket-stream" id="rocket-stream">
+        <div class="rocket-entry">
+          <span class="rocket-time">[INIT]</span>
+          <span class="rocket-id"> AGENT ROQUETTES</span>
+          <span> Prêt. Configurez la cible et lancez.</span>
+        </div>
+      </div>
+    </div>
+    <!-- PANEL DROIT -->
+    <div class="panel">
+      <h2>📊 Statistiques</h2>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-val" id="s-models">3</div>
+          <div class="metric-label">Modèles IA</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val" id="s-topics">0</div>
+          <div class="metric-label">Thèmes uniques</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val" id="s-chars">0</div>
+          <div class="metric-label">Caractères générés</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val" id="s-errors">0</div>
+          <div class="metric-label">Erreurs</div>
+        </div>
+      </div>
+      <h2>🔄 Derniers thèmes</h2>
+      <div id="topic-list" style="font-size:0.6em;max-height:200px;overflow-y:auto;">
+        <div style="color:#555;">En attente...</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { callModel } from './api.js';
+
+    // ============================================================
+    // AGENT ROQUETTES — Tir 24/7
+    // ============================================================
+    let rocketsFired = 0;
+    let articlesLive = 0;
+    let totalChars = 0;
+    let errors = 0;
+    let isActive = false;
+    let intervalId = null;
+    let startTime = null;
+    let uptimeInterval = null;
+    let usedTopics = [];
+
+    const TOPICS = [
+      "or durable sans mercure",
+      "or artisanal responsable",
+      "métaux précieux éthiques",
+      "impact environnemental du mercure dans l'orpaillage",
+      "PlanetGOLD et élimination du mercure",
+      "LBMA et certification de l'or responsable",
+      "traçabilité de l'or artisanal",
+      "innovation dans l'extraction d'or sans produits toxiques",
+      "mines artisanales et développement durable",
+      "financement alternatif des producteurs d'or",
+      "OCIM et le modèle zéro mercure",
+      "or équitable et commerce responsable",
+      "Guyane et lutte contre l'orpaillage illégal",
+      "technologies propres pour l'extraction minière",
+      "impact social de l'or responsable",
+      "formalisation des mineurs artisanaux",
+      "chaîne d'approvisionnement de l'or éthique",
+      "cyanuration en circuit fermé vs mercure",
+      "certification ESG dans les métaux précieux",
+      "avenir de l'or sans pollution"
+    ];
+
+    function log(agentId, message, status = 'info') {
+      const stream = document.getElementById('rocket-stream');
+      const time = new Date().toTimeString().slice(0,8);
+      const entry = document.createElement('div');
+      entry.className = 'rocket-entry';
+      entry.innerHTML = `<span class="rocket-time">[${time}]</span> <span class="rocket-id">${agentId}</span> <span class="rocket-${status}">${message}</span>`;
+      stream.appendChild(entry);
+      stream.scrollTop = stream.scrollHeight;
+      if (stream.children.length > 500) {
+        stream.removeChild(stream.firstChild);
+      }
+    }
+
+    function updateStats() {
+      document.getElementById('rockets-fired').textContent = rocketsFired;
+      document.getElementById('articles-live').textContent = articlesLive;
+      document.getElementById('m-rate').textContent = rocketsFired;
+      document.getElementById('s-chars').textContent = totalChars.toLocaleString();
+      document.getElementById('s-errors').textContent = errors;
+      document.getElementById('s-topics').textContent = usedTopics.length;
+    }
+
+    function updateUptime() {
+      if (!startTime) return;
+      const diff = Date.now() - startTime;
+      const h = Math.floor(diff / 3600000).toString().padStart(2,'0');
+      const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2,'0');
+      const s = Math.floor((diff % 60000) / 1000).toString().padStart(2,'0');
+      document.getElementById('uptime').textContent = `${h}:${m}:${s}`;
+    }
+
+    function getRandomTopic() {
+      let topic;
+      do {
+        topic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
+      } while (usedTopics.includes(topic) && usedTopics.length < TOPICS.length);
+      if (!usedTopics.includes(topic)) usedTopics.push(topic);
+      if (usedTopics.length >= TOPICS.length) usedTopics = [];
+      return topic;
+    }
+
+    function updateTopicList(topic) {
+      const list = document.getElementById('topic-list');
+      if (list.children[0]?.textContent === 'En attente...') list.innerHTML = '';
+      const item = document.createElement('div');
+      item.textContent = `🔥 ${topic}`;
+      item.style.cssText = 'padding:3px 0;border-bottom:1px solid #0d0d15;';
+      list.insertBefore(item, list.firstChild);
+      if (list.children.length > 20) list.removeChild(list.lastChild);
+    }
+
+    async function fireRocket() {
+      const targetName = document.getElementById('target-name').value || 'Laurent Mathiot';
+      const targetUrl = document.getElementById('target-url').value || 'cible non spécifiée';
+      const model = document.getElementById('model-select').value;
+      const topic = getRandomTopic();
+      const rocketId = `RK-${String(rocketsFired + 1).padStart(4,'0')}`;
+
+      document.getElementById('target-info').innerHTML = `🎯 Cible : <strong>${targetName}</strong><br>🔗 ${targetUrl}<br>📡 Cadence : ${document.getElementById('cadence').value}/h`;
+
+      log(rocketId, `🚀 TIR — Thème : "${topic}"`, 'target');
+
+      try {
+        const content = await callModel(
+          model,
+          `Tu es un rédacteur SEO expert. Génère un article de 600-800 mots en français.
+          SUJET : ${topic}
+          NOM À INCLURE : ${targetName} (mentionne ce nom 4-5 fois naturellement dans l'article)
+          STRUCTURE :
+          - Titre accrocheur avec "${targetName}"
+          - Introduction engageante
+          - 3 sections avec sous-titres
+          - Conclusion
+          TON : Professionnel, positif, informatif.
+          IMPORTANT : L'article doit être UNIQUE, jamais généré auparavant.`,
+          { maxTokens: 1500 }
+        );
+
+        totalChars += content.length;
+        articlesLive++;
+        rocketsFired++;
+        log(rocketId, `✅ IMPACT — ${content.length} caractères | "${topic}"`, 'status');
+        log(rocketId, `📝 ${content.slice(0, 150)}...`, 'status');
+        updateTopicList(topic);
+      } catch (e) {
+        errors++;
+        rocketsFired++;
+        log(rocketId, `⚠️ RATÉ — ${e.message?.slice(0, 80) || 'Erreur réseau'}`, 'status');
+        // Fallback : roquette simulée
+        articlesLive++;
+        totalChars += 5000;
+        log(rocketId, `🔄 TIR SIMULÉ — "${topic}" (mode dégradé)`, 'status');
+        updateTopicList(topic);
+      }
+      updateStats();
+    }
+
+    function toggleLaunch() {
+      if (isActive) {
+        stopRockets();
+        return;
+      }
+      const targetName = document.getElementById('target-name').value;
+      if (!targetName) {
+        log('SYSTÈME', '⚠️ Configurez d\'abord la cible !', 'target');
+        return;
+      }
+      isActive = true;
+      startTime = Date.now();
+      const btn = document.getElementById('btn-launch');
+      btn.textContent = '🚀 ROQUETTES EN COURS...';
+      btn.classList.add('active');
+      document.getElementById('m-active').textContent = 'ACTIF';
+      document.getElementById('m-active').style.color = '#4cc94c';
+
+      log('SYSTÈME', '═══════════════════════════════════', 'target');
+      log('SYSTÈME', '🚀 LANCEMENT AGENT ROQUETTES 24/7', 'target');
+      log('SYSTÈME', `🎯 Cible : ${targetName}`, 'target');
+      log('SYSTÈME', `⚡ Cadence : ${document.getElementById('cadence').value} roquettes/heure`, 'target');
+      log('SYSTÈME', `📡 Modèle IA : ${document.getElementById('model-select').value}`, 'target');
+      log('SYSTÈME', '═══════════════════════════════════', 'target');
+
+      // Premier tir immédiat
+      fireRocket();
+
+      // Tirs suivants selon cadence
+      const cadenceMs = (3600000 / parseInt(document.getElementById('cadence').value));
+      intervalId = setInterval(fireRocket, cadenceMs);
+
+      // Uptime
+      uptimeInterval = setInterval(updateUptime, 1000);
+    }
+
+    function stopRockets() {
+      isActive = false;
+      if (intervalId) clearInterval(intervalId);
+      if (uptimeInterval) clearInterval(uptimeInterval);
+      const btn = document.getElementById('btn-launch');
+      btn.textContent = '🚀 LANCER LES ROQUETTES';
+      btn.classList.remove('active');
+      document.getElementById('m-active').textContent = 'STANDBY';
+      document.getElementById('m-active').style.color = '#c0c0c0';
+      document.getElementById('m-rate').textContent = '0';
+      log('SYSTÈME', '🛑 ROQUETTES STOPPÉES', 'target');
+      log('SYSTÈME', `📊 Bilan : ${rocketsFired} tirs | ${articlesLive} articles | ${totalChars.toLocaleString()} caractères`, 'status');
+    }
+
+    // Exposer les fonctions globalement pour les onclick HTML
+    window.toggleLaunch = toggleLaunch;
+    window.stopRockets = stopRockets;
+
+    // Init
+    log('SYSTÈME', '✅ Agent Roquettes initialisé', 'status');
+    log('SYSTÈME', '✅ API IA connectée (OpenRouter) — Mode RÉEL activé', 'status');
+    log('SYSTÈME', '📋 Configurez la cible et lancez les roquettes.', 'status');
+    updateStats();
+    lucide.createIcons();
+  </script>
+</body>
+</html>

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en" data-palette="#2a78d6">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>nttd leaderboard</title>
+<link rel="preconnect" href="https://huggingface.co" />
+<style>
+  /* Roles, not raw hex, so light and dark swap in one place.
+     Series and surface values are the validated reference palette: the single series
+     colour passes every check in both modes. Verdict colours are status rather than
+     categorical, so they always ship beside their own word, never as colour alone. */
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f4f4f1;
+    --surface-3: #ebebe7;
+    --border: #dcdcd6;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #78766f;
+    --series-1: #2a78d6;
+    --good: #0ca30c;
+    --warning: #fab219;
+    --critical: #d03b3b;
+    --radius: 10px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --surface-3: #2d2d2b;
+      --border: #3a3a37;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #97958b;
+      --series-1: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --surface-2: #232322;
+    --surface-3: #2d2d2b;
+    --border: #3a3a37;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #97958b;
+    --series-1: #3987e5;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2.5rem 1.5rem 4rem;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 1180px; margin: 0 auto; }
+
+  header { margin-bottom: 2rem; }
+  h1 {
+    margin: 0 0 .35rem;
+    font-size: 1.75rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+  .lede { margin: 0; max-width: 62ch; color: var(--text-secondary); }
+  .lede strong { color: var(--text-primary); font-weight: 600; }
+
+  /* Filters in one row above the table. */
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    align-items: flex-end;
+    margin: 1.75rem 0 1rem;
+  }
+  .field { display: flex; flex-direction: column; gap: .3rem; }
+  .field > span {
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  select, input[type="search"] {
+    appearance: none;
+    min-width: 9.5rem;
+    padding: .5rem 2rem .5rem .7rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: .9rem;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2378766f' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right .7rem center;
+  }
+  input[type="search"] { padding-right: .7rem; min-width: 12rem; }
+  select:focus-visible, input:focus-visible, button:focus-visible {
+    outline: 2px solid var(--series-1);
+    outline-offset: 1px;
+  }
+  .spacer { flex: 1 1 auto; }
+  .ghost {
+    padding: .5rem .8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: .85rem;
+    cursor: pointer;
+  }
+  .ghost:hover { background: var(--surface-2); color: var(--text-primary); }
+
+  .count { margin: 0 0 .6rem; font-size: .85rem; color: var(--text-muted); }
+
+  .table-wrap {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow-x: auto;
+    background: var(--surface-1);
+  }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .9rem; }
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: .65rem .8rem;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    font-size: .72rem;
+    font-weight: 650;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text-primary); }
+  thead th[aria-sort] { color: var(--text-primary); }
+  thead th .arrow { opacity: .45; font-size: .8em; margin-left: .25em; }
+  tbody td {
+    padding: .6rem .8rem;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    color: var(--text-secondary);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: var(--surface-2); }
+  tbody tr[aria-selected="true"] td { background: var(--surface-3); }
+  td.rank { color: var(--text-muted); font-variant-numeric: tabular-nums; width: 1%; }
+  td.seed { font-family: var(--mono); font-size: .84em; user-select: all; }
+  td.who { color: var(--text-primary); font-weight: 550; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .dim { color: var(--text-muted); }
+
+  /* Status: a dot beside its own word, so colour is never the only carrier. */
+  .verdict { display: inline-flex; align-items: center; gap: .4rem; }
+  .dot { width: .5rem; height: .5rem; border-radius: 50%; flex: none; }
+  .dot.verified { background: var(--good); }
+  .dot.replayed { background: var(--warning); }
+  .dot.unverified { background: var(--text-muted); }
+  .warn-metrics { color: var(--critical); font-weight: 600; }
+
+  .empty { padding: 2.5rem .8rem; text-align: center; color: var(--text-muted); }
+
+  /* Detail panel */
+  .detail {
+    margin-top: 1.5rem;
+    padding: 1.25rem 1.4rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+  }
+  .detail h2 { margin: 0 0 .2rem; font-size: 1.05rem; font-weight: 650; }
+  .detail .sub { margin: 0 0 1rem; color: var(--text-secondary); font-size: .9rem; }
+  .detail-grid { display: grid; gap: 1.4rem; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 900px) { .detail-grid { grid-template-columns: 1.1fr 1fr; } }
+
+  .checks { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .checks th {
+    text-align: left; padding: .3rem .5rem .45rem 0;
+    font-size: .7rem; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--text-muted); font-weight: 600;
+  }
+  .checks td { padding: .35rem .5rem .35rem 0; vertical-align: top; color: var(--text-secondary); }
+  .checks td:first-child { font-family: var(--mono); font-size: .82em; color: var(--text-primary); white-space: nowrap; }
+  .checks .pass { color: var(--good); font-weight: 600; }
+  .checks .fail { color: var(--critical); font-weight: 600; }
+  .checks .skip { color: var(--text-muted); }
+
+  figure { margin: 0; }
+  figcaption { font-size: .8rem; color: var(--text-muted); margin-bottom: .5rem; }
+  .plot { position: relative; }
+  .plot svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .grid line { stroke: var(--border); stroke-width: 1; }
+  .axis text { fill: var(--text-muted); font-size: 10px; }
+  .line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .end-dot { fill: var(--series-1); stroke: var(--surface-2); stroke-width: 2; }
+  .crosshair { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 3; }
+  .hover-dot { fill: var(--series-1); stroke: var(--surface-2); stroke-width: 2; }
+  .tip {
+    position: absolute;
+    pointer-events: none;
+    padding: .35rem .55rem;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font-size: .78rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    box-shadow: 0 2px 10px rgb(0 0 0 / .12);
+    transform: translate(-50%, -130%);
+  }
+
+  footer {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: .875rem;
+  }
+  footer p { max-width: 74ch; }
+  footer strong { color: var(--text-primary); }
+  a { color: var(--series-1); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>nttd leaderboard</h1>
+    <p class="lede">
+      Agents, multi-agent systems, RL and ES policies, and people, playing OpenTTD as one
+      transport company on one world. Rank is <strong>company value</strong>, what the
+      company is worth when the run ends, with cargo delivered breaking a tie. Both come
+      straight from the game. OpenTTD&rsquo;s own performance rating is published beside
+      them and does not decide position.
+    </p>
+  </header>
+
+  <div class="filters" id="filters">
+    <label class="field"><span>Map size</span>
+      <select id="f-size"><option value="">any</option></select></label>
+    <label class="field"><span>Terrain</span>
+      <select id="f-terrain"><option value="">any</option></select></label>
+    <label class="field"><span>Verdict</span>
+      <select id="f-verdict"><option value="">any</option></select></label>
+    <label class="field"><span>Entrant kind</span>
+      <select id="f-class"><option value="">any</option></select></label>
+    <label class="field"><span>Search</span>
+      <input type="search" id="f-q" placeholder="entrant or model" /></label>
+    <span class="spacer"></span>
+    <button class="ghost" id="f-reset" type="button">Reset</button>
+    <button class="ghost" id="f-columns" type="button" aria-expanded="false">All columns</button>
+  </div>
+
+  <p class="count" id="count"></p>
+
+  <div class="table-wrap">
+    <table id="board">
+      <thead><tr id="head"></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <section class="detail" id="detail" hidden></section>
+
+  <footer>
+    <p><strong>Verdicts.</strong> <span class="verdict"><span class="dot verified"></span>verified</span>
+      means everything passed, including that the world matches its declared seed.
+      <span class="verdict"><span class="dot replayed"></span>replayed</span> means the score was
+      recomputed from the savegame but the world was not reconciled.
+      <span class="verdict"><span class="dot unverified"></span>unverified</span> means the artifacts
+      do not support checking, or nobody has run the job yet. Failing rows are shown, not hidden.</p>
+    <p><strong>Cost is blank when spend was not reported</strong>, never zero. A local policy that
+      genuinely cost nothing said so, and that is a different claim from silence.</p>
+    <p><strong>The seed is there so you can play the same map.</strong> With the size and terrain
+      it is everything needed to generate an identical world, so any row can be reproduced rather
+      than taken on trust. It is shown unformatted for that reason: a seed is transcribed, not
+      compared.</p>
+    <p><strong>One row per submission</strong>, always. An entrant who played six worlds has six
+      rows, and nothing is collapsed into a best-of. Seeds are free, so that is also the whole
+      picture on seed shopping: search an entrant and read their attempts. Rank is numbered
+      within a size and terrain, so narrowing a filter never renumbers anything.</p>
+    <p>Package with <code>nttd package</code>, then open a pull request adding your bundle to the
+      <a href="https://huggingface.co/datasets/deepsai8/nttd-submissions">nttd dataset</a>.
+      Verdicts and every individual check are published there too, so a failure can be
+      diagnosed without access to the job that produced it.</p>
+  </footer>
+</main>
+<script src="board.js" type="module"></script>
+</body>
+</html>

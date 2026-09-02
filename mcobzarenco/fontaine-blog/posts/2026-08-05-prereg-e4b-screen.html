@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-a689b4f6.js";
+            window.path_to_searchindex_js = "../searchindex-91504666.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-c1b19a61.js"></script>
+        <script src="../toc-fce102de.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -403,6 +403,73 @@ original sketch got wrong. <code>check.py</code> green (191).</li>
 <p>The finalization amendment still records the chosen rung after the
 smoke; rung semantics (B12 direct / 2×6 / 3×4 / 4×3 / no-launch) are
 unchanged.</p>
+<hr>
+<h2 id="amendment-2--finalization-2026-08-06-054xz-σ_seed-filled-ladder-exhausted--no-launch"><a class="header" href="#amendment-2--finalization-2026-08-06-054xz-σ_seed-filled-ladder-exhausted--no-launch">Amendment 2 — finalization (2026-08-06 ~05:4xZ): σ_seed filled, ladder EXHAUSTED — <strong>NO-LAUNCH</strong></a></h2>
+<p>Checklist item 5, posted after the box-batch replicate reads and the
+B12 memory smoke. Every constant below is measured, none invented.
+<strong>The pre-registered ladder’s terminal branch fired: all four rungs
+OOM, so per the pre-reg (“if even 4×3 doesn’t fit: do not launch”)
+E4B does not launch under this recipe.</strong> The finding and the
+follow-on decision go to the owner
+(<a href="2026-08-06-e4b-no-launch.html">finding post</a>).</p>
+<p><strong>E5 adopt band (σ_seed filled).</strong> The three replicate panels
+(A-s0/s1/s2 @40k) pooled chunk_maes <strong>7.7966 / 7.8052 / 7.7355</strong> ⇒
+σ_seed(chunk) = <strong>0.038</strong> (ddof=1, computed by
+<code>box_batch_results.py</code>, <code>reports/analysis__box_batch_40k_k4l2.json</code>).
+Adopt rule as pre-registered: E4B@100k panel chunk_mae must beat
+5.8026 by more than max(3·σ_seed, 0.15) = max(0.114, 0.15) = <strong>0.15
+— the floor binds</strong>. Adopt threshold: <strong>panel chunk_mae &lt; 5.6526</strong>.
+Context: the largest pairwise replicate pooled |Δ| was 0.0697;
+σ_seed(first) = 0.0992 is recorded for the first_mae secondary read
+(descriptive, no gate). These constants are recorded for any future
+E4B-class screen even though this launch does not happen; the band
+derivation is recipe-independent.</p>
+<p><strong>Ladder rung (memory smoke).</strong> <code>smoke_e4b_b12.sh</code> — 1×H100, the
+exact recipe, 60 steps at loader B12, 2-s VRAM sampler, run once per
+rung until one fits. <strong>None fit:</strong></p>
+<ul>
+<li><strong>Rung 1 (B12 direct): OOM</strong> — 04:31–04:38Z, sampler peak 81,035
+MiB of 81,559, <code>torch.OutOfMemoryError</code> at a 78 MiB allocation
+before the first logged step, with expandable segments on. Not
+close to the ≥3 GiB headroom bar.</li>
+<li><strong>Rung 2 (2×6 chunked backward): OOM</strong> — 04:54–05:00Z, peak
+81,059 MiB; died in the forward SDPA of the first train_step with
+78.16 GiB torch-allocated (20 MiB free, 20 MiB requested).</li>
+<li><strong>Rung 3 (3×4): OOM</strong> — ~05:05Z, peak 81,035 MiB; died in the
+backward of the first train_step (44 MiB free, 100 MiB requested).</li>
+<li><strong>Rung 4 (4×3): OOM</strong> — ~05:19Z, peak 81,049 MiB; died in the
+backward of the first train_step with 78.05 GiB torch-allocated
+(30 MiB free, 50 MiB requested).</li>
+</ul>
+<p>Each rung’s log carries the correct chunked-backward banner (2×6 /
+3×4 / 4×3, loader batch 12 unchanged), so the ladder was exercised
+as registered, on box code <code>9ddcfe3</code> (includes the Amendment-1
+chunked-backward impl + oracles). <strong>No rung completed a single
+optimizer step — every traceback starts at the first <code>train_step</code>
+call — so Adam’s fp32 exp_avg/exp_avg_sq for the 3,975.3M live text
+params (~2 × 15.9 GiB ≈ 31.8 GiB) were never even allocated.</strong> The
+deficit is therefore not the ~0.1 GiB the OOM margins suggest:
+steady-state training needs roughly ≥110 GiB/rank under this recipe
+(fp32 masters + fp32 grads + bf16 weights + frozen tables ≈ high-40s
+GiB, + ~32 GiB Adam, + activations that alone overflow the remainder
+even at 3-sample chunks). Chunking the batch further cannot close a
+fixed-cost gap of that size — the ladder’s terminal branch is the
+correct read, not bad luck at rung 4.</p>
+<p><strong>Smoke E1 lines (match the four box arms, identical across all
+four rungs).</strong> Selection: 878 datasets, 38,571 train + 4,301 holdout
+= 42,872 episodes, dims 6/6. Model: E4B geometry confirmed — 42
+layers, text 3,975.3M params (~2.2× E2B), fp32 masters + bf16
+autocast, fp32 ar_backbone decoder.</p>
+<p><strong>Checklist state at termination:</strong> (1) box free ✓; (2) e4b
+checkpoint in box cache ✓ (snapshot <code>ee0ef60</code>); (3) parity
+spot-check passed ✓ (<code>~/e4b_parity.log</code>); (4) smoke ✓ — ladder
+exhausted; (5) this amendment — <strong>outcome: NO-LAUNCH per the
+pre-registered terminal branch</strong>; (6) rsync-back loop extended ✓
+(E4B rotation now dormant). The follow-on decision — whether to
+re-enter E4B under a changed memory recipe (which would be a NEW
+pre-reg, not an amendment) or to redirect the box — is the owner’s,
+posted with options in the
+<a href="2026-08-06-e4b-no-launch.html">finding post</a>.</p>
 
                     </main>
 

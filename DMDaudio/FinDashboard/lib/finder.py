@@ -52,16 +52,28 @@ def filter_universe(
     subsectors: list[str] | tuple = (),
     size_bucket: str = "Any size",
     latest_year_min: int | None = None,
+    extra_idcodes=(),
 ):
     """Apply the finder's filters to the universe frame; returns a copy.
 
-    * ``query`` — case-insensitive substring over CompanyName OR IdCode prefix.
+    * ``query`` — case-insensitive substring over CompanyName, the bia.ge trade
+      names (``TradeNames``, when the frame carries the column) OR IdCode prefix.
+      The trade name is the only English handle many companies have: the legal
+      name is Georgian and ``შპს მემო`` is not something anyone types looking
+      for ``უნივერსამი``.
     * ``sectors`` / ``subsectors`` — empty means no filter; ``(unclassified)``
       matches NULL/blank values.
     * ``size_bucket`` — a :data:`SIZE_BUCKETS` label; bounds are
       lo ≤ Revenue < hi on the latest filed year.
     * ``latest_year_min`` — keep only companies whose latest filed year is at
       least this (the "current filers only" switch).
+    * ``extra_idcodes`` — companies the CALLER matched by some means this pure
+      function cannot express, unioned into the query hit. Used for the
+      phonetic cross-script trade-name match: "Carrefour" and the Georgian
+      spelling bia stores share no characters, so no substring over this
+      frame can connect them, but ``lib.bia_brand.search_trade_names`` can.
+      Ignored when ``query`` is empty, so it can never widen an unfiltered
+      browse.
     """
     out = df
     q = (query or "").strip().lower()
@@ -69,7 +81,16 @@ def filter_universe(
         name_hit = out["CompanyName"].astype(str).str.lower().str.contains(
             q, regex=False, na=False)
         id_hit = out["IdCode"].astype(str).str.startswith(q)
-        out = out[name_hit | id_hit]
+        hit = name_hit | id_hit
+        # Optional so the pure filter still works on a frame built without the
+        # brand join (older callers, and the unit tests' minimal frames).
+        if "TradeNames" in out.columns:
+            hit = hit | out["TradeNames"].astype(str).str.lower().str.contains(
+                q, regex=False, na=False)
+        if len(extra_idcodes):
+            hit = hit | out["IdCode"].astype(str).isin(
+                {str(c) for c in extra_idcodes})
+        out = out[hit]
     if sectors:
         wanted = set(sectors)
         out = out[out["Sector"].map(sector_of).isin(wanted)]

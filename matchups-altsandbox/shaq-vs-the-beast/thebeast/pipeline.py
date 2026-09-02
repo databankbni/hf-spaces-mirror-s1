@@ -85,15 +85,8 @@ def _load_totals_calibrator() -> Optional[TotalsCalibrator]:
     return _totals_cache["cal"]
 
 
-def _teams_from_game_id(game_id: str) -> tuple[Optional[str], Optional[str]]:
-    """Parse '<date>-<away>-<home>[-g{N}]' → (home, away); (None, None) if no match."""
-    import re
-    base = re.sub(r"-g\d+$", "", game_id)  # drop doubleheader suffix
-    parts = base.rsplit("-", 2)
-    if len(parts) == 3:
-        _, away, home = parts
-        return home, away
-    return None, None
+# Sixth copy of this, found while consolidating the other five.
+from .gameid import teams_of as _teams_from_game_id  # noqa: E402
 
 
 def is_placeholder(player_id: int) -> bool:
@@ -185,8 +178,11 @@ def ensure_lineups(repo, game_id: str, home: Optional[str],
         if not team:
             continue
         lc = repo.get_lineup(game_id, team)
+        # `is_placeholder`, not a bare `< 9_000_000`: there are two placeholder
+        # blocks and the open-coded test only knew about one, so the synthetic
+        # 1000/2000 nine counted as real players and never got roster-backed.
         has_real = (lc is not None and lc.batting_order
-                    and lc.batting_order[0] < 9_000_000)
+                    and not is_placeholder(lc.batting_order[0]))
         if has_real:
             continue
         roster = repo.get_lineup(f"{ROSTER_GAME_ID}-{season}", team)
@@ -321,12 +317,7 @@ def resolve_lineups(
     return home_lineup, away_lineup
 
 
-def _season_of(game_id: str) -> int:
-    from datetime import date as _date, datetime as _dt
-    try:
-        return _dt.strptime(game_id[:10], "%Y-%m-%d").date().year
-    except (ValueError, IndexError):
-        return _date.today().year
+from .gameid import season_of as _season_of  # noqa: E402
 
 
 def _drop_unavailable(repo, lineup: LineupCard, season: int) -> LineupCard:

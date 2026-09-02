@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro GTA 1-Style Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #222;
+            font-family: 'Courier New', monospace;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-canvas {
+            background-color: #333;
+            border: 4px solid #555;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            image-rendering: pixelated;
+        }
+
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border: 2px solid #555;
+            font-size: 14px;
+        }
+
+        #menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 4px solid #555;
+            padding: 20px;
+            color: white;
+            text-align: center;
+            z-index: 100;
+        }
+
+        .pixel-button {
+            background-color: #444;
+            color: white;
+            border: 2px solid #666;
+            padding: 10px 20px;
+            margin: 5px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pixel-button:hover {
+            background-color: #666;
+            border-color: #888;
+        }
+
+        .mission-marker {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: red;
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .car {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            background-color: blue;
+            transform-origin: center;
+        }
+
+        .pedestrian {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: green;
+            border-radius: 50%;
+        }
+
+        .building {
+            position: absolute;
+            background-color: #555;
+            border: 2px solid #333;
+        }
+
+        .road {
+            position: absolute;
+            background-color: #444;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+
+        <div id="hud">
+            <div>Time: <span id="time">12:00</span></div>
+            <div>Score: <span id="score">0</span></div>
+            <div>Wanted: <span id="wanted">★</span></div>
+            <div>Health: <span id="health">100%</span></div>
+            <div>Money: $<span id="money">1000</span></div>
+        </div>
+
+        <div id="menu" style="display: none;">
+            <h1 class="text-2xl mb-4">RETRO GTA</h1>
+            <div class="mb-6">
+                <button id="start-game" class="pixel-button">START GAME</button>
+                <button id="controls" class="pixel-button">CONTROLS</button>
+            </div>
+            <div id="controls-info" style="display: none;">
+                <p class="mb-2">WASD or Arrow Keys - Move</p>
+                <p class="mb-2">Space - Handbrake</p>
+                <p class="mb-2">E - Enter/Exit Vehicle</p>
+                <p class="mb-2">M - Mission Start</p>
+                <button id="back-to-menu" class="pixel-button mt-4">BACK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        const gameState = {
+            player: {
+                x: 400,
+                y: 300,
+                speed: 0,
+                angle: 0,
+                maxSpeed: 5,
+                acceleration: 0.1,
+                rotationSpeed: 3,
+                inVehicle: true,
+                health: 100,
+                money: 1000,
+                score: 0,
+                wantedLevel: 0
+            },
+            time: {
+                hours: 12,
+                minutes: 0
+            },
+            vehicles: [],
+            pedestrians: [],
+            buildings: [],
+            roads: [],
+            mission: {
+                active: false,
+                marker: { x: 600, y: 200 }
+            },
+            keys: {}
+        };
+
+        // DOM elements
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const menu = document.getElementById('menu');
+        const startButton = document.getElementById('start-game');
+        const controlsButton = document.getElementById('controls');
+        const controlsInfo = document.getElementById('controls-info');
+        const backButton = document.getElementById('back-to-menu');
+        const timeDisplay = document.getElementById('time');
+        const scoreDisplay = document.getElementById('score');
+        const wantedDisplay = document.getElementById('wanted');
+        const healthDisplay = document.getElementById('health');
+        const moneyDisplay = document.getElementById('money');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth * 0.9;
+            canvas.height = window.innerHeight * 0.9;
+        }
+
+        // Initialize game
+        function initGame() {
+            resizeCanvas();
+            showMenu();
+            generateCity();
+            window.addEventListener('resize', resizeCanvas);
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+
+            startButton.addEventListener('click', startGame);
+            controlsButton.addEventListener('click', showControls);
+            backButton.addEventListener('click', showMenu);
+        }
+
+        // Show main menu
+        function showMenu() {
+            menu.style.display = 'block';
+            controlsInfo.style.display = 'none';
+        }
+
+        // Show controls
+        function showControls() {
+            menu.style.display = 'block';
+            controlsInfo.style.display = 'block';
+        }
+
+        // Start game
+        function startGame() {
+            menu.style.display = 'none';
+            gameLoop();
+            setInterval(updateTime, 60000); // Update time every minute (game time)
+        }
+
+        // Generate city elements
+        function generateCity() {
+            // Generate roads
+            for (let i = 0; i < 10; i++) {
+                gameState.roads.push({
+                    x: i * 100,
+                    y: 200,
+                    width: 80,
+                    height: 20
+                });
+
+                gameState.roads.push({
+                    x: 400,
+                    y: i * 80,
+                    width: 20,
+                    height: 60
+                });
+            }
+
+            // Generate buildings
+            for (let i = 0; i < 15; i++) {
+                gameState.buildings.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    width: 60 + Math.random() * 100,
+                    height: 80 + Math.random() * 120
+                });
+            }
+
+            // Generate pedestrians
+            for (let i = 0; i < 20; i++) {
+                gameState.pedestrians.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    speed: 0.5 + Math.random() * 1.5,
+                    direction: Math.random() * 360
+                });
+            }
+
+            // Generate other vehicles
+            for (let i = 0; i < 5; i++) {
+                gameState.vehicles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    speed: 1 + Math.random() * 3,
+                    angle: Math.random() * 360,
+                    color: `hsl(${Math.random() * 360}, 70%, 50%)`
+                });
+            }
+        }
+
+        // Handle key down
+        function handleKeyDown(e) {
+            gameState.keys[e.key] = true;
+
+            // Toggle menu with ESC
+            if (e.key === 'Escape') {
+                if (menu.style.display === 'none') {
+                    menu.style.display = 'block';
+                } else {
+                    menu.style.display = 'none';
+                }
+            }
+
+            // Start mission with M
+            if (e.key === 'm' && !gameState.mission.active) {
+                gameState.mission.active = true;
+                gameState.mission.marker = {
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height
+                };
+            }
+        }
+
+        // Handle key up
+        function handleKeyUp(e) {
+            gameState.keys[e.key] = false;
+        }
+
+        // Update game time
+        function updateTime() {
+            gameState.time.minutes += 10;
+            if (gameState.time.minutes >= 60) {
+                gameState.time.minutes = 0;
+                gameState.time.hours = (gameState.time.hours + 1) % 24;
+            }
+
+            const hoursStr = gameState.time.hours.toString().padStart(2, '0');
+            const minsStr = gameState.time.minutes.toString().padStart(2, '0');
+            timeDisplay.textContent = `${hoursStr}:${minsStr}`;
+        }
+
+        // Update game state
+        function update() {
+            const player = gameState.player;
+
+            // Player movement
+            if (player.inVehicle) {
+                // Acceleration
+                if (gameState.keys['ArrowUp'] || gameState.keys['w']) {
+                    player.speed = Math.min(player.speed + player.acceleration, player.maxSpeed);
+                } else if (gameState.keys['ArrowDown'] || gameState.keys['s']) {
+                    player.speed = Math.max(player.speed - player.acceleration, -player.maxSpeed / 2);
+                } else {
+                    // Slow down
+                    player.speed *= 0.95;
+                    if (Math.abs(player.speed) < 0.1) player.speed = 0;
+                }
+
+                // Steering
+                if (player.speed !== 0) {
+                    if (gameState.keys['ArrowLeft'] || gameState.keys['a']) {
+                        player.angle -= player.rotationSpeed * (player.speed / player.maxSpeed);
+                    }
+                    if (gameState.keys['ArrowRight'] || gameState.keys['d']) {
+                        player.angle += player.rotationSpeed * (player.speed / player.maxSpeed);
+                    }
+                }
+
+                // Handbrake
+                if (gameState.keys[' ']) {
+                    player.speed *= 0.8;
+                }
+
+                // Update position
+                const rad = player.angle * Math.PI / 180;
+                player.x += Math.sin(rad) * player.speed;
+                player.y -= Math.cos(rad) * player.speed;
+
+                // Check for collisions with buildings
+                for (const building of gameState.buildings) {
+                    if (checkCollision(
+                        player.x, player.y, 32, 32,
+                        building.x, building.y, building.width, building.height
+                    )) {
+                        // Bounce off
+                        player.speed = -player.speed * 0.5;
+                        player.health -= 5;
+                        healthDisplay.textContent = `${player.health}%`;
+
+                        // Increase wanted level
+                        if (gameState.player.wantedLevel < 5) {
+                            gameState.player.wantedLevel++;
+                            wantedDisplay.textContent = '★'.repeat(gameState.player.wantedLevel);
+                        }
+                    }
+                }
+            }
+
+            // Update other vehicles
+            for (const vehicle of gameState.vehicles) {
+                const rad = vehicle.angle * Math.PI / 180;
+                vehicle.x += Math.sin(rad) * vehicle.speed;
+                vehicle.y -= Math.cos(rad) * vehicle.speed;
+
+                // Simple AI - change direction occasionally
+                if (Math.random() < 0.01) {
+                    vehicle.angle += (Math.random() - 0.5) * 30;
+                }
+
+                // Wrap around screen
+                if (vehicle.x < 0) vehicle.x = canvas.width;
+                if (vehicle.x > canvas.width) vehicle.x = 0;
+                if (vehicle.y < 0) vehicle.y = canvas.height;
+                if (vehicle.y > canvas.height) vehicle.y = 0;
+            }
+
+            // Update pedestrians
+            for (const ped of gameState.pedestrians) {
+                const rad = ped.direction * Math.PI / 180;
+                ped.x += Math.sin(rad) * ped.speed;
+                ped.y -= Math.cos(rad) * ped.speed;
+
+                // Change direction occasionally
+                if (Math.random() < 0.02) {
+                    ped.direction += (Math.random() - 0.5) * 90;
+                }
+
+                // Avoid going off screen
+                if (ped.x < 0 || ped.x > canvas.width || ped.y < 0 || ped.y > canvas.height) {
+                    ped.direction = Math.atan2(canvas.width / 2 - ped.x, canvas.height / 2 - ped.y) * 180 / Math.PI;
+                }
+            }
+
+            // Check mission completion
+            if (gameState.mission.active) {
+                const marker = gameState.mission.marker;
+                if (Math.sqrt((player.x - marker.x) ** 2 + (player.y - marker.y) ** 2) < 30) {
+                    gameState.mission.active = false;
+                    player.money += 500;
+                    player.score += 1000;
+                    moneyDisplay.textContent = player.money;
+                    scoreDisplay.textContent = player.score;
+                }
+            }
+        }
+
+        // Check collision between two rectangles
+        function checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return x1 < x2 + w2 &&
+                x1 + w1 > x2 &&
+                y1 < y2 + h2 &&
+                y1 + h1 > y2;
+        }
+
+        // Render game
+        function render() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw roads
+            ctx.fillStyle = '#444';
+            for (const road of gameState.roads) {
+                ctx.fillRect(road.x, road.y, road.width, road.height);
+            }
+
+            // Draw buildings
+            ctx.fillStyle = '#555';
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            for (const building of gameState.buildings) {
+                ctx.fillRect(building.x, building.y, building.width, building.height);
+                ctx.strokeRect(building.x, building.y, building.width, building.height);
+
+                // Simple windows
+                ctx.fillStyle = '#777';
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 3; j++) {
+                        ctx.fillRect(
+                            building.x + 10 + i * 15,
+                            building.y + 10 + j * 15,
+                            8, 8
+                        );
+                    }
+                }
+                ctx.fillStyle = '#555';
+            }
+
+            // Draw pedestrians
+            ctx.fillStyle = 'green';
+            for (const ped of gameState.pedestrians) {
+                ctx.beginPath();
+                ctx.arc(ped.x, ped.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw other vehicles
+            for (const vehicle of gameState.vehicles) {
+                ctx.save();
+                ctx.translate(vehicle.x, vehicle.y);
+                ctx.rotate(vehicle.angle * Math.PI / 180);
+                ctx.fillStyle = vehicle.color;
+                ctx.fillRect(-16, -16, 32, 32);
+
+                // Simple car details
+                ctx.fillStyle = '#333';
+                ctx.fillRect(-12, -12, 24, 8);
+                ctx.fillRect(-12, 4, 24, 8);
+                ctx.restore();
+            }
+
+            // Draw player vehicle
+            const player = gameState.player;
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle * Math.PI / 180);
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(-16, -16, 32, 32);
+
+            // Car details
+            ctx.fillStyle = '#333';
+            ctx.fillRect(-12, -12, 24, 8); // Windshield
+            ctx.fillRect(-12, 4, 24, 8);   // Rear window
+            ctx.fillStyle = 'red';
+            ctx.fillRect(12, -8, 4, 4);    // Tail lights
+            ctx.fillRect(12, 4, 4, 4);
+            ctx.fillStyle = 'yellow';
+            ctx.fillRect(-16, -8, 4, 4);   // Headlights
+            ctx.fillRect(-16, 4, 4, 4);
+            ctx.restore();
+
+            // Draw mission marker if active
+            if (gameState.mission.active) {
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(
+                    gameState.mission.marker.x,
+                    gameState.mission.marker.y,
+                    10, 0, Math.PI * 2
+                );
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw line to marker
+                ctx.beginPath();
+                ctx.moveTo(player.x, player.y);
+                ctx.lineTo(gameState.mission.marker.x, gameState.mission.marker.y);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Draw minimap
+            const minimapSize = 150;
+            const minimapX = canvas.width - minimapSize - 20;
+            const minimapY = 20;
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(minimapX, minimapY, minimapSize, minimapSize);
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(minimapX, minimapY, minimapSize, minimapSize);
+
+            // Draw roads on minimap
+            ctx.fillStyle = '#666';
+            for (const road of gameState.roads) {
+                const mx = minimapX + (road.x / canvas.width) * minimapSize;
+                const my = minimapY + (road.y / canvas.height) * minimapSize;
+                const mw = (road.width / canvas.width) * minimapSize;
+                const mh = (road.height / canvas.height) * minimapSize;
+                ctx.fillRect(mx, my, mw, mh);
+            }
+
+            // Draw player on minimap
+            ctx.fillStyle = 'blue';
+            const px = minimapX + (player.x / canvas.width) * minimapSize;
+            const py = minimapY + (player.y / canvas.height) * minimapSize;
+            ctx.beginPath();
+            ctx.arc(px, py, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw mission marker on minimap
+            if (gameState.mission.active) {
+                ctx.fillStyle = 'red';
+                const mx = minimapX + (gameState.mission.marker.x / canvas.width) * minimapSize;
+                const my = minimapY + (gameState.mission.marker.y / canvas.height) * minimapSize;
+                ctx.beginPath();
+                ctx.arc(mx, my, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Main game loop
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize the game
+        window.onload = initGame;
+    </script>
+</body>
+
+</html>

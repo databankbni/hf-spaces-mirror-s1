@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.config import get_settings
 from app.errors import APIError
 from app.routes import (
     agents,
@@ -17,6 +19,7 @@ from app.routes import (
     leaderboard,
     me,
     messages,
+    prs,
     results,
     sync,
     taskforces,
@@ -38,7 +41,25 @@ logging.getLogger(__name__).info(
     "that served the write and every other wait= degrades to a full timeout"
 )
 
-app = FastAPI(title="bucket-sync", version="1.5.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start the curation merge-bot (daemon thread) when enabled. Gated so it
+    # never runs in the template/tests, which leave curation_enabled False.
+    bot = None
+    settings = get_settings()
+    if settings.curation_enabled and settings.merge_bot_enabled and settings.curation_dataset:
+        from app.deps import get_merge_bot
+
+        bot = get_merge_bot()
+        bot.start()
+    try:
+        yield
+    finally:
+        if bot is not None:
+            bot.stop()
+
+
+app = FastAPI(title="bucket-sync", version="1.6.0", lifespan=lifespan)
 
 app.include_router(health.router)
 app.include_router(digest.router)
@@ -55,6 +76,7 @@ app.include_router(taskforces.router)
 app.include_router(channels.router)
 app.include_router(traces.router)
 app.include_router(client.router)
+app.include_router(prs.router)
 
 
 @app.exception_handler(APIError)

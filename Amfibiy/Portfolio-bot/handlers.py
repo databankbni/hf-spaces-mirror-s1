@@ -11,7 +11,8 @@ from collections import defaultdict
 from aiogram import Router, F, Bot
 from aiogram.types import (
     Message, CallbackQuery, FSInputFile,
-    InlineKeyboardMarkup, InlineKeyboardButton
+    InlineKeyboardMarkup, InlineKeyboardButton,
+    ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 )
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -33,6 +34,17 @@ from work_processing import background_work_processing
 from scan_processing import background_scan_batch_processing
 
 router = Router()
+
+
+def _stop_keyboard() -> ReplyKeyboardMarkup:
+    """Постоянная клавиатура с единственной кнопкой '⏹ Стоп', видна всё время, пока
+    активен режим загрузки файлов/сканов — альтернативный, более заметный способ
+    остановки, помимо команды /stop."""
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="⏹ Стоп")]],
+        resize_keyboard=True,
+        is_persistent=True,
+    )
 
 
 async def safe_delete(message):
@@ -176,13 +188,44 @@ async def cmd_start(message: Message, state: FSMContext):
 
 @router.message(Command("add_work"))
 async def cmd_add_work(message: Message, state: FSMContext):
+    state_manager.clear_stop(message.from_user.id)
     await state.set_state(BotStates.waiting_for_works)
-    await message.answer("📥 Режим загрузки активен. Отправляйте документы.")
+    await message.answer(
+        "📥 Режим загрузки активен. Отправляйте документы.",
+        reply_markup=_stop_keyboard()
+    )
 
 @router.message(Command("add_scan"))
 async def cmd_add_scan(message: Message, state: FSMContext):
+    state_manager.clear_stop(message.from_user.id)
     await state.set_state(BotStates.waiting_for_scans)
-    await message.answer("🖨 Режим приема сканов активен. Отправляйте файлы.")
+    await message.answer(
+        "🖨 Режим приема сканов активен. Отправляйте файлы.",
+        reply_markup=_stop_keyboard()
+    )
+
+@router.message(Command("stop"))
+@router.message(F.text == "⏹ Стоп")
+async def cmd_stop(message: Message, state: FSMContext):
+    """Останавливает приём и обработку файлов/сканов: отменяет ещё не запущенную пачку
+    (/add_work, /add_scan), а также активные фоновые задачи обработки этого пользователя."""
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+
+    n_work = await state_manager.cancel_work_batch(message.bot, user_id, chat_id)
+    n_scan = await state_manager.cancel_scan_batch(message.bot, user_id, chat_id)
+    n_cancelled_tasks = state_manager.request_stop(user_id)
+
+    await state.clear()
+
+    parts = ["⏹ Остановлено."]
+    if n_work or n_scan:
+        parts.append(f"Из ожидавших пачек удалено: {n_work + n_scan} файл(ов).")
+    if n_cancelled_tasks:
+        parts.append(f"Прервано активных задач обработки: {n_cancelled_tasks}.")
+        parts.append("Файлы, обработка которых уже была в процессе, могли не сохраниться — проверьте архив.")
+    await message.answer("\n".join(parts), reply_markup=ReplyKeyboardRemove())
+
 
 @router.message(Command("delete_works"))
 async def cmd_delete_works(message: Message):
@@ -1614,6 +1657,32 @@ async def callback_confirm_send_now(call: CallbackQuery):
         await state_manager._flush_scan_batch(call.bot, user_id, chat_id)
 
 
+@router.callback_query(F.data.startswith("cancel_batch_btn:"))
+async def callback_cancel_batch_btn(call: CallbackQuery):
+    """Кнопка '❌ Отменить' в сообщении со счётчиком пачки (work/scan/zip) — удаляет ещё не
+    запущенную пачку целиком: скачанные файлы стираются, ничего не уходит в обработку."""
+    parts = call.data.split(":")
+    kind = parts[1]  # "work" | "scan" | "zip"
+    user_id = call.from_user.id
+    chat_id = call.message.chat.id
+
+    await safe_delete(call.message)
+
+    if kind == "work":
+        n = await state_manager.cancel_work_batch(call.bot, user_id, chat_id)
+    elif kind == "scan":
+        n = await state_manager.cancel_scan_batch(call.bot, user_id, chat_id)
+    else:  # zip — третий сегмент задаёт work/scan-подтип zip-пачки
+        zip_kind = parts[2] if len(parts) > 2 else "work"
+        n = await state_manager.cancel_zip_batch(call.bot, user_id, chat_id, kind=zip_kind)
+
+    if n:
+        note = await call.message.answer(f"❌ Отменено, {n} файл(ов) удалено из очереди.")
+    else:
+        note = await call.message.answer("❌ Отменено.")
+    asyncio.create_task(state_manager._fade_and_delete(call.bot, chat_id, note.message_id, delay=3.0))
+
+
 # ========== КОЛБЭКИ "ОТПРАВИТЬ СЕЙЧАС" ДЛЯ ОБЩЕГО .ZIP-АРХИВА ==========
 @router.callback_query(F.data.startswith("send_now_zip:"))
 async def callback_send_now_zip_btn(call: CallbackQuery):
@@ -1678,9 +1747,11 @@ async def main_queue_worker(bot: Bot):
 
             if task_type == 'work':
                 # Запускаем обработку одной работы
-                asyncio.create_task(background_work_processing(bot, task))
+                t = asyncio.create_task(background_work_processing(bot, task))
+                state_manager.register_processing_task(task.get('user_id'), t)
             elif task_type == 'scan_batch':
-                asyncio.create_task(background_scan_batch_processing(bot, task))
+                t = asyncio.create_task(background_scan_batch_processing(bot, task))
+                state_manager.register_processing_task(task.get('user_id'), t)
 
         except Exception as e:
             logging.error(f"Критическая ошибка в цикле воркера очереди: {e}")

@@ -1,0 +1,56 @@
+name: Regional floras media probe
+
+on:
+  push:
+    branches: [regional-floras-media-audit]
+    paths:
+      - '.github/workflows/regional-floras-media-probe.yml'
+      - '.github/tools/audit_regional_floras.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/regional-floras-media-probe.yml'
+      - '.github/tools/audit_regional_floras.py'
+  workflow_dispatch:
+
+concurrency:
+  group: regional-floras-media-probe-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download WFO regional flora archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --insecure -fL --retry 5 --retry-all-errors --retry-delay 3 \
+            'https://files.worldfloraonline.org/files/eFloras/FNA/FNA.zip' \
+            -o /tmp/fna.zip
+          curl --insecure -fL --retry 5 --retry-all-errors --retry-delay 3 \
+            'https://files.worldfloraonline.org/files/eFloraOfThailand/FloraOfThailand.zip' \
+            -o /tmp/thailand.zip
+          unzip -t /tmp/fna.zip >/dev/null
+          unzip -t /tmp/thailand.zip >/dev/null
+          ls -lh /tmp/fna.zip /tmp/thailand.zip
+
+      - name: Inspect Darwin Core structure and image licences
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/audit_regional_floras.py \
+            --archive FNA=/tmp/fna.zip \
+            --archive THAILAND=/tmp/thailand.zip \
+            --report /tmp/regional-floras-probe.json
+          cat /tmp/regional-floras-probe.json
+
+      - name: Upload probe report
+        uses: actions/upload-artifact@v4
+        with:
+          name: regional-floras-media-probe
+          path: /tmp/regional-floras-probe.json
+          retention-days: 7

@@ -322,3 +322,69 @@ def hexelize(small, out_w, out_h, R):
 
 hexelize(img, W, H, 5).save(OUT)   # R=5 px: tessere piu' fini -> geografia leggibile
 print("saved (hexel)", OUT, "| land px:", int(M.sum()), "| max elev:", round(float(elev.max()), 2))
+
+# ═══ PUNTEGGI RISORSE per hexad -> data/sinecismi.json ═══════════════════
+# Derivati dalla stessa geografia della mappa (elevazione, aridita', costa) piu'
+# due strati fini: BACINI FLUVIALI e CORRIDOI di transumanza/migrazione endemica
+# (polilinee di prossimita', come le catene montuose).
+RIVERS = [
+    [(30,31),(31,27),(32,24),(33,15),(32,9),(31,4)],       # Nilo
+    [(-49,-1),(-58,-3),(-67,-4),(-73,-6)],                 # Rio delle Amazzoni
+    [(-90,29),(-90,37),(-93,43),(-95,47)],                 # Mississippi-Missouri
+    [(121,32),(114,30),(107,30),(101,29),(97,32)],         # Yangtze
+    [(88,22),(84,25),(80,27),(78,30)],                     # Gange
+    [(67,24),(69,27),(72,31),(75,35)],                     # Indo
+    [(29,45),(24,44),(19,45),(13,48),(9,48)],              # Danubio
+    [(48,46),(45,49),(45,54),(40,57),(37,57)],             # Volga
+    [(12,-6),(17,-1),(24,1),(29,-2)],                      # Congo
+    [(5,4),(4,8),(0,13),(-4,17),(-8,13)],                  # Niger
+    [(48,30),(45,32),(42,35),(39,37)],                     # Tigri-Eufrate
+    [(106,10),(105,15),(101,20),(99,25),(97,29)],          # Mekong
+    [(-58,-27),(-60,-32),(-58,-34)],                       # Parana
+    [(6,52),(7,50),(8,47)],                                # Reno
+    [(139,-35),(144,-35),(148,-36)],                       # Murray
+]
+CORRIDORS = [
+    [(35,36),(48,38),(63,40),(80,42),(95,41),(110,36),(118,34)],  # Via della Seta
+    [(-8,32),(-2,26),(4,18),(9,14),(15,13)],                      # Trans-sahariano
+    [(28,50),(45,50),(62,49),(80,48),(98,47),(112,45)],           # Steppa eurasiatica
+    [(43,13),(55,16),(66,22),(73,17),(80,8),(90,10),(98,14)],     # Monsone Oceano Indiano
+    [(12,54),(13,50),(13,46)],                                    # Ambra (Baltico-Adriatico)
+    [(-75,2),(-73,-9),(-71,-18),(-70,-27)],                       # Verticale andina
+    [(-99,19),(-92,16),(-88,17)],                                 # Mesoamericano
+    [(77,29),(82,26),(86,24),(89,23)],                            # Grand Trunk (India)
+    [(31,31),(35,33),(36,36)],                                    # Via del Levante
+]
+def line_field(polys, width):
+    f = np.zeros((LH, LW), float)
+    for pts in polys:
+        for p1, p2 in zip(pts, pts[1:]):
+            f = np.maximum(f, np.exp(-((seg_dist(LON, LAT, p1, p2)) / width) ** 2))
+    return f
+river_f = line_field(RIVERS, 2.2)
+corridor_f = line_field(CORRIDORS, 4.5)
+
+doc = json.load(open(REPO + r"\data\sinecismi.json", encoding="utf-8"))
+arr = doc["sinecismi"]
+NX = np.array([s["nx"] for s in arr]); NY = np.array([s["ny"] for s in arr])
+def samp(F, nx, ny):
+    x = min(LW - 1, max(0, int(nx * LW))); y = min(LH - 1, max(0, int(ny * LH)))
+    return float(F[y, x])
+cl = lambda v: 0.0 if v < 0 else (1.0 if v > 1 else v)
+R0 = 0.05
+for s in arr:
+    nx, ny = s["nx"], s["ny"]
+    e = samp(elev, nx, ny); a = samp(arid, nx, ny); dl = samp(dist_land, nx, ny)
+    riv = samp(river_f, nx, ny); cor = samp(corridor_f, nx, ny); lat = samp(LAT, nx, ny)
+    coastal = cl(1 - dl / 6.0)
+    tempAgri = math.exp(-(((abs(lat) - 38) / 22.0) ** 2))   # picco temperato ~35-45°
+    dx = (NX - nx) * 2; dy = (NY - ny)                        # nx scalato per l'aspetto 2:1
+    deg = int(np.sum((dx * dx + dy * dy) <= R0 * R0) - 1)     # hub-ness (vicini)
+    degn = cl(deg / 8.0)
+    dif = 10 * cl(0.62 * e + 0.38 * coastal)                              # montagne + barriera marina
+    com = 10 * cl(0.30 * coastal + 0.26 * cor + 0.20 * degn + 0.12 * riv + 0.10 * (1 - e) - 0.15 * a)
+    agr = 10 * cl(tempAgri * (1 - a) * (1 - 0.6 * e) + 0.35 * riv)
+    minr = 10 * cl(0.88 * e + 0.12 * cl(e * 1.3))
+    s["risorse"] = {"dif": round(dif, 1), "com": round(com, 1), "agr": round(agr, 1), "min": round(minr, 1)}
+json.dump(doc, open(REPO + r"\data\sinecismi.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+print("risorse calcolate per", len(arr), "hexad")

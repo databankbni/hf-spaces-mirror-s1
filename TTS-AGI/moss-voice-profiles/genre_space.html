@@ -1,0 +1,504 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How many singing genres are actually distinguishable?</title>
+<style>
+:root{--bg:#fbfaf8;--fg:#1c1b19;--mut:#6b6862;--line:#e3e0da;--card:#fff;--acc:#7c3aed;--good:#15803d;--bad:#b91c1c;--warn:#a16207}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#14131a;--fg:#e9e7e4;--mut:#9a968e;--line:#2c2a33;--card:#1b1a22;--acc:#a78bfa;--good:#4ade80;--bad:#f87171;--warn:#fbbf24}}
+:root[data-theme=dark]{--bg:#14131a;--fg:#e9e7e4;--mut:#9a968e;--line:#2c2a33;--card:#1b1a22;--acc:#a78bfa;--good:#4ade80;--bad:#f87171;--warn:#fbbf24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:44px 18px 90px}
+h1{font-size:2rem;margin:0 0 .25em;letter-spacing:-.02em;line-height:1.2}
+h2{font-size:1.3rem;margin:2.4em 0 .5em;border-bottom:1px solid var(--line);padding-bottom:.3em}
+h3{font-size:1.02rem;margin:1.7em 0 .4em}
+.sub{color:var(--mut);font-size:1.04rem;margin:0 0 1.8em}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:1em 0}
+table{border-collapse:collapse;width:100%;font-size:.87rem;min-width:640px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+th{font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);font-weight:600}
+.up{color:var(--good);font-weight:600}.dn{color:var(--bad);font-weight:600}
+.t{font-size:.76rem;color:var(--mut)}
+.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:11px;padding:15px 18px;margin:1.3em 0}
+.note.b{border-left-color:var(--bad)}.note.w{border-left-color:var(--warn)}
+audio{width:190px;height:30px;display:block}
+code{background:var(--card);border:1px solid var(--line);padding:1px 5px;border-radius:4px;font-size:.87em}
+a{color:var(--acc)} ul{padding-left:22px}li{margin:6px 0}
+.big{font-size:2rem;font-weight:700;letter-spacing:-.02em;line-height:1.05}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin:1.4em 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.lbl{font-size:.73rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);font-weight:600}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;min-width:90px;display:inline-block;vertical-align:middle}
+.bar i{display:block;height:100%;background:var(--acc)}
+</style>
+<div class="wrap">
+<p><a href="index.html">&larr; overview</a></p>
+<h1>How many singing genres are actually distinguishable?</h1>
+<p class="sub">153 solo-voice styles, 5 takes each, 765 clips &mdash; every one sung to the same
+lyrics so that any measured difference is the singing and not the words.</p>
+<div class="stats">
+<div class="card"><div class="lbl">the answer</div><div class="big">~50</div>
+<div class="t">distinguishable genres, not 153</div></div>
+<div class="card"><div class="lbl">clips</div><div class="big">765</div>
+<div class="t">153 genres &times; 5, 0 failures</div></div>
+<div class="card"><div class="lbl">best view</div><div class="big">VoiceCLAP</div>
+<div class="t">between/within ratio 1.67</div></div>
+<div class="card"><div class="lbl">music embedding</div><div class="big dn">1.00</div>
+<div class="t">ratio &mdash; no signal at all</div></div>
+</div>
+<h2>First, a dead end worth publishing</h2>
+<div class="note b"><b>The obvious embedding sees nothing.</b> <code>music-whisper</code> &mdash;
+the 23040-d encoder the aesthetics and popularity heads are built on, and the one anybody would
+reach for &mdash; gives a between-genre centroid distance of <b>1.0038</b>
+against a within-genre distance of <b>1.0048</b>. A ratio of <b>1.00</b>. Leave-one-out accuracy
+over 153 genres is <b>0.004</b>, where chance is 0.0065 &mdash; that is chance.
+Every genre's margin to its nearest neighbour is negative, and the confusions it does make are
+nonsense: dramatic soprano &rarr; Carnatic, countertenor &rarr; vaporwave croon.</div>
+<p>The tempting headline from that number is "153 singing genres are indistinguishable". It would
+have been wrong, and the check that shows it is cheap: measure the audio directly.</p>
+<div class="scroll"><table><tr><th>genre</th><th>intended</th><th>median F0</th></tr>
+<tr><td>playground chant</td><td>child</td><td>344 Hz</td></tr>
+<tr><td>child folk singer</td><td>child</td><td>325 Hz</td></tr>
+<tr><td>teen pop</td><td>teen</td><td>279 Hz</td></tr>
+<tr><td>boy treble</td><td>child</td><td>232 Hz</td></tr>
+<tr><td>basso profondo</td><td>older male</td><td>177 Hz</td></tr>
+<tr><td>Tuvan throat singing</td><td>adult male</td><td>163 Hz</td></tr>
+<tr><td>blues delta</td><td>older male</td><td>157 Hz</td></tr>
+<tr><td>elderly folk singer</td><td>older male</td><td>148 Hz</td></tr>
+</table></div>
+<p>F0 spans <b>139&ndash;350 Hz</b>, ordered exactly as the age and register targets specify, and
+<code>hardcore_scream</code> is the noisiest clip in the set by both spectral flatness and centroid.
+<b>The generator did render the genres differently. The encoder simply cannot represent it.</b>
+music-whisper is trained on full mixtures for aesthetics and popularity; on dry solo voice with
+identical lyrics it is near-isotropic. Anyone scaling this work would reach for it by default, so
+it is worth knowing it cannot do this job.</p>
+<h2>Three views that can see it</h2><p>Two representations built for voice, plus a deliberately simple hand-built acoustic vector as a control. <b>Lift</b> is accuracy divided by chance &mdash; raw accuracy over 153 classes is meaningless on its own.</p><div class="scroll"><table><tr><th>representation</th><th>dims</th><th>between</th><th>within</th><th>ratio</th><th>LOO acc</th><th>lift vs chance</th></tr>
+<tr><td>music-whisper</td><td>23040</td><td>1.0038</td><td>1.0048</td><td class="dn">1.00</td><td>0.004</td><td class="dn">0.6&times;</td></tr>
+<tr><td><b>VoiceCLAP</b></td><td>768</td><td>0.9752</td><td>0.5838</td><td class="up">1.670</td><td>0.035</td><td class="up">5.4&times;</td></tr>
+<tr><td><b>VoiceNet dimensions</b></td><td>57</td><td>0.9718</td><td>0.6251</td><td class="up">1.555</td><td>0.047</td><td class="up">7.2&times;</td></tr>
+<tr><td><b>acoustic, hand-built</b></td><td>42</td><td>0.9979</td><td>0.7858</td><td class="up">1.270</td><td>0.014</td><td class="up">2.2&times;</td></tr>
+</table></div>
+<div class="note"><b>A 42-dimensional hand-built feature vector beats a 23040-d
+learned embedding by 550&times; on lift.</b> That is not a subtle margin. For solo voice, pitch
+statistics, dynamics, spectral shape and MFCCs carry the genre signal, and a music-mixture encoder
+throws it away. If you scale this, pick the representation on evidence rather than on
+parameter count.</div>
+<h2>Where genres stop being separable</h2><p>Merge the 153 genre centroids agglomeratively and re-run the probe at each level. Lift peaks where the number of clusters matches the number of things the model actually renders differently.</p><div class="scroll"><table><tr><th>clusters</th><th>VoiceCLAP lift</th><th>VoiceNet dimensions lift</th><th>acoustic, hand-built lift</th></tr>
+<tr><td><b>153</b></td><td>5.4&times; <span class="bar" style="width:70px"><i style="width:41%"></i></span></td><td>7.2&times; <span class="bar" style="width:70px"><i style="width:58%"></i></span></td><td>2.2&times; <span class="bar" style="width:70px"><i style="width:17%"></i></span></td></tr>
+<tr><td><b>100</b></td><td>11.1&times; <span class="bar" style="width:70px"><i style="width:86%"></i></span></td><td>11.5&times; <span class="bar" style="width:70px"><i style="width:92%"></i></span></td><td>10.8&times; <span class="bar" style="width:70px"><i style="width:85%"></i></span></td></tr>
+<tr><td><b>80</b></td><td>12.4&times; <span class="bar" style="width:70px"><i style="width:96%"></i></span></td><td class="up">12.2&times; <span class="bar" style="width:70px"><i style="width:98%"></i></span></td><td class="up">12.4&times; <span class="bar" style="width:70px"><i style="width:98%"></i></span></td></tr>
+<tr><td><b>64</b></td><td>11.7&times; <span class="bar" style="width:70px"><i style="width:90%"></i></span></td><td class="up">12.4&times; <span class="bar" style="width:70px"><i style="width:100%"></i></span></td><td>12.1&times; <span class="bar" style="width:70px"><i style="width:95%"></i></span></td></tr>
+<tr><td><b>50</b></td><td class="up">12.9&times; <span class="bar" style="width:70px"><i style="width:100%"></i></span></td><td>11.4&times; <span class="bar" style="width:70px"><i style="width:91%"></i></span></td><td class="up">12.7&times; <span class="bar" style="width:70px"><i style="width:100%"></i></span></td></tr>
+<tr><td><b>40</b></td><td>11.2&times; <span class="bar" style="width:70px"><i style="width:87%"></i></span></td><td>10.2&times; <span class="bar" style="width:70px"><i style="width:82%"></i></span></td><td>11.1&times; <span class="bar" style="width:70px"><i style="width:87%"></i></span></td></tr>
+<tr><td><b>32</b></td><td>10.5&times; <span class="bar" style="width:70px"><i style="width:81%"></i></span></td><td>9.5&times; <span class="bar" style="width:70px"><i style="width:77%"></i></span></td><td>9.6&times; <span class="bar" style="width:70px"><i style="width:75%"></i></span></td></tr>
+<tr><td><b>24</b></td><td>9.0&times; <span class="bar" style="width:70px"><i style="width:69%"></i></span></td><td>8.3&times; <span class="bar" style="width:70px"><i style="width:66%"></i></span></td><td>8.5&times; <span class="bar" style="width:70px"><i style="width:67%"></i></span></td></tr>
+<tr><td><b>16</b></td><td>8.4&times; <span class="bar" style="width:70px"><i style="width:64%"></i></span></td><td>6.5&times; <span class="bar" style="width:70px"><i style="width:52%"></i></span></td><td>7.1&times; <span class="bar" style="width:70px"><i style="width:55%"></i></span></td></tr>
+<tr><td><b>12</b></td><td>7.1&times; <span class="bar" style="width:70px"><i style="width:55%"></i></span></td><td>5.7&times; <span class="bar" style="width:70px"><i style="width:46%"></i></span></td><td>5.9&times; <span class="bar" style="width:70px"><i style="width:46%"></i></span></td></tr>
+<tr><td><b>8</b></td><td>5.8&times; <span class="bar" style="width:70px"><i style="width:44%"></i></span></td><td>5.0&times; <span class="bar" style="width:70px"><i style="width:40%"></i></span></td><td>4.9&times; <span class="bar" style="width:70px"><i style="width:38%"></i></span></td></tr>
+<tr><td><b>6</b></td><td>4.6&times; <span class="bar" style="width:70px"><i style="width:35%"></i></span></td><td>4.0&times; <span class="bar" style="width:70px"><i style="width:32%"></i></span></td><td>3.9&times; <span class="bar" style="width:70px"><i style="width:30%"></i></span></td></tr>
+<tr><td><b>4</b></td><td>3.4&times; <span class="bar" style="width:70px"><i style="width:26%"></i></span></td><td>3.1&times; <span class="bar" style="width:70px"><i style="width:25%"></i></span></td><td>3.1&times; <span class="bar" style="width:70px"><i style="width:24%"></i></span></td></tr>
+</table></div>
+<div class="note"><b class="big" style="font-size:1.05rem">The answer: roughly
+50&ndash;80, not 153.</b><br>All three independent views peak in the same band &mdash; VoiceCLAP and
+the acoustic baseline at <b>50</b>, VoiceNet at <b>64</b> &mdash; and the plateau is flat from about
+50 to 100 (lift 10.9&ndash;12.9&times;). Above 100 it falls away, and at the full 153 it collapses
+to 2.2&ndash;7.2&times;. Three representations built on different principles agreeing on the same
+band is the strongest evidence available here.<br><br>
+<b>For generating training data, ~64 categories is the defensible target.</b> Keeping all 153 is
+not harmful &mdash; the extra labels are just finer than the model can reliably realise, so they
+add annotation precision the audio does not support.</div>
+<h2>The families are wrong, and that is useful</h2>
+<p>Nearest-neighbour confusions stay inside my hand-assigned family only
+<b>28/153</b> of the time (VoiceCLAP; the other views agree at 30/153
+and 38/153). If the taxonomy matched the acoustics, that number would be high.</p>
+<p>It is not a bug in the measurement &mdash; it says the way these styles are conventionally
+grouped (pop, rock, world, classical) is not how they actually sound when stripped to one dry
+unaccompanied voice. A Carnatic line and a dramatic soprano share far more, acoustically, than a
+dramatic soprano and a Gregorian chant. If you want the clusters to be meaningful, derive them from
+the audio rather than from genre history.</p>
+<h2>Can it sing as a child? Sometimes &mdash; and the failures have a pattern</h2>
+<p>Twelve entries were capability probes rather than assumptions. Measured with VoiceNet's age
+dimension (AGEV, higher = older):</p>
+<div class="scroll"><table><tr><th>intended age band</th><th>genres</th><th>mean AGEV</th></tr>
+<tr><td>child</td><td>5</td><td class="up">2.022</td></tr>
+<tr><td>teen</td><td>5</td><td>2.356</td></tr>
+<tr><td>young adult</td><td>26</td><td>2.453</td></tr>
+<tr><td>adult</td><td>108</td><td>3.117</td></tr>
+<tr><td>older</td><td>9</td><td>3.181</td></tr>
+</table></div>
+<p>The ordering is monotonic and correct &mdash; the age instruction does work on average. But
+per genre it is bimodal, and which way it falls is predictable:</p>
+<div class="scroll"><table><tr><th>probe</th><th>intended</th><th>AGEV</th><th>outcome</th></tr>
+<tr><td>child folk singer</td><td>child</td><td>1.133</td><td class="up">landed</td></tr>
+<tr><td>playground chant</td><td>child</td><td>1.198</td><td class="up">landed</td></tr>
+<tr><td>teenager singing alone</td><td>teen</td><td>1.233</td><td class="up">landed</td></tr>
+<tr><td>teen pop</td><td>teen</td><td>1.348</td><td class="up">landed</td></tr>
+<tr><td>nursery rhyme, child</td><td>child</td><td>1.444</td><td class="up">landed</td></tr>
+<tr><td>elderly folk singer</td><td>older</td><td>3.652</td><td class="up">landed</td></tr>
+<tr><td>lullaby, grandmother</td><td>older</td><td class="dn">1.458</td><td class="dn">came out young</td></tr>
+<tr><td>emo</td><td>teen</td><td class="dn">3.006</td><td class="dn">adult</td></tr>
+<tr><td>boy treble</td><td>child</td><td class="dn">3.089</td><td class="dn">adult</td></tr>
+<tr><td>adolescent solo</td><td>teen</td><td class="dn">3.091</td><td class="dn">adult</td></tr>
+<tr><td>boy-band tenor</td><td>teen</td><td class="dn">3.100</td><td class="dn">adult</td></tr>
+<tr><td>chorister solo</td><td>child</td><td class="dn">3.248</td><td class="dn">adult</td></tr>
+</table></div>
+<div class="note w"><b>Age and style compete in the caption, and style wins.</b> Six of twelve
+probes landed. Every one that landed had an age-neutral or child-associated style clause &mdash;
+nursery rhyme, playground, bedroom. Every one that failed carried a strong adult stylistic identity
+&mdash; chorister, boy-band, emo, grandmother's lullaby &mdash; and the model rendered the idiom and
+discarded the age.<br><br><b>So yes, the model can sing as a child</b>, reliably, when nothing in
+the prompt pulls the other way. To get a child <em>chorister</em> the age has to be reinforced
+against the style, not merely stated alongside it.</div>
+<h2>Listen &mdash; one take per genre</h2><p>Seed 1234, lyric set A, 160 kbps stereo. AGEV is VoiceNet's age reading of that genre's takes.</p>
+<h3>blues <span class='t'>&mdash; 4 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Chicago blues shouter</b><div class='t'>blues_chicago</div></td><td class='t'>adult &middot; male</td><td>3.98</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/blues_chicago.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>chicago blues shouter, powerful gravelly belt, urgent and declamatory</td></tr>
+<tr><td><b>Classic blues</b><div class='t'>blues_classic_female</div></td><td class='t'>adult &middot; female</td><td>2.63</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/blues_classic_female.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>classic 1920s blues woman, broad vibrato, sly slow drawl, theatrical</td></tr>
+<tr><td><b>Delta blues</b><div class='t'>blues_delta</div></td><td class='t'>older &middot; male</td><td>4.14</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/blues_delta.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>delta blues, rough weathered voice, bent notes, moaning field-holler inflection</td></tr>
+<tr><td><b>Field holler</b><div class='t'>field_holler</div></td><td class='t'>adult &middot; male</td><td>3.74</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/field_holler.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>unaccompanied field holler, long falling cries, free rhythm, raw and open-throated</td></tr>
+</table></div>
+<h3>classical <span class='t'>&mdash; 16 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Baroque ornamented aria</b><div class='t'>baroque_ornament</div></td><td class='t'>adult &middot; female</td><td>2.24</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/baroque_ornament.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>baroque aria with period ornamentation, straight tone, trills and appoggiaturas</td></tr>
+<tr><td><b>Basso profondo</b><div class='t'>opera_basso</div></td><td class='t'>older &middot; male</td><td>3.75</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/opera_basso.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>basso profondo, extremely low sonorous voice, cavernous resonance</td></tr>
+<tr><td><b>Bel canto</b><div class='t'>bel_canto</div></td><td class='t'>adult &middot; any</td><td>3.00</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/bel_canto.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>bel canto, effortless even legato across registers, elegant messa di voce swells</td></tr>
+<tr><td><b>Boy treble / chorister</b> <span class=t>(probe)</span><div class='t'>boy_treble</div></td><td class='t'>child &middot; male</td><td>3.09</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/boy_treble.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>boy treble chorister, pure clear unbroken child voice, straight tone, cathedral style</td></tr>
+<tr><td><b>Byzantine chant</b><div class='t'>byzantine</div></td><td class='t'>adult &middot; male</td><td>3.43</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/byzantine.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>byzantine chant, nasal modal melisma, microtonal inflection, liturgical</td></tr>
+<tr><td><b>Chorister solo</b> <span class=t>(probe)</span><div class='t'>choirboy_solo</div></td><td class='t'>child &middot; male</td><td>3.25</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/choirboy_solo.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>solo chorister boy, pure vibrato-free treble, echoing cathedral clarity</td></tr>
+<tr><td><b>Coloratura soprano</b><div class='t'>opera_sop_coloratura</div></td><td class='t'>adult &middot; female</td><td>1.78</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/opera_sop_coloratura.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>coloratura soprano, very high tessitura, rapid agile ornament runs, bright ringing tone</td></tr>
+<tr><td><b>Countertenor</b><div class='t'>countertenor</div></td><td class='t'>adult &middot; male</td><td>3.55</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/countertenor.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>countertenor, male falsetto in the alto range, pure straight early-music tone</td></tr>
+<tr><td><b>Dramatic soprano aria</b><div class='t'>opera_sop_dram</div></td><td class='t'>adult &middot; female</td><td>2.58</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/opera_sop_dram.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>dramatic operatic soprano, full chest-supported legato, wide slow vibrato, Italianate aria</td></tr>
+<tr><td><b>German Lied</b><div class='t'>lieder</div></td><td class='t'>adult &middot; any</td><td>3.51</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/lieder.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>art-song lieder delivery, intimate recital voice, careful diction, restrained vibrato</td></tr>
+<tr><td><b>Gregorian chant</b><div class='t'>gregorian</div></td><td class='t'>adult &middot; male</td><td>3.56</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/gregorian.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>solo gregorian plainchant, free unmetred modal line, monastic and unaccompanied</td></tr>
+<tr><td><b>Lyric tenor</b><div class='t'>opera_tenor_lirico</div></td><td class='t'>adult &middot; male</td><td>3.40</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/opera_tenor_lirico.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>lyric operatic tenor, ringing squillo, open Italianate vowels, soaring line</td></tr>
+<tr><td><b>Mezzo-soprano</b><div class='t'>opera_mezzo</div></td><td class='t'>adult &middot; female</td><td>2.17</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/opera_mezzo.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>mezzo-soprano, warm dark middle register, rich operatic legato</td></tr>
+<tr><td><b>Operatic baritone</b><div class='t'>opera_baritone</div></td><td class='t'>adult &middot; male</td><td>3.82</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/opera_baritone.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>operatic baritone, dark resonant chest voice, noble sustained line</td></tr>
+<tr><td><b>Oratorio / sacred solo</b><div class='t'>oratorio</div></td><td class='t'>adult &middot; any</td><td>3.55</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/oratorio.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>oratorio soloist, clean sustained sacred line, minimal vibrato, devotional restraint</td></tr>
+<tr><td><b>Sprechgesang</b><div class='t'>sprechgesang</div></td><td class='t'>adult &middot; any</td><td>3.55</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/sprechgesang.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>sprechgesang, half-spoken half-sung expressionist delivery, pitched speech</td></tr>
+</table></div>
+<h3>country <span class='t'>&mdash; 6 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Bluegrass gospel</b><div class='t'>gospel_bluegrass</div></td><td class='t'>adult &middot; male</td><td>3.48</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/gospel_bluegrass.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>bluegrass gospel, hard-driving high tenor, fervent and sharp</td></tr>
+<tr><td><b>Classic country</b><div class='t'>country_classic</div></td><td class='t'>adult &middot; male</td><td>3.46</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/country_classic.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>classic country, pronounced twang, cry-break yodel catch in the voice</td></tr>
+<tr><td><b>Country pop</b><div class='t'>country_pop</div></td><td class='t'>young_adult &middot; female</td><td>1.73</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/country_pop.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>country pop, bright polished twang, conversational verses, big clean chorus</td></tr>
+<tr><td><b>Cowboy yodel</b><div class='t'>cowboy_yodel</div></td><td class='t'>adult &middot; male</td><td>3.46</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/cowboy_yodel.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>cowboy yodelling, rapid chest-to-falsetto breaks, open prairie tone</td></tr>
+<tr><td><b>High lonesome bluegrass</b><div class='t'>bluegrass_high_lonesome</div></td><td class='t'>adult &middot; male</td><td>3.36</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/bluegrass_high_lonesome.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>high lonesome bluegrass tenor, piercing nasal keening, hard mountain tone</td></tr>
+<tr><td><b>Outlaw country</b><div class='t'>outlaw_country</div></td><td class='t'>older &middot; male</td><td>3.51</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/outlaw_country.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>outlaw country, weathered low drawl, gruff and unhurried</td></tr>
+</table></div>
+<h3>electronic <span class='t'>&mdash; 8 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Ambient wordless vocal</b><div class='t'>ambient_wordless</div></td><td class='t'>adult &middot; female</td><td>1.85</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/ambient_wordless.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>wordless ambient vocal, floating sustained vowel tones, no consonants</td></tr>
+<tr><td><b>Drum and bass vocal</b><div class='t'>dnb_vocal</div></td><td class='t'>young_adult &middot; female</td><td>1.85</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/dnb_vocal.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>liquid drum and bass vocal, soulful clipped phrases, urgent and bright</td></tr>
+<tr><td><b>House diva</b><div class='t'>house_diva</div></td><td class='t'>adult &middot; female</td><td>2.20</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/house_diva.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>house diva, gospel-derived belt, euphoric sustained hooks</td></tr>
+<tr><td><b>Hyperpop</b><div class='t'>hyperpop</div></td><td class='t'>young_adult &middot; any</td><td>1.50</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/hyperpop.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>hyperpop, extreme pitched-up processed brightness, hyperactive delivery</td></tr>
+<tr><td><b>Industrial</b><div class='t'>industrial_shout</div></td><td class='t'>adult &middot; male</td><td>3.82</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/industrial_shout.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>industrial vocal, distorted barked mechanical shouting</td></tr>
+<tr><td><b>Synthwave</b><div class='t'>synthwave</div></td><td class='t'>adult &middot; male</td><td>3.41</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/synthwave.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>synthwave, breathy nostalgic eighties-styled tenor, reverbless close delivery</td></tr>
+<tr><td><b>Trance vocal</b><div class='t'>trance_vocal</div></td><td class='t'>young_adult &middot; female</td><td>1.84</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/trance_vocal.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>trance vocal, airy ethereal sustained high line, wide open vowels</td></tr>
+<tr><td><b>Vaporwave croon</b><div class='t'>vaporwave_croon</div></td><td class='t'>adult &middot; male</td><td>3.58</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/vaporwave_croon.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>slowed vaporwave croon, syrupy pitched-down lounge delivery</td></tr>
+</table></div>
+<h3>folk <span class='t'>&mdash; 5 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Appalachian ballad</b><div class='t'>appalachian_ballad</div></td><td class='t'>older &middot; female</td><td>2.31</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/appalachian_ballad.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>unaccompanied appalachian ballad, plain hard modal tone, ornamented free rhythm</td></tr>
+<tr><td><b>Sea shanty</b><div class='t'>sea_shanty</div></td><td class='t'>adult &middot; male</td><td>3.44</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/sea_shanty.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>sea shanty, hearty rolling call, blunt communal projection</td></tr>
+<tr><td><b>Shape-note / Sacred Harp</b><div class='t'>shape_note</div></td><td class='t'>adult &middot; any</td><td>3.25</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/shape_note.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>shape-note sacred harp singing, hard open unpolished tone, fierce plain delivery</td></tr>
+<tr><td><b>Singer-songwriter</b><div class='t'>americana_singer_songwriter</div></td><td class='t'>adult &middot; any</td><td>3.53</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/americana_singer_songwriter.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>singer-songwriter, plainspoken confessional delivery, small honest untrained voice</td></tr>
+<tr><td><b>Work song</b><div class='t'>work_song</div></td><td class='t'>adult &middot; male</td><td>3.35</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/work_song.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>call-and-response work song, steady labouring pulse, blunt strong voice</td></tr>
+</table></div>
+<h3>functional <span class='t'>&mdash; 18 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Adolescent solo</b> <span class=t>(probe)</span><div class='t'>teen_choir_solo</div></td><td class='t'>teen &middot; male</td><td>3.09</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/teen_choir_solo.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>adolescent boy whose voice is breaking, unstable cracking register shifts</td></tr>
+<tr><td><b>Auctioneer chant</b><div class='t'>auctioneer</div></td><td class='t'>adult &middot; male</td><td>3.34</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/auctioneer.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>auctioneer chant, extremely fast rhythmic filler-syllable patter</td></tr>
+<tr><td><b>Beatboxing</b><div class='t'>beatbox</div></td><td class='t'>young_adult &middot; male</td><td>3.42</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/beatbox.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>beatboxing, percussive mouth drum sounds, rhythmic and unpitched</td></tr>
+<tr><td><b>Child folk singer</b> <span class=t>(probe)</span><div class='t'>child_folk</div></td><td class='t'>child &middot; female</td><td>1.13</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/child_folk.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>young girl singing a folk tune, clear small unaffected child voice</td></tr>
+<tr><td><b>Elderly folk singer</b> <span class=t>(probe)</span><div class='t'>elderly_folk</div></td><td class='t'>older &middot; male</td><td>3.65</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/elderly_folk.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>very old man singing, wavering unsteady pitch, thin breathy worn voice</td></tr>
+<tr><td><b>Humming</b><div class='t'>humming</div></td><td class='t'>adult &middot; any</td><td>3.71</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/humming.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>closed-mouth humming, no words, warm resonant nasal tone</td></tr>
+<tr><td><b>Keening / lament</b><div class='t'>keening</div></td><td class='t'>older &middot; female</td><td>2.19</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/keening.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>ritual keening lament, sobbing wailing cries, grief-stricken and unmetred</td></tr>
+<tr><td><b>Long-form modal call</b><div class='t'>muezzin_style</div></td><td class='t'>adult &middot; male</td><td>3.19</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/muezzin_style.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>long-form unaccompanied modal call, sustained ornamented open-air projection</td></tr>
+<tr><td><b>Lullaby</b><div class='t'>lullaby</div></td><td class='t'>adult &middot; female</td><td>2.03</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/lullaby.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>lullaby, extremely soft rocking repetitive line, hushed and tender</td></tr>
+<tr><td><b>Lullaby, older voice</b> <span class=t>(probe)</span><div class='t'>lullaby_grandmother</div></td><td class='t'>older &middot; female</td><td>1.46</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/lullaby_grandmother.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>lullaby sung by an old woman, thin frail wavering tone, worn and gentle</td></tr>
+<tr><td><b>Maximum belt</b><div class='t'>belt_max</div></td><td class='t'>adult &middot; female</td><td>2.36</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/belt_max.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>maximum-effort belting, full-throated sustained loud chest voice, strained power</td></tr>
+<tr><td><b>Nursery rhyme, child</b> <span class=t>(probe)</span><div class='t'>nursery_rhyme_child</div></td><td class='t'>child &middot; any</td><td>1.44</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/nursery_rhyme_child.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>young child singing a nursery rhyme, small light unformed voice, uneven pitch, artless</td></tr>
+<tr><td><b>Playground chant</b> <span class=t>(probe)</span><div class='t'>playground_chant</div></td><td class='t'>child &middot; female</td><td>1.20</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/playground_chant.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>children's playground chant, sing-song taunting cadence, shouted and rhythmic</td></tr>
+<tr><td><b>Pure falsetto</b><div class='t'>falsetto_pure</div></td><td class='t'>adult &middot; male</td><td>3.38</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/falsetto_pure.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>pure falsetto, light hooty unsupported head voice, fragile</td></tr>
+<tr><td><b>Teenager singing alone</b> <span class=t>(probe)</span><div class='t'>teen_bedroom</div></td><td class='t'>teen &middot; female</td><td>1.23</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/teen_bedroom.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>teenager singing alone in a bedroom, untrained thin voice, self-conscious</td></tr>
+<tr><td><b>Vocal fry singing</b><div class='t'>vocal_fry_sing</div></td><td class='t'>young_adult &middot; female</td><td>1.50</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/vocal_fry_sing.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>vocal fry singing, creaky low rattling register, lazy and textural</td></tr>
+<tr><td><b>Whisper singing</b><div class='t'>whisper_sing</div></td><td class='t'>adult &middot; female</td><td>1.60</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/whisper_sing.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>whisper singing, almost no vocal fold tone, breath-dominant intimate</td></tr>
+<tr><td><b>Whistling</b><div class='t'>whistling</div></td><td class='t'>adult &middot; any</td><td>3.63</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/whistling.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>solo whistling a melody, pure clear tone, no voice</td></tr>
+</table></div>
+<h3>jazz <span class='t'>&mdash; 5 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Crooner</b><div class='t'>jazz_crooner</div></td><td class='t'>adult &middot; male</td><td>3.66</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/jazz_crooner.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>mid-century crooner, velvet baritone, close-mic intimacy, effortless swing</td></tr>
+<tr><td><b>Jazz standard</b><div class='t'>jazz_standard</div></td><td class='t'>adult &middot; female</td><td>2.62</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/jazz_standard.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>jazz standard vocal, behind-the-beat phrasing, warm smoky tone, subtle swing</td></tr>
+<tr><td><b>Scat singing</b><div class='t'>jazz_scat</div></td><td class='t'>adult &middot; any</td><td>4.00</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/jazz_scat.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>scat singing, improvised nonsense syllables, instrumental bebop agility</td></tr>
+<tr><td><b>Torch song</b><div class='t'>torch_song</div></td><td class='t'>adult &middot; female</td><td>2.33</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/torch_song.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>torch song, aching slow ballad, dramatic rubato, world-weary and confessional</td></tr>
+<tr><td><b>Vocalese</b><div class='t'>vocalese</div></td><td class='t'>adult &middot; any</td><td>3.43</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/vocalese.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>vocalese, lyrics set to a fast instrumental solo line, dense rapid articulation</td></tr>
+</table></div>
+<h3>metal <span class='t'>&mdash; 5 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Black metal shriek</b><div class='t'>metal_black</div></td><td class='t'>adult &middot; male</td><td>3.71</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/metal_black.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>black metal shriek, high rasping strangled screech</td></tr>
+<tr><td><b>Clean metal baritone</b><div class='t'>metal_clean_baritone</div></td><td class='t'>adult &middot; male</td><td>3.96</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/metal_clean_baritone.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>clean metal baritone, dark brooding sustained tone, gothic gravity</td></tr>
+<tr><td><b>Death growl</b><div class='t'>metal_death</div></td><td class='t'>adult &middot; male</td><td>3.88</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/metal_death.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>death metal growl, guttural subharmonic roar, unpitched and cavernous</td></tr>
+<tr><td><b>Gothic metal soprano</b><div class='t'>metal_gothic_female</div></td><td class='t'>adult &middot; female</td><td>2.33</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/metal_gothic_female.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>gothic symphonic metal soprano, operatic vibrato over heaviness, ethereal</td></tr>
+<tr><td><b>Power metal</b><div class='t'>metal_power</div></td><td class='t'>adult &middot; male</td><td>3.32</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/metal_power.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>power metal, soaring operatic high tenor, sustained ringing screams</td></tr>
+</table></div>
+<h3>pop <span class='t'>&mdash; 13 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>80s synthpop</b><div class='t'>synthpop_80s</div></td><td class='t'>adult &middot; male</td><td>3.30</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/synthpop_80s.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>1980s synthpop, theatrical clipped diction, cool detached delivery</td></tr>
+<tr><td><b>Bedroom pop</b><div class='t'>bedroom_pop</div></td><td class='t'>young_adult &middot; female</td><td>1.51</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/bedroom_pop.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>bedroom pop, whispered soft double-tracked intimacy, unforced small voice</td></tr>
+<tr><td><b>Boy-band tenor</b> <span class=t>(probe)</span><div class='t'>pop_boyband</div></td><td class='t'>teen &middot; male</td><td>3.10</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/pop_boyband.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>boy-band lead, light high tenor, earnest and smooth, adolescent brightness</td></tr>
+<tr><td><b>Eurodance diva</b><div class='t'>europop_dance</div></td><td class='t'>young_adult &middot; female</td><td>2.12</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/europop_dance.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>eurodance diva, powerful sustained belt over four-to-the-floor energy</td></tr>
+<tr><td><b>French chanson</b><div class='t'>chanson</div></td><td class='t'>adult &middot; female</td><td>2.78</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/chanson.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>french chanson, dramatic rolled consonants, speech-like emotive rubato</td></tr>
+<tr><td><b>Indie pop</b><div class='t'>indie_pop</div></td><td class='t'>young_adult &middot; any</td><td>2.63</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/indie_pop.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>indie pop, slightly nasal untrained charm, close-mic breathiness, casual</td></tr>
+<tr><td><b>Italian canzone</b><div class='t'>canzone</div></td><td class='t'>adult &middot; male</td><td>3.50</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/canzone.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>italian canzone, big open-throated romantic delivery, soaring passionate line</td></tr>
+<tr><td><b>J-pop</b><div class='t'>jpop</div></td><td class='t'>young_adult &middot; female</td><td>1.21</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/jpop.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>j-pop, high clear cute-inflected tone, wide melodic leaps, earnest</td></tr>
+<tr><td><b>Japanese city pop</b><div class='t'>citypop</div></td><td class='t'>young_adult &middot; female</td><td>1.46</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/citypop.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>japanese city pop, bright polished eighties tone, breezy sophisticated phrasing</td></tr>
+<tr><td><b>K-pop</b><div class='t'>kpop</div></td><td class='t'>young_adult &middot; female</td><td>1.42</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/kpop.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>k-pop idol vocal, crisp bright tone, precise runs, glossy modern production style</td></tr>
+<tr><td><b>Pop ballad</b><div class='t'>pop_ballad</div></td><td class='t'>young_adult &middot; female</td><td>2.06</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/pop_ballad.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>modern pop ballad, clean controlled belt, emotional build to a big chorus</td></tr>
+<tr><td><b>Schlager</b><div class='t'>schlager</div></td><td class='t'>adult &middot; female</td><td>1.98</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/schlager.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>german schlager, warm sentimental major-key delivery, wide friendly vibrato</td></tr>
+<tr><td><b>Teen pop</b> <span class=t>(probe)</span><div class='t'>pop_teen</div></td><td class='t'>teen &middot; female</td><td>1.35</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/pop_teen.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>teen pop, bright youthful thin-bodied voice, eager and unweathered</td></tr>
+</table></div>
+<h3>rock <span class='t'>&mdash; 8 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Britpop</b><div class='t'>britpop</div></td><td class='t'>young_adult &middot; male</td><td>3.21</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/britpop.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>britpop, adenoidal regional-accented drawl, cocky flat delivery</td></tr>
+<tr><td><b>Classic rock</b><div class='t'>rock_classic</div></td><td class='t'>adult &middot; male</td><td>4.18</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/rock_classic.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>classic rock, raspy powerful high belt, bluesy bends, arena projection</td></tr>
+<tr><td><b>Emo</b> <span class=t>(probe)</span><div class='t'>emo</div></td><td class='t'>teen &middot; male</td><td>3.01</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/emo.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>emo, cracking earnest voice, whiny nasal edge tipping into desperate yells</td></tr>
+<tr><td><b>Glam rock</b><div class='t'>rock_glam</div></td><td class='t'>adult &middot; male</td><td>3.73</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/rock_glam.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>glam rock, theatrical androgynous sneer, camp vibrato</td></tr>
+<tr><td><b>Grunge</b><div class='t'>grunge</div></td><td class='t'>young_adult &middot; male</td><td>3.64</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/grunge.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>grunge, strained throaty rasp, apathetic verses erupting into raw shouting</td></tr>
+<tr><td><b>Hardcore scream</b><div class='t'>hardcore_scream</div></td><td class='t'>young_adult &middot; male</td><td>3.32</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/hardcore_scream.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>hardcore screaming, throat-shredding roars, barely pitched</td></tr>
+<tr><td><b>Post-rock wail</b><div class='t'>post_rock_wail</div></td><td class='t'>adult &middot; any</td><td>3.78</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/post_rock_wail.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>wordless post-rock wailing, distant reverberant keening, textural</td></tr>
+<tr><td><b>Punk</b><div class='t'>punk</div></td><td class='t'>young_adult &middot; male</td><td>3.54</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/punk.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>punk, shouted snarling barked delivery, aggressive and untrained</td></tr>
+</table></div>
+<h3>soul <span class='t'>&mdash; 7 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Classic soul</b><div class='t'>soul_classic</div></td><td class='t'>adult &middot; male</td><td>4.05</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/soul_classic.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>1960s soul, gritty impassioned voice, raw cries and pleading edge</td></tr>
+<tr><td><b>Contemporary R&amp;B</b><div class='t'>rnb_contemporary</div></td><td class='t'>young_adult &middot; female</td><td>2.06</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/rnb_contemporary.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>modern R&amp;B, airy layered runs, melismatic ad-libs, polished intimate delivery</td></tr>
+<tr><td><b>Doo-wop lead</b><div class='t'>doo_wop</div></td><td class='t'>young_adult &middot; male</td><td>3.19</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/doo_wop.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>doo-wop lead, sweet earnest tenor, swooping falsetto leaps, vintage warmth</td></tr>
+<tr><td><b>Gospel lead</b><div class='t'>gospel_lead</div></td><td class='t'>adult &middot; female</td><td>2.25</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/gospel_lead.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>gospel lead, huge melismatic runs, church belt, ecstatic and rising</td></tr>
+<tr><td><b>Neo-soul</b><div class='t'>neo_soul</div></td><td class='t'>young_adult &middot; female</td><td>1.53</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/neo_soul.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>neo-soul, breathy conversational phrasing, jazzy runs, laid-back pocket</td></tr>
+<tr><td><b>Quiet storm</b><div class='t'>quiet_storm</div></td><td class='t'>adult &middot; male</td><td>3.53</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/quiet_storm.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>quiet storm R&amp;B, smooth low seductive croon, silky sustained falsetto</td></tr>
+<tr><td><b>Spiritual</b><div class='t'>spiritual</div></td><td class='t'>adult &middot; any</td><td>3.60</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/spiritual.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>unaccompanied spiritual, slow dignified line, deep sorrowful weight</td></tr>
+</table></div>
+<h3>theatre <span class='t'>&mdash; 5 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Cabaret</b><div class='t'>cabaret</div></td><td class='t'>adult &middot; any</td><td>3.15</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/cabaret.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>cabaret, arch knowing delivery, spoken asides sliding into sung line</td></tr>
+<tr><td><b>Musical theatre belt</b><div class='t'>musical_belt</div></td><td class='t'>adult &middot; female</td><td>2.02</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/musical_belt.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>musical theatre belt, forward bright chest mix, crystal diction, big finish</td></tr>
+<tr><td><b>Musical theatre legit</b><div class='t'>musical_legit</div></td><td class='t'>adult &middot; female</td><td>1.94</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/musical_legit.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>legit musical theatre soprano, light lifted classical-adjacent tone</td></tr>
+<tr><td><b>Patter song</b><div class='t'>patter_song</div></td><td class='t'>adult &middot; male</td><td>3.71</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/patter_song.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>comic patter song, extremely fast precise consonants, breathless wit</td></tr>
+<tr><td><b>Vaudeville</b><div class='t'>vaudeville</div></td><td class='t'>adult &middot; male</td><td>3.79</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/vaudeville.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>vaudeville, brassy nasal old-time projection, exaggerated diction</td></tr>
+</table></div>
+<h3>urban <span class='t'>&mdash; 8 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Afrobeats</b><div class='t'>afrobeats</div></td><td class='t'>young_adult &middot; male</td><td>2.96</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/afrobeats.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>afrobeats, lilting melodic pidgin-inflected phrasing, relaxed buoyant swing</td></tr>
+<tr><td><b>Dancehall</b><div class='t'>dancehall</div></td><td class='t'>adult &middot; male</td><td>3.35</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/dancehall.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>dancehall, rapid patois toasting sliding into melody, rhythmic and percussive</td></tr>
+<tr><td><b>Drill hook</b><div class='t'>uk_drill_sung</div></td><td class='t'>young_adult &middot; male</td><td>3.81</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/uk_drill_sung.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>drill hook, deadpan low sung-spoken menace, clipped london phrasing</td></tr>
+<tr><td><b>Grime hook</b><div class='t'>grime_hook</div></td><td class='t'>young_adult &middot; male</td><td>3.31</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/grime_hook.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>grime hook, shouted urgent london delivery, high energy</td></tr>
+<tr><td><b>Lovers rock</b><div class='t'>lovers_rock</div></td><td class='t'>young_adult &middot; female</td><td>2.10</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/lovers_rock.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>lovers rock, sweet gentle reggae-soul, tender high register</td></tr>
+<tr><td><b>Melodic rap</b><div class='t'>melodic_rap</div></td><td class='t'>young_adult &middot; male</td><td>3.40</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/melodic_rap.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>melodic rap singing, half-sung half-spoken, autotune-adjacent slides</td></tr>
+<tr><td><b>Roots reggae</b><div class='t'>reggae_roots</div></td><td class='t'>adult &middot; male</td><td>3.83</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/reggae_roots.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>roots reggae, nasal plaintive tone, off-beat phrasing, prophetic delivery</td></tr>
+<tr><td><b>Sung trap hook</b><div class='t'>trap_sung</div></td><td class='t'>young_adult &middot; male</td><td>3.48</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/trap_sung.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>sung trap hook, repetitive catchy melodic phrase, lazy drawled delivery</td></tr>
+</table></div>
+<h3>world <span class='t'>&mdash; 45 genres</span></h3><div class='scroll'><table><tr><th>genre</th><th>intended voice</th><th>AGEV</th><th>listen</th><th>style clause</th></tr>
+<tr><td><b>Andean huayno</b><div class='t'>andean_huayno</div></td><td class='t'>adult &middot; female</td><td>1.89</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/andean_huayno.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>andean huayno, very high piercing nasal quechua-inflected tone</td></tr>
+<tr><td><b>Arabic mawwal</b><div class='t'>arabic_mawwal</div></td><td class='t'>adult &middot; male</td><td>3.58</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/arabic_mawwal.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>arabic mawwal, free-rhythm maqam improvisation, long ornamented tarab phrases</td></tr>
+<tr><td><b>Balkan open-throat</b><div class='t'>balkan_open</div></td><td class='t'>adult &middot; female</td><td>2.21</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/balkan_open.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>balkan open-throat singing, piercing straight-tone chest voice, sharp dissonant edge</td></tr>
+<tr><td><b>Bhajan</b><div class='t'>raga_bhajan</div></td><td class='t'>adult &middot; female</td><td>2.05</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/raga_bhajan.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>devotional bhajan, simple repetitive ecstatic line, warm and communal</td></tr>
+<tr><td><b>Bolero</b><div class='t'>bolero_latin</div></td><td class='t'>adult &middot; male</td><td>4.15</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/bolero_latin.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>latin bolero, velvet romantic croon, dramatic sustained romantic line</td></tr>
+<tr><td><b>Bossa nova</b><div class='t'>bossa_nova</div></td><td class='t'>adult &middot; female</td><td>2.16</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/bossa_nova.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>bossa nova, breathy near-whispered understatement, gentle behind-beat</td></tr>
+<tr><td><b>Bulgarian diaphonic</b><div class='t'>bulgarian_diaphonic</div></td><td class='t'>adult &middot; female</td><td>1.96</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/bulgarian_diaphonic.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>bulgarian village singing, bright nasal forward tone, tight ornament shakes</td></tr>
+<tr><td><b>Cantonese opera</b><div class='t'>cantonese_opera</div></td><td class='t'>adult &middot; female</td><td>2.33</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/cantonese_opera.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>cantonese opera, extremely high nasal stylised tone, sharp stylised declamation</td></tr>
+<tr><td><b>Cantorial</b><div class='t'>cantorial</div></td><td class='t'>adult &middot; male</td><td>3.44</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/cantorial.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>cantorial chazzanut, virtuosic ornamented liturgical cries, huge emotive range</td></tr>
+<tr><td><b>Carnatic kriti</b><div class='t'>carnatic</div></td><td class='t'>adult &middot; female</td><td>1.84</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/carnatic.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>carnatic vocal, rapid gamaka oscillations, precise ornamented south indian line</td></tr>
+<tr><td><b>Cumbia</b><div class='t'>cumbia</div></td><td class='t'>adult &middot; female</td><td>1.92</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/cumbia.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>cumbia, lilting cheerful mid-range delivery, steady danceable phrasing</td></tr>
+<tr><td><b>Enka</b><div class='t'>enka</div></td><td class='t'>adult &middot; female</td><td>2.21</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/enka.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>japanese enka, heavy kobushi vibrato bends, melodramatic sentimental</td></tr>
+<tr><td><b>Flamenco cante jondo</b><div class='t'>flamenco_cante</div></td><td class='t'>adult &middot; male</td><td>3.48</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/flamenco_cante.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>flamenco cante jondo, raw cracked melismatic wailing, microtonal anguish</td></tr>
+<tr><td><b>Forró</b><div class='t'>forro</div></td><td class='t'>adult &middot; male</td><td>3.29</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/forro.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>forro, warm northeastern brazilian accent, rustic bouncing delivery</td></tr>
+<tr><td><b>Georgian solo line</b><div class='t'>georgian_solo</div></td><td class='t'>adult &middot; male</td><td>3.88</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/georgian_solo.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>georgian traditional solo line, deep modal chant-like voice</td></tr>
+<tr><td><b>Ghazal</b><div class='t'>ghazal</div></td><td class='t'>adult &middot; male</td><td>3.78</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/ghazal.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>ghazal, poetic urdu delivery, tender ornamented restraint</td></tr>
+<tr><td><b>Hawaiian leo kiʻekiʻe</b><div class='t'>hawaiian_falsetto</div></td><td class='t'>adult &middot; male</td><td>3.63</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/hawaiian_falsetto.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>hawaiian falsetto, deliberate audible register breaks, sweet gentle tone</td></tr>
+<tr><td><b>Hindustani khayal</b><div class='t'>khayal</div></td><td class='t'>adult &middot; male</td><td>3.62</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/khayal.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>hindustani khayal, slow raga exposition, microtonal meend glides, sustained alap</td></tr>
+<tr><td><b>Irish sean-nós</b><div class='t'>sean_nos</div></td><td class='t'>older &middot; male</td><td>3.83</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/sean_nos.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>irish sean-nos, unaccompanied highly ornamented free-rhythm gaelic singing, nasal</td></tr>
+<tr><td><b>Japanese min'yō</b><div class='t'>min_yo</div></td><td class='t'>adult &middot; female</td><td>2.05</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/min_yo.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>japanese folk min-yo, tight nasal ornament, bright piercing tone</td></tr>
+<tr><td><b>Katajjaq-style</b><div class='t'>inuit_katajjaq</div></td><td class='t'>adult &middot; female</td><td>1.75</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/inuit_katajjaq.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>inuit-style throat game vocalising, rhythmic voiced and unvoiced panting patterns</td></tr>
+<tr><td><b>Klezmer-style krekhts</b><div class='t'>klezmer_krekhts</div></td><td class='t'>adult &middot; male</td><td>3.61</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/klezmer_krekhts.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>klezmer-inflected singing, sobbing krekhts catches, ornamented yiddish lament</td></tr>
+<tr><td><b>Korean pansori</b><div class='t'>pansori</div></td><td class='t'>adult &middot; female</td><td>1.97</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/pansori.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>korean pansori, rough husky forced tone, dramatic epic storytelling cries</td></tr>
+<tr><td><b>Mongolian long song</b><div class='t'>mongolian_urtiin</div></td><td class='t'>adult &middot; male</td><td>3.34</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/mongolian_urtiin.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>mongolian urtiin duu long song, immense sustained ornamented high line</td></tr>
+<tr><td><b>Māori waiata</b><div class='t'>maori_waiata</div></td><td class='t'>adult &middot; any</td><td>3.48</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/maori_waiata.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>maori waiata, resonant communal chant-song, strong open delivery</td></tr>
+<tr><td><b>Noh utai</b><div class='t'>noh_utai</div></td><td class='t'>older &middot; male</td><td>3.78</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/noh_utai.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>japanese noh utai chanting, guttural constricted slow intoned delivery</td></tr>
+<tr><td><b>Nordic kulning</b><div class='t'>kulning</div></td><td class='t'>adult &middot; female</td><td>2.45</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/kulning.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>scandinavian kulning herding call, extremely loud piercing high head voice, outdoor</td></tr>
+<tr><td><b>Overtone singing</b><div class='t'>throat_overtone</div></td><td class='t'>adult &middot; any</td><td>3.13</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/throat_overtone.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>overtone singing, sustained drone with clear whistling harmonic melody above</td></tr>
+<tr><td><b>Peking opera</b><div class='t'>peking_opera</div></td><td class='t'>adult &middot; male</td><td>3.58</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/peking_opera.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>peking opera, piercing stylised falsetto-adjacent tone, sharp percussive syllables</td></tr>
+<tr><td><b>Persian avaz</b><div class='t'>persian_avaz</div></td><td class='t'>adult &middot; male</td><td>3.40</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/persian_avaz.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>persian avaz, tahrir vocal break ornament, plaintive modal free rhythm</td></tr>
+<tr><td><b>Portuguese fado</b><div class='t'>fado</div></td><td class='t'>adult &middot; female</td><td>2.25</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/fado.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>portuguese fado, saudade-laden dramatic swells, throaty tragic ornament</td></tr>
+<tr><td><b>Qawwali</b><div class='t'>qawwali</div></td><td class='t'>adult &middot; male</td><td>3.60</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/qawwali.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>qawwali solo, ecstatic rising improvised melisma, forceful devotional cry</td></tr>
+<tr><td><b>Ranchera</b><div class='t'>ranchera</div></td><td class='t'>adult &middot; male</td><td>3.72</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/ranchera.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>mexican ranchera, huge open-throated grito, proud sustained belt</td></tr>
+<tr><td><b>Rebetiko</b><div class='t'>rebetiko</div></td><td class='t'>adult &middot; male</td><td>3.74</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/rebetiko.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>greek rebetiko, nasal ornamented modal lament, smoky and defiant</td></tr>
+<tr><td><b>Saeta</b><div class='t'>flamenco_sae</div></td><td class='t'>adult &middot; female</td><td>2.30</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/flamenco_sae.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>spanish saeta, unaccompanied processional cry from a balcony, raw and piercing</td></tr>
+<tr><td><b>Salsa sonero</b><div class='t'>salsa_sonero</div></td><td class='t'>adult &middot; male</td><td>3.35</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/salsa_sonero.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>salsa sonero, improvised rhythmic call phrases, bright nasal projection</td></tr>
+<tr><td><b>Samba</b><div class='t'>samba</div></td><td class='t'>adult &middot; male</td><td>3.45</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/samba.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>samba, buoyant percussive syncopated phrasing, open joyful tone</td></tr>
+<tr><td><b>Sardinian cantu</b><div class='t'>sardinian_cantu</div></td><td class='t'>adult &middot; male</td><td>3.84</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/sardinian_cantu.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>sardinian solo cantu a chiterra, strained high tense declamation</td></tr>
+<tr><td><b>Sertanejo</b><div class='t'>sertanejo</div></td><td class='t'>adult &middot; male</td><td>3.62</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/sertanejo.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>brazilian sertanejo, nasal emotive twang, sentimental duet-style delivery</td></tr>
+<tr><td><b>Sindhen</b><div class='t'>gamelan_sindhen</div></td><td class='t'>adult &middot; female</td><td>1.64</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/gamelan_sindhen.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>javanese sindhen, floating soft melismatic line, delicate and unhurried</td></tr>
+<tr><td><b>Sámi joik</b><div class='t'>joik</div></td><td class='t'>adult &middot; any</td><td>3.85</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/joik.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>sami joik, cyclical wordless vocable chant, guttural and hypnotic</td></tr>
+<tr><td><b>Tango</b><div class='t'>tango</div></td><td class='t'>adult &middot; male</td><td>4.07</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/tango.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>argentine tango, dramatic rubato declamation, bitter and theatrical</td></tr>
+<tr><td><b>Turkish uzun hava</b><div class='t'>turkish_uzun_hava</div></td><td class='t'>adult &middot; male</td><td>3.56</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/turkish_uzun_hava.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>turkish uzun hava, free-metre lament, heavy nasal ornament</td></tr>
+<tr><td><b>Tuvan throat singing</b><div class='t'>throat_tuvan</div></td><td class='t'>adult &middot; male</td><td>3.73</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/throat_tuvan.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>tuvan khoomei throat singing, low fundamental drone with whistling overtone</td></tr>
+<tr><td><b>Waulking song</b><div class='t'>scots_gaelic_waulking</div></td><td class='t'>adult &middot; female</td><td>2.05</td>
+<td><audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/audio_genre/scots_gaelic_waulking.mp3"></audio></td><td class='t' style='white-space:normal;max-width:380px'>scottish waulking song, rhythmic repetitive labour cadence, strong plain voice</td></tr>
+</table></div>
+<h2>Method, and what it cannot tell you</h2>
+<div class="note"><ul>
+<li><b>Same lyrics for every genre</b>, two variants. If each genre had its own words, part of any
+separation would be lexical and the distinguishable-genre count would come out inflated.</li>
+<li><b>Leave-one-out nearest-centroid</b> over 5 takes per genre. With 5 samples the per-genre
+centroid is noisy; the merge curve is more trustworthy than any single genre's number.</li>
+<li><b>Generation:</b> ACE-Step 1.5 XL SFT with <code>dcw_enabled=False</code>. With the library
+default left on, every one of these 765 clips would have been unusable.</li>
+<li><b>This measures what the generator renders and what these encoders see</b> &mdash; not what a
+human listener can distinguish. A listening study could plausibly find more distinctions than 64,
+or fewer. No human has scored these clips.</li>
+<li><b>Gemini has not judged these yet.</b> Perceived age, perceived style and prompt-match are the
+next pass; the numbers here are embeddings only, which is the order the evidence should be built
+in.</li>
+</ul></div>
+<hr style="border:0;border-top:1px solid var(--line);margin:2.6em 0 1.4em">
+<p class="t">765 clips &middot; 153 genres &times; 5 takes &middot; 0 generation failures &middot;
+25 s each &middot; 48 kHz &middot; ACE-Step 1.5 XL SFT, 50 steps, CFG 7.0, DCW off.</p>
+</div>

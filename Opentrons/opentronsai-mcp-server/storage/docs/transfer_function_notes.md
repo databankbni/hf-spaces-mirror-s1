@@ -1,39 +1,3 @@
-<Transfer function notes>
-
-**Introduction**
-
-The `transfer` function in the Opentrons API v2 simplifies liquid handling operations by abstracting the complexities involved in pipetting tasks. It allows users to perform liquid transfers efficiently without the need to write explicit loops for iterating over wells or volumes. This manual provides a comprehensive guide on using the `transfer` function effectively, including best practices, common pitfalls, and practical examples. This updated version incorporates additional examples and clarifications based on real-world protocols, including the use of modules and dynamic data-driven transfers.
-
----
-
-**Basic Usage of `transfer`**
-
-The `transfer` function enables the movement of liquids from one location to another with optional parameters to control tip usage, mixing, air gaps, and more. Its basic syntax is:
-
-```python
-pipette.transfer(
-    volume,         # Volume to transfer (single value or list)
-    source,         # Source well(s)
-    destination,    # Destination well(s)
-    new_tip='always'  # Tip usage strategy ('always', 'once', or 'never')
-    # Additional optional parameters...
-)
-```
-
-- **Volume**: The amount of liquid to transfer, specified in microliters (µL). It can be a single value or a list of volumes.
-- **Source**: The starting location(s) of the liquid, specified as a well or a list of wells.
-- **Destination**: The target location(s) for the liquid, specified as a well or a list of wells.
-- **`new_tip`**: Controls how tips are used during the transfer:
-  - `'always'`: Change tips between each transfer step.
-  - `'once'`: Use the same tip for all transfers.
-  - `'never'`: Do not change tips (use with caution).
-
----
-
-**Understanding Pipette Types**
-
-Choosing the correct method for accessing wells or columns depends on the type of pipette used.
-
 ### Single-Channel Pipettes
 
 Single-channel pipettes interact with individual wells. When using single-channel pipettes, access wells using the `wells()` method.
@@ -591,15 +555,19 @@ The `transfer` function can be used effectively with various modules like the th
 **Example:**
 
 ```python
+
 # Load modules
+
 temp_module = protocol.load_module('temperature module gen2', '1')
 thermocycler_module = protocol.load_module('thermocyclerModuleV2')
 
 # Load labware on modules
+
 temp_plate = temp_module.load_labware('opentrons_96_aluminumblock_biorad_wellplate_200ul')
 pcr_plate = thermocycler_module.load_labware('nest_96_wellplate_100ul_pcr_full_skirt')
 
 # Set temperatures
+
 temp_module.set_temperature(4)
 thermocycler_module.set_block_temperature(95)
 ```

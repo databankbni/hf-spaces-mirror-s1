@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campainha Virtual</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  body { font-family: Arial; text-align: center; margin: 40px; background: #f4f4f4; }
+  #app { background: #fff; padding: 20px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  button { margin: 10px; padding: 10px 18px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; }
+  .host { background: #2563eb; color: #fff; }
+  .guest { background: #10b981; color: #fff; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <h1>🔔 Campainha Virtual</h1>
+  <p>Escolha o modo:</p>
+  <button class="host" onclick="iniciarHost()">Sou o anfitrião</button>
+  <button class="guest" onclick="iniciarVisitante()">Sou o visitante</button>
+
+  <div id="areaHost" style="display:none;">
+    <h2>Modo Anfitrião</h2>
+    <p>Escaneie este QR em outro aparelho:</p>
+    <div id="qrcode"></div>
+    <audio id="som" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg"></audio>
+    <p><strong>Status:</strong> <span id="statusHost">Aguardando...</span></p>
+  </div>
+
+  <div id="areaVisitante" style="display:none;">
+    <h2>Modo Visitante</h2>
+    <p>Insira o código do anfitrião:</p>
+    <input id="codigoInput" placeholder="Ex: sala123" />
+    <br>
+    <button onclick="tocarCampainha()">🔔 Tocar Campainha</button>
+    <p id="statusVisitante"></p>
+  </div>
+</div>
+
+<script>
+const servidor = "wss://ws.ifelse.io"; // WebSocket que aceita múltiplos clientes
+let ws, codigoSala;
+
+function iniciarHost() {
+  document.getElementById("areaHost").style.display = "block";
+  document.getElementById("areaVisitante").style.display = "none";
+
+  codigoSala = "camp_" + Math.floor(Math.random() * 100000);
+  const link = window.location.origin + window.location.pathname + "?sala=" + codigoSala;
+  new QRCode(document.getElementById("qrcode"), link);
+
+  document.getElementById("statusHost").textContent = "Sala: " + codigoSala;
+
+  ws = new WebSocket(servidor);
+  ws.onopen = () => console.log("Host conectado");
+  ws.onmessage = (msg) => {
+    try {
+      const data = JSON.parse(msg.data);
+      if (data.sala === codigoSala && data.acao === "tocar") {
+        tocarSom();
+      }
+    } catch {}
+  };
+}
+
+function iniciarVisitante() {
+  document.getElementById("areaVisitante").style.display = "block";
+  document.getElementById("areaHost").style.display = "none";
+
+  const url = new URL(window.location.href);
+  const sala = url.searchParams.get("sala");
+  if (sala) document.getElementById("codigoInput").value = sala;
+}
+
+function tocarCampainha() {
+  const codigo = document.getElementById("codigoInput").value.trim();
+  if (!codigo) return alert("Digite o código da sala!");
+  ws = new WebSocket(servidor);
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ sala: codigo, acao: "tocar" }));
+    document.getElementById("statusVisitante").textContent = "Campainha enviada!";
+  };
+}
+
+function tocarSom() {
+  const som = document.getElementById("som");
+  som.currentTime = 0;
+  som.play();
+  document.body.style.background = "#ffe4e4";
+  setTimeout(() => document.body.style.background = "#f4f4f4", 500);
+}
+</script>
+</body>
+</html>

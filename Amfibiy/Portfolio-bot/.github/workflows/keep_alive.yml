@@ -1,0 +1,28 @@
+name: Keep HF Space Awake
+
+on:
+  schedule:
+    # Каждые 30 минут — гарантированно меньше 48ч простоя, после которых HF усыпляет Space
+    - cron: '*/30 * * * *'
+  workflow_dispatch: {}  # позволяет запустить вручную из вкладки Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          # Замените URL на реальный адрес вашего Space (Settings -> "Embed this Space" покажет точный домен)
+          URL="https://amfibiy-portfolio-bot.hf.space/health"
+
+          echo "Пингуем $URL ..."
+          # -f делает curl завершиться с ошибкой при HTTP >= 400, чтобы job показал failed в Actions,
+          # если Space реально недоступен (а не просто "спит")
+          status=$(curl -s -o /tmp/resp.txt -w "%{http_code}" --max-time 60 "$URL")
+          echo "HTTP статус: $status"
+          cat /tmp/resp.txt
+
+          if [ "$status" -ge 500 ]; then
+            echo "⚠️ Space отвечает ошибкой сервера — возможно, ещё просыпается или упал"
+            exit 1
+          fi

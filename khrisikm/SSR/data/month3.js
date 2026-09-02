@@ -1,0 +1,117 @@
+const DASHBOARD_DATA = {
+  title: "إنتاجية التعليم الإلكتروني",
+  subtitle: "مؤشرات وبرامج التعليم الإلكتروني",
+  note: "عرض مباشر لأبرز مؤشرات التعليم الإلكتروني وبرامجه",
+  lastUpdate: "مارس 2026",
+  footerText: "© التعليم الإلكتروني",
+
+  topStats: [
+    { label: "إجمالي الحلق", value: 93 }, // 65 + 8 + 16 + 4
+    { label: "إجمالي المعلمين", value: 92 }, // 65 + 8 + 16 + 3
+    { label: "إجمالي الطلاب", value: 980 }, // 693 + 90 + 152 + 45
+    { label: "الأجزاء المحفوظة", value: 1700 } // 1622 + 3 + 65 + 10
+  ],
+
+  quickSummary: [
+    "إجمالي الطلاب في جميع الحلق: 980 طالبًا",
+    "إجمالي الأوجه المحفوظة: 21521 وجهًا",
+    "إجمالي أوجه المراجعة: 95903 وجهًا",
+    "أكبر عمر مسجل: 62 سنة",
+    "أصغر عمر مسجل: 6 سنوات"
+  ],
+
+  halaqat: [
+    {
+      name: "حلقات التحفيظ",
+      badge: "حلقات لتحفيظ القرآن بإتقان للصف الرابع فما فوق",
+      halaqCount: 65,
+      teachers: 65,
+      supervisors: 4,
+      students: 693,
+      memorizedFaces: 18205,
+      reviewFaces: 65012,
+      memorizedParts: 1622,
+      broadcastHours: 2600,
+      maxAge: 60,
+      minAge: 10
+    },
+    {
+      name: "حلقات التلقين",
+      badge: "حلقات للطلاب (5–9 سنوات) لحفظ جزء عمّ وتبارك",
+      halaqCount: 8,
+      teachers: 8,
+      supervisors: 1,
+      students: 90,
+      memorizedFaces: 90,
+      reviewFaces: 160,
+      memorizedParts: 3,
+      broadcastHours: 320,
+      maxAge: 9,
+      minAge: 6
+    },
+    {
+      name: "الحلق النموذجية",
+      badge: "حلقات للمتميزين لحفظ وجه فأكثر يوميًا",
+      halaqCount: 16,
+      teachers: 16,
+      supervisors: 1,
+      students: 152,
+      memorizedFaces: 3040,
+      reviewFaces: 30406,
+      memorizedParts: 65,
+      broadcastHours: 640,
+      maxAge: 24,
+      minAge: 11
+    },
+    {
+      name: "حلق الجاليات",
+      badge: "حلقات لغير الناطقين بالعربية",
+      halaqCount: 4,
+      teachers: 3,
+      supervisors: 1,
+      students: 45,
+      memorizedFaces: 186,
+      reviewFaces: 325,
+      memorizedParts: 10,
+      broadcastHours: 160,
+      maxAge: 45,
+      minAge: 8
+    }
+  ],
+
+  programs: [
+    {
+      name: "تصحيح التلاوة",
+      beneficiaries: 1462,
+      volunteers: 91,
+      volunteerHours: 20,
+      broadcastHours: 15,
+      maxAge: 55,
+      minAge: 7
+    },
+    {
+      name: "مسابقة رتل",
+      participants: 345,
+      teachers: 10,
+      broadcastHours: 400
+    },
+    {
+      name: "التجويد",
+      beneficiaries: 40,
+      broadcastHours: 40,
+      maxAge: 62,
+      minAge: 7
+    },
+    {
+      name: "مساحة إكس",
+      beneficiaries: 1120,
+      broadcastHours: 8
+    }
+  ],
+
+  tests: {
+    tested: 96,
+    passed: 72,
+    fullQuran: 1
+  }
+};

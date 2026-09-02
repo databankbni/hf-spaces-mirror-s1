@@ -1,0 +1,272 @@
+name: Deploy Media v2 to Hugging Face
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/tools/build_media_v2.py'
+      - '.github/tools/build_media_v2_validated.py'
+      - '.github/tools/collect_ala_apii_media.py'
+      - '.github/tools/collect_dryades_media.py'
+      - '.github/tools/collect_wikimedia_media_v2.py'
+      - '.github/tools/media_ingest_wikimedia_v1_1.py'
+      - '.github/tools/extend_media_v2_regional.py'
+      - '.github/tools/extend_media_v2_dryades.py'
+      - '.github/tools/extend_media_v2_wikimedia.py'
+      - '.github/tools/finalize_media_v2_catalog.py'
+      - '.github/workflows/deploy-media-v2-huggingface.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-huggingface
+  cancel-in-progress: false
+
+jobs:
+  deploy-media-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      HF_SPACE_ID: gyamotab/climaflora-engine
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      MEDIA_REMOTE_PATH: data/climaflora_media_v2.sqlite
+      CATALOG_URL: https://shugoan.com/climaflora/data/climaflora_global_plants_v2_0.sqlite.zst
+      CATALOG_ZST_SHA256: 1683c43c6fb1e68f9b6c6c4cd7f291642feba6c37a3691c3452b319856335c32
+      CATALOG_SQLITE_SHA256: 3e80f432ebe2b4b59fed1b76549d2fc7df4e9330f1c315ae804746b616baee55
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deployment token
+        run: test -n "$HF_TOKEN" || (echo 'HF_TOKEN secret is missing' && exit 1)
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade 'huggingface_hub>=0.34,<1' 'httpx>=0.28,<1'
+          command -v zstd >/dev/null || (sudo apt-get update && sudo apt-get install -y zstd)
+
+      - name: Download and verify canonical catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 --retry-all-errors --retry-delay 3 "$CATALOG_URL" -o /tmp/catalog.sqlite.zst
+          echo "$CATALOG_ZST_SHA256  /tmp/catalog.sqlite.zst" | sha256sum -c -
+          unzstd -f /tmp/catalog.sqlite.zst -o /tmp/catalog.sqlite
+          echo "$CATALOG_SQLITE_SHA256  /tmp/catalog.sqlite" | sha256sum -c -
+
+      - name: Collect open Australian Plant Image Index metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/collect_ala_apii_media.py \
+            --catalog /tmp/catalog.sqlite \
+            --output /tmp/ala_apii_media.json \
+            --report /tmp/ala_apii_report.json
+
+      - name: Download Media v2 source archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --ipv4 -fL \
+            --retry 8 --retry-all-errors --retry-delay 5 --retry-max-time 900 \
+            --connect-timeout 90 --max-time 1200 \
+            -A 'ClimaFlora-MediaV2/2.4 (+https://shugoan.com/climaflora/)' \
+            'https://ipt.plantnet.org/archive.do?r=observations' -o /tmp/plantnet.zip
+          # WFO currently presents an incomplete TLS chain to GitHub runners.
+          # --insecure is restricted to retrieval of this public source archive;
+          # retained media still pass exact taxonomy, HTTPS and licence gates.
+          curl --insecure -fL --retry 5 --retry-all-errors --retry-delay 3 \
+            'https://files.worldfloraonline.org/files/MBG/MBG_Images/MBG_Images.zip' \
+            -o /tmp/wfo-images.zip
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 \
+            'https://zenodo.org/records/20782718/files/_DwC_backbone_R.zip?download=1' \
+            -o /tmp/wfo-backbone.zip
+          unzip -t /tmp/plantnet.zip >/dev/null
+          unzip -t /tmp/wfo-images.zip >/dev/null
+          unzip -t /tmp/wfo-backbone.zip >/dev/null
+
+      - name: Build base Media v2 sidecar
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/build_media_v2_validated.py \
+            --catalog /tmp/catalog.sqlite \
+            --plantnet /tmp/plantnet.zip \
+            --wfo-images /tmp/wfo-images.zip \
+            --wfo-backbone /tmp/wfo-backbone.zip \
+            --output /tmp/climaflora_media_v2.sqlite \
+            --report /tmp/climaflora_media_v2_base_matrix.json
+
+      - name: Merge Australian Plant Image Index
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/extend_media_v2_regional.py \
+            --sidecar /tmp/climaflora_media_v2.sqlite \
+            --base-report /tmp/climaflora_media_v2_base_matrix.json \
+            --ala-apii /tmp/ala_apii_media.json \
+            --ala-report /tmp/ala_apii_report.json \
+            --report /tmp/climaflora_media_v2_ala_matrix.json
+
+      - name: Collect Dryades Flora d'Italia gap-fill metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/collect_dryades_media.py \
+            --catalog /tmp/catalog.sqlite \
+            --baseline /tmp/climaflora_media_v2.sqlite \
+            --output /tmp/dryades_media.json \
+            --report /tmp/dryades_report.json
+
+      - name: Merge Dryades Flora d'Italia
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/extend_media_v2_dryades.py \
+            --sidecar /tmp/climaflora_media_v2.sqlite \
+            --base-report /tmp/climaflora_media_v2_ala_matrix.json \
+            --dryades /tmp/dryades_media.json \
+            --dryades-report /tmp/dryades_report.json \
+            --report /tmp/climaflora_media_v2_pre_wikimedia_matrix.json
+
+      - name: Collect Wikimedia Commons P18 species gap-fill metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/collect_wikimedia_media_v2.py \
+            --catalog /tmp/catalog.sqlite \
+            --baseline /tmp/climaflora_media_v2.sqlite \
+            --output /tmp/wikimedia_media.json \
+            --report /tmp/wikimedia_report.json \
+            --batch-size 150 \
+            --request-delay-ms 50
+          python - <<'PY'
+          import json
+          report=json.load(open('/tmp/wikimedia_report.json',encoding='utf-8'))
+          assert report['status']=='ready', report
+          assert report['network_failure_taxa']==0, report
+          assert report['eligible_unique_taxa']>0, report
+          print(json.dumps(report,indent=2,ensure_ascii=False))
+          PY
+
+      - name: Merge Wikimedia Commons P18 gap fill
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/extend_media_v2_wikimedia.py \
+            --sidecar /tmp/climaflora_media_v2.sqlite \
+            --base-report /tmp/climaflora_media_v2_pre_wikimedia_matrix.json \
+            --wikimedia /tmp/wikimedia_media.json \
+            --wikimedia-report /tmp/wikimedia_report.json \
+            --report /tmp/climaflora_media_v2_pre_normalize_matrix.json
+
+      - name: Normalize all catalog taxa and retain top three images
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/finalize_media_v2_catalog.py \
+            --catalog /tmp/catalog.sqlite \
+            --sidecar /tmp/climaflora_media_v2.sqlite \
+            --base-report /tmp/climaflora_media_v2_pre_normalize_matrix.json \
+            --report /tmp/climaflora_media_v2_matrix.json
+
+      - name: Gate Media v2.4 invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, sqlite3
+          report=json.load(open('/tmp/climaflora_media_v2_matrix.json',encoding='utf-8'))
+          assert report['status']=='ready'
+          assert report['catalog_taxa_total']==420532
+          assert report['scoring_effect'] is False
+          assert report['matching_policy']=='exact_canonical_scientific_name'
+          assert report['media_version']=='2.4.0'
+          assert report['matrix']['baseline_unique_taxa']==18310, report['matrix']
+          assert report['matrix']['ala_apii_new_taxa']==2371, report['matrix']
+          assert report['matrix']['pre_dryades_unique_taxa']==20681, report['matrix']
+          assert report['matrix']['dryades_new_taxa']>0, report['matrix']
+          assert report['matrix']['pre_wikimedia_unique_taxa']>20681, report['matrix']
+          assert report['matrix']['wikimedia_new_taxa']>0, report['matrix']
+
+          storage=report['storage']
+          assert storage['model']=='media_taxon+plant_image_asset_top3', storage
+          assert storage['catalog_taxa_rows']==420532, storage
+          assert storage['max_images_per_taxon']==3, storage
+          assert storage['taxa_with_images']==report['matrix']['cumulative_unique_taxa'], storage
+          assert storage['taxa_with_images']+storage['taxa_without_images']==420532, storage
+
+          conn=sqlite3.connect('/tmp/climaflora_media_v2.sqlite')
+          assert conn.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+          meta=dict(conn.execute('SELECT key,value FROM media_metadata'))
+          assert meta['media_version']=='2.4.0'
+          assert meta['storage_model']=='media_taxon+plant_image_asset_top3'
+          assert meta['media_taxa_indexed']=='420532'
+          assert meta['max_images_per_taxon']=='3'
+          assert 'atlas_living_australia_apii' in meta['source']
+          assert 'dryades_flora_italia' in meta['source']
+          assert 'wikimedia_commons' in meta['source']
+          assert meta['image_scoring_effect']=='false'
+
+          indexed=conn.execute('SELECT COUNT(*) FROM media_taxon').fetchone()[0]
+          with_images=conn.execute('SELECT COUNT(*) FROM media_taxon WHERE image_count>0').fetchone()[0]
+          without_images=conn.execute('SELECT COUNT(*) FROM media_taxon WHERE image_count=0').fetchone()[0]
+          primary=conn.execute('SELECT COUNT(*) FROM plant_image_asset WHERE position=1 AND is_primary=1').fetchone()[0]
+          invalid=conn.execute("SELECT COUNT(*) FROM plant_image_asset WHERE upper(license) LIKE '%NC%' OR upper(license) LIKE '%ND%' OR upper(license) LIKE '%ALL RIGHTS%' OR trim(license)=''").fetchone()[0]
+          over_cap=conn.execute('SELECT COUNT(*) FROM (SELECT taxon_id FROM plant_image_asset GROUP BY taxon_id HAVING COUNT(*)>3)').fetchone()[0]
+          bad_positions=conn.execute('SELECT COUNT(*) FROM plant_image_asset WHERE position NOT BETWEEN 1 AND 3 OR (position=1)!=(is_primary=1)').fetchone()[0]
+          duplicate_positions=conn.execute('SELECT COUNT(*) FROM (SELECT taxon_id,position FROM plant_image_asset GROUP BY taxon_id,position HAVING COUNT(*)>1)').fetchone()[0]
+          orphans=conn.execute('SELECT COUNT(*) FROM plant_image_asset a LEFT JOIN media_taxon t USING(taxon_id) WHERE t.taxon_id IS NULL').fetchone()[0]
+          sources={row[0] for row in conn.execute('SELECT DISTINCT source FROM plant_image_asset')}
+          assert indexed==420532
+          assert with_images==primary==report['matrix']['cumulative_unique_taxa']
+          assert with_images+without_images==indexed
+          assert invalid==0 and over_cap==0 and bad_positions==0 and duplicate_positions==0 and orphans==0
+          assert sources <= {'plantnet_gbif','world_flora_online','atlas_living_australia_apii','dryades_flora_italia','wikimedia_commons'}
+          assert {'atlas_living_australia_apii','dryades_flora_italia','wikimedia_commons'} <= sources
+
+          cat=sqlite3.connect('/tmp/catalog.sqlite')
+          row=cat.execute("SELECT taxon_id FROM plant_index WHERE scientific_name='Acer nigrum'").fetchall()
+          assert len(row)==1, row
+          acer_id=str(row[0][0])
+          taxon=conn.execute('SELECT image_count,status FROM media_taxon WHERE taxon_id=?',(acer_id,)).fetchone()
+          assert taxon is not None and taxon[0]>=1 and taxon[1]=='ready', taxon
+          image=conn.execute(
+              "SELECT source,license,verified_taxon_name,attribution_url,position FROM plant_image_asset WHERE taxon_id=? ORDER BY position LIMIT 1",
+              (acer_id,),
+          ).fetchone()
+          assert image is not None, acer_id
+          assert image[0]=='wikimedia_commons', image
+          assert image[2]=='Acer nigrum', image
+          assert str(image[3]).startswith('https://commons.wikimedia.org/wiki/File:'), image
+          assert image[4]==1, image
+          assert 'NC' not in str(image[1]).upper() and 'ND' not in str(image[1]).upper(), image
+          print(json.dumps(report,indent=2,ensure_ascii=False))
+          PY
+
+      - name: Publish Media v2.4 sidecar and audit matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          hf upload "$HF_SPACE_ID" /tmp/climaflora_media_v2.sqlite "$MEDIA_REMOTE_PATH" \
+            --repo-type space \
+            --commit-message "Publish ClimaFlora Media v2.4 from GitHub $GITHUB_SHA"
+          hf upload "$HF_SPACE_ID" /tmp/climaflora_media_v2_matrix.json data/climaflora_media_v2_matrix.json \
+            --repo-type space \
+            --commit-message "Publish ClimaFlora Media v2.4 matrix from GitHub $GITHUB_SHA"
+
+      - name: Bind production Media v2.4 database
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api=HfApi(token=os.environ['HF_TOKEN'])
+          api.add_space_variable(
+              repo_id=os.environ['HF_SPACE_ID'],
+              key='CLIMAFLORA_MEDIA_DB',
+              value='data/climaflora_media_v2.sqlite',
+          )
+          api.restart_space(repo_id=os.environ['HF_SPACE_ID'])
+          print('Media v2.4 uploaded and bound. Runtime verification follows the serialized HF runtime deployment.')
+          PY

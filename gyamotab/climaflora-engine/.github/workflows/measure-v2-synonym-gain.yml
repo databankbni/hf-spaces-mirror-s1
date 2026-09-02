@@ -1,0 +1,79 @@
+name: Measure v2 exact synonym gain
+on:
+  push:
+    branches: [edaphic-v2.0-enrichment]
+    paths: ['.github/workflows/measure-v2-synonym-gain.yml']
+permissions:
+  contents: write
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Download inputs and measure exact mappings
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+          python -m pip install --quiet openpyxl
+          curl -fL --retry 5 https://shugoan.com/climaflora/data/climaflora_global_plants_v1_9.sqlite.zst -o v19.zst
+          echo '5851572bd48dea34d3b69e16a78126d1ac149c907e5db8fa7af1bc36812779dc  v19.zst' | sha256sum -c -
+          zstd -d -f v19.zst -o v19.sqlite
+          curl -fL --retry 5 'https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/plantlst.txt' -o plantlst.txt
+          curl -fL --retry 5 -A 'Mozilla/5.0 ClimaFlora' 'https://web.archive.org/web/20231002005253id_/https://philippe.julve.pagesperso-orange.fr/baseflor.xlsx' -o baseflor.xlsx
+          python - <<'PY'
+          import csv,json,re,sqlite3
+          from collections import defaultdict
+          from pathlib import Path
+          from openpyxl import load_workbook
+          def norm(x): return ' '.join(str(x or '').strip().replace('×',' x ').split()).casefold()
+          c=sqlite3.connect('v19.sqlite')
+          accepted={}; a_raw=defaultdict(set)
+          for tid,n in c.execute('SELECT CAST(taxon_id AS TEXT),scientific_name FROM plant_index'):
+              if n: a_raw[norm(n)].add(str(tid))
+          accepted={n:next(iter(ids)) for n,ids in a_raw.items() if len(ids)==1}
+          syn_raw=defaultdict(set)
+          for n,tid in c.execute('''SELECT n.scientific_name,CAST(COALESCE(n.accepted_name_usage_id,n.taxon_id) AS TEXT)
+                                    FROM wcvp_names n JOIN plant_index p ON p.taxon_id=CAST(COALESCE(n.accepted_name_usage_id,n.taxon_id) AS TEXT)
+                                    WHERE n.scientific_name IS NOT NULL'''):
+              syn_raw[norm(n)].add(str(tid))
+          synonyms={n:next(iter(ids)) for n,ids in syn_raw.items() if len(ids)==1 and n not in accepted}
+          rank_markers={'subsp.','ssp.','var.','forma','f.','subvar.','nothosubsp.','nothovar.'}
+          def usda_species(text):
+              text=re.sub(r'<[^>]+>','',text or '').strip(); toks=text.replace('× ','×').split()
+              if len(toks)<2 or ({x.lower() for x in toks}&rank_markers): return None
+              if toks[1].endswith('.'): return None
+              return norm(toks[0]+' '+toks[1].rstrip(',;'))
+          u_acc=u_syn=u_un=0; examples=[]
+          with open('plantlst.txt',encoding='utf-8-sig',newline='') as f:
+              for r in csv.DictReader(f):
+                  if (r.get('Synonym Symbol') or '').strip(): continue
+                  n=usda_species(r.get('Scientific Name with Author') or '')
+                  if not n: continue
+                  if n in accepted: u_acc+=1
+                  elif n in synonyms: u_syn+=1; examples.append([r.get('Symbol'),n,synonyms[n]])
+                  else: u_un+=1
+          wb=load_workbook('baseflor.xlsx',read_only=True,data_only=True); ws=wb['baseflor']; rows=ws.iter_rows(values_only=True)
+          h=[str(x or '').strip() for x in next(rows)]; idx={x:i for i,x in enumerate(h)}
+          b_acc=b_syn=b_un=0; bex=[]
+          for vals in rows:
+              if str(vals[idx['rang_taxinomique']] or '').strip().lower()!='esp': continue
+              n=norm(vals[idx['nomH']])
+              if not n: continue
+              if n in accepted: b_acc+=1
+              elif n in synonyms: b_syn+=1; bex.append([n,synonyms[n]])
+              else: b_un+=1
+          out={'accepted_unique_names':len(accepted),'exact_unique_wcvp_synonyms':len(synonyms),
+               'usda':{'accepted_matches':u_acc,'synonym_matches':u_syn,'unmatched':u_un,'sample_synonym_matches':examples[:30]},
+               'baseflor':{'accepted_matches':b_acc,'synonym_matches':b_syn,'unmatched':b_un,'sample_synonym_matches':bex[:30]}}
+          Path('/tmp/v2-synonym-gain.json').write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          print(json.dumps(out,indent=2,ensure_ascii=False))
+          PY
+      - name: Record
+        run: |
+          git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin edaphic-v2.0-enrichment && git reset --hard origin/edaphic-v2.0-enrichment
+          cp /tmp/v2-synonym-gain.json .github/v2-synonym-gain.json
+          git add .github/v2-synonym-gain.json
+          git commit -m 'Record v2 exact synonym gain [skip ci]'
+          git push origin HEAD:edaphic-v2.0-enrichment

@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>StegaSphere</title>
+<style>
+:root{
+  --bg:#0a0f16;
+  --panel:#111827;
+  --panel2:#0d1420;
+  --line:#253246;
+  --text:#e7eef8;
+  --muted:#8f9db0;
+  --accent:#d4af37;
+  --good:#69c18c;
+  --bad:#e07f7f;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+.wrap{
+  width:min(1100px,calc(100% - 24px));
+  margin:0 auto;
+  padding:30px 0 42px;
+}
+header{
+  text-align:center;
+  margin-bottom:20px;
+}
+h1{
+  margin:0;
+  font-size:clamp(2rem,4vw,3rem);
+  color:var(--accent);
+  letter-spacing:.02em;
+}
+header p{
+  margin:8px 0 0;
+  color:var(--muted);
+}
+.top-actions{
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  flex-wrap:wrap;
+  margin:18px 0 22px;
+}
+button{
+  border:1px solid var(--line);
+  background:#182131;
+  color:var(--text);
+  border-radius:10px;
+  padding:10px 14px;
+  cursor:pointer;
+  font-weight:650;
+}
+button:hover{border-color:#5a6e88}
+button:disabled{opacity:.55;cursor:not-allowed}
+.primary{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#111;
+}
+.primary:hover{
+  background:#e2c14a;
+  border-color:#e2c14a;
+}
+.ghost{
+  background:transparent;
+}
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+}
+.card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:18px;
+}
+h2{
+  margin:0 0 14px;
+  font-size:1.05rem;
+}
+.upload{
+  min-height:190px;
+  border:1px dashed #4a5970;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  cursor:pointer;
+  background:var(--panel2);
+  padding:18px;
+}
+.upload:hover,.upload.dragover{border-color:var(--accent)}
+.upload b{display:block;margin-bottom:6px}
+.muted{color:var(--muted);font-size:.9rem}
+.preview{
+  width:100%;
+  max-height:280px;
+  object-fit:contain;
+  margin-top:14px;
+  border-radius:10px;
+  border:1px solid var(--line);
+  background:#070b11;
+}
+.info{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+  margin-top:14px;
+}
+.item{
+  background:var(--panel2);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:10px;
+}
+.label{
+  color:var(--muted);
+  font-size:.72rem;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.value{
+  margin-top:4px;
+  font-size:.96rem;
+  word-break:break-word;
+}
+textarea{
+  width:100%;
+  min-height:200px;
+  resize:vertical;
+  padding:12px;
+  border-radius:10px;
+  border:1px solid var(--line);
+  background:var(--panel2);
+  color:var(--text);
+  font:14px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;
+  outline:none;
+}
+textarea:focus{border-color:var(--accent)}
+.counter{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  color:var(--muted);
+  font-size:.82rem;
+  margin:8px 0;
+}
+.bar{
+  height:4px;
+  background:#233043;
+  border-radius:999px;
+  overflow:hidden;
+  margin-bottom:14px;
+}
+.fill{
+  height:100%;
+  width:0;
+  background:var(--accent);
+}
+.actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.status{
+  min-height:20px;
+  margin-top:10px;
+  color:var(--muted);
+  font-size:.9rem;
+}
+.ok{color:var(--good)}
+.error{color:var(--bad)}
+.panel-note{
+  margin-top:12px;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#0d1420;
+}
+.panel-note strong{color:var(--accent)}
+.result{
+  margin-top:16px;
+  display:none;
+}
+pre{
+  white-space:pre-wrap;
+  word-break:break-word;
+  margin:0;
+}
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.72);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  z-index:20;
+}
+.modal.show{display:flex}
+.modal-card{
+  width:min(760px,100%);
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:18px;
+}
+.modal-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:14px;
+}
+.progress{
+  height:12px;
+  background:#0d1420;
+  border-radius:999px;
+  overflow:hidden;
+}
+.progress-bar{
+  width:0%;
+  height:100%;
+  background:linear-gradient(90deg,#3bc4d6,#7f5cff);
+  transition:width .2s ease;
+}
+.row{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:10px;
+  color:var(--muted);
+  font-size:.86rem;
+}
+.small-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+.footer{
+  text-align:center;
+  margin-top:18px;
+  color:#607086;
+  font-size:.74rem;
+}
+.hidden{display:none !important}
+@media (max-width:760px){
+  .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>StegaSphere</h1>
+    <p>Hide text or reveal text inside video files.</p>
+  </header>
+
+  <div class="top-actions">
+    <button id="modeHide" class="primary">Hide Text</button>
+    <button id="modeReveal" class="ghost">Reveal Text</button>
+  </div>
+
+  <section id="hideSection" class="grid">
+    <div class="card">
+      <h2>Video</h2>
+      <label id="uploadHide" class="upload">
+        <input id="fileHide" type="file" accept="video/*" hidden />
+        <div>
+          <b>Choose or drop a video</b>
+          <span class="muted">The first frame is reserved for metadata.</span>
+        </div>
+      </label>
+      <div id="hideFileInfo" class="muted" style="margin-top:10px">No file chosen</div>
+      <div id="hidePreviewNote" class="panel-note">
+        <div><strong>Capacity</strong> will appear after you select a video.</div>
+        <div class="muted" style="margin-top:4px">You will also see how many more alphabets can still be hidden.</div>
+      </div>
+
+      <div id="analysisBox" class="info hidden">
+        <div class="item"><div class="label">Resolution</div><div id="resValue" class="value">-</div></div>
+        <div class="item"><div class="label">FPS</div><div id="fpsValue" class="value">-</div></div>
+        <div class="item"><div class="label">Frames</div><div id="framesValue" class="value">-</div></div>
+        <div class="item"><div class="label">Max alphabets</div><div id="maxCharsValue" class="value">-</div></div>
+      </div>
+
+      <div id="existingBox" class="panel-note hidden">
+        <strong>Hidden data detected.</strong>
+        <div class="muted" style="margin-top:4px">You can reveal it or append more text.</div>
+        <div class="small-actions">
+          <button id="btnRevealExisting">Reveal hidden text</button>
+          <button id="btnAppendMore" class="ghost">Append more text</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Secret text</h2>
+      <textarea id="secretText" placeholder="Type the text you want to hide..."></textarea>
+      <div class="counter">
+        <span><span id="countNow">0</span> bytes</span>
+        <span>remaining <span id="remainingChars">∞</span></span>
+      </div>
+      <div class="bar"><div id="fillBar" class="fill"></div></div>
+
+      <div class="actions">
+        <button id="encodeBtn" class="primary">Start Encoding</button>
+        <button id="appendBtn">Append More</button>
+        <button id="resetHide" class="ghost">Reset</button>
+      </div>
+
+      <div id="hideStatus" class="status"></div>
+
+      <div id="encodedBox" class="result">
+        <h3 style="margin:0 0 10px">Encoded video ready</h3>
+        <div class="actions">
+          <a id="downloadLink" href="#" style="text-decoration:none"><button class="primary">Download AVI</button></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="revealSection" class="grid hidden">
+    <div class="card">
+      <h2>Reveal video</h2>
+      <label id="uploadReveal" class="upload">
+        <input id="fileReveal" type="file" accept="video/*" hidden />
+        <div>
+          <b>Choose or drop a video</b>
+          <span class="muted">Upload the video that may contain hidden text.</span>
+        </div>
+      </label>
+      <div id="revealFileInfo" class="muted" style="margin-top:10px">No file chosen</div>
+      <div class="actions" style="margin-top:12px">
+        <button id="decodeBtn" class="primary">Reveal Text</button>
+        <button id="resetReveal" class="ghost">Reset</button>
+      </div>
+      <div id="revealStatus" class="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>Extracted text</h2>
+      <div id="decodedBox" class="panel-note">
+        <div id="decodedText" class="value" style="white-space:pre-wrap">Nothing yet.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">Simple UI, preserved processing, exact progress updates.</div>
+</div>
+
+<div id="modal" class="modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div id="modalTitle">Working…</div>
+      <button id="closeModal" class="ghost">×</button>
+    </div>
+    <div class="progress"><div id="progressBar" class="progress-bar"></div></div>
+    <div class="row">
+      <div id="progressPct">0%</div>
+      <div id="etaText">ETA: --</div>
+    </div>
+    <div id="modalMsg" class="muted" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+let selectedFile = null;
+let capacityMax = 0;
+
+const hideSection = $('hideSection');
+const revealSection = $('revealSection');
+
+function setStatus(el, text, kind=''){
+  el.textContent = text;
+  el.className = `status ${kind}`;
+}
+
+function setBusy(b){
+  ['encodeBtn','appendBtn','decodeBtn','resetHide','resetReveal','btnRevealExisting','btnAppendMore'].forEach(id=>{
+    const el = $(id);
+    if (el) el.disabled = b;
+  });
+}
+
+function showModal(title, msg=''){
+  $('modalTitle').textContent = title;
+  $('modalMsg').textContent = msg;
+  $('progressBar').style.width = '0%';
+  $('progressPct').textContent = '0%';
+  $('etaText').textContent = 'ETA: --';
+  $('modal').classList.add('show');
+}
+
+function hideModal(){
+  $('modal').classList.remove('show');
+}
+
+function updateCounter(){
+  const n = new Blob([$('secretText').value]).size;
+  $('countNow').textContent = n.toLocaleString();
+  if (capacityMax > 0) {
+    const remaining = Math.max(0, capacityMax - n);
+    $('remainingChars').textContent = remaining.toLocaleString();
+    $('fillBar').style.width = Math.min(100, (n / capacityMax) * 100) + '%';
+  } else {
+    $('remainingChars').textContent = '∞';
+    $('fillBar').style.width = '0%';
+  }
+}
+
+function switchMode(mode){
+  $('modeHide').className = mode === 'hide' ? 'primary' : 'ghost';
+  $('modeReveal').className = mode === 'reveal' ? 'primary' : 'ghost';
+  hideSection.classList.toggle('hidden', mode !== 'hide');
+  revealSection.classList.toggle('hidden', mode !== 'reveal');
+}
+
+function xhrUpload(url, formData, onProgress){
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable && onProgress) {
+        onProgress(Math.round((ev.loaded / ev.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      let data = {};
+      try { data = JSON.parse(xhr.responseText || '{}'); } catch (e) {}
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
+    };
+    xhr.onerror = () => resolve({ ok: false, status: 0, data: { error: 'Network error' } });
+    xhr.send(formData);
+  });
+}
+
+async function pollTask(taskId, onDone){
+  const startTs = Date.now();
+  while (true) {
+    const res = await fetch('/status/' + encodeURIComponent(taskId));
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || 'Server error');
+    $('progressBar').style.width = (data.percent || 0) + '%';
+    $('progressPct').textContent = (data.percent || 0) + '%';
+    $('modalMsg').textContent = data.message || '';
+
+    if (data.eta_seconds != null) {
+      const s = Math.max(0, data.eta_seconds);
+      const m = Math.floor(s / 60);
+      $('etaText').textContent = 'ETA: ' + (m > 0 ? m + 'm ' : '') + (s % 60) + 's';
+    } else {
+      $('etaText').textContent = 'Elapsed: ' + Math.floor((Date.now() - startTs) / 1000) + 's';
+    }
+
+    if (data.status === 'done' || (data.percent || 0) >= 100) {
+      onDone && onDone(data);
+      break;
+    }
+    if (data.status === 'error') {
+      throw new Error(data.error || 'Task error');
+    }
+
+    await new Promise(r => setTimeout(r, 800));
+  }
+}
+
+function applySelectedFile(file, target){
+  if (!file) return;
+  selectedFile = file;
+  const infoText = `${file.name} • ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+  if (target === 'hide') {
+    $('hideFileInfo').textContent = infoText;
+  } else {
+    $('revealFileInfo').textContent = infoText;
+  }
+}
+
+async function analyzeSelectedVideo(file){
+  const fd = new FormData();
+  fd.append('video', file);
+
+  showModal('Analyzing video…', 'Reading capacity and hidden-data status');
+  const r = await xhrUpload('/api/analyze_video', fd, p => {
+    $('progressBar').style.width = p + '%';
+    $('progressPct').textContent = p + '%';
+    $('modalMsg').textContent = 'Uploading… ' + p + '%';
+  });
+  hideModal();
+
+  if (!r.ok || !r.data.success) {
+    throw new Error(r.data.error || 'Analysis failed');
+  }
+
+  $('analysisBox').classList.remove('hidden');
+  $('resValue').textContent = `${r.data.width} × ${r.data.height}`;
+  $('fpsValue').textContent = Number(r.data.fps).toFixed(2);
+  $('framesValue').textContent = Number(r.data.frame_count).toLocaleString();
+  $('maxCharsValue').textContent = Number(r.data.max_chars).toLocaleString();
+
+  capacityMax = Number(r.data.max_chars) || 0;
+  updateCounter();
+
+  if (r.data.has_hidden_data) {
+    $('existingBox').classList.remove('hidden');
+  } else {
+    $('existingBox').classList.add('hidden');
+  }
+
+  return r.data;
+}
+
+async function loadHideFile(file){
+  if (!file || !file.type.startsWith('video/')) {
+    setStatus($('hideStatus'), 'Please choose a valid video.', 'error');
+    return;
+  }
+
+  try {
+    setBusy(true);
+    selectedFile = file;
+    $('encodedBox').style.display = 'none';
+    $('hidePreviewNote').classList.add('hidden');
+    $('hideStatus').textContent = 'Loading video…';
+    await analyzeSelectedVideo(file);
+    setStatus($('hideStatus'), 'Video ready.', 'ok');
+  } catch (e) {
+    setStatus($('hideStatus'), e.message, 'error');
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function loadRevealFile(file){
+  if (!file || !file.type.startsWith('video/')) {
+    setStatus($('revealStatus'), 'Please choose a valid video.', 'error');
+    return;
+  }
+  selectedFile = file;
+  $('revealStatus').textContent = 'Video ready.';
+}
+
+async function encodeVideo(action){
+  if (!selectedFile) {
+    setStatus($('hideStatus'), 'Choose a video first.', 'error');
+    return;
+  }
+
+  const text = $('secretText').value.trim();
+  if (!text && action === 'start') {
+    setStatus($('hideStatus'), 'Enter text to hide.', 'error');
+    return;
+  }
+  if (!text && action === 'append') {
+    setStatus($('hideStatus'), 'Enter text to append.', 'error');
+    return;
+  }
+
+  setBusy(true);
+  showModal(action === 'append' ? 'Appending text…' : 'Starting encode…', 'Preparing the job');
+
+  try {
+    const fd = new FormData();
+    fd.append('video', selectedFile);
+    fd.append('text', text);
+    if (action) fd.append('action', action);
+
+    const r = await xhrUpload('/start_encode', fd, p => {
+      $('progressBar').style.width = p + '%';
+      $('progressPct').textContent = p + '%';
+      $('modalMsg').textContent = 'Uploading… ' + p + '%';
+    });
+
+    if (!r.ok) throw new Error(r.data.error || 'Server error');
+    if (r.data.exists !== undefined) {
+      hideModal();
+      if (r.data.exists) {
+        $('existingBox').classList.remove('hidden');
+        setStatus($('hideStatus'), 'Hidden data already exists. You can reveal it or append more.', 'ok');
+      }
+      return;
+    }
+
+    const taskId = r.data.task_id;
+    await pollTask(taskId, (data) => {
+      hideModal();
+      if (data.status === 'done') {
+        $('encodedBox').style.display = 'block';
+        $('downloadLink').href = '/download/' + encodeURIComponent(data.result);
+        setStatus($('hideStatus'), 'Encoding complete.', 'ok');
+      } else {
+        throw new Error(data.error || 'Encoding failed');
+      }
+    });
+  } catch (e) {
+    hideModal();
+    setStatus($('hideStatus'), e.message, 'error');
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function revealVideo(){
+  if (!selectedFile) {
+    setStatus($('revealStatus'), 'Choose a video first.', 'error');
+    return;
+  }
+
+  setBusy(true);
+  showModal('Decoding…', 'Preparing decode job');
+  try {
+    const fd = new FormData();
+    fd.append('video', selectedFile);
+
+    const r = await xhrUpload('/start_decode', fd, p => {
+      $('progressBar').style.width = p + '%';
+      $('progressPct').textContent = p + '%';
+      $('modalMsg').textContent = 'Uploading… ' + p + '%';
+    });
+
+    if (!r.ok) throw new Error(r.data.error || 'Server error');
+
+    const taskId = r.data.task_id;
+    await pollTask(taskId, (data) => {
+      hideModal();
+      if (data.status === 'done') {
+        $('decodedBox').classList.remove('hidden');
+        $('decodedText').textContent = data.result || 'No hidden text found.';
+        setStatus($('revealStatus'), 'Text revealed.', 'ok');
+      } else {
+        throw new Error(data.error || 'Decode failed');
+      }
+    });
+  } catch (e) {
+    hideModal();
+    setStatus($('revealStatus'), e.message, 'error');
+  } finally {
+    setBusy(false);
+  }
+}
+
+$('modeHide').onclick = () => switchMode('hide');
+$('modeReveal').onclick = () => switchMode('reveal');
+
+$('uploadHide').onclick = () => $('fileHide').click();
+$('uploadReveal').onclick = () => $('fileReveal').click();
+
+$('fileHide').addEventListener('change', e => applySelectedFile(e.target.files[0], 'hide'));
+$('fileReveal').addEventListener('change', e => applySelectedFile(e.target.files[0], 'reveal'));
+
+$('uploadHide').addEventListener('dragover', e => { e.preventDefault(); $('uploadHide').classList.add('dragover'); });
+$('uploadHide').addEventListener('dragleave', () => $('uploadHide').classList.remove('dragover'));
+$('uploadHide').addEventListener('drop', e => {
+  e.preventDefault();
+  $('uploadHide').classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  $('fileHide').files = e.dataTransfer.files;
+  loadHideFile(f);
+});
+
+$('uploadReveal').addEventListener('dragover', e => { e.preventDefault(); $('uploadReveal').classList.add('dragover'); });
+$('uploadReveal').addEventListener('dragleave', () => $('uploadReveal').classList.remove('dragover'));
+$('uploadReveal').addEventListener('drop', e => {
+  e.preventDefault();
+  $('uploadReveal').classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  $('fileReveal').files = e.dataTransfer.files;
+  loadRevealFile(f);
+});
+
+$('secretText').addEventListener('input', updateCounter);
+
+$('encodeBtn').onclick = () => encodeVideo('start');
+$('appendBtn').onclick = () => encodeVideo('append');
+$('decodeBtn').onclick = () => revealVideo();
+$('btnRevealExisting').onclick = () => { switchMode('reveal'); };
+$('btnAppendMore').onclick = () => { $('secretText').focus(); };
+$('resetHide').onclick = () => {
+  selectedFile = null;
+  capacityMax = 0;
+  $('fileHide').value = '';
+  $('secretText').value = '';
+  $('hideFileInfo').textContent = 'No file chosen';
+  $('analysisBox').classList.add('hidden');
+  $('existingBox').classList.add('hidden');
+  $('encodedBox').style.display = 'none';
+  $('hidePreviewNote').classList.remove('hidden');
+  $('fillBar').style.width = '0%';
+  $('countNow').textContent = '0';
+  $('remainingChars').textContent = '∞';
+  setStatus($('hideStatus'), 'Reset.');
+};
+$('resetReveal').onclick = () => {
+  selectedFile = null;
+  $('fileReveal').value = '';
+  $('revealFileInfo').textContent = 'No file chosen';
+  $('decodedBox').classList.add('hidden');
+  $('decodedText').textContent = 'Nothing yet.';
+  setStatus($('revealStatus'), 'Reset.');
+};
+
+$('closeModal').onclick = hideModal;
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) hideModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideModal(); });
+
+switchMode('hide');
+updateCounter();
+</script>
+</body>
+</html>

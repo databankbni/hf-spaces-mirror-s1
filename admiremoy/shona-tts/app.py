@@ -1,19 +1,35 @@
+from typing import Optional
+
 import torch
 import gradio as gr
 from transformers import VitsModel, AutoTokenizer
 
-# Your trained Shona voice model on the Hugging Face Hub.
-# The deploy cell injects the real id; edit here if you retrain to a new repo.
+# Your trained Shona voice model on the Hugging Face Hub (private repo —
+# the Space reads it via its HF_TOKEN secret). The deploy cell injects
+# the real id; edit here if you retrain to a new repo.
 MODEL_ID = "admiremoy/shona-tts-voice-v1"
+
+MAX_CHARS = 250  # keep generations short — no long scripted messages
+
+# Words that should never be synthesized. Add Shona/English entries
+# (lowercase); any input containing one is refused.
+BLOCKLIST: list[str] = []
 
 model = VitsModel.from_pretrained(MODEL_ID)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
 
 
-def synth(text):
+def synth(text, profile: Optional[gr.OAuthProfile]):
+    if profile is None:
+        raise gr.Error("Pindai kutanga — please sign in (top of the page) to generate audio.")
     text = (text or "").strip()
     if not text:
         raise gr.Error("Nyora chiShona kutanga — please type some Shona text.")
+    if len(text) > MAX_CHARS:
+        raise gr.Error(f"Chinyorwa chirefu — please keep it under {MAX_CHARS} characters.")
+    low = text.lower()
+    if any(w in low for w in BLOCKLIST):
+        raise gr.Error("Mashoko aya haabvumidzwe — this text is not allowed.")
     inputs = tokenizer(text, return_tensors="pt")
     with torch.no_grad():
         wav = model(**inputs).waveform[0].cpu().numpy()
@@ -74,8 +90,10 @@ HERO = """
 
 FOOT = """
 <div id="foot">
-  Yakagadzirwa muZimbabwe · Built in Zimbabwe 🇿🇼<br>
-  v1 — inovandudzwa nekufamba kwenguva (improving over time) ·
+  ⚠️ Inzwi rakagadzirwa nemushina — this is a <b>synthetic voice</b>, not a real
+  recording of any person. Misuse (impersonation, harassment, scams) is
+  prohibited and accounts are traceable.<br>
+  Yakagadzirwa muZimbabwe · Built in Zimbabwe 🇿🇼 ·
   <a href="https://github.com/admiremoyo/ShonaTTS" target="_blank">Project on GitHub</a>
 </div>
 """
@@ -83,14 +101,16 @@ FOOT = """
 with gr.Blocks(css=CSS, title="Mazwi AI — chiShona TTS",
                theme=gr.themes.Soft(primary_hue="green", secondary_hue="yellow")) as demo:
     gr.HTML(HERO)
+    gr.LoginButton()
     with gr.Column(elem_classes="card"):
         txt = gr.Textbox(
             label="Chinyorwa (Shona text)",
             placeholder="Semuenzaniso: Mhoro, wakadii nhasi?",
             lines=2,
             value="Mhoro, wakadii nhasi?",
+            max_length=MAX_CHARS,
         )
-        btn = gr.Button("🔊  Taura  ·  Speak", elem_classes="speak")
+        btn = gr.Button("🔊 Taura · Speak", elem_classes="speak")
         out = gr.Audio(label="Izwi (Listen)")
         gr.Examples(
             examples=[

@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en" class="notranslate" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Present Perfect Challenge Master</title>
+    <!-- Ably Realtime SDK -->
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
+            --card-bg: rgba(255, 255, 255, 0.08);
+            --card-border: rgba(255, 255, 255, 0.18);
+            --accent-yellow: #facc15;
+            --accent-pink: #ec4899;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --text-light: #f8fafc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            background: var(--bg-gradient);
+            color: var(--text-light);
+        }
+
+        #app {
+            width: 100%;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: safe-area-inset-top 1rem safe-area-inset-bottom 1rem;
+            position: relative;
+        }
+
+        /* --- HUD Bar --- */
+        .hud-bar {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            border: 1px solid var(--card-border);
+            margin-top: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .hud-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: clamp(0.9rem, 2.5vw, 1.2rem);
+            font-weight: 700;
+        }
+
+        /* --- Main Card Container --- */
+        .main-container {
+            width: 100%;
+            max-width: 850px;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .card {
+            width: 100%;
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 2px solid var(--card-border);
+            border-radius: 24px;
+            padding: clamp(20px, 4vw, 40px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 24px;
+            animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .challenge-tag {
+            background: linear-gradient(90deg, var(--accent-pink), var(--accent-cyan));
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: clamp(0.8rem, 2vw, 1rem);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sentence-box {
+            font-size: clamp(1.3rem, 3.8vw, 2.2rem);
+            font-weight: 600;
+            line-height: 1.8;
+            color: #ffffff;
+            word-break: break-word;
+        }
+
+        /* --- Inline Editable Spans --- */
+        .editable-gap {
+            display: inline-block;
+            min-width: 70px;
+            border-bottom: 4px solid var(--accent-yellow);
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--accent-yellow);
+            font-weight: 800;
+            padding: 2px 10px;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.2s ease;
+            cursor: text;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            vertical-align: middle;
+            margin: 0 4px;
+        }
+
+        .editable-gap:focus {
+            background: rgba(255, 255, 255, 0.25);
+            border-bottom-color: var(--accent-cyan);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+        }
+
+        .editable-gap.correct {
+            border-bottom-color: var(--accent-green) !important;
+            color: var(--accent-green) !important;
+            background: rgba(16, 185, 129, 0.2);
+        }
+
+        .editable-gap.wrong {
+            border-bottom-color: var(--accent-red) !important;
+            color: var(--accent-red) !important;
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .prompt-hint {
+            font-size: clamp(1rem, 2.5vw, 1.3rem);
+            color: #cbd5e1;
+            font-style: italic;
+            background: rgba(0,0,0,0.25);
+            padding: 8px 16px;
+            border-radius: 12px;
+        }
+
+        /* --- Footer Controls --- */
+        .footer-controls {
+            width: 100%;
+            max-width: 850px;
+            padding: 10px 0 15px 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 16px 36px;
+            font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+            font-weight: 800;
+            border-radius: 16px;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 12px 25px rgba(59, 130, 246, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #047857);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        /* Start Card */
+        .start-card {
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .input-name {
+            width: 100%;
+            padding: 16px 20px;
+            font-size: 1.3rem;
+            border-radius: 14px;
+            border: 2px solid var(--card-border);
+            background: rgba(255,255,255,0.9);
+            color: #0f172a;
+            font-weight: 700;
+            outline: none;
+            text-align: center;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+        }
+
+        /* Teacher View */
+        #teacherView {
+            width: 100%;
+            height: 100dvh;
+            background: #090d16;
+            padding: 20px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .teacher-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #1e293b;
+            margin-bottom: 20px;
+        }
+
+        .students-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .student-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .student-card-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--accent-cyan);
+            border-bottom: 1px solid #334155;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+
+        .live-typing-box {
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            color: var(--accent-yellow);
+            font-size: 1rem;
+            min-height: 40px;
+            word-break: break-all;
+        }
+
+        /* Summary List */
+        .summary-list {
+            width: 100%;
+            max-height: 350px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            text-align: left;
+            padding-right: 5px;
+        }
+
+        .summary-item {
+            background: rgba(255,255,255,0.05);
+            padding: 12px 16px;
+            border-radius: 12px;
+            border-left: 5px solid var(--accent-cyan);
+            font-size: 0.95rem;
+        }
+
+        .summary-item.is-correct { border-left-color: var(--accent-green); }
+        .summary-item.is-wrong { border-left-color: var(--accent-red); }
+
+        @media (max-width: 600px) {
+            .hud-bar { padding: 8px 12px; }
+            .card { padding: 20px 15px; }
+            .footer-controls { width: 100%; padding: 0 10px 10px 10px; }
+            .btn { width: 100%; justify-content: center; padding: 14px 20px; }
+        }
+    </style>
+</head>
+<body class="notranslate" translate="no">
+
+    <div id="app">
+        <!-- HUD Header -->
+        <div class="hud-bar" id="hudBar" style="display: none;">
+            <div class="hud-item">⭐ <span id="score">0</span></div>
+            <div class="hud-item">🔥 <span id="streak">0</span></div>
+            <div class="hud-item">🎯 <span id="accuracy">100%</span></div>
+            <div class="hud-item">🚀 Challenge <span id="currentCardNum">1</span>/20</div>
+        </div>
+
+        <!-- Main Container -->
+        <div class="main-container">
+            <!-- Start Screen Card -->
+            <div class="card start-card" id="startCard">
+                <span class="challenge-tag">🚀 English Quest</span>
+                <h1 style="font-size: clamp(1.8rem, 5vw, 2.5rem);">Present Perfect Challenge</h1>
+                <p style="color: #94a3b8; font-size: 1.1rem;">Master <b>already</b>, <b>never</b>, <b>yet</b> & <b>just</b>!</p>
+                
+                <input type="text" id="studentNameInput" class="input-name" placeholder="Enter your full name..." autocomplete="off">
+                
+                <button class="btn btn-success" onclick="startChallenge()" style="width: 100%; justify-content: center;">
+                    START ADVENTURE ⚡
+                </button>
+            </div>
+
+            <!-- Exercise Card -->
+            <div class="card" id="exerciseCard" style="display: none;">
+                <span class="challenge-tag" id="cardTag">CHALLENGE #1</span>
+                
+                <div class="sentence-box" id="sentenceContainer">
+                    <!-- Dynamic sentence with 1 or 2 spans -->
+                </div>
+
+                <div class="prompt-hint" id="promptHint">
+                    (hint)
+                </div>
+            </div>
+
+            <!-- Results Card -->
+            <div class="card" id="resultsCard" style="display: none;">
+                <span class="challenge-tag">🎉 MISSION COMPLETED!</span>
+                <h2 style="font-size: 2rem;">Awesome Job, <span id="resultStudentName"></span>!</h2>
+                <div style="display: flex; gap: 20px; font-size: 1.2rem; font-weight: bold; margin: 10px 0;">
+                    <div>⭐ Score: <span id="finalScore" style="color: var(--accent-yellow);">0</span></div>
+                    <div>🎯 Accuracy: <span id="finalAccuracy" style="color: var(--accent-green);">0%</span></div>
+                </div>
+
+                <p style="text-align: left; width: 100%; font-weight: bold; color: #94a3b8;">Review your answers:</p>
+                <div class="summary-list" id="summaryList">
+                    <!-- Dynamic review items -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Control Buttons -->
+        <div class="footer-controls" id="footerControls" style="display: none;">
+            <button class="btn btn-success" id="actionBtn" onclick="checkAnswer()">
+                CHECK ANSWER ✅
+            </button>
+        </div>
+    </div>
+
+    <!-- Teacher Monitor View -->
+    <div id="teacherView">
+        <div class="teacher-header">
+            <div>
+                <h1 style="color: var(--accent-cyan);">👨‍🏫 TEACHER LIVE COMMAND CENTER</h1>
+                <p style="color: #94a3b8;">Real-time student progress monitor</p>
+            </div>
+            <div style="text-align: right;">
+                <span style="background: rgba(16, 185, 129, 0.2); color: var(--accent-green); padding: 6px 12px; border-radius: 20px; font-weight: bold;">
+                    ● LIVE CONNECTED
+                </span>
+            </div>
+        </div>
+
+        <div class="students-grid" id="studentsGrid"></div>
+    </div>
+
+    <script>
+        // --- Audio FX ---
+        const correctSound = new Audio('https://res.cloudinary.com/dslu7arqa/video/upload/v1775511433/applepay_jptbaf.mp3');
+
+        // --- Ably & Webhook Config ---
+        const ABLY_KEY = "zLtaZw.ID53Wg:UJ3rOKwpfhda37lxinuF24kknvUjk7jub4NO79VC9no";
+        const DISCORD_WEBHOOK = "https://discordapp.com/api/webhooks/1469452628629913741/8cjv78gMP_1L7fqHF2jNMryW9o71dhNt3gNns5IkLjqGjmY0pvR59bNkeLqKR_-GyJnm";
+        
+        let ably, channel;
+        let isTeacher = false;
+        let activeStudents = {};
+
+        // --- 20 Challenge Sentences ---
+        // Sombra de respuestas completas y contracciones afirmativas ('ve / 's)
+        const challenges = [
+            {
+                id: 1,
+                template: "I <span contenteditable='true' class='editable-gap' spellcheck='false'></span> sushi <span contenteditable='true' class='editable-gap' spellcheck='false'></span>.",
+                hint: "not / eat",
+                spans: [
+                    { answers: ["haven't eaten", "have not eaten", "'ve not eaten", "i've not eaten", "i haven't eaten"] },
+                    { answers: ["yet"] }
+                ]
+            },
+            {
+                id: 2,
+                template: "She <span contenteditable='true' class='editable-gap' spellcheck='false'></span> to London before.",
+                hint: "never / be",
+                spans: [
+                    { answers: ["has never been", "'s never been", "she's never been", "she has never been"] }
+                ]
+            },
+            {
+                id: 3,
+                template: "They <span contenteditable='true' class='editable-gap' spellcheck='false'></span> at the airport.",
+                hint: "just / arrive",
+                spans: [
+                    { answers: ["have just arrived", "'ve just arrived", "they've just arrived", "they have just arrived"] }
+                ]
+            },
+            {
+                id: 4,
+                template: "We <span contenteditable='true' class='editable-gap' spellcheck='false'></span> our homework <span contenteditable='true' class='editable-gap' spellcheck='false'></span>.",
+                hint: "not / finish",
+                spans: [
+                    { answers: ["haven't finished", "have not finished", "'ve not finished", "we haven't finished"] },
+                    { answers: ["yet"] }
+                ]
+            },
+            {
+                id: 5,
+                template: "He <span contenteditable='true' class='editable-gap' spellcheck='false'></span> the concert tickets.",
+                hint: "already / buy",
+                spans: [
+                    { answers: ["has already bought", "'s already bought", "he's already bought", "he has already bought"] }
+                ]
+            },
+            {
+                id: 6,
+                template: "I <span contenteditable='true' class='editable-gap' spellcheck='false'></span> such a fast car.",
+                hint: "never / drive",
+                spans: [
+                    { answers: ["have never driven", "'ve never driven", "i've never driven", "i have never driven"] }
+                ]
+            },
+            {
+                id: 7,
+                template: "Look! The train <span contenteditable='true' class='editable-gap' spellcheck='false'></span> the station.",
+                hint: "just / leave",
+                spans: [
+                    { answers: ["has just left", "'s just left", "the train's just left"] }
+                ]
+            },
+            {
+                id: 8,
+                template: "They <span contenteditable='true' class='editable-gap' spellcheck='false'></span> the report <span contenteditable='true' class='editable-gap' spellcheck='false'></span>.",
+                hint: "not / send",
+                spans: [
+                    { answers: ["haven't sent", "have not sent", "'ve not sent", "they haven't sent"] },
+                    { answers: ["yet"] }
+                ]
+            },
+            {
+                id: 9,
+                template: "Maria <span contenteditable='true' class='editable-gap' spellcheck='false'></span> how to code.",
+                hint: "already / learn",
+                spans: [
+                    { answers: ["has already learned", "has already learnt", "'s already learned", "'s already learnt", "maria's already learned"] }
+                ]
+            },
+            {
+                id: 10,
+                template: "My brothers <span contenteditable='true' class='editable-gap' spellcheck='false'></span> in a helicopter.",
+                hint: "never / fly",
+                spans: [
+                    { answers: ["have never flown", "'ve never flown"] }
+                ]
+            },
+            {
+                id: 11,
+                template: "The chef <span contenteditable='true' class='editable-gap' spellcheck='false'></span> fresh bread.",
+                hint: "just / bake",
+                spans: [
+                    { answers: ["has just baked", "'s just baked"] }
+                ]
+            },
+            {
+                id: 12,
+                template: "I <span contenteditable='true' class='editable-gap' spellcheck='false'></span> this book <span contenteditable='true' class='editable-gap' spellcheck='false'></span>.",
+                hint: "not / read",
+                spans: [
+                    { answers: ["haven't read", "have not read", "'ve not read", "i haven't read"] },
+                    { answers: ["yet"] }
+                ]
+            },
+            {
+                id: 13,
+                template: "Alex <span contenteditable='true' class='editable-gap' spellcheck='false'></span> for the coffee.",
+                hint: "already / pay",
+                spans: [
+                    { answers: ["has already paid", "'s already paid", "alex's already paid"] }
+                ]
+            },
+            {
+                id: 14,
+                template: "We <span contenteditable='true' class='editable-gap' spellcheck='false'></span> extreme sports.",
+                hint: "never / try",
+                spans: [
+                    { answers: ["have never tried", "'ve never tried", "we've never tried", "we have never tried"] }
+                ]
+            },
+            {
+                id: 15,
+                template: "The teacher <span contenteditable='true' class='editable-gap' spellcheck='false'></span> our exams <span contenteditable='true' class='editable-gap' spellcheck='false'></span>.",
+                hint: "not / grade",
+                spans: [
+                    { answers: ["hasn't graded", "has not graded", "'s not graded"] },
+                    { answers: ["yet"] }
+                ]
+            },
+            {
+                id: 16,
+                template: "They <span contenteditable='true' class='editable-gap' spellcheck='false'></span> their first match.",
+                hint: "just / win",
+                spans: [
+                    { answers: ["have just won", "'ve just won", "they've just won", "they have just won"] }
+                ]
+            },
+            {
+                id: 17,
+                template: "I <span contenteditable='true' class='editable-gap' spellcheck='false'></span> the message to my boss.",
+                hint: "already / send",
+                spans: [
+                    { answers: ["have already sent", "'ve already sent", "i've already sent", "i have already sent"] }
+                ]
+            },
+            {
+                id: 18,
+                template: "She <span contenteditable='true' class='editable-gap' spellcheck='false'></span> her keys.",
+                hint: "never / lose",
+                spans: [
+                    { answers: ["has never lost", "'s never lost", "she's never lost", "she has never lost"] }
+                ]
+            },
+            {
+                id: 19,
+                template: "We <span contenteditable='true' class='editable-gap' spellcheck='false'></span> our destination <span contenteditable='true' class='editable-gap' spellcheck='false'></span>.",
+                hint: "not / choose",
+                spans: [
+                    { answers: ["haven't chosen", "have not chosen", "'ve not chosen", "we haven't chosen"] },
+                    { answers: ["yet"] }
+                ]
+            },
+            {
+                id: 20,
+                template: "He <span contenteditable='true' class='editable-gap' spellcheck='false'></span> his diploma.",
+                hint: "just / receive",
+                spans: [
+                    { answers: ["has just received", "'s just received", "he's just received", "he has just received"] }
+                ]
+            }
+        ];
+
+        // --- Game State ---
+        let studentName = "";
+        let studentId = "student_" + Math.random().toString(36).substring(2, 9);
+        let currentIndex = 0;
+        let score = 0;
+        let streak = 0;
+        let maxStreak = 0;
+        let correctCount = 0;
+        let totalAttempts = 0;
+        let userAnswersHistory = [];
+
+        // --- Anti-Cheat Handlers ---
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('keydown', e => {
+            if (e.key === 'F12' || e.key === 'PrintScreen' ||
+               (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+               (e.ctrlKey && (e.key === 'u' || e.key === 'U' || e.key === 'p' || e.key === 'P' || e.key === 's' || e.key === 'S'))) {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // --- Realtime Initialization ---
+        function initRealtime() {
+            try {
+                ably = new Ably.Realtime(ABLY_KEY);
+                channel = ably.channels.get('present-perfect-live');
+
+                if (isTeacher) {
+                    channel.subscribe('student-update', message => {
+                        updateTeacherDashboard(message.data);
+                    });
+                }
+            } catch(e) {
+                console.error("Ably Realtime Error:", e);
+            }
+        }
+
+        function broadcastState(currentInputText = "") {
+            if (isTeacher || !channel) return;
+            const payload = {
+                studentId,
+                name: studentName,
+                currentIndex: currentIndex + 1,
+                total: challenges.length,
+                currentInputText,
+                score,
+                streak,
+                accuracy: totalAttempts > 0 ? Math.round((correctCount / totalAttempts) * 100) : 100,
+                lastActive: new Date().toLocaleTimeString()
+            };
+            channel.publish('student-update', payload);
+        }
+
+        function startChallenge() {
+            const input = document.getElementById('studentNameInput').value.trim();
+            if (!input) {
+                alert("Please enter your name to start!");
+                return;
+            }
+
+            studentName = input;
+
+            if (studentName.toUpperCase() === "TEACHER") {
+                isTeacher = true;
+                document.getElementById('app').style.display = 'none';
+                document.getElementById('teacherView').style.display = 'block';
+                initRealtime();
+                return;
+            }
+
+            initRealtime();
+            document.getElementById('startCard').style.display = 'none';
+            document.getElementById('hudBar').style.display = 'flex';
+            document.getElementById('exerciseCard').style.display = 'flex';
+            document.getElementById('footerControls').style.display = 'flex';
+
+            loadChallenge(0);
+        }
+
+        function loadChallenge(index) {
+            currentIndex = index;
+            const item = challenges[index];
+
+            document.getElementById('currentCardNum').innerText = index + 1;
+            document.getElementById('cardTag').innerText = `CHALLENGE #${index + 1}`;
+            document.getElementById('promptHint').innerText = `(${item.hint})`;
+
+            const container = document.getElementById('sentenceContainer');
+            container.innerHTML = item.template;
+
+            const inputSpans = container.querySelectorAll('.editable-gap');
+            
+            inputSpans.forEach((span) => {
+                span.addEventListener('input', () => {
+                    const currentValues = Array.from(inputSpans).map(s => s.innerText.trim()).join(' ... ');
+                    broadcastState(currentValues);
+                });
+
+                span.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        checkAnswer();
+                    }
+                });
+            });
+
+            // Auto-focus first span
+            if (inputSpans.length > 0) {
+                setTimeout(() => inputSpans[0].focus(), 100);
+            }
+
+            // Reset Footer Button
+            const actionBtn = document.getElementById('actionBtn');
+            actionBtn.innerText = "CHECK ANSWER ✅";
+            actionBtn.className = "btn btn-success";
+            actionBtn.onclick = checkAnswer;
+
+            broadcastState("");
+        }
+
+        function checkAnswer() {
+            const container = document.getElementById('sentenceContainer');
+            const inputSpans = container.querySelectorAll('.editable-gap');
+            if (!inputSpans.length) return;
+
+            const currentItem = challenges[currentIndex];
+            totalAttempts++;
+
+            let allSpansCorrect = true;
+            let userValues = [];
+
+            inputSpans.forEach((span, idx) => {
+                // Normalizar comillas simples curvas o acentos a comilla recta "'"
+                const userVal = span.innerText.trim().toLowerCase()
+                    .replace(/[’`]/g, "'")
+                    .replace(/\s+/g, ' ');
+                    
+                userValues.push(userVal || "(empty)");
+                
+                const validAnswers = currentItem.spans[idx].answers;
+                const isSpanCorrect = validAnswers.some(ans => ans.toLowerCase() === userVal);
+
+                span.contentEditable = "false";
+
+                if (isSpanCorrect) {
+                    span.classList.add('correct');
+                } else {
+                    span.classList.add('wrong');
+                    allSpansCorrect = false;
+                }
+            });
+
+            if (allSpansCorrect) {
+                correctSound.currentTime = 0;
+                correctSound.play().catch(() => {});
+
+                score += 100 + (streak * 10);
+                streak++;
+                correctCount++;
+                if (streak > maxStreak) maxStreak = streak;
+            } else {
+                score = Math.max(0, score - 20);
+                streak = 0;
+            }
+
+            // Update HUD
+            document.getElementById('score').innerText = score;
+            document.getElementById('streak').innerText = streak;
+            const acc = Math.round((correctCount / totalAttempts) * 100);
+            document.getElementById('accuracy').innerText = `${acc}%`;
+
+            // Clean prompt display for history
+            const expectedAns = currentItem.spans.map(s => s.answers[0]).join(' ... ');
+
+            userAnswersHistory.push({
+                question: `Q${currentIndex + 1} (${currentItem.hint})`,
+                userAns: userValues.join(' ... '),
+                correctAns: expectedAns,
+                isCorrect: allSpansCorrect
+            });
+
+            // Change button state
+            const actionBtn = document.getElementById('actionBtn');
+            actionBtn.innerText = currentIndex < challenges.length - 1 ? "NEXT CHALLENGE 🚀" : "FINISH ADVENTURE 🏆";
+            actionBtn.onclick = nextChallenge;
+
+            broadcastState(userValues.join(' ... ') + (allSpansCorrect ? " [✅]" : " [❌]"));
+        }
+
+        function nextChallenge() {
+            if (currentIndex < challenges.length - 1) {
+                loadChallenge(currentIndex + 1);
+            } else {
+                showFinalResults();
+            }
+        }
+
+        function showFinalResults() {
+            document.getElementById('exerciseCard').style.display = 'none';
+            document.getElementById('footerControls').style.display = 'none';
+            document.getElementById('resultsCard').style.display = 'flex';
+
+            document.getElementById('resultStudentName').innerText = studentName;
+            document.getElementById('finalScore').innerText = score;
+            const finalAcc = Math.round((correctCount / totalAttempts) * 100) || 0;
+            document.getElementById('finalAccuracy').innerText = `${finalAcc}%`;
+
+            const summaryList = document.getElementById('summaryList');
+            summaryList.innerHTML = userAnswersHistory.map((item) => `
+                <div class="summary-item ${item.isCorrect ? 'is-correct' : 'is-wrong'}">
+                    <b>${item.question}</b><br>
+                    <small>Your answer: <b style="color:${item.isCorrect ? 'var(--accent-green)' : 'var(--accent-red)'}">${item.userAns}</b></small>
+                    ${!item.isCorrect ? `<br><small>Correct answer: <b>${item.correctAns}</b></small>` : ''}
+                </div>
+            `).join('');
+
+            sendResultsToDiscord(finalAcc);
+        }
+
+        // --- Discord Webhook ---
+        async function sendResultsToDiscord(finalAcc) {
+            const fields = userAnswersHistory.map((item) => ({
+                name: item.question,
+                value: `User Answer: \`${item.userAns}\`\nStatus: ${item.isCorrect ? '✅ Correct' : '❌ Wrong (Expected: `' + item.correctAns + '`)'}`
+            }));
+
+            const payload = {
+                username: "Grammar Master Bot",
+                avatar_url: "https://cdn-icons-png.flaticon.com/512/206/206897.png",
+                embeds: [{
+                    title: `🏆 Quiz Completed: ${studentName}`,
+                    color: finalAcc >= 80 ? 0x10B981 : 0xEF4444,
+                    fields: [
+                        { name: "⭐ Final Score", value: `${score}`, inline: true },
+                        { name: "🎯 Accuracy", value: `${finalAcc}%`, inline: true },
+                        { name: "🔥 Max Streak", value: `${maxStreak}`, inline: true },
+                        ...fields.slice(0, 20)
+                    ],
+                    footer: { text: "Present Perfect Double-Span System" },
+                    timestamp: new Date().toISOString()
+                }]
+            };
+
+            try {
+                await fetch(DISCORD_WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (e) {
+                console.error("Discord Send Error:", e);
+            }
+        }
+
+        // --- Teacher Live Dashboard Renderer ---
+        function updateTeacherDashboard(data) {
+            activeStudents[data.studentId] = data;
+
+            const grid = document.getElementById('studentsGrid');
+            grid.innerHTML = Object.values(activeStudents).map(student => `
+                <div class="student-card">
+                    <div class="student-card-header">
+                        <span>👤 ${student.name}</span>
+                        <span>Card ${student.currentIndex}/${student.total}</span>
+                    </div>
+                    <div style="font-size: 0.9rem; margin-bottom: 8px; color: #cbd5e1;">
+                        ⭐ Score: <b>${student.score}</b> | 🔥 Streak: <b>${student.streak}</b> | 🎯 Acc: <b>${student.accuracy}%</b>
+                    </div>
+                    <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px;">Live Typing Input:</div>
+                    <div class="live-typing-box">
+                        ${student.currentInputText || '<i style="color:#64748b;">(Typing...)</i>'}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #64748b; text-align: right; margin-top: 8px;">
+                        Last update: ${student.lastActive}
+                    </div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>

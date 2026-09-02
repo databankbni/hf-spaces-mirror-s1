@@ -6,7 +6,7 @@ import { Info } from 'lucide-react';
 import Breadcrumbs from '@/src/components/Breadcrumbs';
 import RankingTableElo from '@/src/components/RankingTableElo';
 import TimeSeriesChart from '@/src/components/TimeSeriesChart';
-import { getFilteredRankings, getRankingFilters, ModelRanking, FilterOptions, ChallengeDefinition } from '@/src/services/modelService';
+import { getFilteredRankings, getRankingFilters, collectSqlEligible, ModelRanking, FilterOptions, ChallengeDefinition } from '@/src/services/modelService';
 import { getDefinitionRounds } from '@/src/services/definitionService';
 
 const DEFINITION_ID:number = parseInt(process.env.NEXT_PUBLIC_DEFINITION_ID || '225');
@@ -16,6 +16,47 @@ interface RankingsData {
   overall: ModelRanking[];
   byDefinition: Record<number, ModelRanking[]>;
   byFrequencyHorizon: Record<string, ModelRanking[]>;
+  /**
+   * Who may show an SQL number, per scope. Eligibility is scope-local: a model can
+   * forecast probabilistically in one challenge and point-only in another, so each
+   * table gets the set for its own scope rather than a single global one.
+   */
+  sqlEligible: {
+    overall: Set<number>;
+    byDefinition: Record<number, Set<number>>;
+    byFrequencyHorizon: Record<string, Set<number>>;
+  };
+}
+
+/** Group a bulk (scope_type) rankings response by definition id. */
+function groupByDefinition(rankings: ModelRanking[]): Record<number, ModelRanking[]> {
+  const grouped: Record<number, ModelRanking[]> = {};
+  rankings.forEach((r) => {
+    const id = r.definition_id ?? (r.scope_id != null ? Number(r.scope_id) : undefined);
+    if (id === undefined || Number.isNaN(id)) return;
+    (grouped[id] ??= []).push(r);
+  });
+  return grouped;
+}
+
+/** Group a bulk (scope_type) rankings response by frequency/horizon scope id. */
+function groupByFrequencyHorizon(rankings: ModelRanking[]): Record<string, ModelRanking[]> {
+  const grouped: Record<string, ModelRanking[]> = {};
+  rankings.forEach((r) => {
+    if (r.scope_id == null) return;
+    (grouped[r.scope_id] ??= []).push(r);
+  });
+  return grouped;
+}
+
+function eligibleSets<K extends string | number>(
+  grouped: Record<K, ModelRanking[]>
+): Record<K, Set<number>> {
+  const sets = {} as Record<K, Set<number>>;
+  (Object.keys(grouped) as K[]).forEach((key) => {
+    sets[key] = collectSqlEligible(grouped[key]);
+  });
+  return sets;
 }
 
 export default function Home() {
@@ -28,6 +69,7 @@ export default function Home() {
     overall: [],
     byDefinition: {},
     byFrequencyHorizon: {},
+    sqlEligible: { overall: new Set(), byDefinition: {}, byFrequencyHorizon: {} },
   });
   const [selectedCalculationDate, setSelectedCalculationDate] = useState<string>('');
   const [selectedDefinitionId, setSelectedDefinitionId] = useState<number | null>(null);
@@ -169,40 +211,60 @@ export default function Home() {
           }
         }
         
-        // Three requests total: overall, all definitions, all frequency/horizons.
+        // Six requests total: the three MASE boards this page ranks by, and the
+        // matching SQL boards, which are read only for their membership — they say
+        // which models actually forecast probabilistically in each scope.
         // This page used to issue one request per definition and per
         // frequency/horizon — with 16 definitions that was ~20 parallel calls,
         // each of which costs the API a full scan of the rankings view.
-        const [overallResponse, definitionResponse, frequencyHorizonResponse] = await Promise.all([
+        const sqlFilters = { ...baseFilters, metric: 'sql' as const };
+        const [
+          overallResponse,
+          definitionResponse,
+          frequencyHorizonResponse,
+          overallSql,
+          definitionSql,
+          frequencyHorizonSql,
+        ] = await Promise.all([
           getFilteredRankings(baseFilters),
           getFilteredRankings({ ...baseFilters, scope_type: 'definition' }),
           getFilteredRankings({ ...baseFilters, scope_type: 'frequency_horizon' }),
+          getFilteredRankings(sqlFilters),
+          getFilteredRankings({ ...sqlFilters, scope_type: 'definition' }),
+          getFilteredRankings({ ...sqlFilters, scope_type: 'frequency_horizon' }),
         ]);
 
-        // Bulk responses arrive as one flat list; group them by scope.
+        // Bulk responses arrive as one flat list; group them by scope. Seed the
+        // known scopes first so a scope with no rankings still renders as empty.
         const byDefinition: Record<number, ModelRanking[]> = {};
         options.definitions.forEach((def: ChallengeDefinition) => {
           byDefinition[def.id] = [];
         });
-        definitionResponse.rankings.forEach((r) => {
-          const id = r.definition_id ?? (r.scope_id != null ? Number(r.scope_id) : undefined);
-          if (id === undefined || Number.isNaN(id)) return;
-          (byDefinition[id] ??= []).push(r);
+        Object.entries(groupByDefinition(definitionResponse.rankings)).forEach(([id, rows]) => {
+          (byDefinition[Number(id)] ??= []).push(...rows);
         });
 
         const byFrequencyHorizon: Record<string, ModelRanking[]> = {};
         options.frequency_horizons.forEach((fh: string) => {
           byFrequencyHorizon[fh] = [];
         });
-        frequencyHorizonResponse.rankings.forEach((r) => {
-          if (r.scope_id == null) return;
-          (byFrequencyHorizon[r.scope_id] ??= []).push(r);
-        });
+        Object.entries(groupByFrequencyHorizon(frequencyHorizonResponse.rankings)).forEach(
+          ([fh, rows]) => {
+            (byFrequencyHorizon[fh] ??= []).push(...rows);
+          }
+        );
 
         setRankingsData({
           overall: overallResponse.rankings,
           byDefinition,
           byFrequencyHorizon,
+          sqlEligible: {
+            overall: collectSqlEligible(overallSql.rankings),
+            byDefinition: eligibleSets(groupByDefinition(definitionSql.rankings)),
+            byFrequencyHorizon: eligibleSets(
+              groupByFrequencyHorizon(frequencyHorizonSql.rankings)
+            ),
+          },
         });
       } catch (error) {
         console.error('Error fetching rankings:', error);
@@ -322,9 +384,14 @@ export default function Home() {
             </div>
           </div>
           <p className="text-sm text-gray-600 mb-4">
-            Aggregated scores across all challenge definitions and time series. ELO: higher is better. MASE: lower is better. Updated multiple times a day.
+            Aggregated scores across all challenge definitions and time series. ELO: higher is
+            better. MASE and SQL: lower is better. SQL is shown only for models that submit
+            quantile forecasts. Updated multiple times a day.
           </p>
-          <RankingTableElo rankings={rankingsData.overall} />
+          <RankingTableElo
+            rankings={rankingsData.overall}
+            sqlEligibleModelIds={rankingsData.sqlEligible.overall}
+          />
         </div>
 
         {/* Rankings by Challenge Definition */}
@@ -351,6 +418,7 @@ export default function Home() {
             <RankingTableElo
               key={selectedDefinition.id}
               rankings={rankingsData.byDefinition[selectedDefinition.id] || []}
+              sqlEligibleModelIds={rankingsData.sqlEligible.byDefinition[selectedDefinition.id]}
               limit={10}
               title={selectedDefinition.name}
               definitionId={selectedDefinition.id}
@@ -404,6 +472,7 @@ export default function Home() {
             <RankingTableElo
               key={selectedFh}
               rankings={rankingsData.byFrequencyHorizon[selectedFh] || []}
+              sqlEligibleModelIds={rankingsData.sqlEligible.byFrequencyHorizon[selectedFh]}
               limit={10}
               title={formatFrequencyHorizon(selectedFh)}
             />

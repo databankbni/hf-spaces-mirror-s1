@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SiteBuilder Pro - Gerador de Sites</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .resizable {
+            resize: both;
+            overflow: auto;
+            min-width: 300px;
+            min-height: 200px;
+        }
+        .component-placeholder {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin: 10px 0;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .component-selected {
+            border: 2px solid #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+        #previewFrame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+        }
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        .sidebar-collapsed {
+            width: 60px !important;
+        }
+        .sidebar-collapsed .sidebar-text {
+            display: none;
+        }
+        .sidebar-collapsed .fa-lg {
+            font-size: 1.5rem !important;
+        }
+        .draggable-component {
+            cursor: grab;
+            user-select: none;
+        }
+        .draggable-component:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+    <!-- Barra de navegação superior -->
+    <nav class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+            <i class="fas fa-code fa-lg"></i>
+            <h1 class="text-xl font-bold">SiteBuilder Pro</h1>
+        </div>
+        <div class="flex space-x-4">
+            <button id="exportBtn" class="bg-white text-blue-600 px-4 py-2 rounded-md hover:bg-blue-50 transition">
+                <i class="fas fa-download mr-2"></i>Exportar
+            </button>
+            <button id="saveBtn" class="bg-blue-700 px-4 py-2 rounded-md hover:bg-blue-800 transition">
+                <i class="fas fa-save mr-2"></i>Salvar
+            </button>
+        </div>
+    </nav>
+
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar de componentes -->
+        <div id="componentsSidebar" class="sidebar bg-gray-800 text-white w-64 flex flex-col transition-all duration-300">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-lg font-semibold sidebar-text">Componentes</h2>
+                <button id="toggleSidebar" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-chevron-left fa-lg"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1">
+                <div class="mb-6">
+                    <h3 class="text-sm uppercase text-gray-400 mb-2 sidebar-text">Básicos</h3>
+                    <div class="space-y-2">
+                        <div class="draggable-component bg-gray-700 p-3 rounded-md cursor-move hover:bg-gray-600 transition flex items-center" 
+                             draggable="true" data-type="header">
+                            <i class="fas fa-heading mr-3 sidebar-text"></i>
+                            <span class="sidebar-text">Cabeçalho</span>
+                        </div>
+                        <div class="draggable-component bg-gray-700 p-3 rounded-md cursor-move hover:bg-gray-600 transition flex items-center" 
+                             draggable="true" data-type="paragraph">
+                            <i class="fas fa-paragraph mr-3 sidebar-text"></i>
+                            <span class="sidebar-text">Parágrafo</span>
+                        </div>
+                        <div class="draggable-component bg-gray-700 p-3 rounded-md cursor-move hover:bg-gray-600 transition flex items-center" 
+                             draggable="true" data-type="button">
+                            <i class="fas fa-square mr-3 sidebar-text"></i>
+                            <span class="sidebar-text">Botão</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="text-sm uppercase text-gray-400 mb-2 sidebar-text">Mídia</h3>
+                    <div class="space-y-2">
+                        <div class="draggable-component bg-gray-700 p-3 rounded-md cursor-move hover:bg-gray-600 transition flex items-center" 
+                             draggable="true" data-type="image">
+                            <i class="fas fa-image mr-3 sidebar-text"></i>
+                            <span class="sidebar-text">Imagem</span>
+                        </div>
+                        <div class="draggable-component bg-gray-700 p-3 rounded-md cursor-move hover:bg-gray-600 transition flex items-center" 
+                             draggable="true" data-type="video">
+                            <i class="fas fa-video mr-3 sidebar-text"></i>
+                            <span class="sidebar-text">Vídeo</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="text-sm uppercase text-gray-400 mb-2 sidebar-text">Layout</h3>
+                    <div class="space-y-2">
+                        <div class="draggable-component bg-gray-700 p-3 rounded-md cursor-move hover:bg-gray-600 transition flex items-center" 
+                             draggable="true" data-type="section">
+                            <i class="fas fa-square-full mr-3 sidebar-text"></i>
+                            <span class="sidebar-text">Seção</span>
+                        </div>
+                        <div class="draggable-component bg-gray-700 p-3 rounded-md cursor-move hover:bg-gray-600 transition flex items-center" 
+                             draggable="true" data-type="columns">
+                            <i class="fas fa-columns mr-3 sidebar-text"></i>
+                            <span class="sidebar-text">Colunas</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Área de edição -->
+        <div class="flex-1 flex flex-col bg-white">
+            <div class="border-b p-4 flex space-x-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-desktop text-gray-600"></i>
+                    <span>Desktop</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-tablet-alt text-gray-400"></i>
+                    <span>Tablet</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-mobile-alt text-gray-400"></i>
+                    <span>Mobile</span>
+                </div>
+            </div>
+            <div id="editorArea" class="flex-1 overflow-auto p-8 bg-gray-100">
+                <div id="canvas" class="bg-white shadow-lg mx-auto w-full max-w-4xl min-h-screen">
+                    <!-- Componentes serão adicionados aqui -->
+                    <div class="component-placeholder" id="dropZone">
+                        Arraste componentes aqui para começar
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Painel de propriedades -->
+        <div class="w-64 bg-white border-l border-gray-200 p-4 overflow-y-auto">
+            <h2 class="text-lg font-semibold mb-4">Propriedades</h2>
+            <div id="propertyPanel">
+                <div class="text-gray-500 italic">Selecione um componente para editar suas propriedades</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de exportação -->
+    <div id="exportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Exportar Site</h3>
+                <button id="closeExportModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 mb-2">Nome do Site</label>
+                <input type="text" id="siteName" class="w-full p-2 border rounded-md" placeholder="Meu Site Incrível">
+            </div>
+            <div class="mb-6">
+                <label class="block text-gray-700 mb-2">Formato</label>
+                <div class="flex space-x-4">
+                    <label class="flex items-center">
+                        <input type="radio" name="exportFormat" value="html" checked class="mr-2">
+                        <span>HTML Completo</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="exportFormat" value="zip" class="mr-2">
+                        <span>Arquivo ZIP</span>
+                    </label>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelExport" class="px-4 py-2 border rounded-md hover:bg-gray-100">Cancelar</button>
+                <button id="confirmExport" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Exportar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Variáveis globais
+            let selectedComponent = null;
+            let components = [];
+            let nextId = 1;
+
+            // Elementos DOM
+            const canvas = document.getElementById('canvas');
+            const dropZone = document.getElementById('dropZone');
+            const propertyPanel = document.getElementById('propertyPanel');
+            const componentsSidebar = document.getElementById('componentsSidebar');
+            const toggleSidebar = document.getElementById('toggleSidebar');
+            const exportBtn = document.getElementById('exportBtn');
+            const exportModal = document.getElementById('exportModal');
+            const closeExportModal = document.getElementById('closeExportModal');
+            const cancelExport = document.getElementById('cancelExport');
+            const confirmExport = document.getElementById('confirmExport');
+
+            // Event listeners para componentes arrastáveis
+            document.querySelectorAll('.draggable-component').forEach(component => {
+                component.addEventListener('dragstart', function(e) {
+                    e.dataTransfer.setData('text/plain', this.dataset.type);
+                });
+            });
+
+            // Event listeners para a área de drop
+            canvas.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('bg-blue-50');
+            });
+
+            canvas.addEventListener('dragleave', function() {
+                this.classList.remove('bg-blue-50');
+            });
+
+            canvas.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('bg-blue-50');
+                
+                const componentType = e.dataTransfer.getData('text/plain');
+                if (componentType) {
+                    addComponent(componentType, e.clientX, e.clientY);
+                }
+            });
+
+            // Função para adicionar um novo componente
+            function addComponent(type, x, y) {
+                const id = 'component-' + nextId++;
+                let componentHtml = '';
+                let defaultProps = {};
+
+                // Criar HTML baseado no tipo de componente
+                switch(type) {
+                    case 'header':
+                        componentHtml = `
+                            <h1 class="text-4xl font-bold mb-4" contenteditable="true">Título Principal</h1>
+                        `;
+                        defaultProps = {
+                            text: 'Título Principal',
+                            size: '4xl',
+                            color: '#000000',
+                            alignment: 'left'
+                        };
+                        break;
+                    case 'paragraph':
+                        componentHtml = `
+                            <p class="text-gray-700 mb-4" contenteditable="true">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris.</p>
+                        `;
+                        defaultProps = {
+                            text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris.',
+                            color: '#374151',
+                            alignment: 'left'
+                        };
+                        break;
+                    case 'button':
+                        componentHtml = `
+                            <button class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition">Botão</button>
+                        `;
+                        defaultProps = {
+                            text: 'Botão',
+                            bgColor: '#2563eb',
+                            textColor: '#ffffff',
+                            size: 'medium',
+                            rounded: 'md'
+                        };
+                        break;
+                    case 'image':
+                        componentHtml = `
+                            <img src="https://via.placeholder.com/800x400" alt="Imagem de exemplo" class="w-full h-auto">
+                        `;
+                        defaultProps = {
+                            src: 'https://via.placeholder.com/800x400',
+                            alt: 'Imagem de exemplo',
+                            width: '100%',
+                            alignment: 'center'
+                        };
+                        break;
+                    case 'section':
+                        componentHtml = `
+                            <div class="p-8 bg-gray-100 rounded-lg">
+                                <div class="component-placeholder">Adicione componentes dentro desta seção</div>
+                            </div>
+                        `;
+                        defaultProps = {
+                            bgColor: '#f3f4f6',
+                            padding: '8',
+                            rounded: 'lg'
+                        };
+                        break;
+                    default:
+                        return;
+                }
+
+                // Criar elemento do componente
+                const componentElement = document.createElement('div');
+                componentElement.className = 'component mb-6 p-4 relative';
+                componentElement.id = id;
+                componentElement.innerHTML = componentHtml;
+                componentElement.dataset.type = type;
+
+                // Adicionar menu de contexto
+                const contextMenu = document.createElement('div');
+                contextMenu.className = 'absolute top-0 right-0 bg-white shadow-md rounded-md hidden';
+                contextMenu.innerHTML = `
+                    <button class="component-delete px-3 py-1 text-red-500 hover:bg-red-50 w-full text-left">
+                        <i class="fas fa-trash mr-2"></i>Excluir
+                    </button>
+                    <button class="component-duplicate px-3 py-1 text-blue-500 hover:bg-blue-50 w-full text-left">
+                        <i class="fas fa-copy mr-2"></i>Duplicar
+                    </button>
+                `;
+                componentElement.appendChild(contextMenu);
+
+                // Mostrar menu de contexto ao clicar com o botão direito
+                componentElement.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    document.querySelectorAll('.component-context-menu').forEach(menu => {
+                        menu.classList.add('hidden');
+                    });
+                    contextMenu.classList.remove('hidden');
+                    
+                    // Posicionar o menu próximo ao cursor
+                    const rect = this.getBoundingClientRect();
+                    contextMenu.style.top = (e.clientY - rect.top) + 'px';
+                    contextMenu.style.left = (e.clientX - rect.left) + 'px';
+                });
+
+                // Esconder menu quando clicar em outro lugar
+                document.addEventListener('click', function() {
+                    contextMenu.classList.add('hidden');
+                });
+
+                // Event listeners para os botões do menu de contexto
+                contextMenu.querySelector('.component-delete').addEventListener('click', function() {
+                    componentElement.remove();
+                    components = components.filter(c => c.id !== id);
+                    if (selectedComponent === id) {
+                        selectedComponent = null;
+                        updatePropertyPanel();
+                    }
+                });
+
+                contextMenu.querySelector('.component-duplicate').addEventListener('click', function() {
+                    addComponent(type, x, y);
+                });
+
+                // Selecionar componente ao clicar
+                componentElement.addEventListener('click', function(e) {
+                    if (e.target.closest('.component-delete, .component-duplicate')) return;
+                    
+                    // Desselecionar todos os componentes
+                    document.querySelectorAll('.component').forEach(c => {
+                        c.classList.remove('component-selected');
+                    });
+                    
+                    // Selecionar este componente
+                    this.classList.add('component-selected');
+                    selectedComponent = id;
+                    updatePropertyPanel();
+                });
+
+                // Adicionar ao canvas (removendo o placeholder se for o primeiro componente)
+                if (dropZone && canvas.children.length === 1) {
+                    canvas.removeChild(dropZone);
+                }
+                canvas.appendChild(componentElement);
+
+                // Adicionar aos componentes
+                components.push({
+                    id: id,
+                    type: type,
+                    props: defaultProps,
+                    html: componentElement.innerHTML
+                });
+            }
+
+            // Atualizar painel de propriedades
+            function updatePropertyPanel() {
+                if (!selectedComponent) {
+                    propertyPanel.innerHTML = '<div class="text-gray-500 italic">Selecione um componente para editar suas propriedades</div>';
+                    return;
+                }
+
+                const component = components.find(c => c.id === selectedComponent);
+                if (!component) return;
+
+                let propertiesHtml = '';
+                
+                switch(component.type) {
+                    case 'header':
+                        propertiesHtml = `
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Texto</label>
+                                <input type="text" class="w-full p-2 border rounded-md component-prop" 
+                                       data-prop="text" value="${component.props.text}">
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Tamanho</label>
+                                <select class="w-full p-2 border rounded-md component-prop" data-prop="size">
+                                    <option value="xs" ${component.props.size === 'xs' ? 'selected' : ''}>Pequeno</option>
+                                    <option value="sm" ${component.props.size === 'sm' ? 'selected' : ''}>Médio Pequeno</option>
+                                    <option value="base" ${component.props.size === 'base' ? 'selected' : ''}>Normal</option>
+                                    <option value="lg" ${component.props.size === 'lg' ? 'selected' : ''}>Médio Grande</option>
+                                    <option value="xl" ${component.props.size === 'xl' ? 'selected' : ''}>Grande</option>
+                                    <option value="2xl" ${component.props.size === '2xl' ? 'selected' : ''}>Extra Grande</option>
+                                    <option value="3xl" ${component.props.size === '3xl' ? 'selected' : ''}>3XL</option>
+                                    <option value="4xl" ${component.props.size === '4xl' ? 'selected' : ''}>4XL</option>
+                                    <option value="5xl" ${component.props.size === '5xl' ? 'selected' : ''}>5XL</option>
+                                </select>
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Cor do Texto</label>
+                                <input type="color" class="w-full p-1 border rounded-md component-prop" 
+                                       data-prop="color" value="${component.props.color}">
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Alinhamento</label>
+                                <div class="flex space-x-2">
+                                    <button class="p-2 border rounded-md ${component.props.alignment === 'left' ? 'bg-blue-100 border-blue-300' : ''}" 
+                                            data-prop="alignment" data-value="left">
+                                        <i class="fas fa-align-left"></i>
+                                    </button>
+                                    <button class="p-2 border rounded-md ${component.props.alignment === 'center' ? 'bg-blue-100 border-blue-300' : ''}" 
+                                            data-prop="alignment" data-value="center">
+                                        <i class="fas fa-align-center"></i>
+                                    </button>
+                                    <button class="p-2 border rounded-md ${component.props.alignment === 'right' ? 'bg-blue-100 border-blue-300' : ''}" 
+                                            data-prop="alignment" data-value="right">
+                                        <i class="fas fa-align-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    case 'button':
+                        propertiesHtml = `
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Texto</label>
+                                <input type="text" class="w-full p-2 border rounded-md component-prop" 
+                                       data-prop="text" value="${component.props.text}">
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Cor de Fundo</label>
+                                <input type="color" class="w-full p-1 border rounded-md component-prop" 
+                                       data-prop="bgColor" value="${component.props.bgColor}">
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Cor do Texto</label>
+                                <input type="color" class="w-full p-1 border rounded-md component-prop" 
+                                       data-prop="textColor" value="${component.props.textColor}">
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Tamanho</label>
+                                <select class="w-full p-2 border rounded-md component-prop" data-prop="size">
+                                    <option value="small" ${component.props.size === 'small' ? 'selected' : ''}>Pequeno</option>
+                                    <option value="medium" ${component.props.size === 'medium' ? 'selected' : ''}>Médio</option>
+                                    <option value="large" ${component.props.size === 'large' ? 'selected' : ''}>Grande</option>
+                                </select>
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Borda Arredondada</label>
+                                <select class="w-full p-2 border rounded-md component-prop" data-prop="rounded">
+                                    <option value="none" ${component.props.rounded === 'none' ? 'selected' : ''}>Nenhuma</option>
+                                    <option value="sm" ${component.props.rounded === 'sm' ? 'selected' : ''}>Pouco</option>
+                                    <option value="md" ${component.props.rounded === 'md' ? 'selected' : ''}>Médio</option>
+                                    <option value="lg" ${component.props.rounded === 'lg' ? 'selected' : ''}>Grande</option>
+                                    <option value="full" ${component.props.rounded === 'full' ? 'selected' : ''}>Completo</option>
+                                </select>
+                            </div>
+                        `;
+                        break;
+                    case 'image':
+                        propertiesHtml = `
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">URL da Imagem</label>
+                                <input type="text" class="w-full p-2 border rounded-md component-prop" 
+                                       data-prop="src" value="${component.props.src}">
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Texto Alternativo</label>
+                                <input type="text" class="w-full p-2 border rounded-md component-prop" 
+                                       data-prop="alt" value="${component.props.alt}">
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Largura</label>
+                                <select class="w-full p-2 border rounded-md component-prop" data-prop="width">
+                                    <option value="25%" ${component.props.width === '25%' ? 'selected' : ''}>25%</option>
+                                    <option value="50%" ${component.props.width === '50%' ? 'selected' : ''}>50%</option>
+                                    <option value="75%" ${component.props.width === '75%' ? 'selected' : ''}>75%</option>
+                                    <option value="100%" ${component.props.width === '100%' ? 'selected' : ''}>100%</option>
+                                </select>
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 mb-1">Alinhamento</label>
+                                <div class="flex space-x-2">
+                                    <button class="p-2 border rounded-md ${component.props.alignment === 'left' ? 'bg-blue-100 border-blue-300' : ''}" 
+                                            data-prop="alignment" data-value="left">
+                                        <i class="fas fa-align-left"></i>
+                                    </button>
+                                    <button class="p-2 border rounded-md ${component.props.alignment === 'center' ? 'bg-blue-100 border-blue-300' : ''}" 
+                                            data-prop="alignment" data-value="center">
+                                        <i class="fas fa-align-center"></i>
+                                    </button>
+                                    <button class="p-2 border rounded-md ${component.props.alignment === 'right' ? 'bg-blue-100 border-blue-300' : ''}" 
+                                            data-prop="alignment" data-value="right">
+                                        <i class="fas fa-align-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    default:
+                        propertiesHtml = `<div class="text-gray-500 italic">Nenhuma propriedade editável para este componente</div>`;
+                }
+
+                propertyPanel.innerHTML = `
+                    <div class="mb-4 pb-2 border-b">
+                        <h3 class="font-medium capitalize">${component.type}</h3>
+                    </div>
+                    ${propertiesHtml}
+                `;
+
+                // Adicionar event listeners para as propriedades
+                propertyPanel.querySelectorAll('.component-prop').forEach(input => {
+                    input.addEventListener('change', function() {
+                        const prop = this.dataset.prop;
+                        const value = this.type === 'checkbox' ? this.checked : this.value;
+                        
+                        // Atualizar propriedade no objeto do componente
+                        const component = components.find(c => c.id === selectedComponent);
+                        if (component) {
+                            component.props[prop] = value;
+                            updateComponent(component);
+                        }
+                    });
+                });
+
+                // Event listeners para botões de alinhamento
+                propertyPanel.querySelectorAll('button[data-prop
+</html>

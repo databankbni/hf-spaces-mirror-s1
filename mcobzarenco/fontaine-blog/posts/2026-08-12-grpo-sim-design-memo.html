@@ -1,0 +1,485 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>2026-08-12 — Design memo: GRPO on the sim for our two heads — and the probe that should run first - Fontaine — Bijou research log</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-e96d0476.css">
+        <link rel="stylesheet" href="../css/chrome-d279d366.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-91504666.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-fce102de.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Fontaine — Bijou research log</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/mcobzarenco/flow-matching/tree/fontaine" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="design-memo-grpo-on-the-sim-for-our-two-heads--and-the-probe-that-should-run-first"><a class="header" href="#design-memo-grpo-on-the-sim-for-our-two-heads--and-the-probe-that-should-run-first">Design memo: GRPO on the sim for our two heads — and the probe that should run first</a></h1>
+<p>*2026-08-12 11:3xZ. The deliverable of the owner-called design-research
+item (09:23Z: “investigate how we could implement GRPO to train
+jointly the AR objective and flow-matching (or maybe just one)
+directly on the sim — just research at this point”). Deep reads done
+this session on <a href="https://arxiv.org/abs/2509.09674">SimpleVLA-RL</a>,
+<a href="https://arxiv.org/abs/2505.05470">Flow-GRPO</a> and
+<a href="https://arxiv.org/abs/2510.25889">πRL</a>; the cluster page
+<a href="../papers/grpo-for-vla-heads.html">GRPO for our two heads</a> is updated
+to deep-read depth alongside this memo (including one correction:
+πRL’s main algorithm is PPO with a critic, not GRPO). <strong>This memo is
+for owner review — nothing here is registered or launched.</strong></p>
+<h2 id="plain-words"><a class="header" href="#plain-words">Plain words</a></h2>
+<p>GRPO trains a policy by trying the same task several times, scoring
+each attempt, and pushing the model toward its own above-average
+attempts. To use it we need three things: a way to make the policy
+try <em>different</em> things on the same task (stochastic decoding), a
+score that <em>differs</em> across those attempts (a reward with
+within-group variance), and the probability of each attempt so the
+push has a direction (logprobs). Our AR head has all three on paper;
+our flow head is missing the third until we add a known trick. But
+the deep reads surfaced a sharper problem: every published success
+starts from a policy that already succeeds sometimes. Ours succeed
+never (0/500 in the sim study) — our substitute is the sim’s dense
+centimeter-level progress score. Whether that score actually varies
+within a group of retries, at a noise level the policies can
+tolerate, is an empirical question nobody can answer from papers —
+so the memo’s recommendation is a cheap measurement (a “signal
+probe”, rollouts only, no training, no new RL code) before any GRPO
+implementation work is committed.</p>
+<h2 id="1-what-the-deep-reads-changed-vs-the-survey-page"><a class="header" href="#1-what-the-deep-reads-changed-vs-the-survey-page">1. What the deep reads changed (vs the survey page)</a></h2>
+<p><strong>SimpleVLA-RL</strong> (token-level GRPO on OpenVLA-OFT, the AR
+blueprint) — the recipe is now concrete: rollout temperature <strong>1.6</strong>
+(greedy at eval), group size <strong>G=8</strong>, group z-score advantage
+broadcast to all action tokens, <strong>clip-higher [0.8, 1.28]</strong> (DAPO),
+<strong>KL penalty removed</strong>, token-level loss, lr 5e-6, and <em>dynamic
+sampling</em>: groups where all 8 rollouts succeed or all fail are
+discarded (no gradient in a degenerate group). Reward is strictly
+binary success. The catch that matters most to us (their §6.2): from
+a 0%-success base the reward is all-zero and RL never starts; even a
+weak base (100-demo SFT, ~1% success) barely moves. Their headline
+(LIBERO-Long 17.3→91.7 from one demo per task) starts from 17%.</p>
+<p><strong>Flow-GRPO</strong> (image flows, the ODE→SDE source) — the mechanism is
+exact and small: replace the deterministic ODE step with the
+marginal-preserving SDE step; the per-step transition becomes an
+isotropic Gaussian whose logprob is closed-form. Noise schedule σ_t
+= a·√(t/(1−t)) with <strong>a=0.7</strong> for image latents, and their ablation
+brackets it: a=0.1 explores too little, a&gt;1 destroys sample quality
+and zeroes the reward. Two transferable bonuses: the <strong>KL anchor to
+the frozen reference is closed-form in velocity space</strong> (a weighted
+velocity-MSE — no reference logprob pass needed), and <em>denoising
+reduction</em> (train on 10 SDE steps, infer with 40) — which for us is
+a non-issue since we already decode in 10. Two warnings: their group
+size is <strong>G=24, and G=12/6 collapsed training</strong> (noisy advantages);
+and their clip ε is ~1e-4, orders below the LLM 0.2, because
+high-dimensional Gaussian density ratios explode — our 50×6 action
+chunks sit between the two regimes and ε must be re-found. Without
+KL they get reward hacking (quality/diversity collapse); with KL
+they match peak reward but train longer.</p>
+<p><strong>πRL</strong> (π0/π0.5 in parallel sims) — <strong>correction: this is a PPO
+paper, not a GRPO paper.</strong> PPO+GAE with a learned critic is the main
+algorithm; GRPO appears once in an appendix and <em>loses</em> (LIBERO avg
+90.0 vs 96.0 on π0, 91.5 vs 97.9 on π0.5), with no group details
+published. There is <strong>no KL anchor anywhere</strong> — KL to the SFT policy
+is only monitored, tamed by LR annealing. What survives for us:
+their Flow-SDE noise scale for <em>actions</em> is <strong>a=0.5</strong> (0.3 on some
+suites; their a-ablation: 0.2 too little to refine, 0.8 hurts
+rollout fidelity), <strong>K=4</strong> denoising steps during RL with
+deterministic ODE at eval, the VLM <strong>trunk stays frozen</strong> during RL
+(only the ~300M action expert + critic trains — memory and RL4VLA
+precedent), a <em>hybrid</em> sampler (one random SDE step per env step,
+rest ODE) that halves wall-clock, and an action-chunk ablation
+pointing straight at us: <strong>chunk 20 already blurs credit assignment
+and lowers the RL ceiling</strong> (chunk 5–10 preferred) — we fly chunk
+50, executing 30 per replan. Their few-demo result is real (π0.5
+from 40 demos: 77.1→98.3 LIBERO avg) but every run leans on a
+critic, 64–320 parallel envs and 8×H100.</p>
+<p><strong>Net effect on the design</strong>: (a) the AR recipe is fully specified
+by SimpleVLA-RL minus its binary reward, which our 0-success floor
+rules out; (b) the flow path is implementable at known cost
+(ODE→SDE sampler + per-step Gaussian logprobs + velocity-MSE KL),
+with a≈0.5 and K≈4–10 as starting points; (c) “GRPO vs PPO” is a
+real fork for the flow head — the one head-to-head we have says PPO
+wins, but it buys that with a critic and env fleets we don’t have;
+GRPO stays the right <em>first</em> harness on cost grounds, with the πRL
+number filed as the reason to expect headroom; (d) nobody trains
+the trunk during RL.</p>
+<h2 id="2-what-we-already-own-stack-audit"><a class="header" href="#2-what-we-already-own-stack-audit">2. What we already own (stack audit)</a></h2>
+<ul>
+<li><strong>Stochastic decoding, AR</strong>: <code>ARSampling</code> — grammar-masked
+temperature sampling on the action block via per-row CPU-RNG
+Gumbel-max, already plumbed as <code>BijouPolicy(ar_temperature=…)</code>;
+sampled ids are device-invariant and batch-composition-invariant.
+Exact token logprobs are a softmax away. er_60k <em>is</em> an
+<code>ar_backbone</code> checkpoint (FAST tokens, vocab 1026, chunk 50).</li>
+<li><strong>Stochastic decoding, flow</strong>: fresh noise per draw is native
+(<code>sample_draws</code>, seeded generators, stable noise keying).
+That is real action diversity but with <strong>no logprob</strong> — exactly
+the gap Flow-GRPO’s SDE closes. Our Heun-10 decode ≈ their
+training-side step counts; an SDE sampler is ~30 lines next to
+<code>sample_actions</code> (Euler–Maruyama form, Flow-GRPO Eq. 9).</li>
+<li><strong>Reward</strong>: the sim hands us <code>progress_final_cm</code> (initial − final
+boat→disk distance), <code>best-point</code>, a full per-tick distance trace,
+plus guard channels (<code>reset_strikes</code>, <code>final_upright</code>,
+<code>final_z_mm</code>). Dense, automatic, already pre-registered metrics
+in the sim100 protocol.</li>
+<li><strong>Groups</strong>: seeded resets make “K stochastic rollouts at the SAME
+spawn” exact — a cleaner group than anything in the papers.</li>
+<li><strong>Throughput</strong>: <code>sim-parallel-rollouts</code> (owner-sequenced first GPU
+item) is the enabling infra — GRPO at 450-tick episodes without
+batched envs is not viable (πRL runs 64–320 parallel envs).</li>
+<li><strong>Training step</strong>: the AR action-block CE is a standard masked
+cross-entropy — a GRPO step is that CE, advantage-weighted with a
+clipped importance ratio. Bounded new code, but new code
+(rollout→batch plumbing, old-policy logprob capture at rollout).</li>
+</ul>
+<h2 id="3-the-crux-the-papers-cant-answer"><a class="header" href="#3-the-crux-the-papers-cant-answer">3. The crux the papers can’t answer</a></h2>
+<p>GRPO’s gradient is proportional to the <strong>within-group reward
+spread</strong>. Published recipes get spread from binary success at
+17–77% base rates. We are at 0/500 success; our spread must come
+from <code>progress_final_cm</code> under stochastic decoding. Two failure
+modes, both plausible from the sim100/spot20 data:</p>
+<ol>
+<li><strong>No spread</strong>: er60k (AR) at greedy engages the boat in 4/100
+episodes and its progress distribution is a spike at ~0. If
+temperature 1.6 just adds tremor to reach-over-the-table
+trajectories, every group z-score divides ~0 by ~0.</li>
+<li><strong>Spread at the cost of competence</strong>: if the noise needed to
+create spread (T=1.6, or SDE a=0.5) destroys what little
+directed behavior exists (teacher80k’s v3 engagement, ftrig4k’s
+toward-bias), the on-policy data GRPO would train on is flailing
+— group-relative selection among garbage optimizes garbage.
+πRL’s own table shows rollout success degrading with a.</li>
+</ol>
+<p>There is also a <strong>reward-hacking shape specific to us</strong>: progress =
+initial − final distance is maximized by <em>any</em> displacement toward
+the disk, including teacher80k’s signature knock-the-boat-flying.
+sim100 already measured that behavior at scale (56/100 contact, 38
+away, worst seed −12.4 cm — but sign flips under noise). A dense-
+reward GRPO without guards would plausibly learn to swat. Guards exist
+(<code>reset_strikes</code>, <code>final_upright</code>, <code>final_z_mm</code>, the away-tail) and
+would enter the reward as registered penalties/gates, but the probe
+should first measure how often sampled rollouts trip them.</p>
+<h2 id="4-the-first-cheap-experiment-the-grpo-signal-probe"><a class="header" href="#4-the-first-cheap-experiment-the-grpo-signal-probe">4. The first cheap experiment: the GRPO signal probe</a></h2>
+<p><strong>Rollouts only. No training, no RL code, no new math beyond an
+optional 30-line SDE sampler. Answers: does group-relative
+advantage have signal here, and what does stochasticity cost us?</strong></p>
+<p>Design (to be pre-registered properly before launch; numbers here
+are the proposal):</p>
+<ul>
+<li><strong>Cells</strong> (each: 15 seeds × K=8 stochastic rollouts, v3 frames,
+sim100 conventions — 15 replans × 30 ticks, disk pinned):
+<ol>
+<li><code>er60k</code> AR, T=1.0;</li>
+<li><code>er60k</code> AR, T=1.6 (SimpleVLA-RL’s setting);</li>
+<li><code>teacher80k</code> flow, fresh ODE noise per draw (the stochasticity
+we already own);</li>
+<li><code>ftrig4k</code> flow, fresh ODE noise per draw (the only arm with
+toward &gt; away in sim100).
+Optional cell 5 if the owner wants the SDE question priced in the
+same pass: <code>teacher80k</code> SDE at a=0.5 (the πRL action value) —
+requires the small sampler + its bit-identity-at-a=0 oracle.</li>
+</ol>
+</li>
+<li><strong>Deterministic anchors come free</strong>: the v3 rerun (already
+amendment-drafted, same seeds, same spawn stream) provides each
+arm’s greedy/keyed-noise baseline per seed — the probe joins
+against those rows instead of re-running them.</li>
+<li><strong>Instrument delta</strong>: <code>rollout_sim</code> grows <code>--ar-temperature</code> and
+<code>--flow-draws K</code> (both thin flags over existing <code>BijouPolicy</code>
+knobs) + per-draw RNG keying by (seed, replan, draw). Oracle:
+draw 0 at T→greedy / keyed noise reproduces the sequential rows
+bit-for-bit.</li>
+<li><strong>Primary read, per cell</strong>: the distribution over seeds of the
+within-group std of <code>progress_final_cm</code> (and best-point), and the
+fraction of groups whose ranking is non-degenerate — i.e. would
+survive SimpleVLA-RL’s dynamic-sampling filter. Candidate signal
+bar (final number at pre-reg): median group std ≥ ~0.25 cm, a
+quarter of teacher80k’s spot20 paired effect.</li>
+<li><strong>Secondary reads</strong>: competence cost = mean progress of sampled
+rollouts vs the paired deterministic anchor (does T=1.6 / fresh
+noise lose the v3 engagement?); guard-trip rates under sampling
+(strikes, knock-offs, final_upright) = the hacking-risk price;
+AR-cell action-token entropy per replan (how much room the
+temperature actually opens).</li>
+<li><strong>Cost</strong>: 4 cells × 120 = 480 episodes ≈ one v3 sim100 arm-set;
+<strong>gate ≤ 3 GPU-h on the parallel path</strong> (Path A validated), ≤ 8
+sequential fallback. Sequenced strictly AFTER
+<code>sim_parallel_oracle.py</code> and the v3 rerun (GPU-day order stands;
+the probe reuses the rerun’s rows as anchors, so the order is
+also logically forced).</li>
+<li><strong>Decision rule the probe buys</strong>: no cell clears the signal bar →
+GRPO-on-sim parks (the policies are too far from the task for
+outcome-driven RL; the sim axis keeps improving via visuals/task
+semantics instead). AR cell clears it without losing its anchor
+competence → phase 2 is the SimpleVLA-RL mapping (cheapest
+infra). Only flow cells clear it → phase 2 is Flow-GRPO SDE on
+the engaging arm, expert-only, and the AR head waits. Both clear
+→ AR first (infra), flow second, joint last.</li>
+</ul>
+<h2 id="5-phase-2-sketch-priced-not-proposed-for-launch-yet"><a class="header" href="#5-phase-2-sketch-priced-not-proposed-for-launch-yet">5. Phase 2 sketch (priced, NOT proposed for launch yet)</a></h2>
+<p>If (and only if) the probe shows signal — the shape of the first
+actual training run, so the owner can see where this is heading:</p>
+<ul>
+<li><strong>AR path</strong>: token-GRPO on er60k. Per step: 16 spawn-seeds × K=8
+= 128 episodes (~12–15 min at 8 workers), reward =
+<code>progress_final_cm</code> group-z-scored with registered guard
+penalties, clip-higher [0.8, 1.28], token-level loss, zero-var
+groups dropped, lr ~5e-6 (decoder currently trains at 1e-4 —
+RL wants the small end), KL off but the anchor implemented
+(Flow-GRPO’s lesson: hacking shows up as diversity collapse; our
+guard-trip telemetry is the early warning). ~40 steps ≈ <strong>10–15
+GPU-h gate</strong> on 1×H100. New infra: rollout logprob capture,
+advantage-weighted clipped CE step, rollout→batch plumbing.</li>
+<li><strong>Flow path</strong>: SDE-GRPO on teacher80k (or ftrig4k), expert-only
+per πRL, a≈0.5 and K per the probe/small sweep, velocity-MSE KL
+available closed-form. Same group geometry. Add πRL’s hybrid
+sampler only if wall-clock hurts. Flag: the one published
+head-to-head says PPO+critic beats GRPO here — if the flow path
+becomes the main line, budget a critic-head experiment as the
+follow-up fork.</li>
+<li><strong>“Jointly”</strong> (the owner’s original word): no published recipe
+exists; πRL explicitly freezes the trunk, and the whole RL-pole
+reading (Z-1, RDT2, LWD) votes frozen-trunk. The honest
+formulation of joint = one reward, two ratio terms (token ratio
+for AR, per-step Gaussian ratio for flow) sharing a trunk — which
+only becomes <em>possible</em> on the merged molmo_flow model (owner
+lane, §8.13: one trunk, AR head + flow expert). Recommendation:
+treat joint as phase 3 on the merged model, evidence-gated by the
+single-head phases.</li>
+</ul>
+<h2 id="6-what-this-memo-asks-of-the-owner"><a class="header" href="#6-what-this-memo-asks-of-the-owner">6. What this memo asks of the owner</a></h2>
+<ol>
+<li>A read of §4 — is the signal probe the right first spend, and
+should optional cell 5 (SDE) ride along?</li>
+<li>The sequencing sanity-check: parallel-oracle → v3 rerun → probe,
+all inside the standing GPU-day plan.</li>
+<li>Nothing else — no launches; the probe gets its own pre-reg (with
+final thresholds) if approved.</li>
+</ol>
+<p>Sources: <a href="https://arxiv.org/abs/2509.09674">SimpleVLA-RL</a> ·
+<a href="https://arxiv.org/abs/2505.05470">Flow-GRPO</a> ·
+<a href="https://arxiv.org/abs/2510.25889">πRL</a> ·
+<a href="../papers/grpo-for-vla-heads.html">cluster page (deep-read)</a> ·
+<a href="2026-08-12-sim100-results.html">sim100 results</a> ·
+<a href="2026-08-12-sim-spot20-v3-results.html">spot20 v3</a> ·
+<a href="2026-08-12-prereg-sim-parallel-rollouts.html">parallel-rollouts pre-reg</a></p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../posts/2026-08-12-prereg-disk-position-draws.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../posts/2026-08-12-replay-control-loss-results.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../posts/2026-08-12-prereg-disk-position-draws.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../posts/2026-08-12-replay-control-loss-results.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-09f2665d.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

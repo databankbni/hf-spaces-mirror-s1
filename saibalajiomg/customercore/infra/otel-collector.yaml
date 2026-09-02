@@ -1,0 +1,49 @@
+# ============================================================
+# OpenTelemetry Collector Configuration
+# Receives: OTLP from FastAPI app
+# Scrapes:  Prometheus /metrics from FastAPI
+# Exports:  To Grafana Cloud (configured later in Phase 13)
+#           For now: logs everything to console for local dev
+# ============================================================
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "customercore-api"
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["host.docker.internal:8001"]
+
+processors:
+  batch:
+    timeout: 10s
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+
+exporters:
+  debug:
+    verbosity: normal
+
+service:
+  pipelines:
+    metrics:
+      receivers: [prometheus, otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]

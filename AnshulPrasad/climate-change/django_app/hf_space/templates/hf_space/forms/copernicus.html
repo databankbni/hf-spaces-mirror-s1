@@ -1,0 +1,129 @@
+<style>
+    .form-group { display: flex; flex-direction: column; gap: 6px; position: relative; }
+    .field-label { font-weight: 600; color: #1e293b; font-size: 0.9rem; }
+
+    /* Standard Inputs */
+    .standard-input input, .standard-input select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.9rem; background-color: #fff; box-sizing: border-box; }
+
+    /* Dropdown Wrappers */
+    .checkbox-dropdown { position: relative; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; padding: 10px; box-sizing: border-box; }
+    .checkbox-dropdown summary { cursor: pointer; font-size: 0.9rem; color: #475569; font-weight: 500; outline: none; list-style: none; }
+    .checkbox-dropdown summary::-webkit-details-marker { display: none; } /* Safari default arrow removal */
+    .checkbox-dropdown summary:hover { color: #0284c7; }
+
+    /* ============================================================== */
+    /* UNIFIED ABSOLUTE OVERLAY FOR ALL DROPDOWNS                     */
+    /* ============================================================== */
+    .dropdown-overlay {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        width: 100%;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        z-index: 9999;
+        box-sizing: border-box;
+        padding: 12px;
+        max-height: 250px;
+        overflow-y: auto;
+    }
+
+    /* Target Django's default checkbox output inside the overlay */
+    .dropdown-overlay ul, .dropdown-overlay div:not(.category-group):not(.category-title):not(.variable-list-container) {
+        list-style: none; padding: 0; margin: 0;
+    }
+    .dropdown-overlay label {
+        display: flex; align-items: flex-start; gap: 8px; font-size: 0.85rem; color: #475569; cursor: pointer; line-height: 1.4; margin-bottom: 6px;
+    }
+    .dropdown-overlay input[type="checkbox"] { margin-top: 2px; }
+
+    /* Categorized Variable Specifics */
+    .variable-search-box { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 4px; margin-bottom: 10px; font-size: 0.85rem; box-sizing: border-box; }
+    .category-group { margin-bottom: 12px; }
+    .category-title { font-weight: 600; font-size: 0.8rem; color: #334155; margin-bottom: 6px; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .category-list { list-style: none; padding: 0 0 0 8px; margin: 0; }
+    .checkbox-list-item { margin-bottom: 6px; }
+</style>
+
+{% for field in form %}
+    <div class="form-group">
+        <label class="field-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+
+        {% if field.field.widget.attrs.is_categorized %}
+
+            <details class="checkbox-dropdown">
+                <summary>Select {{ field.label }}...</summary>
+
+                <!-- Overlay container -->
+                <div class="dropdown-overlay">
+                    <input type="text" class="variable-search-box" id="variable-search" placeholder="Search variables..." onkeyup="filterVariables()">
+
+                    <div class="variable-list-container">
+                        {% for category, choices in field.field.choices %}
+                            <div class="category-group">
+                                <div class="category-title">{{ category }}</div>
+                                <ul class="category-list">
+                                    {% for val, label in choices %}
+                                        <li class="checkbox-list-item" data-search-target="{{ label|lower }}">
+                                            <label>
+                                                <input type="checkbox" name="{{ field.name }}" value="{{ val }}" {% if val in field.value %}checked{% endif %}>
+                                                <span>{{ label }}</span>
+                                            </label>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </details>
+
+        {% elif field.widget_type == 'checkboxselectmultiple' %}
+
+            <details class="checkbox-dropdown">
+                <summary>Select {{ field.label }}...</summary>
+
+                <!-- Wrap Django's default output in the overlay container -->
+                <div class="dropdown-overlay">
+                    {{ field }}
+                </div>
+            </details>
+
+        {% else %}
+            <!-- Standard Inputs (Single Selects / Text Inputs) -->
+            <div class="standard-input">
+                {{ field }}
+            </div>
+        {% endif %}
+
+        {% if field.help_text %}<span style="font-size: 0.75rem; color: #64748b; margin-top: 4px;">{{ field.help_text }}</span>{% endif %}
+        {% for error in field.errors %}<span style="color: #ef4444; font-size: 0.8rem; margin-top: 4px;">{{ error }}</span>{% endfor %}
+    </div>
+{% endfor %}
+
+<script>
+    function filterVariables() {
+        const query = document.getElementById('variable-search').value.toLowerCase();
+
+        document.querySelectorAll('.checkbox-list-item').forEach(item => {
+            const match = item.getAttribute('data-search-target').includes(query);
+            item.style.display = match ? 'block' : 'none';
+        });
+
+        document.querySelectorAll('.category-group').forEach(group => {
+            const visibleItems = Array.from(group.querySelectorAll('.checkbox-list-item')).some(item => item.style.display !== 'none');
+            group.style.display = visibleItems ? 'block' : 'none';
+        });
+    }
+
+    // Automatically close dropdowns when clicking outside of them
+    document.addEventListener('click', function(event) {
+        document.querySelectorAll('.checkbox-dropdown').forEach(details => {
+            if (!details.contains(event.target)) {
+                details.removeAttribute('open');
+            }
+        });
+    });
+</script>

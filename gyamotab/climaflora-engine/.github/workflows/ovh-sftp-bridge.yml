@@ -1,0 +1,191 @@
+name: OVH SFTP bridge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/ovh-command.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ovh-sftp-bridge
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    env:
+      OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+      OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+      OVH_SFTP_USER: ${{ secrets.OVH_SFTP_USER }}
+      OVH_SFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+      OVH_SFTP_REMOTE_DIR: ${{ secrets.OVH_SFTP_REMOTE_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in OVH_SFTP_HOST OVH_SFTP_USER OVH_SFTP_PASSWORD OVH_SFTP_REMOTE_DIR; do
+            [ -n "${!name}" ] || { echo "::error::$name secret is missing"; exit 1; }
+          done
+
+      - name: Install SFTP client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Execute guarded command
+        id: command
+        shell: bash
+        run: |
+          set -euo pipefail
+          COMMAND_FILE=".github/ovh-command.json"
+          RESULTS_DIR=".github/ovh-results"
+          mkdir -p "$RESULTS_DIR"
+          rm -f "$RESULTS_DIR/list.txt" "$RESULTS_DIR/download.b64" "$RESULTS_DIR/download.json" "$RESULTS_DIR/status.json"
+
+          REQUEST_ID="$(jq -r '.request_id // "request"' "$COMMAND_FILE")"
+          OPERATION="$(jq -r '.operation // empty' "$COMMAND_FILE")"
+          REMOTE_PATH="$(jq -r '.remote_path // "."' "$COMMAND_FILE")"
+          TARGET_PATH="$(jq -r '.target_path // empty' "$COMMAND_FILE")"
+          REPO_PATH="$(jq -r '.repo_path // empty' "$COMMAND_FILE")"
+          CONFIRM_DELETE="$(jq -r '.confirm_delete // false' "$COMMAND_FILE")"
+
+          validate_relative_path() {
+            local value="$1"
+            local label="$2"
+            [ -n "$value" ] || { echo "::error::$label is empty"; exit 1; }
+            [[ "$value" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "::error::$label contains unsupported characters"; exit 1; }
+            [[ "$value" != /* ]] || { echo "::error::$label must be relative to the ClimaFlora root"; exit 1; }
+            [[ "/$value/" != *"/../"* ]] || { echo "::error::$label cannot contain .."; exit 1; }
+          }
+
+          [[ "$REQUEST_ID" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "::error::Invalid request_id"; exit 1; }
+          validate_relative_path "$REMOTE_PATH" remote_path
+
+          case "$OPERATION" in
+            list|download|upload|rename|delete|mkdir) ;;
+            *) echo "::error::Unsupported operation: $OPERATION"; exit 1 ;;
+          esac
+
+          if [ "$OPERATION" = "download" ] || [ "$OPERATION" = "delete" ] || [ "$OPERATION" = "rename" ]; then
+            [ "$REMOTE_PATH" != "." ] || { echo "::error::Operation cannot target the ClimaFlora root"; exit 1; }
+          fi
+          if [ "$OPERATION" = "rename" ]; then
+            validate_relative_path "$TARGET_PATH" target_path
+          fi
+          if [ "$OPERATION" = "upload" ]; then
+            validate_relative_path "$REPO_PATH" repo_path
+            [ -f "$REPO_PATH" ] || { echo "::error::Repository file not found: $REPO_PATH"; exit 1; }
+          fi
+          if [ "$OPERATION" = "delete" ]; then
+            [ "$CONFIRM_DELETE" = "true" ] || { echo "::error::confirm_delete must be true"; exit 1; }
+          fi
+          if [ "$OPERATION" = "mkdir" ]; then
+            [ "$REMOTE_PATH" != "." ] || { echo "::error::mkdir requires a directory path"; exit 1; }
+          fi
+
+          PORT="${OVH_SFTP_PORT:-22}"
+          BASE="${OVH_SFTP_REMOTE_DIR%/}"
+
+          common_header() {
+            cat <<EOF
+          set sftp:auto-confirm yes
+          set net:max-retries 2
+          set net:timeout 30
+          set net:reconnect-interval-base 5
+          cd "$BASE"
+          EOF
+          }
+
+          case "$OPERATION" in
+            list)
+              {
+                common_header
+                echo "cls -la \"$REMOTE_PATH\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT" > "$RESULTS_DIR/list.txt"
+              ;;
+
+            download)
+              TMP_FILE="$(mktemp)"
+              {
+                common_header
+                echo "get \"$REMOTE_PATH\" -o \"$TMP_FILE\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+              SIZE="$(stat -c%s "$TMP_FILE")"
+              MAX_SIZE=$((5 * 1024 * 1024))
+              [ "$SIZE" -le "$MAX_SIZE" ] || { rm -f "$TMP_FILE"; echo "::error::Remote file exceeds 5 MiB bridge limit"; exit 1; }
+              base64 -w 0 "$TMP_FILE" > "$RESULTS_DIR/download.b64"
+              SHA256="$(sha256sum "$TMP_FILE" | awk '{print $1}')"
+              jq -n --arg request_id "$REQUEST_ID" --arg remote_path "$REMOTE_PATH" --arg sha256 "$SHA256" --argjson size "$SIZE" \
+                '{request_id:$request_id,remote_path:$remote_path,size:$size,sha256:$sha256,encoding:"base64"}' > "$RESULTS_DIR/download.json"
+              rm -f "$TMP_FILE"
+              ;;
+
+            upload)
+              {
+                common_header
+                echo "put \"$REPO_PATH\" -o \"$REMOTE_PATH\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+              ;;
+
+            rename)
+              {
+                common_header
+                echo "mv \"$REMOTE_PATH\" \"$TARGET_PATH\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+              ;;
+
+            delete)
+              {
+                common_header
+                echo "rm \"$REMOTE_PATH\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+              ;;
+
+            mkdir)
+              {
+                common_header
+                echo "mkdir -p \"$REMOTE_PATH\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+              ;;
+          esac
+
+          jq -n \
+            --arg request_id "$REQUEST_ID" \
+            --arg operation "$OPERATION" \
+            --arg remote_path "$REMOTE_PATH" \
+            --arg target_path "$TARGET_PATH" \
+            --arg repo_path "$REPO_PATH" \
+            --arg completed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{request_id:$request_id,status:"success",operation:$operation,remote_path:$remote_path,target_path:$target_path,repo_path:$repo_path,completed_at:$completed_at}' \
+            > "$RESULTS_DIR/status.json"
+
+      - name: Commit result to repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/ovh-results/
+          if git diff --cached --quiet; then
+            echo "No result changes to commit"
+            exit 0
+          fi
+          git commit -m "chore: record OVH SFTP result [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main

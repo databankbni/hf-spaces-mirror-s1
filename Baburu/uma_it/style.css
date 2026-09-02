@@ -1,0 +1,816 @@
+:root{
+  --bg: #0e1015;
+  --bg-track: repeating-linear-gradient(180deg, #14161d 0px, #14161d 39px, #191c24 39px, #191c24 40px);
+  --panel: #171a22;
+  --panel-alt: #1c1f29;
+  --line: #2a2e3a;
+  --text: #e9e7de;
+  --text-dim: #a3a8b8;
+  
+  /* Card Type Colors */
+  --lane-speed: #38bdf8;   /* Sky Blue */
+  --lane-stamina: #ff5252; /* Bright Soft Red */
+  --lane-power: #ff9800;   /* Vibrant Orange */
+  --lane-guts: #f472b6;    /* Vibrant Pink */
+  --lane-wit: #34d399;     /* Emerald Green */
+  --lane-friend: #facc15;  /* Gold/Yellow */
+  --lane-group: #78cb32;   /* Group Green */
+  
+  --gold: #e0b84b;
+}
+
+*{box-sizing:border-box;}
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Oswald', sans-serif;
+  min-height:100vh;
+}
+
+.top{
+  background-image: var(--bg-track);
+  border-bottom:1px solid var(--line);
+  padding:40px 4vw 32px;
+  position:relative;
+  overflow:hidden;
+}
+
+.top::after{
+  content:"";
+  position:absolute;
+  left:0; right:0; bottom:0;
+  height:4px;
+  background:repeating-linear-gradient(90deg, var(--gold) 0 24px, transparent 24px 48px);
+  opacity:.55;
+}
+
+h1{
+  font-family:'Oswald',sans-serif;
+  font-weight:700;
+  font-size:clamp(32px, 5vw, 54px);
+  margin:0 0 8px;
+  letter-spacing:.01em;
+  text-transform:uppercase;
+  line-height:1.02;
+}
+
+.sub{
+  color:var(--text-dim);
+  font-size:16px;
+  max-width:640px;
+  line-height:1.5;
+  margin:0;
+  font-family:'Rajdhani', sans-serif;
+}
+
+.meta-row{
+  display:flex;
+  gap:28px;
+  margin-top:24px;
+  flex-wrap:wrap;
+}
+
+.meta{
+  font-family:'Oswald',sans-serif;
+  font-size:11px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--text-dim);
+}
+
+.meta b{
+  display:block;
+  color:var(--text);
+  font-family:'Oswald',sans-serif;
+  font-size:22px;
+  font-weight:700;
+  letter-spacing:0;
+  margin-top:2px;
+}
+
+/* Left-aligned wrapper */
+.wrap{ 
+  padding:32px 4vw 80px; 
+  max-width: 1350px;
+  margin: 0;
+}
+
+/* Tab Navigation */
+.nav-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--line);
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: 'Oswald', sans-serif;
+  font-size: 16px;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: -2px;
+}
+
+.tab-btn:hover { color: var(--text); }
+
+.tab-btn.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Controls layout */
+.controls{
+  display:flex;
+  align-items:center;
+  margin-bottom:16px;
+}
+
+.controls-left{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+select, input[type="text"]{
+  background:var(--panel);
+  border:1px solid var(--line);
+  color:var(--text);
+  font-family:'Rajdhani',sans-serif;
+  font-size:15px;
+  padding:8px 12px;
+  border-radius:3px;
+  outline:none;
+}
+
+#searchInput, #skillSearch{
+  width: 280px;
+}
+
+select:focus, input:focus{ border-color: var(--gold); }
+
+.table-scroll{
+  overflow-x:auto;
+  border:1px solid var(--line);
+  border-radius:4px;
+  width: 100%;
+}
+
+/* Left-aligned table */
+table{
+  width:100%;
+  max-width:1280px;
+  margin:0;
+  border-collapse:collapse;
+  min-width:1120px;
+  table-layout:fixed;
+  background:var(--panel);
+}
+
+/* Column Widths */
+.col-rank  { width: 42px; text-align: center; }
+.col-card  { width: 250px; text-align: left; }
+.col-lb    { width: 62px; text-align: center; }
+.col-lane  { width: 110px; text-align: center; }
+.col-score { width: 72px; text-align: center; }
+.col-stat  { width: 68px; text-align: center; }
+.col-total { width: 92px; text-align: center; }
+.col-sp    { width: 68px; text-align: center; }
+.col-rb    { width: 68px; text-align: center; }
+
+/* Header Styling */
+thead th{
+  position:sticky; top:0;
+  background:#131620;
+  font-family:'Oswald', sans-serif;
+  text-transform:uppercase;
+  font-size:12.5px;
+  font-weight: 500;
+  letter-spacing:.06em;
+  color: var(--text-dim);
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.2;
+  padding: 14px 10px;
+  border-bottom:2px solid #2e3444;
+  cursor:pointer;
+  user-select:none;
+  white-space:nowrap;
+  overflow:hidden;
+  transition: color .15s ease, background .15s ease;
+}
+
+thead th.col-card {
+  text-align: left;
+  padding-left: 18px;
+}
+
+thead th:hover{ 
+  color:var(--text); 
+  background:#1a1d29;
+}
+
+thead th.active{ 
+  color:var(--gold); 
+  font-weight: 600;
+  border-bottom-color: var(--gold);
+}
+
+thead th .arrow {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--gold);
+}
+
+/* Data Cell Alignment */
+tbody tr{
+  border-bottom:1px solid var(--line);
+  transition:background .12s ease;
+}
+tbody tr:nth-child(even){ background:var(--panel-alt); }
+tbody tr:hover{ background:#242836; }
+
+td{
+  padding:10px 8px;
+  font-size:16px;
+  font-family:'Oswald', sans-serif;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+td.name-cell{
+  position:relative;
+  padding-left:18px;
+  font-weight:600;
+  text-align: left;
+}
+
+td.name-cell::before{
+  content:"";
+  position:absolute;
+  left:0; top:6px; bottom:6px;
+  width:5px;
+  border-radius:2px;
+  background: var(--lane-color, var(--gold));
+}
+
+.card-info{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  overflow:hidden;
+}
+
+.card-info span {
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.card-thumb{
+  width:48px;
+  height:48px;
+  border-radius:4px;
+  object-fit:cover;
+  background:#202430;
+  flex-shrink:0;
+  border:1px solid rgba(255,255,255,0.1);
+  font-size:0;
+  color:transparent;
+}
+
+.rank{
+  font-family:'Oswald',sans-serif;
+  color:var(--text-dim);
+  font-size:16px;
+  text-align: center;
+}
+.rank.top1{ color:var(--gold); font-weight:700; }
+.rank.top2{ color:#c9cddb; font-weight:700; }
+.rank.top3{ color:#c98a4b; font-weight:700; }
+
+.type-tag{
+  display:inline-block;
+  font-family:'Oswald',sans-serif;
+  font-size:10.5px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  padding:3px 8px;
+  border-radius:100px;
+  border:1px solid currentColor;
+  color: var(--lane-color, var(--gold));
+  vertical-align: middle;
+}
+
+.lb-tag{
+  font-family:'Oswald',sans-serif;
+  font-size:16px;
+  color:var(--text-dim);
+  text-align: center;
+}
+
+.score-cell{
+  font-family:'Oswald',sans-serif;
+  font-weight:600;
+  font-size:17px;
+  color:var(--gold);
+}
+
+td.num{ 
+  font-variant-numeric: tabular-nums; 
+  color:var(--text); 
+  font-size:16px;
+  font-family:'Oswald',sans-serif;
+  text-align: center;
+}
+
+/* TAB 2: DECK BUILDER & TIER LIST STYLES */
+.deck-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .deck-layout { grid-template-columns: 1fr; }
+}
+
+.deck-box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 18px;
+}
+
+.deck-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.deck-title-row h2 {
+  margin: 0;
+  font-size: 20px;
+  text-transform: uppercase;
+}
+
+.deck-badge {
+  background: #12141b;
+  border: 1px solid var(--line);
+  color: var(--gold);
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.deck-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.deck-slot {
+  min-height: 58px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  transition: border-color .15s ease;
+}
+
+.deck-slot.empty {
+  background: var(--panel-alt);
+  border: 1px dashed var(--line);
+  justify-content: center;
+  color: var(--text-dim);
+}
+
+.deck-slot.filled {
+  background: var(--panel-alt);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--lane-color, var(--gold));
+}
+
+.slot-img {
+  width: 42px;
+  height: 42px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  font-size: 0;
+  color: transparent;
+}
+
+.slot-info {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.slot-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 14.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.slot-tags {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.slot-lb { color: var(--text-dim); }
+
+.btn-remove-slot {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  transition: color .15s ease;
+}
+
+.btn-remove-slot:hover { color: #ff5252; }
+
+.deck-totals h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+
+.totals-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stat-box {
+  background: #12141b;
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-box .lbl {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.stat-box .val {
+  font-size: 18px;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.stat-box.highlight-total .val { color: #38bdf8; }
+.stat-box.highlight-gold .val { color: var(--gold); }
+
+.btn-clear {
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px;
+  background: #202432;
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: 'Oswald', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+
+.btn-clear:hover { background: #2b3042; }
+
+.tier-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.tier-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tier-row {
+  display: flex;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  min-height: 90px;
+}
+
+.tier-badge {
+  width: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  flex-shrink: 0;
+}
+
+.tier-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  align-items: center;
+  flex: 1;
+}
+
+.tier-card {
+  width: 76px;
+  background: var(--panel-alt);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .15s ease, border-color .15s ease;
+  position: relative;
+  user-select: none;
+}
+
+.tier-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--card-lane, var(--gold));
+}
+
+.tier-card.in-deck {
+  opacity: 0.55;
+  border-color: var(--gold);
+}
+
+.card-thumb-wrapper {
+  position: relative;
+  width: 100%;
+  height: 68px;
+  background: #12141b;
+}
+
+.tier-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  font-size: 0;
+  color: transparent;
+}
+
+.badge-score {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(0,0,0,0.85);
+  color: var(--gold);
+  font-size: 10.5px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.badge-rb {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: rgba(0,0,0,0.75);
+  color: #e9e7de;
+  font-size: 9px;
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+
+.badge-type {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  background: rgba(0,0,0,0.8);
+  color: var(--card-lane, var(--gold));
+  font-size: 8.5px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+.in-deck-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.tier-card-info {
+  padding: 4px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+}
+
+.tier-card-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.tier-card-lb {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.empty-tier {
+  color: var(--text-dim);
+  font-size: 13px;
+  font-style: italic;
+  padding: 10px;
+}
+
+/* ========================================= */
+/* TAB 3: GAMETORA-STYLE CARD GALLERY        */
+/* ========================================= */
+
+.skills-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.skills-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gallery-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+  gap: 16px;
+}
+
+.gt-card-tile {
+  background: var(--panel-alt);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+  position: relative;
+  user-select: none;
+}
+
+.gt-card-tile:hover {
+  transform: translateY(-3px);
+  border-color: var(--card-lane, var(--gold));
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
+
+.gt-card-img-wrap {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #12141b;
+  border: 2px solid var(--card-lane, var(--gold));
+}
+
+.gt-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  font-size: 0;
+  color: transparent;
+}
+
+.gt-badge-type {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background: rgba(0, 0, 0, 0.85);
+  color: var(--card-lane, var(--gold));
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.gt-card-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.gt-matched-skill {
+  font-size: 10px;
+  color: var(--gold);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  background: rgba(224, 184, 75, 0.12);
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-weight: 600;
+}
+
+/* Footer & Credit Styling */
+footer{
+  margin-top:28px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color:var(--text-dim);
+  font-size:12.5px;
+  font-family:'Oswald',sans-serif;
+  letter-spacing:.03em;
+}
+
+footer a {
+  color: var(--lane-speed);
+  text-decoration: none;
+  transition: color .15s ease;
+}
+
+footer a:hover {
+  color: var(--gold);
+  text-decoration: underline;
+}
+
+.footer-credit{
+  color: var(--gold);
+  font-size: 12px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+@media (max-width:640px){
+  .top{padding:36px 5vw 26px;}
+  .meta-row{gap:18px;}
+}

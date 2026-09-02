@@ -1,0 +1,124 @@
+name: Probe targeted BIEN native occurrence aggregation for ClimaFlora v2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [edaphic-v2.0-enrichment]
+    paths:
+      - '.github/workflows/probe-bien-targeted-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Query representative species with permission-safe parameterization
+        run: |
+          python -m pip install --quiet psycopg2-binary
+          python - <<'PY'
+          import json,time
+          from collections import defaultdict
+          from pathlib import Path
+          import psycopg2
+
+          targets=['Quercus robur','Calluna vulgaris','Typha latifolia','Acer platanoides','Salicornia europaea']
+          con=psycopg2.connect(host='vegbiendev.nceas.ucsb.edu',dbname='public_vegbien',user='public_bien',password='bien_public',connect_timeout=30)
+          con.autocommit=True
+          cur=con.cursor()
+          cur.execute("SET statement_timeout='12min'")
+          cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='view_full_occurrence_individual'")
+          names={r[0] for r in cur.fetchall()}
+          required={'scrubbed_species_binomial','latitude','longitude'}
+          missing=required-names
+          if missing:
+              raise RuntimeError(f'Missing BIEN occurrence columns: {sorted(missing)}')
+          conditions=[
+              'o.scrubbed_species_binomial = ANY(%s)',
+              'o.latitude BETWEEN -90 AND 90',
+              'o.longitude BETWEEN -180 AND 180',
+          ]
+          applied=['target species array','valid latitude/longitude']
+          if 'is_geovalid' in names:
+              conditions.append('o.is_geovalid = 1'); applied.append('is_geovalid=1')
+          if 'is_centroid' in names:
+              conditions.append('(o.is_centroid IS NULL OR o.is_centroid=0)'); applied.append('not centroid')
+          if 'georef_protocol' in names:
+              conditions.append("(o.georef_protocol IS NULL OR o.georef_protocol<>'county centroid')"); applied.append('not county centroid georef')
+          if 'is_cultivated_observation' in names:
+              conditions.append('(o.is_cultivated_observation = 0 OR o.is_cultivated_observation IS NULL)'); applied.append('not flagged cultivated observation')
+          if 'is_location_cultivated' in names:
+              conditions.append('o.is_location_cultivated IS NULL'); applied.append('location not cultivated')
+          if 'is_introduced' in names:
+              conditions.append('(o.is_introduced=0 OR o.is_introduced IS NULL)'); applied.append('not introduced or unknown native status')
+          if 'higher_plant_group' in names:
+              conditions.append("o.higher_plant_group NOT IN ('Algae','Bacteria','Fungi')"); applied.append('exclude algae/bacteria/fungi')
+          where=' AND '.join(conditions)
+          started=time.monotonic()
+          cur.execute(f'''
+            SELECT o.scrubbed_species_binomial AS species,
+                   floor(o.latitude*10.0)::int AS lat_cell,
+                   floor(o.longitude*10.0)::int AS lon_cell,
+                   AVG(o.latitude)::double precision AS latitude,
+                   AVG(o.longitude)::double precision AS longitude,
+                   COUNT(*)::bigint AS raw_records
+            FROM view_full_occurrence_individual o
+            WHERE {where}
+            GROUP BY o.scrubbed_species_binomial,
+                     floor(o.latitude*10.0)::int,
+                     floor(o.longitude*10.0)::int
+            ORDER BY o.scrubbed_species_binomial,lat_cell,lon_cell
+          ''',(targets,))
+          cells=cur.fetchall()
+          elapsed=time.monotonic()-started
+          cur.close(); con.close()
+
+          grouped=defaultdict(list)
+          for row in cells:
+              grouped[row[0]].append(row)
+          summary=[]
+          for species in targets:
+              rows=grouped.get(species,[])
+              raw=sum(int(r[5]) for r in rows)
+              per=[int(r[5]) for r in rows]
+              summary.append({
+                  'species':species,'cells_01deg':len(rows),'raw_records':raw,
+                  'min_records_per_cell':min(per) if per else 0,
+                  'max_records_per_cell':max(per) if per else 0,
+              })
+          sample=sorted(cells,key=lambda r:(r[0],-int(r[5])))[:100]
+          out={
+            'status':'ready',
+            'bien_version':'4.2',
+            'targets':targets,
+            'available_filter_columns':sorted(n for n in names if n in {
+                'is_geovalid','is_centroid','georef_protocol','is_cultivated_observation',
+                'is_location_cultivated','is_introduced','higher_plant_group'}),
+            'filters':applied,
+            'spatial_thinning_probe':'one representative mean coordinate per species x 0.1-degree cell',
+            'summary':summary,
+            'sample_cells':[{'species':r[0],'lat_cell':r[1],'lon_cell':r[2],'latitude':r[3],'longitude':r[4],'raw_records':r[5]} for r in sample],
+            'elapsed_seconds':round(elapsed,2),
+            'redistribution_license_status':'CONDITIONAL_PENDING_SOURCE_LEVEL_REVIEW',
+          }
+          Path('/tmp/bien-v2-targeted-probe.json').write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          print(json.dumps(out,indent=2,ensure_ascii=False))
+          PY
+      - name: Record targeted BIEN probe
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin edaphic-v2.0-enrichment && git reset --hard origin/edaphic-v2.0-enrichment
+            cp /tmp/bien-v2-targeted-probe.json .github/bien-v2-targeted-probe.json
+            git add .github/bien-v2-targeted-probe.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record targeted BIEN v2 occurrence probe [skip ci]'
+            git push origin HEAD:edaphic-v2.0-enrichment && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

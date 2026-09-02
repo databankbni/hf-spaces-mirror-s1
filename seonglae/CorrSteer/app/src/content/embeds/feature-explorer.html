@@ -1,0 +1,953 @@
+<div class="feature-explorer"></div>
+<style>
+  .feature-explorer {
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --fe-primary: #6B5CE7;
+    --fe-primary-light: #8B7FED;
+    --fe-primary-dark: #5346C7;
+    --fe-positive: #6B5CE7;
+    --fe-negative: #E74C5C;
+    --fe-success: #34C759;
+    --fe-warning: #FF9F0A;
+    --fe-card-bg: var(--surface-bg, #ffffff);
+    --fe-page-bg: var(--page-bg, #f5f5f7);
+    --fe-text: var(--text-color, #1d1d1f);
+    --fe-muted: var(--muted-color, #86868b);
+    --fe-border: var(--border-color, #d2d2d7);
+    --fe-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+    --fe-shadow-hover: 0 2px 8px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.08);
+    line-height: 1.5;
+    color: var(--fe-text);
+  }
+
+  /* ---- Controls ---- */
+  .feature-explorer .fe-controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--fe-card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--fe-border);
+  }
+
+  .feature-explorer .fe-control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .feature-explorer .fe-control-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--fe-muted);
+  }
+
+  /* Segmented control for model toggle */
+  .feature-explorer .fe-segmented {
+    display: inline-flex;
+    background: var(--fe-page-bg);
+    border-radius: 8px;
+    padding: 2px;
+    border: 1px solid var(--fe-border);
+    gap: 0;
+  }
+
+  .feature-explorer .fe-seg-btn {
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: var(--fe-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+
+  .feature-explorer .fe-seg-btn:hover {
+    color: var(--fe-text);
+  }
+
+  .feature-explorer .fe-seg-btn.active {
+    background: var(--fe-primary);
+    color: #fff;
+    box-shadow: 0 1px 4px rgba(107,92,231,0.3);
+  }
+
+  /* Polarity segmented control */
+  .feature-explorer .fe-seg-btn.polarity-pos.active {
+    background: var(--fe-positive);
+  }
+
+  .feature-explorer .fe-seg-btn.polarity-neg.active {
+    background: var(--fe-negative);
+  }
+
+  /* Dropdowns */
+  .feature-explorer select {
+    padding: 6px 28px 6px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    border: 1px solid var(--fe-border);
+    border-radius: 8px;
+    background: var(--fe-card-bg);
+    color: var(--fe-text);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2386868b'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    min-width: 140px;
+  }
+
+  .feature-explorer select:focus {
+    outline: none;
+    border-color: var(--fe-primary);
+    box-shadow: 0 0 0 3px rgba(107,92,231,0.15);
+  }
+
+  /* ---- Summary strip ---- */
+  .feature-explorer .fe-summary {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 0 4px;
+    font-size: 13px;
+    color: var(--fe-muted);
+  }
+
+  .feature-explorer .fe-summary strong {
+    color: var(--fe-text);
+    font-weight: 600;
+  }
+
+  /* ---- Card grid ---- */
+  .feature-explorer .fe-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  @media (max-width: 900px) {
+    .feature-explorer .fe-grid {
+      grid-template-columns: 1fr;
+    }
+    .feature-explorer .fe-controls {
+      gap: 12px;
+    }
+  }
+
+  /* ---- Feature card ---- */
+  .feature-explorer .fe-card {
+    background: var(--fe-card-bg);
+    border: 1px solid var(--fe-border);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, transform 0.15s ease, opacity 0.3s ease;
+    box-shadow: var(--fe-shadow);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .feature-explorer .fe-card:hover {
+    box-shadow: var(--fe-shadow-hover);
+    transform: translateY(-1px);
+  }
+
+  .feature-explorer .fe-card.expanded {
+    grid-column: 1 / -1;
+  }
+
+  .feature-explorer .fe-card-entering {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  .feature-explorer .fe-card-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Card header */
+  .feature-explorer .fe-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .feature-explorer .fe-layer-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--fe-primary);
+    color: #fff;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  .feature-explorer .fe-feature-idx {
+    font-size: 12px;
+    color: var(--fe-muted);
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  }
+
+  .feature-explorer .fe-np-link {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--fe-primary);
+    text-decoration: none;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+
+  .feature-explorer .fe-np-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
+
+  .feature-explorer .fe-np-link svg {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+  }
+
+  /* Description */
+  .feature-explorer .fe-description {
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--fe-text);
+    margin-bottom: 14px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .feature-explorer .fe-card.expanded .fe-description {
+    -webkit-line-clamp: unset;
+    overflow: visible;
+  }
+
+  /* Metrics row */
+  .feature-explorer .fe-metrics {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .feature-explorer .fe-metric {
+    flex: 1;
+    min-width: 100px;
+  }
+
+  .feature-explorer .fe-metric-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--fe-muted);
+    margin-bottom: 4px;
+  }
+
+  .feature-explorer .fe-metric-value {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--fe-text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Correlation bar */
+  .feature-explorer .fe-corr-bar-bg {
+    width: 100%;
+    height: 6px;
+    background: var(--fe-page-bg);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .feature-explorer .fe-corr-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--fe-primary-light), var(--fe-primary));
+    transition: width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  /* Frequency mini stacked bar */
+  .feature-explorer .fe-freq-bar-bg {
+    display: flex;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+    background: var(--fe-page-bg);
+  }
+
+  .feature-explorer .fe-freq-correct {
+    height: 100%;
+    background: var(--fe-success);
+    transition: width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .feature-explorer .fe-freq-incorrect {
+    height: 100%;
+    background: var(--fe-negative);
+    opacity: 0.6;
+    transition: width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .feature-explorer .fe-freq-text {
+    font-size: 12px;
+    color: var(--fe-muted);
+    margin-top: 2px;
+  }
+
+  /* ---- Expanded details ---- */
+  .feature-explorer .fe-expanded-details {
+    display: none;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--fe-border);
+  }
+
+  .feature-explorer .fe-card.expanded .fe-expanded-details {
+    display: block;
+  }
+
+  .feature-explorer .fe-detail-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .feature-explorer .fe-detail-item {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .feature-explorer .fe-detail-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--fe-muted);
+    margin-bottom: 2px;
+  }
+
+  .feature-explorer .fe-detail-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--fe-text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .feature-explorer .fe-coeff-compare {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    height: 32px;
+    margin-top: 4px;
+  }
+
+  .feature-explorer .fe-coeff-bar {
+    flex: 1;
+    border-radius: 3px 3px 0 0;
+    position: relative;
+    min-height: 4px;
+    transition: height 0.4s ease;
+  }
+
+  .feature-explorer .fe-coeff-bar.success {
+    background: var(--fe-success);
+  }
+
+  .feature-explorer .fe-coeff-bar.failure {
+    background: var(--fe-negative);
+    opacity: 0.6;
+  }
+
+  .feature-explorer .fe-coeff-labels {
+    display: flex;
+    gap: 2px;
+    margin-top: 2px;
+  }
+
+  .feature-explorer .fe-coeff-label {
+    flex: 1;
+    font-size: 10px;
+    color: var(--fe-muted);
+    text-align: center;
+  }
+
+  .feature-explorer .fe-np-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fe-primary);
+    background: rgba(107,92,231,0.08);
+    text-decoration: none;
+    transition: background 0.15s;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .feature-explorer .fe-np-button:hover {
+    background: rgba(107,92,231,0.15);
+  }
+
+  .feature-explorer .fe-np-button svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+
+  /* ---- Loading state ---- */
+  .feature-explorer .fe-loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--fe-muted);
+    font-size: 14px;
+  }
+
+  .feature-explorer .fe-spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--fe-border);
+    border-top-color: var(--fe-primary);
+    border-radius: 50%;
+    animation: fe-spin 0.7s linear infinite;
+    margin-bottom: 12px;
+  }
+
+  @keyframes fe-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ---- Empty state ---- */
+  .feature-explorer .fe-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--fe-muted);
+    font-size: 14px;
+    grid-column: 1 / -1;
+  }
+
+  /* ---- Negative polarity styling ---- */
+  .feature-explorer[data-polarity="negative"] .fe-layer-badge {
+    background: var(--fe-negative);
+  }
+
+  .feature-explorer[data-polarity="negative"] .fe-corr-bar-fill {
+    background: linear-gradient(90deg, #F08090, var(--fe-negative));
+  }
+
+  .feature-explorer[data-polarity="negative"] .fe-np-link {
+    color: var(--fe-negative);
+  }
+</style>
+<script>
+(() => {
+  // Prevent multiple initializations
+  if (window.__feExplorerInit) return;
+  window.__feExplorerInit = true;
+
+  const ensureD3 = (cb) => {
+    if (window.d3 && typeof window.d3.select === 'function') return cb();
+    let s = document.getElementById('d3-cdn-script');
+    if (!s) {
+      s = document.createElement('script');
+      s.id = 'd3-cdn-script';
+      s.src = 'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js';
+      document.head.appendChild(s);
+    }
+    const check = () => { if (window.d3 && typeof window.d3.select === 'function') cb(); };
+    s.addEventListener('load', check, { once: true });
+    if (window.d3) check();
+  };
+
+  const bootstrap = () => {
+    const scriptEl = document.currentScript;
+    let container = scriptEl ? scriptEl.previousElementSibling : null;
+    if (!(container && container.classList && container.classList.contains('feature-explorer'))) {
+      const cs = Array.from(document.querySelectorAll('.feature-explorer'))
+        .filter(el => !(el.dataset && el.dataset.mounted === 'true'));
+      container = cs[cs.length - 1] || null;
+    }
+    if (!container) return;
+    if (container.dataset) {
+      if (container.dataset.mounted === 'true') return;
+      container.dataset.mounted = 'true';
+    }
+
+    // Show loading
+    container.innerHTML = '<div class="fe-loading"><div class="fe-spinner"></div><div>Loading feature data...</div></div>';
+
+    // Data paths
+    const DATA_PATHS = {
+      gemma: [
+        '/data/features_gemma_all.json',
+        '../assets/data/features_gemma_all.json',
+        './data/features_gemma_all.json'
+      ],
+      llama: [
+        '/data/features_llama_all.json',
+        '../assets/data/features_llama_all.json',
+        './data/features_llama_all.json'
+      ]
+    };
+
+    const TASK_LABELS = {
+      mmlu: 'MMLU',
+      mmlupro: 'MMLU-Pro',
+      simpleqa: 'SimpleQA',
+      bbq_ambig: 'BBQ (Ambig)',
+      bbq_disambig: 'BBQ (Disambig)',
+      harmbench: 'HarmBench',
+      xstest: 'XSTest',
+      gsm8k: 'GSM8K'
+    };
+
+    const SORT_MODES = {
+      correlation: 'By Correlation',
+      coefficient: 'By Coefficient',
+      layer: 'By Layer'
+    };
+
+    const EXTERNAL_ICON = '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M6.22 8.72a.75.75 0 001.06 1.06l5.22-5.22v1.69a.75.75 0 001.5 0V3a.75.75 0 00-.75-.75h-3.25a.75.75 0 000 1.5h1.69L6.22 8.72zM3.5 6.75c0-.69.56-1.25 1.25-1.25H7A.75.75 0 007 4H4.75A2.75 2.75 0 002 6.75v4.5A2.75 2.75 0 004.75 14h4.5A2.75 2.75 0 0012 11.25V9a.75.75 0 00-1.5 0v2.25c0 .69-.56 1.25-1.25 1.25h-4.5c-.69 0-1.25-.56-1.25-1.25v-4.5z"/></svg>';
+
+    // State
+    let state = {
+      model: 'gemma',
+      task: 'mmlu',
+      sort: 'correlation',
+      polarity: 'positive',
+      expandedCard: null
+    };
+    let dataCache = {};
+
+    // Fetch with fallback
+    async function fetchJSON(paths) {
+      for (const p of paths) {
+        try {
+          const r = await fetch(p, { cache: 'no-cache' });
+          if (r.ok) return await r.json();
+        } catch(e) { /* try next */ }
+      }
+      return null;
+    }
+
+    // Load data for a model
+    async function loadModel(key) {
+      if (dataCache[key]) return dataCache[key];
+      const data = await fetchJSON(DATA_PATHS[key]);
+      if (data) dataCache[key] = data;
+      return data;
+    }
+
+    // Extract top feature per layer for current task
+    function getFeatures(data) {
+      if (!data || !data.tasks || !data.tasks[state.task]) return [];
+      const taskData = data.tasks[state.task];
+      if (!taskData.layers) return [];
+
+      const features = [];
+      const layers = Object.keys(taskData.layers).sort((a, b) => parseInt(a) - parseInt(b));
+
+      for (const layerKey of layers) {
+        const layerData = taskData.layers[layerKey];
+        const arr = layerData[state.polarity];
+        if (!arr || arr.length === 0) continue;
+        // Top feature (first one, already sorted by correlation in data)
+        const feat = arr[0];
+        features.push({
+          layer: parseInt(layerKey),
+          ...feat
+        });
+      }
+
+      return features;
+    }
+
+    // Sort features
+    function sortFeatures(features) {
+      const copy = [...features];
+      switch (state.sort) {
+        case 'correlation':
+          copy.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+          break;
+        case 'coefficient':
+          copy.sort((a, b) => Math.abs(b.coefficient) - Math.abs(a.coefficient));
+          break;
+        case 'layer':
+          copy.sort((a, b) => a.layer - b.layer);
+          break;
+      }
+      return copy;
+    }
+
+    // Build UI
+    function buildUI() {
+      container.innerHTML = '';
+
+      // Controls bar
+      const controls = document.createElement('div');
+      controls.className = 'fe-controls';
+
+      // Model toggle
+      const modelGroup = document.createElement('div');
+      modelGroup.className = 'fe-control-group';
+      modelGroup.innerHTML = '<div class="fe-control-label">Model</div>';
+      const modelSeg = document.createElement('div');
+      modelSeg.className = 'fe-segmented';
+      ['gemma', 'llama'].forEach(m => {
+        const btn = document.createElement('button');
+        btn.className = 'fe-seg-btn' + (state.model === m ? ' active' : '');
+        btn.textContent = m === 'gemma' ? 'Gemma-2 2B' : 'LLaMA-3.1 8B';
+        btn.addEventListener('click', () => { state.model = m; state.expandedCard = null; render(); });
+        modelSeg.appendChild(btn);
+      });
+      modelGroup.appendChild(modelSeg);
+      controls.appendChild(modelGroup);
+
+      // Polarity toggle
+      const polGroup = document.createElement('div');
+      polGroup.className = 'fe-control-group';
+      polGroup.innerHTML = '<div class="fe-control-label">Direction</div>';
+      const polSeg = document.createElement('div');
+      polSeg.className = 'fe-segmented';
+      [['positive', 'Positive'], ['negative', 'Negative']].forEach(([val, label]) => {
+        const btn = document.createElement('button');
+        btn.className = 'fe-seg-btn polarity-' + (val === 'positive' ? 'pos' : 'neg') + (state.polarity === val ? ' active' : '');
+        btn.textContent = label;
+        btn.addEventListener('click', () => { state.polarity = val; state.expandedCard = null; render(); });
+        polSeg.appendChild(btn);
+      });
+      polGroup.appendChild(polSeg);
+      controls.appendChild(polGroup);
+
+      // Task dropdown
+      const taskGroup = document.createElement('div');
+      taskGroup.className = 'fe-control-group';
+      taskGroup.innerHTML = '<div class="fe-control-label">Task</div>';
+      const taskSelect = document.createElement('select');
+      Object.keys(TASK_LABELS).forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = TASK_LABELS[t];
+        opt.selected = state.task === t;
+        taskSelect.appendChild(opt);
+      });
+      taskSelect.addEventListener('change', (e) => { state.task = e.target.value; state.expandedCard = null; render(); });
+      taskGroup.appendChild(taskSelect);
+      controls.appendChild(taskGroup);
+
+      // Sort dropdown
+      const sortGroup = document.createElement('div');
+      sortGroup.className = 'fe-control-group';
+      sortGroup.innerHTML = '<div class="fe-control-label">Sort</div>';
+      const sortSelect = document.createElement('select');
+      Object.keys(SORT_MODES).forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = SORT_MODES[s];
+        opt.selected = state.sort === s;
+        sortSelect.appendChild(opt);
+      });
+      sortSelect.addEventListener('change', (e) => { state.sort = e.target.value; render(); });
+      sortGroup.appendChild(sortSelect);
+      controls.appendChild(sortGroup);
+
+      container.appendChild(controls);
+
+      // Summary strip
+      const summary = document.createElement('div');
+      summary.className = 'fe-summary';
+      container.appendChild(summary);
+
+      // Grid
+      const grid = document.createElement('div');
+      grid.className = 'fe-grid';
+      container.appendChild(grid);
+    }
+
+    // Render cards
+    async function render() {
+      const grid = container.querySelector('.fe-grid');
+      const summary = container.querySelector('.fe-summary');
+      if (!grid || !summary) return;
+
+      // Update polarity attribute for styling
+      container.setAttribute('data-polarity', state.polarity);
+
+      // Update active states in controls
+      container.querySelectorAll('.fe-segmented').forEach((seg, idx) => {
+        seg.querySelectorAll('.fe-seg-btn').forEach(btn => btn.classList.remove('active'));
+      });
+      const modelBtns = container.querySelectorAll('.fe-segmented')[0];
+      if (modelBtns) {
+        modelBtns.children[state.model === 'gemma' ? 0 : 1].classList.add('active');
+      }
+      const polBtns = container.querySelectorAll('.fe-segmented')[1];
+      if (polBtns) {
+        polBtns.children[state.polarity === 'positive' ? 0 : 1].classList.add('active');
+      }
+
+      // Disable unavailable tasks
+      const taskSelect = container.querySelector('select');
+      if (taskSelect) {
+        taskSelect.value = state.task;
+      }
+
+      // Fade out existing cards
+      const existingCards = grid.querySelectorAll('.fe-card');
+      existingCards.forEach(card => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(8px)';
+      });
+
+      // Load data
+      const data = await loadModel(state.model);
+      if (!data) {
+        grid.innerHTML = '<div class="fe-empty">Failed to load feature data. Please check that the data files are available.</div>';
+        summary.innerHTML = '';
+        return;
+      }
+
+      // Check if task exists for this model
+      if (!data.tasks[state.task]) {
+        // Disable options that don't exist
+        if (taskSelect) {
+          Array.from(taskSelect.options).forEach(opt => {
+            opt.disabled = !data.tasks[opt.value];
+          });
+        }
+        grid.innerHTML = '<div class="fe-empty">This task is not available for the selected model.</div>';
+        summary.innerHTML = '';
+        return;
+      }
+
+      // Enable all valid options
+      if (taskSelect) {
+        Array.from(taskSelect.options).forEach(opt => {
+          opt.disabled = !data.tasks[opt.value];
+        });
+      }
+
+      const features = getFeatures(data);
+      const sorted = sortFeatures(features);
+
+      // Compute max values for scaling
+      const maxCorr = Math.max(...sorted.map(f => Math.abs(f.correlation)), 0.001);
+      const maxCoeff = Math.max(...sorted.map(f => Math.abs(f.coefficient)), 0.001);
+
+      // Update summary
+      summary.innerHTML = `<span>Showing <strong>${sorted.length}</strong> layers</span><span>Top ${state.polarity} feature per layer</span><span>Model: <strong>${data.model}</strong></span>`;
+
+      // Small delay for fade-out, then rebuild
+      await new Promise(r => setTimeout(r, 150));
+      grid.innerHTML = '';
+
+      if (sorted.length === 0) {
+        grid.innerHTML = '<div class="fe-empty">No features found for this selection.</div>';
+        return;
+      }
+
+      // Create cards
+      sorted.forEach((feat, idx) => {
+        const card = document.createElement('div');
+        card.className = 'fe-card fe-card-entering';
+        const cardId = `${feat.layer}-${feat.feature_index}`;
+
+        if (state.expandedCard === cardId) {
+          card.classList.add('expanded');
+        }
+
+        // Frequency values
+        const freqCorrect = feat.stats ? (feat.stats.freq_correct || 0) : 0;
+        const freqIncorrect = feat.stats ? (feat.stats.freq_incorrect || 0) : 0;
+        const freqTotal = freqCorrect + freqIncorrect || 1;
+        const freqCorrectPct = (freqCorrect / freqTotal * 100).toFixed(0);
+        const freqIncorrectPct = (freqIncorrect / freqTotal * 100).toFixed(0);
+
+        // Coefficient success/failure
+        const coeffSuccess = feat.stats ? (feat.stats.coeff_success || 0) : 0;
+        const coeffFailure = feat.stats ? (feat.stats.coeff_failure || 0) : 0;
+        const coeffMax = Math.max(Math.abs(coeffSuccess), Math.abs(coeffFailure), 0.001);
+        const coeffSuccessH = Math.max(4, Math.abs(coeffSuccess) / coeffMax * 28);
+        const coeffFailureH = Math.max(4, Math.abs(coeffFailure) / coeffMax * 28);
+
+        // Correlation bar width
+        const corrPct = (Math.abs(feat.correlation) / maxCorr * 100).toFixed(1);
+
+        // Description
+        const desc = feat.description || 'No description available';
+        const hasDesc = desc !== 'No description available';
+
+        card.innerHTML = `
+          <div class="fe-card-header">
+            <span class="fe-layer-badge">Layer ${feat.layer}</span>
+            <span class="fe-feature-idx">#${feat.feature_index}</span>
+            <a class="fe-np-link" href="${feat.neuronpedia_url || '#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="View on Neuronpedia">
+              ${EXTERNAL_ICON} Neuronpedia
+            </a>
+          </div>
+          <div class="fe-description" style="${hasDesc ? '' : 'font-style:italic;color:var(--fe-muted);'}">${desc}</div>
+          <div class="fe-metrics">
+            <div class="fe-metric">
+              <div class="fe-metric-label">Correlation</div>
+              <div class="fe-metric-value">${feat.correlation.toFixed(4)}</div>
+              <div class="fe-corr-bar-bg"><div class="fe-corr-bar-fill" style="width: 0%"></div></div>
+            </div>
+            <div class="fe-metric">
+              <div class="fe-metric-label">Coefficient</div>
+              <div class="fe-metric-value">${Math.abs(feat.coefficient).toFixed(3)}</div>
+            </div>
+            <div class="fe-metric" style="min-width:130px">
+              <div class="fe-metric-label">Frequency</div>
+              <div class="fe-freq-text">${freqCorrect.toFixed(0)} correct / ${freqIncorrect.toFixed(0)} incorrect</div>
+              <div class="fe-freq-bar-bg">
+                <div class="fe-freq-correct" style="width: 0%"></div>
+                <div class="fe-freq-incorrect" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="fe-expanded-details">
+            <div class="fe-detail-row">
+              <div class="fe-detail-item">
+                <div class="fe-detail-label">Coeff (Success vs Failure)</div>
+                <div class="fe-coeff-compare">
+                  <div class="fe-coeff-bar success" style="height: 0px"></div>
+                  <div class="fe-coeff-bar failure" style="height: 0px"></div>
+                </div>
+                <div class="fe-coeff-labels">
+                  <div class="fe-coeff-label">${coeffSuccess.toFixed(3)}</div>
+                  <div class="fe-coeff-label">${coeffFailure.toFixed(3)}</div>
+                </div>
+              </div>
+              <div class="fe-detail-item">
+                <div class="fe-detail-label">Overall Frequency</div>
+                <div class="fe-detail-value">${feat.frequency != null ? feat.frequency.toFixed(1) + '%' : 'N/A'}</div>
+              </div>
+              <div class="fe-detail-item">
+                <div class="fe-detail-label">Layer Position</div>
+                <div class="fe-detail-value">Layer ${feat.layer} of ${state.model === 'gemma' ? '25' : '31'}</div>
+              </div>
+            </div>
+            <a class="fe-np-button" href="${feat.neuronpedia_url || '#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+              ${EXTERNAL_ICON} View full feature on Neuronpedia
+            </a>
+          </div>
+        `;
+
+        card.addEventListener('click', (e) => {
+          // Don't toggle if clicking links
+          if (e.target.closest('a')) return;
+          const wasExpanded = card.classList.contains('expanded');
+          // Collapse all
+          grid.querySelectorAll('.fe-card.expanded').forEach(c => c.classList.remove('expanded'));
+          state.expandedCard = null;
+          if (!wasExpanded) {
+            card.classList.add('expanded');
+            state.expandedCard = cardId;
+            // Animate coefficient bars
+            requestAnimationFrame(() => {
+              const bars = card.querySelectorAll('.fe-coeff-bar');
+              if (bars[0]) bars[0].style.height = coeffSuccessH + 'px';
+              if (bars[1]) bars[1].style.height = coeffFailureH + 'px';
+            });
+          }
+        });
+
+        grid.appendChild(card);
+
+        // Staggered entrance animation
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            card.classList.remove('fe-card-entering');
+            card.classList.add('fe-card-visible');
+            card.style.transition = `opacity 0.3s ease ${idx * 30}ms, transform 0.3s ease ${idx * 30}ms, box-shadow 0.2s ease`;
+
+            // Animate bars
+            const corrFill = card.querySelector('.fe-corr-bar-fill');
+            if (corrFill) {
+              setTimeout(() => { corrFill.style.width = corrPct + '%'; }, idx * 30 + 100);
+            }
+            const freqC = card.querySelector('.fe-freq-correct');
+            const freqI = card.querySelector('.fe-freq-incorrect');
+            if (freqC) {
+              setTimeout(() => { freqC.style.width = freqCorrectPct + '%'; }, idx * 30 + 100);
+            }
+            if (freqI) {
+              setTimeout(() => { freqI.style.width = freqIncorrectPct + '%'; }, idx * 30 + 100);
+            }
+
+            // If expanded on load, animate coeff bars
+            if (state.expandedCard === cardId) {
+              setTimeout(() => {
+                const bars = card.querySelectorAll('.fe-coeff-bar');
+                if (bars[0]) bars[0].style.height = coeffSuccessH + 'px';
+                if (bars[1]) bars[1].style.height = coeffFailureH + 'px';
+              }, idx * 30 + 200);
+            }
+          }, 10);
+        });
+      });
+    }
+
+    // Initialize
+    ensureD3(async () => {
+      // Pre-load both datasets in parallel
+      const [gemmaData, llamaData] = await Promise.all([
+        loadModel('gemma'),
+        loadModel('llama')
+      ]);
+
+      if (!gemmaData && !llamaData) {
+        container.innerHTML = '<div class="fe-loading" style="color:var(--fe-negative)">Failed to load feature data. Ensure the JSON files are in the data directory.</div>';
+        return;
+      }
+
+      // If gemma not available, default to llama
+      if (!gemmaData && llamaData) {
+        state.model = 'llama';
+      }
+
+      buildUI();
+      render();
+    });
+  };
+
+  // Execute
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrap);
+  } else {
+    bootstrap();
+  }
+})();
+</script>

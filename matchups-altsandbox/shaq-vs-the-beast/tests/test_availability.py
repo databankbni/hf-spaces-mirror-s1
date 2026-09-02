@@ -654,3 +654,248 @@ class TestFilteringNeverCostsTheGame:
                           batting_order=list(PROJ), starter_id=0,
                           bullpen_ids=[], confirmed=False, confirmed_at=None)
         assert _drop_unavailable(FakeRepo({}), card, 2026) is card
+
+
+class TestPositions:
+    """The position comes free with the availability check — the same roster
+    entry that says a player can play tonight also says what he plays — and it
+    was being discarded. Reading it means the lineup can be labelled without a
+    second call."""
+
+    def _patch(self, monkeypatch, payload):
+        MLBAvailabilitySource.clear()
+
+        def fake_get(self, url, params):
+            if url.endswith("/teams"):
+                return {"teams": [{"abbreviation": "NYY", "id": 147}]}
+            return payload
+
+        monkeypatch.setattr(MLBAvailabilitySource, "_get", fake_get)
+        return MLBAvailabilitySource()
+
+    def _with_positions(self, ids, positions):
+        return {"roster": [
+            {"person": {"id": i}, "status": {"code": "A", "description": "Active"},
+             **({"position": {"abbreviation": positions[i]}} if i in positions else {})}
+            for i in ids]}
+
+    def test_positions_come_back_with_the_roster(self, monkeypatch):
+        src = self._patch(monkeypatch,
+                          self._with_positions(ACTIVE, {ACTIVE[0]: "SS",
+                                                        ACTIVE[1]: "CF"}))
+        r = src.roster("NYY")
+        assert r.position(ACTIVE[0]) == "SS"
+        assert r.position(ACTIVE[1]) == "CF"
+
+    def test_a_player_with_no_position_listed_gets_an_empty_string(self, monkeypatch):
+        """Empty, not a placeholder. A dash in the column would read as a
+        position rather than as an absence."""
+        src = self._patch(monkeypatch, self._with_positions(ACTIVE, {}))
+        assert src.roster("NYY").position(ACTIVE[0]) == ""
+
+    def test_positions_do_not_affect_who_can_play(self, monkeypatch):
+        """Availability is membership. A missing or unreadable position must
+        not remove anyone from the roster."""
+        src = self._patch(monkeypatch, self._with_positions(ACTIVE, {}))
+        r = src.roster("NYY")
+        assert r.usable and r.can_play(ACTIVE[0])
+
+
+class TestAttachingPositions:
+    def _lineups(self):
+        class LC:
+            def __init__(self, team, order):
+                self.team_id, self.batting_order = team, order
+        return LC("BAL", [600001, 600002]), LC("CWS", [600003])
+
+    def test_a_lineup_is_labelled_from_the_roster(self, monkeypatch):
+        home, away = self._lineups()
+        monkeypatch.setattr(
+            "thebeast.data.sources.availability.MLBAvailabilitySource.roster",
+            lambda self, team: TeamRoster(
+                set(ACTIVE) | {600001, 600002, 600003},
+                positions={600001: "SS", 600002: "CF", 600003: "1B"}))
+        from thebeast.api.main import _attach_positions
+
+        out = _attach_positions([{"player_id": 600001}, {"player_id": 600003}],
+                                home, away)
+        assert out[0]["position"] == "SS"
+        assert out[1]["position"] == "1B"
+
+    def test_an_unreachable_roster_invents_nothing(self, monkeypatch):
+        """An empty column is honest; a guessed position is not."""
+        home, away = self._lineups()
+        monkeypatch.setattr(
+            "thebeast.data.sources.availability.MLBAvailabilitySource.roster",
+            lambda self, team: TeamRoster(set()))
+        from thebeast.api.main import _attach_positions
+
+        assert _attach_positions([{"player_id": 600001}], home, away) == \
+            [{"player_id": 600001}]
+
+    def test_a_raising_roster_leaves_the_lines_alone(self, monkeypatch):
+        home, away = self._lineups()
+        monkeypatch.setattr(
+            "thebeast.data.sources.availability.MLBAvailabilitySource.roster",
+            lambda self, team: (_ for _ in ()).throw(RuntimeError("down")))
+        from thebeast.api.main import _attach_positions
+
+        assert _attach_positions([{"player_id": 600001}], home, away) == \
+            [{"player_id": 600001}]
+
+    def test_a_box_score_position_is_never_overwritten(self, monkeypatch):
+        """A live or finished game records where a man actually played, which
+        beats where he is listed — he can be listed at short and pinch-hit."""
+        home, away = self._lineups()
+        monkeypatch.setattr(
+            "thebeast.data.sources.availability.MLBAvailabilitySource.roster",
+            lambda self, team: TeamRoster(
+                set(ACTIVE) | {600001}, positions={600001: "SS"}))
+        from thebeast.api.main import _attach_positions
+
+        out = _attach_positions([{"player_id": 600001, "position": "PH"}],
+                                home, away)
+        assert out[0]["position"] == "PH"
+
+
+class TestTheDesignatedHitter:
+    """DH is an assignment, not a property of a player.
+
+    A roster says what a man plays — shortstop, right field — and never says
+    DH, because nobody *is* a DH until the card is written. So labelling a
+    lineup from the roster alone produces nine fielders and no DH, which is not
+    a lineup anyone recognises. Tonight's card is the only place it exists.
+    """
+
+    class LC:
+        def __init__(self, team, order):
+            self.team_id, self.batting_order = team, order
+
+    def _lineups(self):
+        return (self.LC("BAL", [600001, 600002, 600003]),
+                self.LC("CWS", [600004]))
+
+    def _stub(self, positions):
+        return {"teams": {"home": {"players": {
+            f"ID{pid}": {"person": {"id": pid},
+                         "position": {"abbreviation": pos}}
+            for pid, pos in positions.items()}}, "away": {"players": {}}}}
+
+    def _roster(self):
+        # The roster's view: it calls tonight's DH a first baseman, because a
+        # roster describes a player and a card describes a night.
+        return TeamRoster(set(ACTIVE) | {600001, 600002, 600003, 600004},
+                          positions={600001: "SS", 600002: "CF",
+                                     600003: "1B", 600004: "1B"})
+
+    def _run(self, monkeypatch, stub_or_error):
+        from thebeast.api.main import _attach_positions
+        from thebeast.data.sources.boxscore import MLBBoxscoreSource
+
+        MLBBoxscoreSource.clear_positions()
+        if isinstance(stub_or_error, dict):
+            monkeypatch.setattr(MLBBoxscoreSource, "_fetch_json",
+                                lambda self, u: stub_or_error)
+        else:
+            monkeypatch.setattr(
+                MLBBoxscoreSource, "_fetch_json",
+                lambda self, u: (_ for _ in ()).throw(stub_or_error))
+        roster = self._roster()
+        monkeypatch.setattr(
+            "thebeast.data.sources.availability.MLBAvailabilitySource.roster",
+            lambda s, team: roster)
+        monkeypatch.setattr("thebeast.api.main.get_repo", lambda: type("R", (), {
+            "get_schedule": lambda s, d: [type("G", (), {
+                "game_id": "2026-06-30-CWS-BAL", "game_pk": 777})()]})())
+        home, away = self._lineups()
+        lines = [{"player_id": p} for p in (600001, 600002, 600003, 600004)]
+        return _attach_positions(lines, home, away, "2026-06-30-CWS-BAL")
+
+    def test_the_dh_comes_from_the_posted_card(self, monkeypatch):
+        out = self._run(monkeypatch, self._stub(
+            {600001: "SS", 600002: "CF", 600003: "DH"}))
+        by_id = {l["player_id"]: l for l in out}
+        assert by_id[600003]["position"] == "DH"
+        assert by_id[600003]["position_source"] == "lineup"
+
+    def test_the_card_beats_the_roster(self, monkeypatch):
+        """The roster has him at first base. Tonight he is the DH."""
+        out = self._run(monkeypatch, self._stub({600003: "DH"}))
+        by_id = {l["player_id"]: l for l in out}
+        assert by_id[600003]["position"] == "DH", "roster said 1B"
+
+    def test_no_dh_is_invented_before_the_card_is_posted(self, monkeypatch):
+        """Nine usual positions and no DH is the honest answer — nobody has
+        been assigned one yet."""
+        out = self._run(monkeypatch, ConnectionError("no card yet"))
+        assert not any(l.get("position") == "DH" for l in out)
+        assert all(l["position_source"] == "roster" for l in out)
+
+    def test_the_source_is_declared_either_way(self, monkeypatch):
+        """'Where he usually plays' and 'where he is batting tonight' are
+        different claims, and the column must not blur them."""
+        out = self._run(monkeypatch, self._stub({600001: "SS"}))
+        by_id = {l["player_id"]: l for l in out}
+        assert by_id[600001]["position_source"] == "lineup"
+        assert by_id[600002]["position_source"] == "roster"
+
+    def test_a_player_who_moved_keeps_what_he_actually_played(self, monkeypatch):
+        """A shortstop who pinch-hits shows PH."""
+        out = self._run(monkeypatch, self._stub({600001: "PH"}))
+        by_id = {l["player_id"]: l for l in out}
+        assert by_id[600001]["position"] == "PH"
+
+
+class TestBoxscorePositions:
+    def _source(self, monkeypatch, payload):
+        from thebeast.data.sources.boxscore import MLBBoxscoreSource
+
+        MLBBoxscoreSource.clear_positions()
+        monkeypatch.setattr(MLBBoxscoreSource, "_fetch_json",
+                            lambda self, url: payload)
+        return MLBBoxscoreSource()
+
+    def test_it_reads_positions_before_anyone_has_batted(self, monkeypatch):
+        """The box score parser keeps only players with at-bats — right for a
+        box score, useless before first pitch. This takes the position field
+        alone, so it works from the moment the card is posted."""
+        src = self._source(monkeypatch, {"teams": {
+            "home": {"players": {"ID1": {"person": {"id": 1},
+                                         "position": {"abbreviation": "DH"}}}},
+            "away": {"players": {"ID2": {"person": {"id": 2},
+                                         "position": {"abbreviation": "C"}}}}}})
+        assert src.positions(777) == {1: "DH", 2: "C"}
+
+    def test_an_unreachable_box_score_returns_nothing(self, monkeypatch):
+        from thebeast.data.sources.boxscore import MLBBoxscoreSource
+
+        MLBBoxscoreSource.clear_positions()
+        monkeypatch.setattr(
+            MLBBoxscoreSource, "_fetch_json",
+            lambda self, url: (_ for _ in ()).throw(ConnectionError("down")))
+        assert MLBBoxscoreSource().positions(777) == {}
+
+    def test_it_is_cached_per_game(self, monkeypatch):
+        from thebeast.data.sources.boxscore import MLBBoxscoreSource
+
+        MLBBoxscoreSource.clear_positions()
+        calls = {"n": 0}
+
+        def counting(self, url):
+            calls["n"] += 1
+            return {"teams": {"home": {"players": {
+                "ID1": {"person": {"id": 1},
+                        "position": {"abbreviation": "DH"}}}}}}
+
+        monkeypatch.setattr(MLBBoxscoreSource, "_fetch_json", counting)
+        src = MLBBoxscoreSource()
+        for _ in range(5):
+            src.positions(777)
+        assert calls["n"] == 1, "positions change once a game, not per view"
+
+    def test_a_malformed_entry_is_skipped(self, monkeypatch):
+        src = self._source(monkeypatch, {"teams": {"home": {"players": {
+            "ID1": {"person": {}, "position": {"abbreviation": "DH"}},
+            "ID2": {"person": {"id": 2}},
+            "ID3": {"person": {"id": 3}, "position": {"abbreviation": "1B"}}}}}})
+        assert src.positions(777) == {3: "1B"}

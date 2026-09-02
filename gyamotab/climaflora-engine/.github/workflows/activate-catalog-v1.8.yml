@@ -1,0 +1,145 @@
+name: Activate ClimaFlora catalog v1.8 runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/catalog-v1.8-promotion.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: activate-catalog-v1.8
+  cancel-in-progress: true
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate activation prerequisites
+        id: prereq
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          p=json.loads(Path('.github/catalog-v1.8-promotion.json').read_text())
+          v17=json.loads(Path('.github/production-v1.7-status.json').read_text())
+          assert p['status']=='uploaded_verified', p
+          assert p['catalog_version']=='1.8.0', p
+          assert v17['status']=='ready', v17
+          assert v17['catalog_version']=='1.7.0', v17
+          assert v17['scientific_ready'] is True, v17
+          print('sqlite_sha='+p['sqlite_sha256'])
+          print('zst_sha='+p['zst_sha256'])
+          PY
+
+      - name: Switch runtime configuration to v1.8 and bump app version
+        shell: bash
+        env:
+          V18_SQLITE_SHA: ${{ steps.prereq.outputs.sqlite_sha }}
+          V18_ZST_SHA: ${{ steps.prereq.outputs.zst_sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, re
+          from pathlib import Path
+
+          sqlite_sha=os.environ['V18_SQLITE_SHA']
+          zst_sha=os.environ['V18_ZST_SHA']
+          required='plant_taxa,wcvp_distribution,wcvp_names,plant_index,climate_envelope,soil_envelope,soil_categorical_preference,soil_indicator_preference,soil_geographic_prior,region_soil_summary,evidence,build_metadata,climaflora_catalog_metadata,plant_vernacular_name,plant_image_asset,plant_use,plant_use_reference,plant_trait_evidence'
+
+          def rewrite(path, fn):
+              p=Path(path)
+              old=p.read_text()
+              new=fn(old)
+              if new==old:
+                  raise RuntimeError(f'no change produced for {path}')
+              p.write_text(new)
+
+          def config(s):
+              s=s.replace('climaflora_global_plants_v1_7','climaflora_global_plants_v1_8')
+              s=s.replace('master_expected_catalog_version: str = "1.7.0"','master_expected_catalog_version: str = "1.8.0"')
+              s=re.sub(r'master_expected_sha256: str = "[0-9a-f]*"', f'master_expected_sha256: str = "{zst_sha}"', s)
+              s=re.sub(r'master_expected_sqlite_sha256: str = "[0-9a-f]+"', f'master_expected_sqlite_sha256: str = "{sqlite_sha}"', s)
+              old='plant_taxa,wcvp_distribution,wcvp_names,plant_index,climate_envelope,soil_envelope,soil_categorical_preference,soil_indicator_preference,soil_geographic_prior,region_soil_summary,evidence,build_metadata,climaflora_catalog_metadata,plant_vernacular_name,plant_image_asset'
+              s=s.replace(old,required)
+              return s
+
+          def docker(s):
+              s=s.replace('climaflora_global_plants_v1_7','climaflora_global_plants_v1_8')
+              s=re.sub(r'CLIMAFLORA_MASTER_EXPECTED_SHA256=[0-9a-f]+',f'CLIMAFLORA_MASTER_EXPECTED_SHA256={zst_sha}',s)
+              s=re.sub(r'CLIMAFLORA_MASTER_EXPECTED_SQLITE_SHA256=[0-9a-f]+',f'CLIMAFLORA_MASTER_EXPECTED_SQLITE_SHA256={sqlite_sha}',s)
+              s=s.replace('CLIMAFLORA_MASTER_EXPECTED_CATALOG_VERSION=1.7.0','CLIMAFLORA_MASTER_EXPECTED_CATALOG_VERSION=1.8.0')
+              old='plant_taxa,wcvp_distribution,wcvp_names,plant_index,climate_envelope,soil_envelope,soil_categorical_preference,soil_indicator_preference,soil_geographic_prior,region_soil_summary,evidence,build_metadata,climaflora_catalog_metadata,plant_vernacular_name,plant_image_asset'
+              s=s.replace(old,required)
+              return s
+
+          def deploy(s):
+              s=s.replace('climaflora_global_plants_v1_7','climaflora_global_plants_v1_8')
+              s=re.sub(r'CLIMAFLORA_MASTER_EXPECTED_SHA256: [0-9a-f]+',f'CLIMAFLORA_MASTER_EXPECTED_SHA256: {zst_sha}',s)
+              s=re.sub(r'CLIMAFLORA_MASTER_EXPECTED_SQLITE_SHA256: [0-9a-f]+',f'CLIMAFLORA_MASTER_EXPECTED_SQLITE_SHA256: {sqlite_sha}',s)
+              s=s.replace('CLIMAFLORA_MASTER_EXPECTED_CATALOG_VERSION: 1.7.0','CLIMAFLORA_MASTER_EXPECTED_CATALOG_VERSION: 1.8.0')
+              old='plant_taxa,wcvp_distribution,wcvp_names,plant_index,climate_envelope,soil_envelope,soil_categorical_preference,soil_indicator_preference,soil_geographic_prior,region_soil_summary,evidence,build_metadata,climaflora_catalog_metadata,plant_vernacular_name,plant_image_asset'
+              s=s.replace(old,required)
+              s=s.replace('production variables synchronized for catalog v1.7','production variables synchronized for catalog v1.8')
+              return s
+
+          rewrite('app/config.py',config)
+          rewrite('Dockerfile',docker)
+          rewrite('.github/workflows/deploy-huggingface.yml',deploy)
+
+          Path('app/version.py').write_text('APP_VERSION = "0.9.32"\nMETHOD_VERSION = "climaflora-score-0.6.0"\nCATALOG_SCHEMA_VERSION = "1.8.0"\n')
+          py=Path('pyproject.toml').read_text()
+          py=re.sub(r'(?m)^version = "[0-9.]+"$', 'version = "0.9.32"', py, count=1)
+          Path('pyproject.toml').write_text(py)
+
+          sv=Path('SPACE_VARIABLES.md').read_text()
+          sv=re.sub(r'^# Hugging Face Space variables — production [^\n]+','# Hugging Face Space variables — production 0.9.32',sv,count=1,flags=re.M)
+          sv=sv.replace('production scientific catalog remains v1.6.0','production scientific catalog is v1.8.0')
+          sv=sv.replace('climaflora_global_plants_v1_6','climaflora_global_plants_v1_8')
+          sv=re.sub(r'CLIMAFLORA_MASTER_EXPECTED_SQLITE_SHA256=[0-9a-f]+',f'CLIMAFLORA_MASTER_EXPECTED_SQLITE_SHA256={sqlite_sha}',sv)
+          sv=re.sub(r'CLIMAFLORA_MASTER_EXPECTED_CATALOG_VERSION=[0-9.]+','CLIMAFLORA_MASTER_EXPECTED_CATALOG_VERSION=1.8.0',sv)
+          sv=re.sub(r'CLIMAFLORA_MASTER_REQUIRED_TABLES=.*',f'CLIMAFLORA_MASTER_REQUIRED_TABLES={required}',sv)
+          sv=sv.replace('Rollback remains possible by restoring the v1.2 paths, URL, SHA-256 and expected catalog version. The v1.2 object remains retained on OVH and must not be deleted during normal deployments.','Rollback remains possible to retained v1.7, v1.6 or v1.2 catalog objects. These rollback objects remain on OVH and must not be deleted during normal deployments.')
+          Path('SPACE_VARIABLES.md').write_text(sv)
+
+          # v1.7 is now an immutable verified rollback target; stop auto-verifying it on future deployments.
+          p=Path('.github/workflows/verify-production-v1.7.yml')
+          if p.exists():
+              text=p.read_text()
+              text=re.sub(r'  workflow_run:\n    workflows: \["Deploy to Hugging Face"\]\n    types: \[completed\]\n','',text)
+              text=text.replace("    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'\n",'')
+              p.write_text(text)
+          PY
+
+          grep -q 'APP_VERSION = "0.9.32"' app/version.py
+          grep -q 'CATALOG_SCHEMA_VERSION = "1.8.0"' app/version.py
+          grep -q 'climaflora_global_plants_v1_8.sqlite' app/config.py Dockerfile .github/workflows/deploy-huggingface.yml
+          grep -q "$V18_SQLITE_SHA" app/config.py Dockerfile .github/workflows/deploy-huggingface.yml
+          grep -q "$V18_ZST_SHA" app/config.py Dockerfile .github/workflows/deploy-huggingface.yml
+
+      - name: Commit v1.8 runtime activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/config.py app/version.py pyproject.toml Dockerfile SPACE_VARIABLES.md .github/workflows/deploy-huggingface.yml .github/workflows/verify-production-v1.7.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'Activate ClimaFlora 0.9.32 with catalog v1.8'
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin main
+            git push origin HEAD:main && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

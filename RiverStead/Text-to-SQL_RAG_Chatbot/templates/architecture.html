@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="F1InsightAI System Architecture — RAG Pipeline, LangGraph Agent, and Tech Stack">
+    <title>F1InsightAI — System Architecture</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/architecture.css') }}">
+</head>
+<body>
+    <!-- Background Effects -->
+    <div id="tsparticles"></div>
+    <div class="mouse-spotlight" id="mouseSpotlight"></div>
+    <div class="telemetry-grid"></div>
+
+    <!-- Navigation -->
+    <nav class="arch-nav">
+        <a href="/" class="nav-back" title="Back to Chat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            <span>Back to Chat</span>
+        </a>
+        <div class="nav-brand">
+            <span class="nav-title">F1Insight<span class="accent">AI</span></span>
+            <span class="nav-divider">·</span>
+            <span class="nav-subtitle">System Architecture</span>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <header class="arch-hero">
+        <h1 class="arch-hero-title">How It <span class="accent">Works</span></h1>
+        <p class="arch-hero-sub">From natural language question to intelligent SQL answer — a 9-node agentic pipeline</p>
+        <!-- Live Stats -->
+        <div class="arch-live-stats" id="liveStats">
+            <div class="live-stat">
+                <span class="live-dot online" id="archDot"></span>
+                <span id="archStatus">Connecting...</span>
+            </div>
+            <span class="live-sep">·</span>
+            <div class="live-stat"><span id="archModel">—</span></div>
+            <span class="live-sep">·</span>
+            <div class="live-stat"><span id="archTables">—</span></div>
+            <span class="live-sep">·</span>
+            <div class="live-stat"><span id="archRows">—</span></div>
+        </div>
+    </header>
+
+    <main class="arch-main">
+
+        <!-- Section 1: LangGraph Pipeline -->
+        <section class="arch-section">
+            <div class="section-header">
+                <span class="section-number">01</span>
+                <h2>LangGraph Agent Pipeline</h2>
+                <p>A 9-node stateful graph with conditional routing, self-reflection, and auto-retry</p>
+            </div>
+
+            <div class="pipeline-container">
+                <!-- Row 1: Entry -->
+                <div class="pipeline-row">
+                    <div class="pipe-node entry" data-step="0">
+                        <div class="node-icon">💬</div>
+                        <div class="node-label">User Question</div>
+                    </div>
+                    <div class="pipe-arrow">→</div>
+                    <div class="pipe-node classify" data-step="1">
+                        <div class="node-num">1</div>
+                        <div class="node-label">Classify</div>
+                        <div class="node-desc">Intent Detection</div>
+                    </div>
+                </div>
+
+                <!-- Branch indicator -->
+                <div class="pipeline-branch">
+                    <div class="branch-line left"></div>
+                    <div class="branch-labels">
+                        <span class="branch-label db">Database Query →</span>
+                        <span class="branch-label conv">← Conversation</span>
+                    </div>
+                    <div class="branch-line right"></div>
+                </div>
+
+                <!-- Row 2: Two paths -->
+                <div class="pipeline-row split">
+                    <!-- DB Path -->
+                    <div class="pipeline-path db-path">
+                        <div class="pipe-node retrieve" data-step="2">
+                            <div class="node-num">2</div>
+                            <div class="node-label">Retrieve Schema</div>
+                            <div class="node-desc">RAG: FAISS Top-7</div>
+                        </div>
+                        <div class="pipe-arrow down">↓</div>
+                        <div class="pipe-node generate" data-step="3">
+                            <div class="node-num">3</div>
+                            <div class="node-label">Generate SQL</div>
+                            <div class="node-desc">Groq LLM</div>
+                        </div>
+                        <div class="pipe-arrow down">↓</div>
+                        <div class="pipe-node execute" data-step="4">
+                            <div class="node-num">4</div>
+                            <div class="node-label">Execute SQL</div>
+                            <div class="node-desc">TiDB Cloud</div>
+                        </div>
+                        <div class="pipe-arrow down">↓</div>
+                        <div class="pipe-node reflect" data-step="5">
+                            <div class="node-num">5</div>
+                            <div class="node-label">Reflect</div>
+                            <div class="node-desc">Validate Results</div>
+                        </div>
+
+                        <!-- Retry loop -->
+                        <div class="retry-loop">
+                            <div class="retry-arrow">⟲</div>
+                            <div class="pipe-node retry" data-step="6">
+                                <div class="node-num">6</div>
+                                <div class="node-label">Retry SQL</div>
+                                <div class="node-desc">Error → Fix</div>
+                            </div>
+                        </div>
+
+                        <div class="pipe-arrow down">↓</div>
+                        <div class="pipe-node answer" data-step="7">
+                            <div class="node-num">7</div>
+                            <div class="node-label">Generate Answer</div>
+                            <div class="node-desc">NL Summary</div>
+                        </div>
+                        <div class="pipe-arrow down">↓</div>
+                        <div class="pipe-node followup" data-step="8">
+                            <div class="node-num">8</div>
+                            <div class="node-label">Follow-ups</div>
+                            <div class="node-desc">3 Suggestions</div>
+                        </div>
+                    </div>
+
+                    <!-- Conversation Path -->
+                    <div class="pipeline-path conv-path">
+                        <div class="pipe-node direct" data-step="9">
+                            <div class="node-num">9</div>
+                            <div class="node-label">Direct Answer</div>
+                            <div class="node-desc">No SQL needed</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Output -->
+                <div class="pipeline-row">
+                    <div class="pipe-node output" data-step="10">
+                        <div class="node-icon">📊</div>
+                        <div class="node-label">Response</div>
+                        <div class="node-desc">Answer + SQL + Chart + Table + Follow-ups</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: RAG Pipeline -->
+        <section class="arch-section">
+            <div class="section-header">
+                <span class="section-number">02</span>
+                <h2>RAG Pipeline</h2>
+                <p>Retrieval-Augmented Generation — only relevant schema context is sent to the LLM</p>
+            </div>
+
+            <div class="rag-flow">
+                <div class="rag-step">
+                    <div class="rag-icon">📝</div>
+                    <div class="rag-title">User Question</div>
+                    <div class="rag-detail">"Who has the most wins?"</div>
+                </div>
+                <div class="rag-connector">
+                    <div class="rag-connector-line"></div>
+                    <div class="rag-connector-label">Embed</div>
+                </div>
+                <div class="rag-step">
+                    <div class="rag-icon">🧮</div>
+                    <div class="rag-title">Sentence Transformer</div>
+                    <div class="rag-detail">all-MiniLM-L6-v2 → 384-dim vector</div>
+                </div>
+                <div class="rag-connector">
+                    <div class="rag-connector-line"></div>
+                    <div class="rag-connector-label">Search</div>
+                </div>
+                <div class="rag-step">
+                    <div class="rag-icon">🔍</div>
+                    <div class="rag-title">FAISS Index</div>
+                    <div class="rag-detail">Top-7 cosine similarity + co-occurrence</div>
+                </div>
+                <div class="rag-connector">
+                    <div class="rag-connector-line"></div>
+                    <div class="rag-connector-label">Inject</div>
+                </div>
+                <div class="rag-step">
+                    <div class="rag-icon">🧠</div>
+                    <div class="rag-title">LLM Prompt</div>
+                    <div class="rag-detail">Schema context + few-shot + domain knowledge</div>
+                </div>
+                <div class="rag-connector">
+                    <div class="rag-connector-line"></div>
+                    <div class="rag-connector-label">Generate</div>
+                </div>
+                <div class="rag-step highlight">
+                    <div class="rag-icon">⚡</div>
+                    <div class="rag-title">SQL Query</div>
+                    <div class="rag-detail">SELECT d.forename, COUNT(*) AS wins...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Tech Stack -->
+        <section class="arch-section">
+            <div class="section-header">
+                <span class="section-number">03</span>
+                <h2>Technology Stack</h2>
+                <p>Production-grade tools powering every layer of the system</p>
+            </div>
+
+            <div class="tech-grid">
+                <div class="tech-card">
+                    <div class="tech-icon">🐍</div>
+                    <div class="tech-name">Flask</div>
+                    <div class="tech-role">Backend API</div>
+                    <div class="tech-detail">REST endpoints, orchestration, CORS</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">🤖</div>
+                    <div class="tech-name">LangGraph</div>
+                    <div class="tech-role">Agent Framework</div>
+                    <div class="tech-detail">9-node state graph, conditional edges</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">⚡</div>
+                    <div class="tech-name">Groq API</div>
+                    <div class="tech-role">LLM Inference</div>
+                    <div class="tech-detail">GPT OSS 120B, ~2-3s latency</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">🔎</div>
+                    <div class="tech-name">FAISS</div>
+                    <div class="tech-role">Vector Search</div>
+                    <div class="tech-detail">IndexFlatIP, cosine similarity</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">🗄️</div>
+                    <div class="tech-name">TiDB Cloud</div>
+                    <div class="tech-role">Database</div>
+                    <div class="tech-detail">MySQL-compatible, serverless, SSL</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">📊</div>
+                    <div class="tech-name">Chart.js</div>
+                    <div class="tech-role">Visualizations</div>
+                    <div class="tech-detail">Auto bar/pie/line charts</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">🧮</div>
+                    <div class="tech-name">Sentence-BERT</div>
+                    <div class="tech-role">Embeddings</div>
+                    <div class="tech-detail">all-MiniLM-L6-v2, 384-dim</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">🐳</div>
+                    <div class="tech-name">Docker</div>
+                    <div class="tech-role">Deployment</div>
+                    <div class="tech-detail">Dockerfile + Compose</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Key Features -->
+        <section class="arch-section">
+            <div class="section-header">
+                <span class="section-number">04</span>
+                <h2>Key Capabilities</h2>
+                <p>What makes F1InsightAI different from a basic Text-to-SQL system</p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>Schema-Aware RAG</h3>
+                    <p>Retrieves only relevant tables instead of sending the entire 100+ column schema</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Auto Error Recovery</h3>
+                    <p>Failed queries are fed back to the LLM with error context for automatic correction (up to 2 retries)</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🪞</div>
+                    <h3>Self-Reflection</h3>
+                    <p>The reflect node validates results — checking for empty data, errors, and anomalies before answering</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💬</div>
+                    <h3>Multi-Turn Context</h3>
+                    <p>Last 20 messages are injected for pronoun resolution and follow-up awareness</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📈</div>
+                    <h3>Live RAG Metrics</h3>
+                    <p>MRR, Recall@K, Context Relevance, and Faithfulness computed per query</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🏎️</div>
+                    <h3>F1 Domain Knowledge</h3>
+                    <p>Team name changes, race name history, circuit mappings, and continent-based filtering baked into prompts</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="arch-footer">
+        <p>F1Insight<span class="accent">AI</span> · Capstone Project · Term 8</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/tsparticles-slim@2.12.0/tsparticles.slim.bundle.min.js"></script>
+    <script>
+        // Particles (same config as main page)
+        tsParticles.load("tsparticles", {
+            fullScreen: false,
+            background: { color: "transparent" },
+            fpsLimit: 60,
+            particles: {
+                number: { value: 35, density: { enable: true, area: 900 } },
+                color: { value: ["#E10600", "#FF6B35", "#ff4444", "#cc3300"] },
+                shape: { type: "circle" },
+                opacity: { value: { min: 0.1, max: 0.3 }, animation: { enable: true, speed: 0.8, minimumValue: 0.05 } },
+                size: { value: { min: 1, max: 2.5 } },
+                links: { enable: true, distance: 140, color: "#E10600", opacity: 0.06, width: 1 },
+                move: { enable: true, speed: 0.6, direction: "none", outModes: { default: "out" } }
+            }
+        });
+
+        // Mouse spotlight
+        const spotlight = document.getElementById('mouseSpotlight');
+        document.addEventListener('mousemove', e => {
+            spotlight.style.background = `radial-gradient(600px circle at ${e.clientX}px ${e.clientY}px, rgba(225,6,0,0.04), rgba(255,107,53,0.02), transparent 70%)`;
+        });
+
+        // Fetch live stats
+        async function loadArchStats() {
+            try {
+                const [health, stats] = await Promise.all([
+                    fetch('/api/health').then(r => r.json()),
+                    fetch('/api/stats').then(r => r.json())
+                ]);
+                document.getElementById('archDot').className = 'live-dot ' + (health.status === 'healthy' ? 'online' : 'error');
+                document.getElementById('archStatus').textContent = health.status === 'healthy' ? 'Connected' : 'Offline';
+                document.getElementById('archModel').textContent = stats.model || '—';
+                document.getElementById('archTables').textContent = (stats.table_count || 0) + ' tables';
+                document.getElementById('archRows').textContent = (stats.total_rows || 0).toLocaleString() + ' rows';
+            } catch { /* ignore */ }
+        }
+        loadArchStats();
+
+        // Animate pipeline nodes on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.pipe-node, .rag-step, .tech-card, .feature-card').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

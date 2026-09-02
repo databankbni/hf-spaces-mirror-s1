@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en" class="notranslate" translate="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="google" content="notranslate">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Google History - Present Perfect Master</title>
+  
+  <!-- Ably SDK for Real-time Monitoring -->
+  <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================
+       RESET & GOOGLE PALETTE
+       ========================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    :root {
+      --g-blue: #4285f4;
+      --g-red: #ea4335;
+      --g-yellow: #fbbc05;
+      --g-green: #34a853;
+      --g-bg: #f8f9fa;
+      --g-card-bg: #ffffff;
+      --g-text-main: #202124;
+      --g-text-sub: #5f6368;
+      --g-border: #dadce0;
+      --g-shadow: 0 1px 6px rgba(32,33,36,0.18);
+    }
+
+    body, html {
+      width: 100%;
+      min-height: 100dvh;
+      background-color: var(--g-bg);
+      color: var(--g-text-main);
+      overflow-x: hidden;
+    }
+
+    /* Scrollbar estilo Google */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--g-bg);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #bdc1c6;
+      border-radius: 4px;
+    }
+
+    /* ==========================================
+       SCREENS
+       ========================================== */
+    .screen {
+      display: none;
+      width: 100%;
+      min-height: 100dvh;
+      flex-direction: column;
+      align-items: center;
+      padding: clamp(12px, 3vw, 24px);
+      box-sizing: border-box;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    /* ==========================================
+       1. WELCOME SCREEN
+       ========================================== */
+    #welcome-screen {
+      justify-content: center;
+      text-align: center;
+      max-width: 520px;
+      margin: auto;
+    }
+
+    .google-logo-text {
+      font-size: clamp(2.5rem, 8vw, 4rem);
+      font-weight: 700;
+      letter-spacing: -1.5px;
+      margin-bottom: 8px;
+    }
+
+    .g-b { color: var(--g-blue); }
+    .g-r { color: var(--g-red); }
+    .g-y { color: var(--g-yellow); }
+    .g-g { color: var(--g-green); }
+
+    .welcome-subtitle {
+      color: var(--g-text-sub);
+      font-size: 1.1rem;
+      margin-bottom: 28px;
+    }
+
+    .search-box-sim {
+      width: 100%;
+      background: var(--g-card-bg);
+      border: 1px solid var(--g-border);
+      border-radius: 28px;
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 24px;
+      transition: box-shadow 0.2s ease;
+    }
+
+    .search-box-sim:focus-within {
+      box-shadow: 0 2px 12px rgba(66, 133, 244, 0.3);
+      border-color: var(--g-blue);
+    }
+
+    .input-name {
+      width: 100%;
+      padding: 12px 8px;
+      border: none;
+      outline: none;
+      font-size: 1.1rem;
+      color: var(--g-text-main);
+      background: transparent;
+      text-align: center;
+      font-weight: 500;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .btn-google {
+      background: var(--g-blue);
+      color: white;
+      border: none;
+      border-radius: 24px;
+      padding: 14px 28px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+      transition: transform 0.1s ease, background-color 0.2s;
+      width: 100%;
+    }
+
+    .btn-google:hover {
+      background-color: #3367d6;
+    }
+
+    .btn-google:active {
+      transform: scale(0.98);
+    }
+
+    /* ==========================================
+       2. EXERCISE SCREEN & HUD
+       ========================================== */
+    #exercise-screen {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding-bottom: 40px;
+    }
+
+    .google-search-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--g-bg);
+      padding: 8px 0;
+      border-bottom: 1px solid var(--g-border);
+    }
+
+    .mini-logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      white-space: nowrap;
+    }
+
+    .hud-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .hud-pill {
+      background: var(--g-card-bg);
+      border: 1px solid var(--g-border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .article-layout {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .article-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .article-card {
+      background: var(--g-card-bg);
+      border: 1px solid var(--g-border);
+      border-radius: 16px;
+      padding: clamp(16px, 4vw, 28px);
+      box-shadow: 0 1px 6px rgba(32,33,36,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .p-text {
+      line-height: 2.2;
+      font-size: clamp(1rem, 2.2vw, 1.1rem);
+      color: var(--g-text-main);
+    }
+
+    .google-img-container {
+      float: right;
+      margin: 0 0 12px 16px;
+      text-align: center;
+      max-width: 170px;
+      background: #ffffff;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--g-border);
+    }
+
+    .google-img {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+    }
+
+    .img-caption {
+      font-size: 0.8rem;
+      color: var(--g-text-sub);
+      margin-top: 6px;
+      font-weight: 500;
+    }
+
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .did-you-know-card {
+      background: #f1f3f4;
+      border: 1px solid var(--g-border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+
+    .dyk-badge {
+      background: var(--g-red);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      display: inline-block;
+      margin-bottom: 10px;
+    }
+
+    .dyk-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--g-text-main);
+    }
+
+    .dyk-text {
+      font-size: 0.92rem;
+      color: var(--g-text-sub);
+      line-height: 1.6;
+    }
+
+    .color-legend {
+      display: flex;
+      gap: 16px;
+      background: var(--g-card-bg);
+      border: 1px solid var(--g-border);
+      padding: 10px 16px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .legend-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+    }
+
+    .dot-aux { background: var(--g-blue); }
+    .dot-verb { background: var(--g-red); }
+
+    /* ==========================================
+       SPANS EDITABLES COMPACTOS E INLINE
+       ========================================== */
+    .editable-span {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 70px !important;
+      height: 32px !important;
+      padding: 0 4px !important;
+      border-radius: 8px !important;
+      outline: none;
+      font-weight: 700;
+      text-align: center;
+      transition: all 0.2s ease;
+      cursor: text;
+      user-select: text;
+      -webkit-user-select: text;
+      white-space: nowrap !important;
+      vertical-align: middle !important;
+      font-size: 0.95rem;
+      margin: 0 3px !important;
+      box-sizing: border-box !important;
+    }
+
+    .editable-aux {
+      border: 2px dashed var(--g-blue);
+      background: rgba(66, 133, 244, 0.08);
+      color: #1a73e8;
+    }
+
+    .editable-aux:focus {
+      border-style: solid;
+      background: rgba(66, 133, 244, 0.18);
+      box-shadow: 0 0 6px rgba(66, 133, 244, 0.4);
+    }
+
+    .editable-verb {
+      border: 2px dashed var(--g-red);
+      background: rgba(234, 67, 53, 0.08);
+      color: #d93025;
+      position: relative;
+    }
+
+    .editable-verb:empty::before {
+      content: attr(data-placeholder);
+      color: rgba(234, 67, 53, 0.45);
+      font-style: italic;
+      font-weight: 500;
+      font-size: 0.88em;
+      pointer-events: none;
+      display: inline-block;
+      text-align: center;
+      line-height: 28px;
+    }
+
+    .editable-verb:focus {
+      border-style: solid;
+      background: rgba(234, 67, 53, 0.18);
+      box-shadow: 0 0 6px rgba(234, 67, 53, 0.4);
+    }
+
+    .editable-span.is-correct {
+      border: 2px solid var(--g-green) !important;
+      background: rgba(52, 168, 83, 0.15) !important;
+      color: #137333 !important;
+    }
+
+    .editable-span.is-incorrect {
+      border: 2px solid var(--g-red) !important;
+      background: rgba(234, 67, 53, 0.15) !important;
+      color: #c5221f !important;
+    }
+
+    /* ==========================================
+       SECTION 2: TRUE / FALSE & UNDERLINE
+       ========================================== */
+    .tf-section-card {
+      background: var(--g-card-bg);
+      border: 1px solid var(--g-border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 24px;
+      box-shadow: 0 1px 6px rgba(32,33,36,0.08);
+    }
+
+    .tf-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--g-blue);
+      margin-bottom: 6px;
+    }
+
+    .tf-instruction {
+      font-size: 0.92rem;
+      color: var(--g-text-sub);
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+
+    .tf-row {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--g-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      line-height: 2;
+      font-size: 1.02rem;
+    }
+
+    .tf-row:last-child {
+      border-bottom: none;
+    }
+
+    .tf-text {
+      flex: 1;
+      min-width: 260px;
+    }
+
+    /* Clickable individual words */
+    .tf-word {
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+      display: inline-block;
+      user-select: none;
+      font-weight: 500;
+    }
+
+    .tf-word:hover {
+      background: rgba(66, 133, 244, 0.12);
+    }
+
+    /* Selected state (underlined) */
+    .tf-word.is-selected {
+      text-decoration: underline !important;
+      text-decoration-color: var(--g-blue) !important;
+      text-decoration-thickness: 3px !important;
+      background: rgba(66, 133, 244, 0.15) !important;
+      font-weight: 700 !important;
+    }
+
+    /* Post-validation states */
+    .tf-word.is-correct-target {
+      background: rgba(52, 168, 83, 0.2) !important;
+      text-decoration-color: var(--g-green) !important;
+      color: #137333 !important;
+    }
+
+    .tf-word.is-incorrect-target {
+      background: rgba(234, 67, 53, 0.2) !important;
+      text-decoration-color: var(--g-red) !important;
+      color: #c5221f !important;
+    }
+
+    /* True/False Buttons */
+    .tf-btn-group {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .tf-btn {
+      border: 1px solid var(--g-border);
+      background: var(--g-card-bg);
+      color: var(--g-text-sub);
+      font-weight: 800;
+      border-radius: 16px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.15s ease;
+    }
+
+    .tf-btn:hover {
+      background: #f1f3f4;
+    }
+
+    .tf-btn.active {
+      background: var(--g-blue);
+      color: white;
+      border-color: var(--g-blue);
+    }
+
+    .tf-btn.is-correct-choice {
+      background: var(--g-green) !important;
+      border-color: var(--g-green) !important;
+      color: white !important;
+    }
+
+    .tf-btn.is-incorrect-choice {
+      background: var(--g-red) !important;
+      border-color: var(--g-red) !important;
+      color: white !important;
+    }
+
+    /* FOOTER BOTÓN */
+    .footer-actions {
+      width: 100%;
+      margin-top: 24px;
+      position: sticky;
+      bottom: 12px;
+      z-index: 90;
+    }
+
+    .btn-check {
+      width: 100%;
+      padding: 16px;
+      border-radius: 28px;
+      border: none;
+      background: var(--g-green);
+      color: white;
+      font-size: 1.15rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(52, 168, 83, 0.4);
+      transition: transform 0.1s ease, background-color 0.2s;
+    }
+
+    .btn-check:hover {
+      background-color: #2d9247;
+    }
+
+    .btn-check:active {
+      transform: scale(0.98);
+    }
+
+    /* ==========================================
+       3. RESULTS SCREEN
+       ========================================== */
+    #results-screen {
+      justify-content: center;
+      max-width: 600px;
+      margin: auto;
+      text-align: center;
+    }
+
+    .result-card {
+      background: var(--g-card-bg);
+      border: 1px solid var(--g-border);
+      border-radius: 20px;
+      padding: 24px;
+      width: 100%;
+      margin-bottom: 20px;
+      box-shadow: var(--g-shadow);
+    }
+
+    .result-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .stat-box {
+      background: var(--g-bg);
+      padding: 14px 8px;
+      border-radius: 12px;
+      border: 1px solid var(--g-border);
+    }
+
+    .stat-val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--g-blue);
+    }
+
+    .stat-lbl {
+      font-size: 0.8rem;
+      color: var(--g-text-sub);
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .review-list {
+      max-height: 250px;
+      overflow-y: auto;
+      text-align: left;
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .review-item {
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: var(--g-bg);
+      border: 1px solid var(--g-border);
+    }
+
+    /* ==========================================
+       4. TEACHER MONITOR DASHBOARD
+       ========================================== */
+    #teacher-screen {
+      max-width: 1200px;
+      margin: auto;
+      width: 100%;
+    }
+
+    .teacher-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background: var(--g-card-bg);
+      border-radius: 16px;
+      margin-bottom: 20px;
+      border: 1px solid var(--g-border);
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--g-red);
+      font-weight: 700;
+    }
+
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      background: var(--g-red);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(234, 67, 53, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(234, 67, 53, 0); }
+    }
+
+    .students-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      overflow-y: auto;
+      max-height: calc(100vh - 120px);
+      padding-bottom: 20px;
+    }
+
+    .student-card {
+      background: var(--g-card-bg);
+      border: 1px solid var(--g-border);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: var(--g-shadow);
+    }
+
+    .student-info {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--g-border);
+      padding-bottom: 8px;
+    }
+
+    .student-name-tag {
+      font-weight: 700;
+      color: var(--g-blue);
+    }
+
+    .student-live-answers {
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .live-ans-row {
+      background: var(--g-bg);
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--g-border);
+    }
+  </style>
+</head>
+<body oncontextmenu="return false;">
+
+  <!-- ================= WELCOME SCREEN ================= -->
+  <div id="welcome-screen" class="screen active">
+    <div class="google-logo-text">
+      <span class="g-b">G</span><span class="g-r">o</span><span class="g-y">o</span><span class="g-b">g</span><span class="g-g">l</span><span class="g-r">e</span>
+    </div>
+    <div class="welcome-subtitle">History & Present Perfect Master</div>
+    
+    <div class="search-box-sim">
+      <input type="text" id="student-name" class="input-name" placeholder="Escribe tu nombre para iniciar..." autocomplete="off">
+    </div>
+
+    <button class="btn-google" onclick="startApp()">Buscar e Iniciar Desafío 🚀</button>
+  </div>
+
+  <!-- ================= EXERCISE SCREEN ================= -->
+  <div id="exercise-screen" class="screen">
+    
+    <!-- SEARCH HEADER / HUD -->
+    <div class="google-search-header">
+      <div class="mini-logo">
+        <span class="g-b">G</span><span class="g-r">o</span><span class="g-y">o</span><span class="g-b">g</span><span class="g-g">l</span><span class="g-r">e</span>
+      </div>
+      <div class="hud-bar">
+        <div class="hud-pill">⭐ <span id="hud-score">0</span></div>
+        <div class="hud-pill">🔥 <span id="hud-streak">0</span></div>
+        <div class="hud-pill">🎯 <span id="hud-acc">100%</span></div>
+        <div class="hud-pill">🚀 <span id="hud-prog">0/16</span></div>
+      </div>
+    </div>
+
+    <!-- COLOR LEGEND -->
+    <div class="color-legend">
+      <div class="legend-item">
+        <div class="legend-dot dot-aux"></div>
+        <span>Auxiliar (has / have)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot dot-verb"></div>
+        <span>Past Participle</span>
+      </div>
+    </div>
+
+    <!-- MAIN ARTICLE LAYOUT -->
+    <div class="article-layout">
+      
+      <!-- MAIN TEXT CARD (CHALLENGE 1) -->
+      <div class="article-card">
+        
+        <div class="p-text">
+          Since its start in 1998, Google <span class="editable-span editable-aux" contenteditable="true" data-type="aux" data-id="1"></span><span class="editable-span editable-verb" contenteditable="true" data-type="verb" data-id="1" data-placeholder="become"></span> one of the most popular search engines. It <span class="editable-span editable-aux" contenteditable="true" data-type="aux" data-id="2"></span><span class="editable-span editable-verb" contenteditable="true" data-type="verb" data-id="2" data-placeholder="grow"></span> from a research project in the dormitory room of two college students to a business that now employs approximately 20,000 people.
+        </div>
+
+        <div class="p-text">
+          <div class="google-img-container">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/320px-Google_2015_logo.svg.png" alt="Google Logo" class="google-img">
+            <div class="img-caption">Google Inc. Search Engine</div>
+          </div>
+          Google's founders, Larry Page and Sergey Brin, met in 1995 when they were in their twenties and graduate students in computer science at Stanford University in California. They realized that Internet search was a very important field and began working together to make searching easier. Both Page and Brin left their studies at Stanford to work on their project. Interestingly, they <span class="editable-span editable-aux" contenteditable="true" data-type="aux" data-id="3"></span> never <span class="editable-span editable-verb" contenteditable="true" data-type="verb" data-id="3" data-placeholder="return"></span> to finish their degrees.
+        </div>
+
+        <div class="p-text">
+          Brin was born in Russia, but he <span class="editable-span editable-aux" contenteditable="true" data-type="aux" data-id="4"></span><span class="editable-span editable-verb" contenteditable="true" data-type="verb" data-id="4" data-placeholder="live"></span> in the U.S. since he was five years old. His father was a mathematician in Russia. Page, whose parents were computer experts, <span class="editable-span editable-aux" contenteditable="true" data-type="aux" data-id="5"></span><span class="editable-span editable-verb" contenteditable="true" data-type="verb" data-id="5" data-placeholder="be"></span> interested in computers since he was six years old.
+        </div>
+
+        <div class="p-text">
+          When Google started in 1998, it did 10,000 searches a day. Today it does 235 million searches a day in 40 languages. It indexes 1 trillion Web pages.
+        </div>
+
+        <div class="p-text">
+          How is Google different from other search engines? <span class="editable-span editable-aux" contenteditable="true" data-type="aux" data-id="6"></span> you ever <span class="editable-span editable-verb" contenteditable="true" data-type="verb" data-id="6" data-placeholder="notice"></span> how many ads and banners there are on other search engines? News, sports scores, stock prices, links for shopping, mortgage rates, and more fill other search engines. Brin and Page wanted a clean home page. They believed that people come to the Internet to search for specific information, not to be hit with a lot of unwanted data. The success of Google over its rivals <span class="editable-span editable-aux" contenteditable="true" data-type="aux" data-id="7"></span><span class="editable-span editable-verb" contenteditable="true" data-type="verb" data-id="7" data-placeholder="prove"></span> that this is true.
+        </div>
+
+        <div class="p-text">
+          Over the years, Google <span class="editable-span editable-aux" contenteditable="true" data-type="aux" data-id="8"></span><span class="editable-span editable-verb" contenteditable="true" data-type="verb" data-id="8" data-placeholder="add"></span> new features to its Web site: Google Images, Google News, Google Maps; and more. But one thing <span class="editable-span editable-aux" contenteditable="true" data-type="aux" data-id="9"></span><span class="editable-span editable-verb" contenteditable="true" data-type="verb" data-id="9" data-placeholder="change"></span>: the clean opening page that Google offers its users.
+        </div>
+
+        <div class="p-text" style="color: var(--g-text-sub); font-size: 0.95rem;">
+          In 2009, Forbes.com listed Page and Brin as having net worths of $12 billion each, at 36 and 35 years old.
+        </div>
+
+      </div>
+
+      <!-- SIDEBAR PANEL -->
+      <div class="side-panel">
+        <div class="did-you-know-card">
+          <span class="dyk-badge">Did You Know?</span>
+          <div class="dyk-title">Google as a Verb</div>
+          <div class="dyk-text">
+            The word <strong>"Google"</strong> started as a noun, the company's name. Today people use it as a verb: 
+            <br><br>
+            <em>"I'm going to Google the Civil War to get more information about it."</em>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CHALLENGE 2: TRUE / FALSE & UNDERLINE -->
+    <div class="tf-section-card">
+      <div class="tf-title">CHALLENGE 2: Underline Present Perfect & Select True (T) / False (F)</div>
+      <div class="tf-instruction">
+        👆 <strong>Haz clic en las palabras</strong> que forman el Present Perfect (<em>auxiliar + participio pasado</em>) para subrayarlas. Luego selecciona si la oración es <strong>True (T)</strong> o <strong>False (F)</strong>.
+      </div>
+
+      <div class="tf-rows-container">
+        <!-- Sentence 1 -->
+        <div class="tf-row" data-tf-id="1">
+          <div class="tf-text">
+            1. <span class="tf-word" onclick="toggleWord(this)">Google</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">has</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">grown</span> <span class="tf-word" onclick="toggleWord(this)">over</span> <span class="tf-word" onclick="toggleWord(this)">the</span> <span class="tf-word" onclick="toggleWord(this)">years.</span>
+          </div>
+          <div class="tf-btn-group">
+            <button class="tf-btn" onclick="selectTF(1, 'T', this)">T</button>
+            <button class="tf-btn" onclick="selectTF(1, 'F', this)">F</button>
+          </div>
+        </div>
+
+        <!-- Sentence 2 -->
+        <div class="tf-row" data-tf-id="2">
+          <div class="tf-text">
+            2. <span class="tf-word" onclick="toggleWord(this)">Sergey</span> <span class="tf-word" onclick="toggleWord(this)">Brin</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">has</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">lived</span> <span class="tf-word" onclick="toggleWord(this)">in</span> <span class="tf-word" onclick="toggleWord(this)">the</span> <span class="tf-word" onclick="toggleWord(this)">U.S.</span> <span class="tf-word" onclick="toggleWord(this)">all</span> <span class="tf-word" onclick="toggleWord(this)">his</span> <span class="tf-word" onclick="toggleWord(this)">life.</span>
+          </div>
+          <div class="tf-btn-group">
+            <button class="tf-btn" onclick="selectTF(2, 'T', this)">T</button>
+            <button class="tf-btn" onclick="selectTF(2, 'F', this)">F</button>
+          </div>
+        </div>
+
+        <!-- Sentence 3 -->
+        <div class="tf-row" data-tf-id="3">
+          <div class="tf-text">
+            3. <span class="tf-word" onclick="toggleWord(this)">Larry</span> <span class="tf-word" onclick="toggleWord(this)">Page</span> <span class="tf-word" onclick="toggleWord(this)">and</span> <span class="tf-word" onclick="toggleWord(this)">Sergey</span> <span class="tf-word" onclick="toggleWord(this)">Brin</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">have</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">known</span> <span class="tf-word" onclick="toggleWord(this)">each</span> <span class="tf-word" onclick="toggleWord(this)">other</span> <span class="tf-word" onclick="toggleWord(this)">since</span> <span class="tf-word" onclick="toggleWord(this)">they</span> <span class="tf-word" onclick="toggleWord(this)">were</span> <span class="tf-word" onclick="toggleWord(this)">children.</span>
+          </div>
+          <div class="tf-btn-group">
+            <button class="tf-btn" onclick="selectTF(3, 'T', this)">T</button>
+            <button class="tf-btn" onclick="selectTF(3, 'F', this)">F</button>
+          </div>
+        </div>
+
+        <!-- Sentence 4 -->
+        <div class="tf-row" data-tf-id="4">
+          <div class="tf-text">
+            4. <span class="tf-word" onclick="toggleWord(this)">Larry</span> <span class="tf-word" onclick="toggleWord(this)">Page</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">has</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">been</span> <span class="tf-word" onclick="toggleWord(this)">interested</span> <span class="tf-word" onclick="toggleWord(this)">in</span> <span class="tf-word" onclick="toggleWord(this)">computers</span> <span class="tf-word" onclick="toggleWord(this)">since</span> <span class="tf-word" onclick="toggleWord(this)">he</span> <span class="tf-word" onclick="toggleWord(this)">was</span> <span class="tf-word" onclick="toggleWord(this)">a</span> <span class="tf-word" onclick="toggleWord(this)">child.</span>
+          </div>
+          <div class="tf-btn-group">
+            <button class="tf-btn" onclick="selectTF(4, 'T', this)">T</button>
+            <button class="tf-btn" onclick="selectTF(4, 'F', this)">F</button>
+          </div>
+        </div>
+
+        <!-- Sentence 5 -->
+        <div class="tf-row" data-tf-id="5">
+          <div class="tf-text">
+            5. <span class="tf-word" onclick="toggleWord(this)">Brin</span> <span class="tf-word" onclick="toggleWord(this)">and</span> <span class="tf-word" onclick="toggleWord(this)">Page</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">have</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">returned</span> <span class="tf-word" onclick="toggleWord(this)">to</span> <span class="tf-word" onclick="toggleWord(this)">college</span> <span class="tf-word" onclick="toggleWord(this)">to</span> <span class="tf-word" onclick="toggleWord(this)">finish</span> <span class="tf-word" onclick="toggleWord(this)">their</span> <span class="tf-word" onclick="toggleWord(this)">degrees.</span>
+          </div>
+          <div class="tf-btn-group">
+            <button class="tf-btn" onclick="selectTF(5, 'T', this)">T</button>
+            <button class="tf-btn" onclick="selectTF(5, 'F', this)">F</button>
+          </div>
+        </div>
+
+        <!-- Sentence 6 -->
+        <div class="tf-row" data-tf-id="6">
+          <div class="tf-text">
+            6. <span class="tf-word" onclick="toggleWord(this)">Brin</span> <span class="tf-word" onclick="toggleWord(this)">and</span> <span class="tf-word" onclick="toggleWord(this)">Page</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">have</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">become</span> <span class="tf-word" onclick="toggleWord(this)">rich.</span>
+          </div>
+          <div class="tf-btn-group">
+            <button class="tf-btn" onclick="selectTF(6, 'T', this)">T</button>
+            <button class="tf-btn" onclick="selectTF(6, 'F', this)">F</button>
+          </div>
+        </div>
+
+        <!-- Sentence 7 -->
+        <div class="tf-row" data-tf-id="7">
+          <div class="tf-text">
+            7. <span class="tf-word" onclick="toggleWord(this)">The</span> <span class="tf-word" onclick="toggleWord(this)">noun</span> <span class="tf-word" onclick="toggleWord(this)">“Google”</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">has</span> <span class="tf-word" data-target="true" onclick="toggleWord(this)">become</span> <span class="tf-word" onclick="toggleWord(this)">a</span> <span class="tf-word" onclick="toggleWord(this)">verb.</span>
+          </div>
+          <div class="tf-btn-group">
+            <button class="tf-btn" onclick="selectTF(7, 'T', this)">T</button>
+            <button class="tf-btn" onclick="selectTF(7, 'F', this)">F</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BOTÓN VERIFICAR -->
+    <div class="footer-actions">
+      <button class="btn-check" onclick="checkAnswers()">VERIFICAR RESPUESTAS ✅</button>
+    </div>
+
+  </div>
+
+  <!-- ================= RESULTS SCREEN ================= -->
+  <div id="results-screen" class="screen">
+    <div class="result-card">
+      <h2>🎉 ¡Lectura y Desafío Completados!</h2>
+      <p id="result-user-greeting" style="color: var(--g-text-sub); margin-top: 4px;"></p>
+
+      <div class="result-stats">
+        <div class="stat-box">
+          <div class="stat-val" id="res-score">0</div>
+          <div class="stat-lbl">PUNTOS</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="res-acc">0%</div>
+          <div class="stat-lbl">PRECISIÓN</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="res-streak">0</div>
+          <div class="stat-lbl">RACHA MÁX</div>
+        </div>
+      </div>
+
+      <h4 style="text-align: left; margin-top: 10px;">Resumen de Respuestas:</h4>
+      <div class="review-list" id="review-list"></div>
+    </div>
+
+    <button class="btn-google" onclick="location.reload()">REINTENTAR 🔄</button>
+  </div>
+
+  <!-- ================= TEACHER MONITOR SCREEN ================= -->
+  <div id="teacher-screen" class="screen">
+    <div class="teacher-header">
+      <div>
+        <h2>👨‍🏫 Panel de Monitoreo - TEACHER</h2>
+        <p style="font-size:0.85rem; color: var(--g-text-sub);">Monitoreo de estudiantes en tiempo real</p>
+      </div>
+      <div class="live-badge">
+        <div class="pulse-dot"></div> EN VIVO
+      </div>
+    </div>
+
+    <div class="students-grid" id="students-grid">
+      <!-- Tarjetas de estudiantes en tiempo real -->
+    </div>
+  </div>
+
+  <!-- ================= JAVASCRIPT LOGIC ================= -->
+  <script>
+    /* ==========================================
+       CONFIG & DATA
+       ========================================== */
+    const DISCORD_WEBHOOK = "https://discordapp.com/api/webhooks/1469452628629913741/8cjv78gMP_1L7fqHF2jNMryW9o71dhNt3gNns5IkLjqGjmY0pvR59bNkeLqKR_-GyJnm";
+    const ABLY_API_KEY = "zLtaZw.ID53Wg:UJ3rOKwpfhda37lxinuF24kknvUjk7jub4NO79VC9no";
+    const SUCCESS_SOUND_URL = "https://res.cloudinary.com/dslu7arqa/video/upload/v1775511433/applepay_jptbaf.mp3";
+
+    // Clave de respuestas del texto
+    const answersKeyText = {
+      1: { aux: "has", verb: "become" },
+      2: { aux: "has", verb: "grown" },
+      3: { aux: "have", verb: "returned" },
+      4: { aux: "has", verb: "lived" },
+      5: { aux: "has", verb: "been" },
+      6: { aux: "have", verb: "noticed" },
+      7: { aux: "has", verb: ["proved", "proven"] },
+      8: { aux: "has", verb: "added" },
+      9: { aux: ["hasn't", "has not"], verb: "changed" }
+    };
+
+    // Clave de respuestas Verdadero / Falso
+    const answersKeyTF = {
+      1: "T",
+      2: "F",
+      3: "F",
+      4: "T",
+      5: "F",
+      6: "T",
+      7: "T"
+    };
+
+    let tfChoices = {}; // Almacena { 1: "T", 2: "F", ... }
+    let studentName = "";
+    let sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+    let score = 0;
+    let streak = 0;
+    let maxStreak = 0;
+    let attempts = 0;
+    let ablyRealtime = null;
+    let ablyChannel = null;
+    const successAudio = new Audio(SUCCESS_SOUND_URL);
+
+    // Bloqueo de seguridad: Inspección y atajos
+    document.addEventListener('keydown', (e) => {
+      if (
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+        (e.ctrlKey && e.key === 'u')
+      ) {
+        e.preventDefault();
+      }
+    });
+
+    /* ==========================================
+       APP INITIALIZATION
+       ========================================== */
+    function startApp() {
+      const nameInput = document.getElementById('student-name');
+      studentName = nameInput.value.trim();
+
+      if (!studentName) {
+        alert("Por favor, ingresa tu nombre antes de comenzar.");
+        return;
+      }
+
+      // Check Teacher Invisible Mode
+      if (studentName.toUpperCase() === "TEACHER") {
+        initTeacherMode();
+        return;
+      }
+
+      // Student Mode
+      document.getElementById('welcome-screen').classList.remove('active');
+      document.getElementById('exercise-screen').classList.add('active');
+
+      // Ably setup
+      try {
+        ablyRealtime = new Ably.Realtime(ABLY_API_KEY);
+        ablyChannel = ablyRealtime.channels.get('grammar-room');
+        broadcastLiveState();
+      } catch (e) {
+        console.warn("Ably connection error:", e);
+      }
+
+      setupInputListeners();
+    }
+
+    /* ==========================================
+       INTERACTIVE WORD TOGGLE & T/F SELECTION
+       ========================================== */
+    function toggleWord(elem) {
+      elem.classList.toggle('is-selected');
+      broadcastLiveState();
+    }
+
+    function selectTF(rowId, choice, btnElem) {
+      tfChoices[rowId] = choice;
+      const parent = btnElem.parentElement;
+      parent.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+      btnElem.classList.add('active');
+      broadcastLiveState();
+    }
+
+    /* ==========================================
+       REAL-TIME INPUT & BROADCAST
+       ========================================== */
+    function setupInputListeners() {
+      const editableSpans = document.querySelectorAll('.editable-span');
+      
+      editableSpans.forEach(span => {
+        span.addEventListener('paste', (e) => {
+          e.preventDefault();
+          const text = e.clipboardData.getData('text/plain');
+          document.execCommand('insertText', false, text);
+        });
+
+        span.addEventListener('input', () => {
+          broadcastLiveState();
+        });
+      });
+    }
+
+    function collectCurrentStudentAnswers() {
+      const fillData = {};
+      for (let i = 1; i <= 9; i++) {
+        const auxSpan = document.querySelector(`.editable-aux[data-id="${i}"]`);
+        const verbSpan = document.querySelector(`.editable-verb[data-id="${i}"]`);
+        fillData[i] = {
+          aux: auxSpan ? auxSpan.innerText.trim() : "",
+          verb: verbSpan ? verbSpan.innerText.trim() : ""
+        };
+      }
+
+      const underlineData = {};
+      document.querySelectorAll('.tf-row').forEach(row => {
+        const id = row.getAttribute('data-tf-id');
+        const selectedWords = [];
+        row.querySelectorAll('.tf-word.is-selected').forEach(w => selectedWords.push(w.innerText.trim()));
+        underlineData[id] = selectedWords;
+      });
+
+      return {
+        fill: fillData,
+        tfChoices: tfChoices,
+        underlinedWords: underlineData
+      };
+    }
+
+    function broadcastLiveState() {
+      if (!ablyChannel) return;
+      const currentAnswers = collectCurrentStudentAnswers();
+      ablyChannel.publish('student-update', {
+        sessionId: sessionId,
+        name: studentName,
+        answers: currentAnswers,
+        score: score,
+        timestamp: new Date().toLocaleTimeString()
+      });
+    }
+
+    /* ==========================================
+       CHECK ANSWERS & SCORING SYSTEM
+       ========================================== */
+    function checkAnswers() {
+      attempts++;
+      let correctCount = 0;
+      const totalItems = 32; // 18 de texto + 14 de T/F y subrayado
+      let reviewHTML = "";
+
+      // 1. VALIDAR TEXTO DE LECTURA (18 ÍTEMS)
+      for (let i = 1; i <= 9; i++) {
+        const auxSpan = document.querySelector(`.editable-aux[data-id="${i}"]`);
+        const verbSpan = document.querySelector(`.editable-verb[data-id="${i}"]`);
+
+        const userAux = auxSpan.innerText.trim().toLowerCase();
+        const userVerb = verbSpan.innerText.trim().toLowerCase();
+
+        const targetAux = answersKeyText[i].aux;
+        const targetVerb = answersKeyText[i].verb;
+
+        let isAuxCorrect = Array.isArray(targetAux) ? targetAux.includes(userAux) : userAux === targetAux;
+        if (isAuxCorrect) {
+          auxSpan.classList.add('is-correct');
+          auxSpan.classList.remove('is-incorrect');
+          correctCount++;
+        } else {
+          auxSpan.classList.add('is-incorrect');
+          auxSpan.classList.remove('is-correct');
+        }
+
+        let isVerbCorrect = Array.isArray(targetVerb) ? targetVerb.includes(userVerb) : userVerb === targetVerb;
+        if (isVerbCorrect) {
+          verbSpan.classList.add('is-correct');
+          verbSpan.classList.remove('is-incorrect');
+          correctCount++;
+        } else {
+          verbSpan.classList.add('is-incorrect');
+          verbSpan.classList.remove('is-correct');
+        }
+
+        const expectedAuxStr = Array.isArray(targetAux) ? targetAux.join('/') : targetAux;
+        const expectedVerbStr = Array.isArray(targetVerb) ? targetVerb.join('/') : targetVerb;
+
+        reviewHTML += `
+          <div class="review-item">
+            Text #${i}: Aux: <strong>${userAux || '---'}</strong> ${isAuxCorrect ? '✅' : '❌ ('+expectedAuxStr+')'} | 
+            Verb: <strong>${userVerb || '---'}</strong> ${isVerbCorrect ? '✅' : '❌ ('+expectedVerbStr+')'}
+          </div>
+        `;
+      }
+
+      // 2. VALIDAR SUBRAYADO Y V/F (14 ÍTEMS)
+      document.querySelectorAll('.tf-row').forEach(row => {
+        const id = row.getAttribute('data-tf-id');
+        
+        // Validar Palabras Subrayadas
+        const allWords = row.querySelectorAll('.tf-word');
+        let sentenceUnderlineCorrect = true;
+
+        allWords.forEach(w => {
+          const isTarget = w.getAttribute('data-target') === 'true';
+          const isSelected = w.classList.contains('is-selected');
+
+          if (isTarget && isSelected) {
+            w.classList.add('is-correct-target');
+            w.classList.remove('is-incorrect-target');
+          } else if (isTarget && !isSelected) {
+            w.classList.add('is-incorrect-target');
+            sentenceUnderlineCorrect = false;
+          } else if (!isTarget && isSelected) {
+            w.classList.add('is-incorrect-target');
+            sentenceUnderlineCorrect = false;
+          }
+        });
+
+        if (sentenceUnderlineCorrect) correctCount++;
+
+        // Validar Opción T/F
+        const userChoice = tfChoices[id];
+        const correctChoice = answersKeyTF[id];
+        const btnGroup = row.querySelector('.tf-btn-group');
+        const buttons = btnGroup.querySelectorAll('.tf-btn');
+
+        let tfCorrect = userChoice === correctChoice;
+        if (tfCorrect) correctCount++;
+
+        buttons.forEach(b => {
+          const bChoice = b.innerText.trim();
+          if (bChoice === correctChoice) {
+            b.classList.add('is-correct-choice');
+          } else if (bChoice === userChoice && !tfCorrect) {
+            b.classList.add('is-incorrect-choice');
+          }
+        });
+
+        reviewHTML += `
+          <div class="review-item">
+            T/F #${id}: Underline: ${sentenceUnderlineCorrect ? '✅' : '❌'} | 
+            Choice: <strong>${userChoice || '---'}</strong> ${tfCorrect ? '✅' : '❌ ('+correctChoice+')'}
+          </div>
+        `;
+      });
+
+      const accuracy = Math.round((correctCount / totalItems) * 100);
+
+      if (correctCount === totalItems) {
+        streak++;
+        if (streak > maxStreak) maxStreak = streak;
+        score += 100 + (streak * 10);
+
+        try {
+          successAudio.currentTime = 0;
+          successAudio.play();
+        } catch (e) {}
+
+        setTimeout(() => finishGame(accuracy, reviewHTML), 800);
+      } else {
+        streak = 0;
+        score = Math.max(0, score - 10);
+      }
+
+      // Actualizar HUD
+      document.getElementById('hud-score').innerText = score;
+      document.getElementById('hud-streak').innerText = streak;
+      document.getElementById('hud-acc').innerText = accuracy + "%";
+      document.getElementById('hud-prog').innerText = `${correctCount}/${totalItems}`;
+
+      broadcastLiveState();
+    }
+
+    /* ==========================================
+       FINISH GAME & WEBHOOK TO DISCORD
+       ========================================== */
+    function finishGame(accuracy, reviewHTML) {
+      document.getElementById('exercise-screen').classList.remove('active');
+      document.getElementById('results-screen').classList.add('active');
+
+      document.getElementById('result-user-greeting').innerText = `¡Excelente lectura y gramática, ${studentName}!`;
+      document.getElementById('res-score').innerText = score;
+      document.getElementById('res-acc').innerText = accuracy + "%";
+      document.getElementById('res-streak').innerText = maxStreak;
+      document.getElementById('review-list').innerHTML = reviewHTML;
+
+      // Send Discord Webhook
+      const payload = {
+        username: "Google Grammar Bot",
+        avatar_url: "https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg",
+        embeds: [{
+          title: "🔍 Lectura y T/F Completados - Google History",
+          color: accuracy >= 80 ? 3426611 : 15353397,
+          fields: [
+            { name: "Estudiante", value: studentName, inline: true },
+            { name: "Puntaje ⭐", value: `${score}`, inline: true },
+            { name: "Precisión 🎯", value: `${accuracy}%`, inline: true },
+            { name: "Racha 🔥", value: `${maxStreak}`, inline: true },
+            { name: "Intentos", value: `${attempts}`, inline: true }
+          ],
+          timestamp: new Date().toISOString()
+        }]
+      };
+
+      fetch(DISCORD_WEBHOOK, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).catch(err => console.error("Webhook error:", err));
+    }
+
+    /* ==========================================
+       TEACHER MONITORING MODE (REAL-TIME)
+       ========================================== */
+    const activeStudents = {};
+
+    function initTeacherMode() {
+      document.getElementById('welcome-screen').classList.remove('active');
+      document.getElementById('teacher-screen').classList.add('active');
+
+      try {
+        ablyRealtime = new Ably.Realtime(ABLY_API_KEY);
+        ablyChannel = ablyRealtime.channels.get('grammar-room');
+
+        ablyChannel.subscribe('student-update', (msg) => {
+          const data = msg.data;
+          activeStudents[data.sessionId] = data;
+          renderTeacherGrid();
+        });
+      } catch (e) {
+        alert("Error al conectar con el servicio de monitoreo.");
+      }
+    }
+
+    function renderTeacherGrid() {
+      const grid = document.getElementById('students-grid');
+      grid.innerHTML = "";
+
+      Object.keys(activeStudents).forEach(sId => {
+        const student = activeStudents[sId];
+        const card = document.createElement('div');
+        card.className = "student-card";
+
+        let textRows = "";
+        const fillAns = student.answers.fill || {};
+        for (let i = 1; i <= 9; i++) {
+          const ans = fillAns[i] || { aux: "", verb: "" };
+          textRows += `
+            <div class="live-ans-row">
+              Text #${i}: Aux: <span style="color:#1a73e8; font-weight:700;">${ans.aux || '...'}</span> | 
+              Verb: <span style="color:#d93025; font-weight:700;">${ans.verb || '...'}</span>
+            </div>
+          `;
+        }
+
+        let tfRows = "";
+        const tfChoices = student.answers.tfChoices || {};
+        const underlined = student.answers.underlinedWords || {};
+        for (let i = 1; i <= 7; i++) {
+          const choice = tfChoices[i] || "-";
+          const words = (underlined[i] || []).join(", ");
+          tfRows += `
+            <div class="live-ans-row">
+              T/F #${i}: [${choice}] | Words: <span style="color:#34a853; font-weight:700;">${words || 'ninguna'}</span>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="student-info">
+            <span class="student-name-tag">👤 ${student.name}</span>
+            <span style="font-size:0.8rem; color:var(--g-text-sub);">${student.timestamp}</span>
+          </div>
+          <div class="student-live-answers">
+            <strong style="color:var(--g-blue);">Reading Fill-ins:</strong>
+            ${textRows}
+            <strong style="color:var(--g-red); margin-top:8px;">T/F & Underlines:</strong>
+            ${tfRows}
+          </div>
+        `;
+
+        grid.appendChild(card);
+      });
+    }
+  </script>
+</body>
+</html>

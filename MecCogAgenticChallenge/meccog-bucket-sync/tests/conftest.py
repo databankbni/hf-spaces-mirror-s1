@@ -24,6 +24,7 @@ from app.deps import (
     get_verifier,
 )
 from app.main import app as fastapi_app
+from app.merge_bot import MergeBot
 from app.notify import Notifier
 from app.org_roles import OrgRoles
 from app.rate_limit import CompoundLimiter, TokenBucket
@@ -105,6 +106,7 @@ def make_env():
             runner=runner,
             verifier=verifier,
             notifier=notifier,
+            merge_bot=MergeBot(settings, hub, read_model),
             client=TestClient(fastapi_app),
         )
 

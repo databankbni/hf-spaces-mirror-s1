@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5C1A2B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="בחירת יינות לתפריט מתוך 16 יקבי בוטיק ישראליים — יין בכוסות ויין בבקבוקים, כולל תמחור ומע״מ">
+<title>בחירת יינות לתפריט — כוסות ובקבוקים</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Frank+Ruhl+Libre:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header>
+  <div class="hwrap">
+    <div class="htop">
+      <h1>בחירת יינות לתפריט<small><span id="wtot">—</span> יקבי בוטיק ישראליים · <span id="ctot">—</span> יינות · יין בכוסות ויין בבקבוקים</small></h1>
+      <button class="btn ghost fbtn" id="ftog">סינון</button>
+      <div class="spacer"></div>
+      <div class="counters">
+        <div class="cbox"><b id="cg">0</b><span>בכוסות</span><em id="cge">—</em></div>
+        <div class="cbox"><b id="cb">0</b><span>בבקבוקים</span><em id="cbe">—</em></div>
+        <div class="cbox"><b id="cv">—</b><span>מוצגים</span><em id="cve">&nbsp;</em></div>
+      </div>
+    </div>
+  </div>
+  <div class="filters">
+    <input type="text" id="q" placeholder="חיפוש — שם יין, יקב, זן…" style="min-width:210px">
+    <select id="fw"><option value="">כל היקבים</option></select>
+    <div class="fgroup"><span class="flabel">סוג:</span><span id="fcat"></span></div>
+    <div class="fgroup"><span class="flabel">כשרות:</span><span id="fkos"></span></div>
+    <div class="fgroup"><span class="flabel">עלות:</span><span id="fcost"></span></div>
+    <select id="fsort">
+      <option value="">מיון לפי יקב</option>
+      <option value="ca">מיון לפי עלות — מהזול ליקר</option>
+      <option value="cd">מיון לפי עלות — מהיקר לזול</option>
+    </select>
+    <button class="chip" id="fun">הסתר לא-מאומתים ✳</button>
+    <button class="chip" id="fsel">רק שנבחרו</button>
+    <button class="btn ghost" id="freset">נקה סינון</button>
+  </div>
+  <div class="quota" id="quota"></div>
+</header>
+
+<main>
+  <details class="hint">
+    <summary>איך זה עובד?</summary>
+    לכל יין יש שני כפתורים — <b>כוס</b> ו<b>בקבוק</b>. אפשר לסמן אחד מהם או את שניהם.
+    יינות שכבר יש להם עלות ידועה מסומנים ב<span class="cst">עלות … ₪</span>, והעלות נכנסת אליהם אוטומטית ברגע שבוחרים אותם — אפשר לשנות אותה בכל רגע.
+    את שאר התמחור ממלאים בחלונית <b>הרשימה שלי</b>: מזינים את עלות הקנייה לפני מע"מ, והכלי מחשב את העלות כולל מע"מ ואת המכפיל מול מחיר התפריט שנקבע.
+    הסימן <span class="q">✳</span> מציין פרט שלא אומת במקור רשמי.
+    בחלונית גם אפשר לקבוע את גודל המזיגה לכוס, כדי לראות את עלות הכוס הנגזרת מעלות הבקבוק,
+    ולקבוע מכפיל לכל טווח עלות — הכלי מציע מחיר לכל שורה, והוא נכנס לתפריט רק בלחיצה.
+    ברשימה שלמעלה אפשר לסנן ולמיין את היינות לפי עלות.
+    הבחירה והמחירים נשמרים אוטומטית במכשיר, כך שאפשר לסגור ולחזור בלי לאבד כלום.
+  </details>
+  <div id="list"></div>
+  <div class="empty" id="empty" style="display:none">לא נמצאו יינות שמתאימים לסינון הנוכחי.</div>
+</main>
+
+<button class="fab" id="fab">הרשימה שלי · <b><span id="fabn">0</span></b></button>
+<div class="overlay" id="ov"></div>
+
+<aside class="drawer" id="dr">
+  <div class="dhead">
+    <h2>הרשימה שלי</h2>
+    <button class="btn ghost" id="drclose">סגירה</button>
+  </div>
+  <div class="dbody">
+    <div id="stats"></div>
+    <div class="vatbar">
+      <span>שיעור מע"מ</span>
+      <input type="number" id="vat" value="18" min="0" max="100" step="0.5"> <span>%</span>
+      <span>מזיגה לכוס</span>
+      <input type="number" id="pour" value="175" min="30" max="400" step="5"> <span>מ"ל</span>
+      <span class="small" id="pinfo"></span>
+      <span class="spacer" style="flex:1"></span>
+      <span id="vsum" class="small">עדיין לא הוזנו עלויות</span>
+    </div>
+    <div class="seclist" id="sel"></div>
+    <div class="saveblock">
+      <h3 style="margin-top:22px">שמירה ושחזור</h3>
+      <p class="small" id="autos">הבחירה והמחירים נשמרים אוטומטית במכשיר הזה ונטענים בפתיחה הבאה.</p>
+      <p class="small">הקוד שלהלן כולל את הכל — שומרים אותו בצד כגיבוי או כדי להעביר את הרשימה למכשיר אחר, מדביקים ולוחצים "שחזור".</p>
+      <textarea id="code" spellcheck="false"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn line" id="cpcode">העתקת קוד</button>
+        <button class="btn line" id="restore">שחזור מהקוד</button>
+        <button class="btn line" id="clear">איפוס הבחירה</button>
+      </div>
+    </div>
+  </div>
+  <div class="dfoot">
+    <button class="btn dark" id="share">שליחת הרשימה</button>
+    <button class="btn" id="cptxt">העתקת הרשימה</button>
+    <button class="btn" id="dltxt">הורדה כקובץ טקסט</button>
+    <button class="btn line" id="dlcsv">הורדה כ-CSV</button>
+    <button class="btn line" id="prt">הדפסה</button>
+  </div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script src="w0.js"></script>
+<script src="w1.js"></script>
+<script src="w2.js"></script>
+<script src="w3.js"></script>
+<script src="w4.js"></script>
+<script src="w5.js"></script>
+<script src="a1.js"></script>
+<script src="a2.js"></script>
+</body>
+</html>

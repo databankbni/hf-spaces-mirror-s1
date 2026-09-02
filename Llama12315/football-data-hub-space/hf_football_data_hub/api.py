@@ -8,16 +8,17 @@ extension is permitted as the project evolves through Phase 2B → Phase 3 → F
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, datetime, timedelta
 import secrets
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Header, BackgroundTasks
 from pydantic import BaseModel, Field
 
 from .settings import settings
 import collect_api  # noqa: E402  (cloud collector, data-only)
-from .dataset_store import store, rel_hot_pool, rel_crow_full_merged_pool, rel_packet, rel_status, rel_correct_score, rel_crow_screener
+from .dataset_store import store, rel_hot_pool, rel_crow_full_merged_pool, rel_packet, rel_status, rel_correct_score, rel_crow_screener, shanghai_day, packet_lookup_days
 from .titan007_correct_score import match_view, collect_correct_score
 from .packet_builder import PACKET_VERSION
 from .lifecycle_keepalive import (
@@ -138,7 +139,7 @@ def ready():
     """
     dataset_ok = bool(settings.has_remote_dataset)
 
-    today = date.today().isoformat()
+    today = shanghai_day()
     hot_pool = load_crow_full_pool(today)
 
     hot_pool_ok = hot_pool is not None
@@ -192,7 +193,7 @@ def warmup(req: WarmupRequest, x_api_key: str | None = Header(default=None)):
     _ = settings.data_dir.exists()
 
     hot_pool_ok = False
-    today = date.today().isoformat()
+    today = shanghai_day()
     hot_pool = load_crow_full_pool(today)
     if hot_pool:
         hot_pool_ok = True
@@ -242,8 +243,8 @@ def get_daily_hot_pool_status():
 
 
 @app.get("/hot-matches")
-def get_hot_matches(date_: str | None = None):
-    day = date_ or date.today().isoformat()
+def get_hot_matches(date_: str | None = None, date: str | None = None):
+    day = date_ or date or shanghai_day()
     data = load_crow_full_pool(day)
     if not data:
         return {"ok": False, "date": day, "matches": [], "reason": "hot_match_pool_not_found"}
@@ -259,8 +260,15 @@ def put_hot_matches(pool: HotMatchPool, x_api_key: str | None = Header(default=N
 
 @app.get("/match-packet")
 def get_match_packet(match_id: str, date_: str | None = None):
-    day = date_ or date.today().isoformat()
-    packet, freshness = store.packet_with_freshness(rel_packet(day, match_id))
+    days = packet_lookup_days(date_)
+    packet = None
+    freshness = {"eligible_for_directional_analysis": False, "reason": "packet_not_found"}
+    day = days[0]
+    for candidate_day in days:
+        packet, freshness = store.packet_with_freshness(rel_packet(candidate_day, match_id))
+        if packet:
+            day = candidate_day
+            break
     if not packet:
         return {
             "ok": False,
@@ -270,17 +278,18 @@ def get_match_packet(match_id: str, date_: str | None = None):
             "freshness_contract": freshness,
             "reason": "packet_not_found_dataset_only",
         }
+    # Preserve the immutable packet returned by HF. The server already stores
+    # packet_sha256 over this exact object; API-only enrichment is returned beside
+    # it and must never mutate the packet.
     packet = dict(packet)
-    # Attach optional correct-score enrichment if the Dataset has it for the
-    # same source date. This is non-blocking and never a primary odds source.
     cs_payload = store.load_json(rel_correct_score(day), prefer_remote=True)
     if cs_payload:
         try:
-            packet["correct_score_enrichment"] = match_view(cs_payload, str(match_id))
+            correct_score_enrichment = match_view(cs_payload, str(match_id))
         except Exception as exc:
-            packet["correct_score_enrichment"] = {"ok": False, "source": "titan007_jingcai_score_market", "blocking": False, "crow_or_crown": False, "reason": f"attach_failed:{type(exc).__name__}"}
+            correct_score_enrichment = {"ok": False, "source": "titan007_jingcai_score_market", "blocking": False, "crow_or_crown": False, "reason": f"attach_failed:{type(exc).__name__}"}
     else:
-        packet["correct_score_enrichment"] = {"ok": False, "source": "titan007_jingcai_score_market", "blocking": False, "crow_or_crown": False, "reason": "correct_score_dataset_not_found"}
+        correct_score_enrichment = {"ok": False, "source": "titan007_jingcai_score_market", "blocking": False, "crow_or_crown": False, "reason": "correct_score_dataset_not_found"}
     if not freshness.get("eligible_for_directional_analysis"):
         return {
             "ok": False,
@@ -289,12 +298,14 @@ def get_match_packet(match_id: str, date_: str | None = None):
             "source_mode": "hf_remote_packet",
             "packet": packet,
             "freshness_contract": freshness,
+            "correct_score_enrichment": correct_score_enrichment,
             "reason": "packet_stale_or_nonlive",
             "raw_returned": False,
         }
     return {
         "ok": True,
         "packet": packet,
+        "correct_score_enrichment": correct_score_enrichment,
         "source_mode": "hf_remote_packet",
         "freshness_contract": freshness,
         "packet_size_kb": packet.get("packet_meta", {}).get("packet_size_kb"),
@@ -326,7 +337,7 @@ def refresh_match(req: RefreshRequest, x_api_key: str | None = Header(default=No
 @app.get("/crow-screener")
 def get_crow_screener(match_id: str, date_: str | None = None):
     """Serve one immutable data-only Crow artifact from the Dataset."""
-    day = date_ or date.today().isoformat()
+    day = date_ or shanghai_day()
     data = store.load_json(rel_crow_screener(day, match_id), prefer_remote=True)
     if not data:
         return {"ok": False, "date": day, "match_id": match_id, "reason": "crow_artifact_not_found_dataset_only", "blocking": False}
@@ -340,7 +351,7 @@ def get_correct_score(match_id: str | None = None, date_: str | None = None):
     This is not Crow/Crown bookmaker data. It is never blocking and never a final
     pick source; Hermes may use it only to audit AH/OU depth and settlement paths.
     """
-    day = date_ or date.today().isoformat()
+    day = date_ or shanghai_day()
     data = store.load_json(rel_correct_score(day), prefer_remote=True)
     if not data:
         return {"ok": False, "date": day, "source": "titan007_jingcai_score_market", "reason": "correct_score_dataset_not_found", "blocking": False, "crow_or_crown": False}
@@ -357,7 +368,7 @@ def refresh_correct_score(req: CorrectScoreRefreshRequest, x_api_key: str | None
     score page. It is data-only and non-blocking; no prediction is made here.
     """
     require_api_key(x_api_key)
-    day = req.date or date.today().isoformat()
+    day = req.date or shanghai_day()
     payload = collect_correct_score()
     meta = store.save_json(rel_correct_score(day), payload)
     status_payload = store.load_json(rel_status(day)) or {"artifact_type": "source_status", "pool_date": day}
@@ -368,6 +379,7 @@ def refresh_correct_score(req: CorrectScoreRefreshRequest, x_api_key: str | None
 
 class CollectPacketsRequest(BaseModel):
     match_ids: list[str] | None = None
+    admissions: dict[str, dict] | None = None
     date: str | None = None
     lead_minutes: int = 20
     horizon_minutes: int = 240
@@ -392,7 +404,7 @@ def collect_packets(req: CollectPacketsRequest, background: BackgroundTasks,
     Data-only: no direction, stake, or bankroll is produced.
     """
     require_api_key(x_api_key)
-    day = req.date or date.today().isoformat()
+    day = req.date or shanghai_day()
     if req.match_ids:
         targets = [str(m) for m in req.match_ids]
     else:
@@ -405,7 +417,7 @@ def collect_packets(req: CollectPacketsRequest, background: BackgroundTasks,
                 "horizon_minutes": req.horizon_minutes, "targets": 0}
     workers = req.workers or collect_api.MAX_WORKERS
     background.add_task(collect_api.run_batch, targets, day,
-                        _save_cloud_packet, workers)
+                        _save_cloud_packet, workers, req.admissions or {})
     return {"ok": True, "accepted": True, "date": day,
             "targets": len(targets), "match_ids": targets,
             "workers": workers, "data_only": True,
@@ -450,7 +462,7 @@ def egress_probe(match_id: str = "2971043", company_id: str = "3"):
 
 @app.get("/source-status")
 def source_status(date_: str | None = None):
-    day = date_ or date.today().isoformat()
+    day = date_ or shanghai_day()
     data = store.load_json(rel_status(day))
     if not data:
         return {

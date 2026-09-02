@@ -3,14 +3,16 @@ from __future__ import annotations
 
 import logging
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
 from huggingface_hub import (
+    HfApi,
     batch_bucket_files,
     bucket_info,
     download_bucket_files,
+    hf_hub_download,
     list_bucket_tree,
     whoami,
 )
@@ -47,6 +49,31 @@ class HubIdentity:
 class OrgMemberRole:
     user: str
     role: str
+
+
+@dataclass
+class PRComment:
+    author: str        # HF username
+    text: str
+    created_at: str = ""
+
+
+@dataclass
+class PullRequest:
+    num: int
+    title: str
+    author: str        # HF username of the PR author
+    status: str        # "open" | "closed" | "merged" | "draft"
+    created_at: str = ""
+
+
+@dataclass
+class PRThread:
+    description: str           # the first comment (carries the `agent:` header)
+    comments: list["PRComment"]  # all comments, in chronological order
+    # Git-level merge state: non-empty means the PR conflicts with main and
+    # CANNOT be merged until rebased, regardless of approvals.
+    conflicting_files: list[str] = field(default_factory=list)
 
 
 class HubClient:
@@ -426,3 +453,137 @@ class HubClient:
         )
         for r in results:
             yield r
+
+    # ───────────────────────── Dataset Pull Requests (curation) ─────────────────────────
+    #
+    # The curated final set is a HF *dataset* repo; agents propose add/remove of
+    # entry files through native Hub PRs and the merge-bot merges those that
+    # clear the review bar with this admin token. All best-effort: a Hub hiccup
+    # returns an empty/false result and the next poll retries.
+
+    @property
+    def _api(self) -> HfApi:
+        return HfApi(token=self._token)
+
+    @staticmethod
+    def _username(author: object) -> str:
+        """HF discussion/event author -> username string. The Hub returns either
+        a bare username or an object/dict carrying it under name/user."""
+        if isinstance(author, str):
+            return author
+        if isinstance(author, dict):
+            return str(author.get("name") or author.get("user") or "")
+        return str(getattr(author, "name", "") or getattr(author, "user", "") or "")
+
+    def list_dataset_prs(self, repo_id: str, status: str = "open") -> list[PullRequest]:
+        out: list[PullRequest] = []
+        try:
+            for d in self._api.get_repo_discussions(repo_id=repo_id, repo_type="dataset"):
+                if not getattr(d, "is_pull_request", False):
+                    continue
+                if status and getattr(d, "status", None) != status:
+                    continue
+                out.append(
+                    PullRequest(
+                        num=int(d.num),
+                        title=str(getattr(d, "title", "") or ""),
+                        author=self._username(getattr(d, "author", "")),
+                        status=str(getattr(d, "status", "") or ""),
+                        created_at=str(getattr(d, "created_at", "") or ""),
+                    )
+                )
+        except (RepositoryNotFoundError, HfHubHTTPError, ValueError) as e:
+            log.warning("list_dataset_prs(%s) failed: %s", repo_id, e)
+        return out
+
+    def get_pr_thread(self, repo_id: str, num: int) -> PRThread:
+        comments: list[PRComment] = []
+        conflicting: list[str] = []
+        try:
+            details = self._api.get_discussion_details(
+                repo_id=repo_id, discussion_num=num, repo_type="dataset"
+            )
+            for ev in getattr(details, "events", []) or []:
+                if getattr(ev, "type", None) != "comment":
+                    continue
+                comments.append(
+                    PRComment(
+                        author=self._username(getattr(ev, "author", "")),
+                        text=str(getattr(ev, "content", "") or getattr(ev, "raw", "") or ""),
+                        created_at=str(getattr(ev, "created_at", "") or ""),
+                    )
+                )
+            conflicting = list(getattr(details, "conflicting_files", None) or [])
+        except (RepositoryNotFoundError, HfHubHTTPError, EntryNotFoundError, ValueError) as e:
+            log.warning("get_pr_thread(%s, %s) failed: %s", repo_id, num, e)
+        description = comments[0].text if comments else ""
+        return PRThread(description=description, comments=comments, conflicting_files=conflicting)
+
+    def list_dataset_tree(self, repo_id: str, revision: str = "main") -> dict[str, str]:
+        """{path: blob id} for a dataset revision. Diffing two revisions' blob
+        ids reveals adds, deletes, and modifications without downloading."""
+        out: dict[str, str] = {}
+        try:
+            for entry in self._api.list_repo_tree(
+                repo_id, repo_type="dataset", revision=revision, recursive=True,
+            ):
+                blob = getattr(entry, "blob_id", None)
+                if blob:
+                    out[entry.path] = str(blob)
+        except (RepositoryNotFoundError, HfHubHTTPError, EntryNotFoundError, ValueError) as e:
+            log.debug("list_dataset_tree(%s@%s) failed: %s", repo_id, revision, e)
+        return out
+
+    def read_dataset_bytes(self, repo_id: str, path: str, revision: str = "main") -> bytes | None:
+        """Read one file from a dataset revision; None if missing/unreadable."""
+        try:
+            local = hf_hub_download(
+                repo_id, path, repo_type="dataset", revision=revision, token=self._token,
+            )
+            return Path(local).read_bytes()
+        except (RepositoryNotFoundError, HfHubHTTPError, EntryNotFoundError, ValueError) as e:
+            log.debug("read_dataset_bytes(%s@%s:%s) failed: %s", repo_id, revision, path, e)
+            return None
+
+    def merge_pr(self, repo_id: str, num: int, comment: str | None = None) -> bool:
+        try:
+            self._api.merge_pull_request(
+                repo_id=repo_id, discussion_num=num, comment=comment, repo_type="dataset",
+            )
+            return True
+        except (RepositoryNotFoundError, HfHubHTTPError, ValueError) as e:
+            log.warning("merge_pr(%s, %s) failed: %s", repo_id, num, e)
+            return False
+
+    def comment_pr(self, repo_id: str, num: int, comment: str) -> bool:
+        try:
+            self._api.comment_discussion(
+                repo_id=repo_id, discussion_num=num, comment=comment, repo_type="dataset",
+            )
+            return True
+        except (RepositoryNotFoundError, HfHubHTTPError, ValueError) as e:
+            log.warning("comment_pr(%s, %s) failed: %s", repo_id, num, e)
+            return False
+
+    def close_pr(self, repo_id: str, num: int) -> bool:
+        try:
+            self._api.change_discussion_status(
+                repo_id=repo_id, discussion_num=num, new_status="closed", repo_type="dataset",
+            )
+            return True
+        except (RepositoryNotFoundError, HfHubHTTPError, ValueError) as e:
+            log.warning("close_pr(%s, %s) failed: %s", repo_id, num, e)
+            return False
+
+    def upload_dataset_file(self, repo_id: str, path_in_repo: str, data: bytes, message: str) -> bool:
+        """Commit one file to a dataset's main branch (the merge-bot's README
+        index regen). Best-effort — a failure just leaves the index stale."""
+        try:
+            self._api.upload_file(
+                path_or_fileobj=data, path_in_repo=path_in_repo, repo_id=repo_id,
+                repo_type="dataset", commit_message=message,
+            )
+            return True
+        except (RepositoryNotFoundError, HfHubHTTPError, ValueError) as e:
+            log.warning("upload_dataset_file(%s:%s) failed: %s", repo_id, path_in_repo, e)
+            return False

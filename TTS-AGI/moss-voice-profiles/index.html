@@ -1,0 +1,281 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOSS voice profiles — conditioned speech corpus</title>
+<style>
+:root{--bg:#fbfaf8;--fg:#1c1b19;--mut:#6b6862;--line:#e3e0da;--acc:#7c3aed;--good:#15803d;--bad:#b91c1c;--warn:#a16207;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#14131a;--fg:#e9e7e4;--mut:#9a968e;--line:#2c2a33;--acc:#a78bfa;--good:#4ade80;--bad:#f87171;--warn:#fbbf24;--card:#1b1a22}}
+:root[data-theme=dark]{--bg:#14131a;--fg:#e9e7e4;--mut:#9a968e;--line:#2c2a33;--acc:#a78bfa;--good:#4ade80;--bad:#f87171;--warn:#fbbf24;--card:#1b1a22}
+:root[data-theme=light]{--bg:#fbfaf8;--fg:#1c1b19;--mut:#6b6862;--line:#e3e0da;--acc:#7c3aed;--good:#15803d;--bad:#b91c1c;--warn:#a16207;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;padding:0 20px 70px}
+.wrap{max-width:900px;margin:0 auto}
+h1{font-size:31px;margin:44px 0 6px;letter-spacing:-.02em}
+h2{font-size:22px;margin:46px 0 12px;padding-top:18px;border-top:1px solid var(--line)}
+.sub{color:var(--mut);font-size:15px;margin:0 0 28px}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14.5px;display:block;overflow-x:auto}
+th,td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:left}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--mut)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.cards{display:flex;gap:14px;flex-wrap:wrap;margin:20px 0}
+.c{flex:1;min-width:250px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;text-decoration:none;color:inherit;display:block}
+.c:hover{border-color:var(--acc)}
+.c b{display:block;font-size:17px;color:var(--acc);margin-bottom:5px}
+.c span{font-size:14px;color:var(--mut)}
+.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:11px;padding:16px 19px;margin:18px 0}
+.note.w{border-left-color:var(--warn)}
+.note.b{border-left-color:var(--bad)}
+.big{font-size:17px}
+code{background:rgba(124,58,237,.1);padding:1px 5px;border-radius:4px;font:13px ui-monospace,monospace}
+ul{margin:10px 0;padding-left:22px}li{margin:6px 0}
+a{color:var(--acc)}
+</style>
+<div class=wrap>
+
+<h1>MOSS voice profiles</h1>
+<p class=sub>A conditioned-speech corpus generator: for one reference voice, every emotion at four
+intensity/containment settings, every VoiceNet dimension at four levels, edge cases and style
+variants — in English <b>and</b> German, from the same sentence.</p>
+
+<h2 style="margin-top:26px">1 &middot; The plan</h2>
+<div class=cards>
+<a class=c href="corpus_plan.html"><b>The full corpus plan &amp; costing &rarr;</b>
+<span>What gets built, why, and what it costs. 6,000 voices x 832 conditions = 240 M samples,
+523k hours. GPU-hours broken out per condition block and per scale (100 / 500 / 1,000 / 6,000
+voices), text sourcing, hard-for-TTS domains, vocal-burst balancing, storage. Written for
+outsiders.</span></a>
+</div>
+
+<h2>2 &middot; Listen &mdash; speech</h2>
+<div class=cards>
+<a class=c href="demo_compare.html"><b>Demo grid: old sentence vs written-for-the-condition &rarr;</b>
+<span>The comparison, side by side in one table. Same voice, same adapters, same seeds &mdash; only
+the words differ. All 808 groups, both languages, every emotion at all four settings.</span></a>
+<a class=c href="voices.html"><b>Complete voice profiles &rarr;</b>
+<span>Three full profiles of the same reference voice, all 832 conditions each, with every VoiceNet
+dimension at four levels so the extremes sit side by side.</span></a>
+<a class=c href="profile_rw.html"><b>&mdash; Profile RW: sentences written per condition</b>
+<span>The current best configuration.</span></a>
+<a class=c href="https://huggingface.co/spaces/TTS-AGI/moss-voice-profiles-vc"><b>&mdash; Voice-converted A/B &rarr;</b>
+<span>Separate Space. All 832 conditions again, each next to its Chatterbox voice-converted
+version, level-matched at playback. Conversion buys speaker identity (0.507 &rarr; 0.726, every
+group) and costs emotional fidelity &mdash; both numbers on every row. Best of three noise
+draws, selected on the 40-dimension emotion vector.</span></a>
+<a class=c href="profile_a.html"><b>&mdash; Profile A: borrowed sentences</b>
+<span>The baseline it is compared against.</span></a>
+<a class=c href="profile_b.html"><b>&mdash; Profile B: +25 % Mediathek LoRA</b>
+<span>Kept so the null result is audible.</span></a>
+<a class=c href="demo_grid.html"><b>&mdash; Original demo grid</b>
+<span>The first grid, 1,617 clips. Superseded by the pages above.</span></a>
+</div>
+
+<h2>3 &middot; Listen &mdash; music</h2>
+<div class=cards>
+<a class=c href="lyrics_sung.html"><b>Original lyrics, sung by four models &rarr;</b>
+<span>240 original song lyrics &mdash; 20 genres &times; 3 length profiles &times; English, German,
+French and Spanish &mdash; each rendered by <b>four</b> music models (LeVo 2, HeartMuLa 3B,
+ACE-Step 1.5 XL turbo, MiniMax Music 3) in two conditions: as a solo voice with nothing else in
+the file, and as an ordinary song in its genre. Identical words, identical caption, identical
+seed. 1,920 players, every metric broken out by language. The vocals-only silence is
+architectural for LeVo alone &mdash; <code>gen_type='vocal'</code> overwrites the accompaniment
+codebook before the decoder runs, and BS-Roformer measures its accompaniment at 0.000 &mdash;
+while the other three treat "no instruments" as a prompt and measure at 0.58&ndash;0.68. On the
+blind judge ACE-Step wins <i>all four</i> languages.</span></a>
+<a class=c href="minimax_vs_levo.html"><b>MiniMax Music 3 vs LeVo 2 &mdash; one voice, no instruments &rarr;</b>
+<span>Twenty prompts spread across the measured genre space, the identical prompt to both models,
+judged blind and twice by Gemini 3.6 Flash on five axes. LeVo wins overall 3.20 to 1.62 &mdash; but
+most of the "no instruments" margin is architectural, not prompt compliance, and the control column
+shows it. Accompaniment fraction measured objectively with BS-Roformer: 0.000 for LeVo in a cappella
+mode, 0.375 for MiniMax, 0.581 for LeVo when it has to comply by prompt alone.</span></a>
+<a class=c href="levo2_genres.html"><b>LeVo 2: solo voice, and why the genres missed &rarr;</b>
+<span>Evolutionary prompt search. The genre miss is an out-of-vocabulary problem — LeVo ships 27
+genre tags and "opera", "choir" and "a cappella" are not among them, so it falls back to pop. The
+backing choir is a chorus-section artefact. Solo compliance 66&nbsp;%&nbsp;&rarr;&nbsp;98&nbsp;%,
+genre match 71&nbsp;%&nbsp;&rarr;&nbsp;96&nbsp;%, with 115 audio players.</span></a>
+<a class=c href="levo_throughput.html"><b>Making LeVo 2 fast enough to scale &rarr;</b>
+<span>From 0.67× realtime to 11.7× — a 12.7× speedup, turning the pipeline's bottleneck into its
+fastest arm. Batching (the code asserted batch 1), static KV cache, CUDA graphs, and a CPU-dispatch
+bound decode loop. Includes two batch&gt;1 correctness bugs found in stock LeVo.</span></a>
+<a class=c href="genre_space.html"><b>How many singing genres are distinguishable? &rarr;</b>
+<span>153 solo-voice styles, 765 clips, same lyrics throughout. The answer is ~50–80, not 153 —
+agreed by three independent representations. Includes a 23040-d music embedding that sees nothing
+at all, and whether the model can sing as a child.</span></a>
+<a class=c href="song_models.html"><b>Song models — vocals only, with and without stem separation &rarr;</b>
+<span>Eight arms judged twice: as generated, and as an isolated vocal stem. Three separators
+(BS-Roformer, MelBand Roformer, Demucs v4) with measured bulk throughput. Includes the library
+default that made the first benchmark meaningless — with it on, a 30-second clip transcribes as
+the single word "so". All audio 160 kbps stereo.</span></a>
+</div>
+
+<h2>4 &middot; Analyses</h2>
+<div class=cards>
+<a class=c href="lyrics_corpus.html"><b>A 5.1 M-song lyrics corpus, and original lyrics that mirror it &rarr;</b>
+<span>The corpus measured end to end &mdash; genres, artists, length distributions with medians and
+IQRs because the means mislead, 85 languages, structure-marker prevalence, and the junk tail named
+rather than filtered. Then 240 entirely new songs written from aggregate style profiles alone, in
+English, German, French and Spanish, judged on five word-anchored axes and checked against the
+corpus distribution with numbers. No source lyric enters any prompt. Includes the structural
+correction that cut line-count error from 44 % to 7 %, and what it cost. 6,799 output tok/s on four
+GH200s; 425 GPU-hours to write one original song for every song in the corpus.</span></a>
+<a class=c href="text_effect.html"><b>Does the text carry the emotion? &rarr;</b>
+<span>The controlled experiment. Emotion strength +22 %, genuineness +27 %, blend +39 %, quality
+flat, WER down 12 %. Includes the four conditions it made worse and a safety failure it
+produced.</span></a>
+<a class=c href="mediathek_sweep.html"><b>Mediathek LoRA dose sweep &rarr;</b>
+<span>13,760 generations across five merge weights. Nothing happens below full strength; at full
+strength the generator breaks &mdash; and the genuineness metric rewards it for breaking.</span></a>
+<a class=c href="costs.html"><b>Earlier cost scenarios &rarr;</b>
+<span>Eight build plans x three inference engines against both budgets.</span></a>
+<a class=c href="text_costs.html"><b>What writing the texts costs &rarr;</b>
+<span>Measured Gemma throughput; a rounding error against speech generation.</span></a>
+</div>
+
+<h2>5 &middot; Reference</h2>
+<div class=cards>
+<a class=c href="manual.html"><b>Design manual &rarr;</b>
+<span>Everything needed to reproduce it: condition matrix, which LoRA at which merge strength,
+prompt templates, ranking formulas, metadata schema, safety gate, storage layout.</span></a>
+<a class=c href="protocol.html"><b>Execution protocol &rarr;</b>
+<span>Exactly what was run, with the measured result for each dimension.</span></a>
+</div>
+
+<h2>What it is, in plain language</h2>
+<p>A speech model can be asked to say the same sentence <i>angrily</i>, <i>quietly angry</i>,
+<i>softly amused</i>, <i>very fast</i>, <i>with a lot of vocal fry</i>, and so on. This project
+does that <b>systematically</b>: for a single voice it produces every combination of a large
+condition grid, keeps 32 candidates of each (200 in this demo), scores them all, and stores
+everything.</p>
+<p>The reason for the German-and-English pairing is the eventual goal: <b>a speech-to-speech
+translation model that keeps the speaker and the emotional level</b>. To train that you need the
+same meaning, spoken by the same voice, at the same emotional intensity, in both languages. That
+is what a "group" here is.</p>
+
+<h2>The condition matrix — 832 groups per voice</h2>
+<table>
+<tr><th>block</th><th>conditions</th><th class=n>groups</th></tr>
+<tr><td>Emotions</td><td>40 emotions × {intense, moderate} × {free-flowing, contained} × {EN, DE}</td><td class=n>320</td></tr>
+<tr><td>VoiceNet dimensions</td><td>57 dimensions × 4 levels × {EN, DE}</td><td class=n>456</td></tr>
+<tr><td>Edge cases</td><td>screams, groans, shivers, laughter, whimpering, crying × {EN, DE}</td><td class=n>28</td></tr>
+<tr><td>Sports commentator</td><td>× {EN, DE}</td><td class=n>2</td></tr>
+<tr><td>Explicitness</td><td>× {EN, DE}, subject to an age safety gate</td><td class=n>2</td></tr>
+<tr><td><b>Character clusters</b></td><td>12 character-cluster LoRAs × {EN, DE}, each also
+rendered through Chatterbox voice conversion for comparison</td><td class=n><b>24</b></td></tr>
+<tr><td colspan=2><b>total per voice</b></td><td class=n><b>832</b></td></tr>
+</table>
+<p>Every condition uses the measured best practice for that specific emotion or dimension — the
+right adapter at the right merge strength with the right prompt phrasing. <b>English and German
+share the same text slot in 404 of 404 cells</b>, so the pairing the goal depends on actually
+holds.</p>
+
+<h2>What was run</h2>
+<table>
+<tr><td>generations</td><td class=n>323,200 per profile</td></tr>
+<tr><td>candidates stored</td><td class=n>646,917</td></tr>
+<tr><td>GPU-hours</td><td class=n>152</td></tr>
+<tr><td>throughput</td><td class=n>2,126 generations/GPU-hour</td></tr>
+<tr><td>failed decodes</td><td class=n>0.10 %</td></tr>
+</table>
+<p>Every candidate — including the worst-ranked — carries 57 VoiceNet scores, 40 EmoNet scores,
+genuineness, vocal-burst blend, a 768-d VoiceCLAP embedding, a 192-d speaker embedding with its
+cosine to the reference, Parakeet-v3 word-level timestamps, a procedural caption, and every score
+component that produced its rank. Stored as WebDataset tar + parquet, so re-ranking never requires
+regenerating anything.</p>
+
+<h2>Scaling — and the thing that dominates it</h2>
+<div class="note b"><b class=big>Batch size, not the inference engine, is the lever.</b>
+Measured on this exact workload — LoRA merged, reference conditioning, the real prompts:
+<b>batch 8 → 3.92× realtime, batch 16 → 5.69×, batch 32 → 7.69×, batch 64 → 8.88×.</b>
+The demo ran at batch 8; everything now runs at 64. <b>2.3× for a one-line change</b>, with no new
+engine, no new dependency, and LoRA adapters still working.
+<br><br>
+Two things this page previously claimed and that turned out to be wrong: that <b>pipelined decode</b>
+would give ~3.6× (the port was written and benchmarked — it gives <b>1.01×</b>, because decode is
+not a meaningful share of the loop), and that 6,000 voices at the full matrix "is not feasible"
+(at batch 64 it is ~10 % of one budget).</div>
+<table>
+<tr><th>plan (832 groups/voice)</th><th class=n>GPU-h @ batch 64</th><th class=n>% REFORMO left</th></tr>
+<tr><td>5,000 × N=16</td><td class=n>41,897</td><td class=n>4.4 %</td></tr>
+<tr><td>5,000 × N=16 + 900 × N=32 + 100 × N=128</td><td class=n>63,604</td><td class=n>6.7 %</td></tr>
+<tr><td>5,700 × N=32 + 300 × N=200</td><td class=n>126,491</td><td class=n>13.3 %</td></tr>
+<tr><td>6,000 × N=32 (flat)</td><td class=n>100,253</td><td class=n>10.5 %</td></tr>
+<tr><td>6,000 × N=128 (max quality)</td><td class=n>400,113</td><td class=n>41.9 %</td></tr>
+</table>
+<p><b>→ <a href="costs.html">Full cost scenarios</a></b> — ten plans × three throughputs, against
+both budgets, with every assumption stated.</p>
+
+<h2>Findings</h2>
+
+<div class="note b"><b class=big>The text matters more than any conditioning change measured so
+far.</b> A dozen emotions produced almost no measurable emotion — Bitterness sat at −0.005,
+Contempt 0.041, Astonishment 0.039 — even with the correct LoRA loaded and active. The cause was
+not the conditioning. It was that the sentences came from a translation corpus, so a group asking
+for <i>intense, freely expressed bitterness</i> was handed a neutral line about a gym membership.
+Rewriting each line so its content justifies the target emotion, holding everything else fixed,
+raised <b>emotion strength +22 %, genuineness +27 % and vocal-burst blend +39 %</b>, left audio
+quality unchanged and <b>lowered</b> word error rate 12 %. Bitterness −0.005 → 0.613, Contempt
+0.041 → 0.842, Hope/Enthusiasm −0.001 → 1.390, Astonishment 0.039 → 2.347; 24 of 28 conditions
+improved. This single change is
+larger than every conditioning-side intervention on this pipeline combined, and the text pass costs
+~3 GPU-h against ~100,000 for the speech.
+<b><a href="text_effect.html">Full analysis, with audio →</a></b></div>
+
+<div class="note b"><b class=big>German conditioning holds the speaker much less well than
+English.</b> Measured over all 323,200 candidates: mean speaker similarity <b>0.578 in English
+versus 0.376 in German</b>. German takes are also longer and slower with slightly worse
+transcription accuracy. Since the entire point is a German↔English corpus that preserves speaker
+identity, <b>this is the central obstacle, not a footnote</b>, and it should be addressed before
+scaling.</div>
+
+<ul>
+<li><b>Intensity, not containment, breaks the voice clone.</b> Intense conditions sit 0.088 lower
+on speaker similarity, with <b>19.4 % below the usable floor versus 0.0 %</b> for moderate ones.
+Holding an emotion back is cheap; pushing it hard is not.</li>
+<li><b>Containment behaves as designed.</b> The contained conditions shift the vulnerability
+dimension by −0.329 while leaving emotional strength essentially intact (−0.022), at a cost of
+−0.104 genuineness.</li>
+<li><b>No dose of the Mediathek LoRA improves the corpus.</b> A full sweep at λ = 0/0.25/0.50/0.75/1.00
+over 13,760 generations: quarter, half and three-quarter merges are indistinguishable from no LoRA
+on every metric. At full strength genuineness jumps +0.815 — but <b>68.9 % of takes run to the 32 s
+generation cap</b> and word error rate triples, so the model has stopped saying the sentence. The
+genuineness scorer rates those runaway takes <i>highest</i>, which is a live risk in the ranking
+formula. <b>Ship λ=0.</b> <a href="mediathek_sweep.html">Full sweep, with audio →</a></li>
+<li><b>Voice conversion is not free where it is most needed.</b> On 271 badly drifted clips
+(below 0.45) it raised similarity 0.381 → 0.623 on every single one, but cost <b>−0.109 DNSMOS</b>,
+and only 12 % passed the published keep rule. Earlier figures suggesting conversion is free were
+measured on clips that were already close to the target identity.</li>
+</ul>
+
+<h2>Honest limitations</h2>
+<div class=note>
+<ul>
+<li>The <b>text rewrite hurts low-arousal conditions</b>. Contemplation, Emotional Numbness, sports
+and Interest all lost emotion strength, because the rewrite instruction pushes toward
+expressiveness and those targets call for flatness. The instruction needs inverting for them; that
+is not yet done.</li>
+<li><b>No human listening study.</b> Every number here comes from an automatic sensor stack whose
+agreement with a human listener on spoken material is only about ρ ≈ +0.21. Treat rankings as
+useful, not authoritative.</li>
+<li>The <b>four-level VoiceNet ladder</b> ("extremely low" … "very high") and its 40 % moderate
+dose are this project's own construction — the source manual defines seven ordinal levels, not
+four — and were not separately validated.</li>
+<li>The <b>A/B/C/D stage directions are a reconstruction</b>; only the four short sublabels are
+published.</li>
+<li><b>Domains are inferred</b> from URL host plus a keyword lexicon (14 domains, ~285–290 pairs
+each), because the translation corpus ships a language table rather than a domain taxonomy. The
+inferred label is stored per row so it can be replaced.</li>
+<li>The <b>age safety cutoff was recalibrated to 2.40</b>, not the intuitive 3.00: the age
+regressor reads systematically low against this dataset's own age labels, so 3.00 would discard
+49 % of adults while still admitting 7 % of minors. The gate is conjunctive across three signals.</li>
+<li>In-loop word error rate uses whisper-large-v3-turbo; <b>Parakeet v3 runs as a second pass</b>,
+so any re-ranking that prefers it needs no regeneration.</li>
+</ul>
+</div>
+
+<p class=sub style="margin-top:32px">Base model
+<a href="https://huggingface.co/laion/moss-tts-local-transformer-4.55b-voice-acting-v2">moss-tts-local-transformer-4.55b-voice-acting-v2</a>
+· <a href="https://huggingface.co/TTS-AGI/moss-emotion-loras-v3">emotion adapters</a>
+· <a href="https://huggingface.co/laion/vocal-burst-lora-adapters">vocal-burst adapters</a>
+· <a href="https://huggingface.co/laion/moss-mediathek-emotion-lora">Mediathek adapters</a>
+· <a href="https://laion-ai.github.io/moss-voiceacting-manual/">voice-acting manual</a>
+· mirror on the <a href="https://tts-agi-moss-acting-casting.static.hf.space/voice_profile_demo_grid.html">HF Space</a></p>
+</div>

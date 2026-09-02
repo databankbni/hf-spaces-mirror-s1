@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pythia-paths:schema:review-proposal:0.3",
+  "title": "Review proposal — not authorization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "kind",
+    "proposal_id",
+    "created_at",
+    "expires_at",
+    "review_kind",
+    "evidence_ids",
+    "evidence_bundle_sha256",
+    "context_bundle_sha256",
+    "source_manifest_sha256",
+    "release_lock_sha256",
+    "requested_effects",
+    "not_an_authorization",
+    "revalidate_evidence_before_review",
+    "authority",
+    "readiness",
+    "output"
+  ],
+  "properties": {
+    "schema": { "const": "pythia-paths/review-proposal/0.3" },
+    "kind": { "const": "review_proposal" },
+    "proposal_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "$comment": "Schema checks format only. A consumer must reject expires_at at or before created_at, or at or before its current trusted time."
+    },
+    "review_kind": {
+      "enum": [
+        "inspect_metadata",
+        "place_observations_side_by_side",
+        "list_evaluation_prerequisites",
+        "list_resume_prerequisites"
+      ]
+    },
+    "evidence_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "pythia-70m-deduped:step0:piqa:acc_norm",
+          "pythia-70m-deduped:step1000:piqa:acc_norm",
+          "pythia-70m-deduped:step73000:piqa:acc_norm",
+          "pythia-70m-deduped:step143000:piqa:acc_norm"
+        ]
+      }
+    },
+    "evidence_bundle_sha256": { "const": "05b40085981b4c31dc49b15817fffc2192b782cc8d82bc75f8f33bd0c4349b26" },
+    "context_bundle_sha256": { "const": "f3bb8583e6983096d2b078ed567864bac4a539da627b953bd6370d9a081bd7fc" },
+    "source_manifest_sha256": { "const": "8d31942b2cc3cc6c2a645ca37cbb314376d4566800484b7dcf261233b59e767b" },
+    "release_lock_sha256": { "const": "1101f5c9f8e8f3559e84d69e5b2208c433a9abc2e80582f7b14108e22f434a02" },
+    "requested_effects": { "type": "array", "maxItems": 0 },
+    "not_an_authorization": { "const": true },
+    "revalidate_evidence_before_review": { "const": true },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carried_by_this_document",
+        "established_by_this_document",
+        "external_authority_status"
+      ],
+      "properties": {
+        "carried_by_this_document": { "const": false },
+        "established_by_this_document": { "const": false },
+        "external_authority_status": { "const": "not_checked" }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": { "status": { "const": "not_checked" } }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "model_or_training_effect"],
+      "properties": {
+        "format": { "const": "serialized_json_document" },
+        "model_or_training_effect": { "const": false }
+      }
+    }
+  }
+}

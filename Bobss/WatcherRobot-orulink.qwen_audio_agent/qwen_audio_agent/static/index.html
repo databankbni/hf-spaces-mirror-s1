@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Qwen Application 语音链路</title>
+    <link rel="stylesheet" href="/assets/trace.css">
+    <script src="/assets/trace.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#trace">跳到语音链路</a>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">QWEN AUDIO AGENT · APPLICATION TRACE</p>
+          <h1>Application 语音链路</h1>
+          <p class="lede">在一个页面完成 SDK 设备配对，并查看当前 Application 的语音、Agent 与播放状态。</p>
+        </div>
+        <div class="live-pill" id="live-pill"><span></span><b>实时更新</b></div>
+      </header>
+
+      <section class="device-panel" aria-labelledby="device-title">
+        <div class="device-copy">
+          <p class="eyebrow">SDK DEVICE LINK</p>
+          <div class="device-title-row">
+            <h2 id="device-title">设备连接</h2>
+            <span class="device-badge" id="device-badge" data-state="loading">读取中</span>
+          </div>
+          <p id="device-detail">正在通过 SDK Daemon 读取设备状态。</p>
+        </div>
+        <form id="pairing-form" class="pairing-form">
+          <label for="pairing-code">六位配对码</label>
+          <div class="pairing-row">
+            <input
+              id="pairing-code"
+              name="pairing-code"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              pattern="[0-9]{6}"
+              minlength="6"
+              maxlength="6"
+              placeholder="000000"
+              required
+            >
+            <button id="pair-device" type="submit">连接设备</button>
+            <button id="cancel-pairing" class="quiet" type="button" hidden>取消连接</button>
+            <button id="disconnect-device" class="danger" type="button" hidden>断开设备</button>
+          </div>
+          <p class="form-feedback" id="pairing-feedback" aria-live="polite">配对请求由本机 SDK Daemon 处理，Application 不保存配对码。</p>
+        </form>
+      </section>
+
+      <section class="status-grid" aria-label="服务状态">
+        <article class="status-card" data-component="application"><p>Application</p><strong>等待</strong><small>读取状态中</small></article>
+        <article class="status-card" data-component="gateway"><p>Realtime Gateway</p><strong>等待</strong><small>读取状态中</small></article>
+        <article class="status-card" data-component="device_audio"><p>设备音频</p><strong>等待</strong><small>读取状态中</small></article>
+        <article class="status-card" data-component="conversation"><p>对话轮次</p><strong>等待</strong><small>读取状态中</small></article>
+        <article class="status-card" data-component="agent"><p>Agent</p><strong>等待</strong><small>读取状态中</small></article>
+        <article class="status-card" data-component="behavior"><p>机器人表情</p><strong>等待</strong><small>读取状态中</small></article>
+      </section>
+
+      <section class="control-panel gateway-control-panel" aria-labelledby="gateway-settings-title">
+        <div class="control-copy">
+          <p class="eyebrow">GATEWAY &amp; BACKEND MANAGEMENT</p>
+          <h2 id="gateway-settings-title">Gateway 与 Agent</h2>
+          <p>配置仅属于当前 WatcheRobot Application。密钥不会从 API 回传；留空表示保留，只有勾选清除才会删除。</p>
+          <div class="runtime-summary" aria-live="polite">
+            <span><small>Gateway</small><b id="gateway-runtime-status" data-state="loading">读取中</b></span>
+            <span><small>Realtime</small><b id="realtime-runtime-status" data-state="loading">读取中</b></span>
+            <span><small>后台 Agent</small><b id="backend-runtime-status" data-state="loading">读取中</b></span>
+          </div>
+          <div class="control-actions">
+            <button id="save-gateway-settings" type="submit" form="gateway-settings-form">保存配置</button>
+            <button id="reset-gateway-settings" class="quiet" type="button">恢复表单</button>
+            <button id="save-restart-gateway-settings" class="restart" type="button">保存并重启服务</button>
+          </div>
+          <p class="form-feedback" id="gateway-settings-feedback" aria-live="polite">正在读取 Gateway 配置。</p>
+        </div>
+        <form id="gateway-settings-form" class="gateway-settings-form">
+          <label for="dashscope-api-key">
+            <span>DashScope API Key <small id="dashscope-key-status">未配置</small></span>
+            <input id="dashscope-api-key" name="dashscope_api_key" type="password" autocomplete="off" maxlength="4096" placeholder="留空保持现有 Key">
+          </label>
+          <label class="compact-check" for="clear-dashscope-api-key">
+            <input id="clear-dashscope-api-key" type="checkbox">
+            <span>清除已保存的 API Key</span>
+          </label>
+          <label for="realtime-model"><span>Realtime 模型 <small>重启后生效</small></span><select id="realtime-model" name="realtime_model" required></select></label>
+          <label for="agent-protocol"><span>后台 Agent <small>none 为仅聊天</small></span><select id="agent-protocol" name="agent_protocol" required></select></label>
+          <label for="backend-model"><span>后台模型 <small>留空复用 Agent 配置</small></span><input id="backend-model" name="backend_model" type="text" maxlength="256" placeholder="可选"></label>
+          <label for="backend-permission-mode"><span>权限模式 <small>推荐 native</small></span><select id="backend-permission-mode" name="backend_permission_mode"><option value="native">native</option><option value="full">full</option></select></label>
+          <label for="backend-ownership"><span>进程归属 <small>external 仅受支持 Agent</small></span><select id="backend-ownership" name="backend_ownership"><option value="owned">owned · Gateway 管理</option><option value="external">external · 外部服务</option></select></label>
+          <label class="external-backend-field" for="backend-url"><span>外部服务地址 <small>HTTP / HTTPS / WS / WSS</small></span><input id="backend-url" name="backend_url" type="url" maxlength="2048" placeholder="http://127.0.0.1:18789"></label>
+          <label class="external-backend-field" for="backend-credential">
+            <span>外部服务令牌 <small id="backend-credential-status">未配置</small></span>
+            <input id="backend-credential" name="backend_credential" type="password" autocomplete="off" maxlength="4096" placeholder="留空保持现有令牌">
+          </label>
+          <label class="compact-check external-backend-field" for="clear-backend-credential">
+            <input id="clear-backend-credential" type="checkbox">
+            <span>清除已保存的外部令牌</span>
+          </label>
+        </form>
+      </section>
+
+      <section class="control-panel" aria-labelledby="vad-settings-title">
+        <div class="control-copy">
+          <p class="eyebrow">VOICE ACTIVITY CONTROL</p>
+          <h2 id="vad-settings-title">VAD 调节</h2>
+          <p>参数保存到本机 Application 运行目录，重启 Application 后生效。调节时建议先观察语音轮次中的 RMS 数据。</p>
+          <div class="rms-monitor" id="rms-meter" data-state="idle">
+            <div class="rms-heading">
+              <span><b>实时 RMS</b><small id="rms-state">等待麦克风采样</small></span>
+              <output id="rms-value" aria-live="off">0</output>
+            </div>
+            <div class="rms-track" role="meter" aria-label="实时麦克风 RMS，显示量程 0 到 3000" aria-valuemin="0" aria-valuemax="3000" aria-valuenow="0">
+              <i id="rms-level"></i>
+              <span id="rms-stop-marker" class="rms-marker stop" aria-hidden="true"></span>
+              <span id="rms-start-marker" class="rms-marker start" aria-hidden="true"></span>
+            </div>
+            <p><span>峰值 <b id="rms-peak">0</b></span><span>量程 0–3000</span><span>绿色线：结束阈值</span><span>青色线：开始阈值</span></p>
+          </div>
+          <div class="control-actions">
+            <button id="save-vad-settings" type="submit" form="vad-settings-form">保存参数</button>
+            <button id="reset-vad-settings" class="quiet" type="button">恢复默认值</button>
+            <button id="restart-services" class="restart" type="button">重启应用服务</button>
+          </div>
+          <p class="form-feedback" id="vad-settings-feedback" aria-live="polite">正在读取当前 VAD 参数。</p>
+        </div>
+        <form id="vad-settings-form" class="vad-settings-form">
+          <label class="switch-field" for="vad-enabled">
+            <span><b>自动 VAD</b><small>关闭后不再自动采集语音</small></span>
+            <input id="vad-enabled" name="enabled" type="checkbox">
+            <i aria-hidden="true"></i>
+          </label>
+          <label for="vad-start-rms"><span>开始 RMS <small>1–32767</small></span><input id="vad-start-rms" name="start_rms" type="number" min="1" max="32767" step="1" required></label>
+          <label for="vad-stop-rms"><span>结束 RMS <small>不高于开始 RMS</small></span><input id="vad-stop-rms" name="stop_rms" type="number" min="0" max="32767" step="1" required></label>
+          <label for="vad-start-frames"><span>触发帧数 <small>1–20 帧</small></span><input id="vad-start-frames" name="start_frames" type="number" min="1" max="20" step="1" required></label>
+          <label for="vad-silence-ms"><span>静音结束 <small>120–3000 ms</small></span><input id="vad-silence-ms" name="silence_ms" type="number" min="120" max="3000" step="20" required></label>
+          <label for="vad-pre-roll-ms"><span>前置保留 <small>60–2000 ms</small></span><input id="vad-pre-roll-ms" name="pre_roll_ms" type="number" min="60" max="2000" step="20" required></label>
+          <label for="vad-max-utterance-ms"><span>单轮最长 <small>1000–60000 ms</small></span><input id="vad-max-utterance-ms" name="max_utterance_ms" type="number" min="1000" max="60000" step="500" required></label>
+        </form>
+      </section>
+
+      <section class="control-panel touch-control-panel" aria-labelledby="touch-interrupt-title">
+        <div class="control-copy">
+          <p class="eyebrow">EXPLICIT PLAYBACK INTERRUPT</p>
+          <h2 id="touch-interrupt-title">触摸打断</h2>
+          <p>仅在机器人已经进入设备播放状态时响应。打断会停止当前语音并恢复 <code>awake_idle</code>，不会取消后台 Agent/Codex 任务。</p>
+          <div class="control-actions">
+            <button id="save-touch-interrupt-settings" type="submit" form="touch-interrupt-settings-form">保存参数</button>
+            <button id="reset-touch-interrupt-settings" class="quiet" type="button">恢复默认值</button>
+          </div>
+          <p class="form-feedback" id="touch-interrupt-settings-feedback" aria-live="polite">正在读取当前触摸打断参数。</p>
+        </div>
+        <form id="touch-interrupt-settings-form" class="vad-settings-form touch-settings-form">
+          <label class="switch-field" for="touch-interrupt-enabled">
+            <span><b>启用触摸打断</b><small>仅 PLAYING 状态生效</small></span>
+            <input id="touch-interrupt-enabled" name="enabled" type="checkbox">
+            <i aria-hidden="true"></i>
+          </label>
+          <label class="switch-field" for="touch-interrupt-back">
+            <span><b>后背触摸</b><small>press，默认入口</small></span>
+            <input id="touch-interrupt-back" name="back_touch" type="checkbox">
+            <i aria-hidden="true"></i>
+          </label>
+          <label class="switch-field" for="touch-interrupt-screen">
+            <span><b>屏幕任意位置</b><small>tap，可选入口</small></span>
+            <input id="touch-interrupt-screen" name="screen_touch" type="checkbox">
+            <i aria-hidden="true"></i>
+          </label>
+          <label for="touch-interrupt-debounce"><span>触摸防抖 <small>100–3000 ms</small></span><input id="touch-interrupt-debounce" name="debounce_ms" type="number" min="100" max="3000" step="50" required></label>
+        </form>
+      </section>
+
+      <section class="trace-panel" id="trace" aria-labelledby="trace-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">VOICE TURN TRACE</p>
+            <h2 id="trace-title">语音链路追踪</h2>
+          </div>
+          <div class="toolbar">
+            <button id="toggle-live" type="button">暂停</button>
+            <button id="clear-trace" class="quiet" type="button">清空显示</button>
+          </div>
+        </div>
+        <p class="panel-note">按轮次展示采集、Realtime、Agent、回复生成和设备播放。页面不会保存音频或转写文本。</p>
+        <div id="trace-list" class="trace-list" aria-live="polite">
+          <div class="empty-state"><b>等待第一轮语音</b><span>连接准备完成后，链路事件会自动出现在这里。</span></div>
+        </div>
+      </section>
+      <footer><span id="last-sync">尚未同步</span><span id="uptime">运行 0 秒</span></footer>
+    </main>
+  </body>
+</html>

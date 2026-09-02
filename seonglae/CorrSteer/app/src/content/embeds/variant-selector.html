@@ -1,0 +1,760 @@
+<div class="variant-selector"></div>
+<style>
+  .variant-selector {
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .variant-selector .controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .variant-selector .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .variant-selector .controls label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-color);
+  }
+
+  .variant-selector .controls select {
+    font-size: 12px;
+    padding: 8px 28px 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--surface-bg);
+    color: var(--text-color);
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+
+  .variant-selector .controls select:focus {
+    outline: 2px solid var(--primary-color, #6B5CE7);
+    outline-offset: 1px;
+  }
+
+  .variant-selector .variant-tabs {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .variant-selector .variant-tab {
+    padding: 7px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted-color);
+    background: var(--surface-bg);
+    border: none;
+    border-right: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+
+  .variant-selector .variant-tab:last-child {
+    border-right: none;
+  }
+
+  .variant-selector .variant-tab:hover {
+    background: var(--page-bg);
+  }
+
+  .variant-selector .variant-tab.active {
+    background: var(--primary-color, #6B5CE7);
+    color: #fff;
+  }
+
+  .variant-selector .axes path,
+  .variant-selector .axes line {
+    stroke: var(--axis-color, var(--text-color));
+  }
+
+  .variant-selector .axes text {
+    fill: var(--tick-color, var(--muted-color));
+  }
+
+  .variant-selector .grid line {
+    stroke: var(--grid-color, rgba(0,0,0,.08));
+  }
+
+  .variant-selector .axis-label {
+    fill: var(--text-color);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .variant-selector .legend {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .variant-selector .legend-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-color);
+  }
+
+  .variant-selector .legend .items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+
+  .variant-selector .legend .item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--text-color);
+  }
+
+  .variant-selector .legend .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid var(--border-color);
+  }
+
+  .variant-selector .legend .swatch--line {
+    width: 20px;
+    height: 3px;
+    border-radius: 2px;
+    border: none;
+  }
+
+  .variant-selector .legend .swatch--dashed {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px dashed;
+    background: transparent;
+  }
+
+  .variant-selector .feature-dot {
+    transition: filter 0.15s ease;
+  }
+
+  .variant-selector .variant-desc {
+    font-size: 12px;
+    color: var(--muted-color);
+    margin-top: 4px;
+    line-height: 1.5;
+    min-height: 18px;
+  }
+
+  @media (max-width: 600px) {
+    .variant-selector .controls {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
+<script>
+  (() => {
+    const ensureD3 = (cb) => {
+      if (window.d3 && typeof window.d3.select === 'function') return cb();
+      let s = document.getElementById('d3-cdn-script');
+      if (!s) { s = document.createElement('script'); s.id = 'd3-cdn-script'; s.src = 'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js'; document.head.appendChild(s); }
+      const onReady = () => { if (window.d3 && typeof window.d3.select === 'function') cb(); };
+      s.addEventListener('load', onReady, { once: true }); if (window.d3) onReady();
+    };
+
+    const bootstrap = () => {
+      const scriptEl = document.currentScript;
+      let container = scriptEl ? scriptEl.previousElementSibling : null;
+      if (!(container && container.classList && container.classList.contains('variant-selector'))) {
+        const cs = Array.from(document.querySelectorAll('.variant-selector')).filter(el => !(el.dataset && el.dataset.mounted === 'true'));
+        container = cs[cs.length - 1] || null;
+      }
+      if (!container) return;
+      if (container.dataset) { if (container.dataset.mounted === 'true') return; container.dataset.mounted = 'true'; }
+
+      const d3 = window.d3;
+
+      // Tooltip
+      container.style.position = container.style.position || 'relative';
+      let tip = container.querySelector('.d3-tooltip'); let tipInner;
+      if (!tip) {
+        tip = document.createElement('div'); tip.className = 'd3-tooltip';
+        Object.assign(tip.style, { position: 'absolute', top: '0px', left: '0px', transform: 'translate(-9999px, -9999px)', pointerEvents: 'none', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', lineHeight: '1.35', border: '1px solid var(--border-color)', background: 'var(--surface-bg)', color: 'var(--text-color)', boxShadow: '0 4px 24px rgba(0,0,0,.18)', opacity: '0', transition: 'opacity .12s ease', zIndex: '10', maxWidth: '260px' });
+        tipInner = document.createElement('div'); tipInner.className = 'd3-tooltip__inner'; tipInner.style.textAlign = 'left'; tip.appendChild(tipInner); container.appendChild(tip);
+      } else { tipInner = tip.querySelector('.d3-tooltip__inner') || tip; }
+
+      const showTip = (evt, html) => {
+        tipInner.innerHTML = html;
+        tip.style.opacity = '1';
+        const pt = d3.pointer(evt, container);
+        const tipW = tip.offsetWidth || 180;
+        const tipH = tip.offsetHeight || 60;
+        const cW = container.clientWidth;
+        let x = pt[0] + 12, y = pt[1] - tipH - 8;
+        if (x + tipW > cW) x = pt[0] - tipW - 12;
+        if (y < 0) y = pt[1] + 16;
+        tip.style.transform = `translate(${x}px, ${y}px)`;
+      };
+      const hideTip = () => { tip.style.opacity = '0'; setTimeout(() => { tip.style.transform = 'translate(-9999px, -9999px)'; }, 120); };
+
+      // SVG
+      const svg = d3.select(container).append('svg').attr('width', '100%').style('display', 'block');
+      const gRoot = svg.append('g');
+      const gGrid = gRoot.append('g').attr('class', 'grid');
+      const gDots = gRoot.append('g').attr('class', 'dots');
+      const gLine = gRoot.append('g').attr('class', 'connector-line');
+      const gAxes = gRoot.append('g').attr('class', 'axes');
+
+      let width = 800, height = 360;
+      const margin = { top: 20, right: 24, bottom: 52, left: 56 };
+      const xScale = d3.scaleLinear();
+      const yScale = d3.scaleLinear();
+
+      // State
+      let activeVariant = 'S';
+      let activeTask = 'mmlu';
+      let rawData = null;
+
+      // Colors
+      const PRIMARY = () => {
+        try { if (window.ColorPalettes) return window.ColorPalettes.getPrimary(); } catch (_) { }
+        return getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#6B5CE7';
+      };
+      const GREY = () => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        return isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)';
+      };
+      const PRUNED_COLOR = () => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        return isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.25)';
+      };
+
+      // Controls: variant tabs + task selector
+      const controlsDiv = document.createElement('div');
+      controlsDiv.className = 'controls';
+
+      // Variant tabs
+      const tabGroup = document.createElement('div');
+      tabGroup.className = 'control-group';
+      const tabLabel = document.createElement('label');
+      tabLabel.textContent = 'Variant';
+      tabGroup.appendChild(tabLabel);
+      const tabContainer = document.createElement('div');
+      tabContainer.className = 'variant-tabs';
+      const variants = [
+        { key: 'S', label: 'CorrSteer-S' },
+        { key: 'A', label: 'CorrSteer-A' },
+        { key: 'P', label: 'CorrSteer-P' }
+      ];
+      variants.forEach(v => {
+        const btn = document.createElement('button');
+        btn.className = 'variant-tab' + (v.key === activeVariant ? ' active' : '');
+        btn.textContent = v.label;
+        btn.dataset.variant = v.key;
+        btn.addEventListener('click', () => {
+          activeVariant = v.key;
+          tabContainer.querySelectorAll('.variant-tab').forEach(b => b.classList.toggle('active', b.dataset.variant === v.key));
+          updateDesc();
+          render();
+        });
+        tabContainer.appendChild(btn);
+      });
+      tabGroup.appendChild(tabContainer);
+
+      // Task selector
+      const taskGroup = document.createElement('div');
+      taskGroup.className = 'control-group';
+      const taskLabel = document.createElement('label');
+      taskLabel.textContent = 'Task';
+      taskLabel.setAttribute('for', 'variant-task-select');
+      taskGroup.appendChild(taskLabel);
+      const taskSelect = document.createElement('select');
+      taskSelect.id = 'variant-task-select';
+      taskGroup.appendChild(taskSelect);
+      taskSelect.addEventListener('change', () => { activeTask = taskSelect.value; render(); });
+
+      // Right group: Task + Model side by side
+      const selectsGroup = document.createElement('div');
+      selectsGroup.style.cssText = 'display:flex;gap:8px;align-items:flex-end;';
+      selectsGroup.appendChild(taskGroup);
+
+      controlsDiv.appendChild(tabGroup);
+      controlsDiv.appendChild(selectsGroup);
+      container.appendChild(controlsDiv);
+
+      // Description
+      const descDiv = document.createElement('div');
+      descDiv.className = 'variant-desc';
+      container.appendChild(descDiv);
+      const descriptions = {
+        S: 'CorrSteer-S selects only the single highest-correlation feature across ALL layers.',
+        A: 'CorrSteer-A selects the top feature from EACH layer, forming a per-layer steering vector.',
+        P: 'CorrSteer-P prunes low-correlation features from CorrSteer-A, keeping only those above the median.'
+      };
+      function updateDesc() { descDiv.textContent = descriptions[activeVariant]; }
+      updateDesc();
+
+      // Legend
+      const legendDiv = document.createElement('div');
+      legendDiv.className = 'legend';
+      container.appendChild(legendDiv);
+
+      function buildLegend() {
+        legendDiv.innerHTML = '';
+        const title = document.createElement('div');
+        title.className = 'legend-title'; title.textContent = 'Legend';
+        legendDiv.appendChild(title);
+        const items = document.createElement('div');
+        items.className = 'items';
+
+        const primaryColor = PRIMARY();
+        const entries = [
+          { label: 'Selected feature', style: `background:${primaryColor}`, cls: 'swatch' },
+          { label: 'Unselected feature', style: `background:${GREY()}`, cls: 'swatch' }
+        ];
+        if (activeVariant === 'A' || activeVariant === 'P') {
+          entries.push({ label: 'Connection line', style: `background:${primaryColor}`, cls: 'swatch swatch--line' });
+        }
+        if (activeVariant === 'P') {
+          entries.push({ label: 'Pruned feature', style: `border-color:${PRUNED_COLOR()}`, cls: 'swatch swatch--dashed' });
+        }
+        entries.forEach(e => {
+          const el = document.createElement('span'); el.className = 'item';
+          const sw = document.createElement('span'); sw.className = e.cls; sw.style.cssText = e.style;
+          const txt = document.createElement('span'); txt.textContent = e.label;
+          el.appendChild(sw); el.appendChild(txt); items.appendChild(el);
+        });
+        legendDiv.appendChild(items);
+      }
+
+      // Model selector (appended into rightGroup next to Task)
+      const modelGroup = document.createElement('div');
+      modelGroup.className = 'control-group';
+      const modelLabel = document.createElement('label');
+      modelLabel.textContent = 'Model';
+      modelLabel.setAttribute('for', 'variant-model-select');
+      modelGroup.appendChild(modelLabel);
+      const modelSelect = document.createElement('select');
+      modelSelect.id = 'variant-model-select';
+      modelGroup.appendChild(modelSelect);
+      selectsGroup.appendChild(modelGroup);
+
+      let activeModel = 'gemma';
+      let allModelData = {};
+
+      modelSelect.addEventListener('change', () => {
+        activeModel = modelSelect.value;
+        rawData = allModelData[activeModel] || null;
+        // Refresh task list
+        if (rawData) {
+          const tasks = Object.keys(rawData.tasks);
+          taskSelect.innerHTML = '';
+          tasks.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t; opt.textContent = t.toUpperCase();
+            if (t === activeTask) opt.selected = true;
+            taskSelect.appendChild(opt);
+          });
+          if (!tasks.includes(activeTask) && tasks.length > 0) {
+            activeTask = tasks[0]; taskSelect.value = activeTask;
+          }
+        }
+        render();
+      });
+
+      // Data loading
+      const GEMMA_PATHS = [
+        '/data/features_gemma_all.json',
+        './assets/data/features_gemma_all.json',
+        '../assets/data/features_gemma_all.json',
+        '../../assets/data/features_gemma_all.json'
+      ];
+      const LLAMA_PATHS = [
+        '/data/features_llama_all.json',
+        './assets/data/features_llama_all.json',
+        '../assets/data/features_llama_all.json',
+        '../../assets/data/features_llama_all.json'
+      ];
+
+      const fetchFirstAvailable = async (paths) => {
+        for (const p of paths) {
+          try { const r = await fetch(p, { cache: 'no-cache' }); if (r.ok) return await r.json(); } catch (_) { }
+        }
+        throw new Error('Data not found');
+      };
+
+      // Prepare flat data from raw: for each layer, get the top positive feature (highest correlation)
+      function getTaskData(task) {
+        if (!rawData || !rawData.tasks || !rawData.tasks[task]) return [];
+        const taskObj = rawData.tasks[task];
+        const layers = taskObj.layers;
+        const result = [];
+        for (const layerKey of Object.keys(layers).sort((a, b) => +a - +b)) {
+          const pos = layers[layerKey].positive;
+          if (!pos || pos.length === 0) continue;
+          // All features for this layer
+          pos.forEach(f => {
+            result.push({
+              layer: +layerKey,
+              correlation: f.correlation,
+              coefficient: f.coefficient,
+              feature_index: f.feature_index,
+              description: f.description || '',
+              frequency: f.frequency,
+              neuronpedia_url: f.neuronpedia_url || '',
+              isTop: false
+            });
+          });
+        }
+        return result;
+      }
+
+      function computeSelection(allFeatures) {
+        if (allFeatures.length === 0) return allFeatures;
+
+        // For each layer, determine the top feature
+        const layerMap = {};
+        allFeatures.forEach(f => {
+          if (!layerMap[f.layer] || f.correlation > layerMap[f.layer].correlation) {
+            layerMap[f.layer] = f;
+          }
+        });
+
+        // Mark isTop for per-layer tops
+        allFeatures.forEach(f => {
+          f.isTop = (layerMap[f.layer] && layerMap[f.layer].feature_index === f.feature_index && layerMap[f.layer].layer === f.layer);
+        });
+
+        if (activeVariant === 'S') {
+          // Only the single best across all layers
+          const globalBest = Object.values(layerMap).reduce((a, b) => a.correlation > b.correlation ? a : b);
+          allFeatures.forEach(f => {
+            f.state = (f.layer === globalBest.layer && f.feature_index === globalBest.feature_index) ? 'selected' : 'unselected';
+          });
+        } else if (activeVariant === 'A') {
+          // Top per layer is selected
+          allFeatures.forEach(f => {
+            f.state = f.isTop ? 'selected' : 'unselected';
+          });
+        } else if (activeVariant === 'P') {
+          // Like A, but prune features below median correlation among the per-layer tops
+          const topCorrs = Object.values(layerMap).map(f => f.correlation).sort((a, b) => a - b);
+          const medianCorr = topCorrs[Math.floor(topCorrs.length / 2)];
+          allFeatures.forEach(f => {
+            if (f.isTop) {
+              f.state = f.correlation >= medianCorr ? 'selected' : 'pruned';
+            } else {
+              f.state = 'unselected';
+            }
+          });
+        }
+        return allFeatures;
+      }
+
+      function getConnectorData(allFeatures) {
+        if (activeVariant === 'S') return [];
+        const layerMap = {};
+        allFeatures.forEach(f => {
+          if (f.isTop && (f.state === 'selected' || f.state === 'pruned')) {
+            layerMap[f.layer] = f;
+          }
+        });
+        return Object.keys(layerMap).sort((a, b) => +a - +b).map(k => layerMap[k]);
+      }
+
+      function updateSize() {
+        width = container.clientWidth || 800;
+        height = Math.max(300, Math.round(width / 2.6));
+        svg.attr('width', width).attr('height', height);
+        gRoot.attr('transform', `translate(${margin.left},${margin.top})`);
+        return {
+          innerWidth: width - margin.left - margin.right,
+          innerHeight: height - margin.top - margin.bottom
+        };
+      }
+
+      function render() {
+        const { innerWidth, innerHeight } = updateSize();
+        const primaryColor = PRIMARY();
+        const greyColor = GREY();
+        const prunedColor = PRUNED_COLOR();
+
+        buildLegend();
+
+        const allFeatures = getTaskData(activeTask);
+        computeSelection(allFeatures);
+        const connectorData = getConnectorData(allFeatures);
+
+        // Scales
+        const layers = [...new Set(allFeatures.map(f => f.layer))].sort((a, b) => a - b);
+        const minLayer = layers.length > 0 ? layers[0] : 1;
+        const maxLayer = layers.length > 0 ? layers[layers.length - 1] : 25;
+        const maxCorr = d3.max(allFeatures, f => f.correlation) || 0.5;
+        xScale.domain([minLayer - 0.5, maxLayer + 0.5]).range([0, innerWidth]);
+        yScale.domain([0, maxCorr * 1.08]).range([innerHeight, 0]).nice();
+
+        // Grid
+        gGrid.selectAll('.grid-line-y').data(yScale.ticks(5)).join('line')
+          .attr('class', 'grid-line-y')
+          .attr('x1', 0).attr('x2', innerWidth)
+          .attr('y1', d => yScale(d)).attr('y2', d => yScale(d))
+          .attr('stroke', 'var(--grid-color, rgba(0,0,0,.08))')
+          .attr('stroke-dasharray', '3,3');
+
+        // Axes
+        gAxes.selectAll('.x-axis').data([0]).join('g').attr('class', 'x-axis axes')
+          .attr('transform', `translate(0,${innerHeight})`)
+          .call(d3.axisBottom(xScale).ticks(Math.min(layers.length, 13)).tickFormat(d => Number.isInteger(d) ? d : ''));
+
+        gAxes.selectAll('.y-axis').data([0]).join('g').attr('class', 'y-axis axes')
+          .call(d3.axisLeft(yScale).ticks(5).tickFormat(d3.format('.2f')));
+
+        // Axis labels
+        gAxes.selectAll('.x-label').data([0]).join('text').attr('class', 'x-label axis-label')
+          .attr('x', innerWidth / 2).attr('y', innerHeight + 40)
+          .attr('text-anchor', 'middle').text('Layer');
+
+        gAxes.selectAll('.y-label').data([0]).join('text').attr('class', 'y-label axis-label')
+          .attr('transform', `translate(${-42}, ${innerHeight / 2}) rotate(-90)`)
+          .attr('text-anchor', 'middle').text('Correlation');
+
+        // Connector line for A and P
+        const lineGen = d3.line()
+          .x(d => xScale(d.layer))
+          .y(d => yScale(d.correlation))
+          .curve(d3.curveMonotoneX);
+
+        gLine.selectAll('.connector-path')
+          .data(connectorData.length > 1 ? [connectorData] : [])
+          .join(
+            enter => enter.append('path')
+              .attr('class', 'connector-path')
+              .attr('fill', 'none')
+              .attr('stroke', primaryColor)
+              .attr('stroke-width', 2)
+              .attr('stroke-opacity', 0)
+              .attr('d', lineGen)
+              .call(e => e.transition().duration(500).attr('stroke-opacity', 0.5)),
+            update => update
+              .attr('stroke', primaryColor)
+              .call(u => u.transition().duration(500).attr('d', lineGen).attr('stroke-opacity', 0.5)),
+            exit => exit.call(x => x.transition().duration(300).attr('stroke-opacity', 0).remove())
+          );
+
+        // Dots
+        const dots = gDots.selectAll('.feature-dot')
+          .data(allFeatures, d => `${d.layer}-${d.feature_index}`);
+
+        const dotSize = (d) => {
+          if (d.state === 'selected') return activeVariant === 'S' ? 7 : 6;
+          if (d.state === 'pruned') return 6;
+          return 3.5;
+        };
+
+        const dotColor = (d) => {
+          if (d.state === 'selected') return primaryColor;
+          if (d.state === 'pruned') return 'transparent';
+          return greyColor;
+        };
+
+        const dotStroke = (d) => {
+          if (d.state === 'pruned') return prunedColor;
+          return 'none';
+        };
+
+        const dotDash = (d) => {
+          if (d.state === 'pruned') return '3,2';
+          return 'none';
+        };
+
+        const dotOpacity = (d) => {
+          if (d.state === 'selected') return 1;
+          if (d.state === 'pruned') return 0.7;
+          return 0.5;
+        };
+
+        dots.join(
+          enter => enter.append('circle')
+            .attr('class', 'feature-dot')
+            .attr('cx', d => xScale(d.layer))
+            .attr('cy', d => yScale(d.correlation))
+            .attr('r', 0)
+            .attr('fill', dotColor)
+            .attr('stroke', dotStroke)
+            .attr('stroke-dasharray', dotDash)
+            .attr('stroke-width', d => d.state === 'pruned' ? 2 : 0)
+            .attr('opacity', dotOpacity)
+            .style('cursor', 'pointer')
+            .on('mouseenter', function (evt, d) {
+              const stateLabel = d.state === 'selected' ? 'Selected' : d.state === 'pruned' ? 'Pruned' : 'Unselected';
+              showTip(evt, `
+                <div style="font-weight:700;">Layer ${d.layer} - Feature #${d.feature_index}</div>
+                <div style="font-size:11px;color:var(--muted-color);margin-top:2px;">${stateLabel}</div>
+                <div style="margin-top:4px;">Correlation: <strong>${d.correlation.toFixed(4)}</strong></div>
+                <div>Coefficient: ${d.coefficient.toFixed(4)}</div>
+                <div>Frequency: ${d.frequency.toFixed(1)}%</div>
+                <div style="font-size:11px;margin-top:3px;color:var(--muted-color);">${d.description}</div>
+              `);
+              d3.select(this)
+                .transition().duration(150)
+                .attr('r', dotSize(d) * 1.5)
+                .style('filter', 'drop-shadow(0 0 4px ' + primaryColor + ')')
+                .attr('opacity', 1);
+              gDots.selectAll('.feature-dot')
+                .filter(dd => dd.layer === d.layer && dd !== d)
+                .transition().duration(150)
+                .attr('opacity', dd => Math.min(1, dotOpacity(dd) + 0.3));
+            })
+            .on('mouseleave', function (evt, d) {
+              hideTip();
+              d3.select(this)
+                .transition().duration(200)
+                .attr('r', dotSize(d))
+                .style('filter', 'none')
+                .attr('opacity', dotOpacity(d));
+              gDots.selectAll('.feature-dot')
+                .filter(dd => dd.layer === d.layer && dd !== d)
+                .transition().duration(200)
+                .attr('opacity', dotOpacity);
+            })
+            .on('click', function (evt, d) {
+              if (d.neuronpedia_url) window.open(d.neuronpedia_url, '_blank');
+            })
+            .call(enter => enter.transition().duration(500)
+              .attr('r', dotSize)
+            ),
+          update => update
+            .on('mouseenter', function (evt, d) {
+              const stateLabel = d.state === 'selected' ? 'Selected' : d.state === 'pruned' ? 'Pruned' : 'Unselected';
+              showTip(evt, `
+                <div style="font-weight:700;">Layer ${d.layer} - Feature #${d.feature_index}</div>
+                <div style="font-size:11px;color:var(--muted-color);margin-top:2px;">${stateLabel}</div>
+                <div style="margin-top:4px;">Correlation: <strong>${d.correlation.toFixed(4)}</strong></div>
+                <div>Coefficient: ${d.coefficient.toFixed(4)}</div>
+                <div>Frequency: ${d.frequency.toFixed(1)}%</div>
+                <div style="font-size:11px;margin-top:3px;color:var(--muted-color);">${d.description}</div>
+              `);
+              d3.select(this)
+                .transition().duration(150)
+                .attr('r', dotSize(d) * 1.5)
+                .style('filter', 'drop-shadow(0 0 4px ' + primaryColor + ')')
+                .attr('opacity', 1);
+              gDots.selectAll('.feature-dot')
+                .filter(dd => dd.layer === d.layer && dd !== d)
+                .transition().duration(150)
+                .attr('opacity', dd => Math.min(1, dotOpacity(dd) + 0.3));
+            })
+            .on('mouseleave', function (evt, d) {
+              hideTip();
+              d3.select(this)
+                .transition().duration(200)
+                .attr('r', dotSize(d))
+                .style('filter', 'none')
+                .attr('opacity', dotOpacity(d));
+              gDots.selectAll('.feature-dot')
+                .filter(dd => dd.layer === d.layer && dd !== d)
+                .transition().duration(200)
+                .attr('opacity', dotOpacity);
+            })
+            .on('click', function (evt, d) {
+              if (d.neuronpedia_url) window.open(d.neuronpedia_url, '_blank');
+            })
+            .style('cursor', 'pointer')
+            .call(update => update.transition().duration(500)
+              .attr('cx', d => xScale(d.layer))
+              .attr('cy', d => yScale(d.correlation))
+              .attr('r', dotSize)
+              .attr('fill', dotColor)
+              .attr('stroke', dotStroke)
+              .attr('stroke-dasharray', dotDash)
+              .attr('stroke-width', d => d.state === 'pruned' ? 2 : 0)
+              .attr('opacity', dotOpacity)
+            ),
+          exit => exit.transition().duration(300).attr('r', 0).remove()
+        );
+
+        // Bring selected dots to front
+        gDots.selectAll('.feature-dot')
+          .sort((a, b) => {
+            const order = { unselected: 0, pruned: 1, selected: 2 };
+            return (order[a.state] || 0) - (order[b.state] || 0);
+          });
+      }
+
+      // Load data for both models
+      Promise.all([
+        fetchFirstAvailable(GEMMA_PATHS).catch(() => null),
+        fetchFirstAvailable(LLAMA_PATHS).catch(() => null)
+      ]).then(([gemmaData, llamaData]) => {
+          if (gemmaData) allModelData.gemma = gemmaData;
+          if (llamaData) allModelData.llama = llamaData;
+
+          // Populate model selector
+          modelSelect.innerHTML = '';
+          const models = [];
+          if (gemmaData) models.push({ key: 'gemma', label: gemmaData.model || 'Gemma 2B' });
+          if (llamaData) models.push({ key: 'llama', label: llamaData.model || 'Llama 3.1 8B' });
+          if (models.length === 0) throw new Error('No data');
+          models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.key; opt.textContent = m.label;
+            modelSelect.appendChild(opt);
+          });
+          if (models.length <= 1) modelGroup.style.display = 'none';
+          activeModel = models[0].key;
+          modelSelect.value = activeModel;
+          rawData = allModelData[activeModel];
+
+          // Populate task dropdown
+          const tasks = Object.keys(rawData.tasks);
+          taskSelect.innerHTML = '';
+          tasks.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t; opt.textContent = t.toUpperCase();
+            if (t === activeTask) opt.selected = true;
+            taskSelect.appendChild(opt);
+          });
+          if (!tasks.includes(activeTask) && tasks.length > 0) {
+            activeTask = tasks[0]; taskSelect.value = activeTask;
+          }
+          render();
+
+          if (window.ResizeObserver) {
+            const ro = new ResizeObserver(() => render());
+            ro.observe(container);
+          } else {
+            window.addEventListener('resize', render);
+          }
+        })
+        .catch(err => {
+          const pre = document.createElement('pre');
+          pre.style.cssText = 'color:red;font-size:12px;padding:12px;';
+          pre.textContent = 'Failed to load feature data: ' + err.message;
+          container.appendChild(pre);
+        });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => ensureD3(bootstrap), { once: true });
+    } else {
+      ensureD3(bootstrap);
+    }
+  })();
+</script>

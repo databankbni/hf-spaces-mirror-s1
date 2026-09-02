@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histori Analisis Logcat AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="dashboard-body">
+
+    <div class="dashboard-container">
+        
+        <nav class="navbar">
+            <a href="#" class="navbar-brand">🤖 Logcat AI Monitor</a>
+            <div class="nav-links">
+                <a href="/dashboard">🔴 Live Dashboard</a>
+                <a href="/history" class="active">📜 Histori Analisis</a>
+            </div>
+        </nav>
+
+        <div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;">
+            <div>
+                <h1>Histori Analisis Logcat</h1>
+                <p style="color: #64748b; margin-top: 5px;">Menampilkan riwayat exception Android yang tersimpan di memori browser (Local Storage).</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div>
+                    <label for="filter-model" style="font-size: 0.8rem; color: #64748b; display: block; margin-bottom: 4px;">Filter Model:</label>
+                    <select id="filter-model" onchange="muatHistory()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                        <option value="all">Semua Model</option>
+                        <option value="svm">SVM</option>
+                        <option value="rf">Random Forest</option>
+                        <option value="pac">PAC (Passive Aggressive)</option>
+                    </select>
+                </div>
+                <button id="btn-hapus-semua" onclick="hapusSemuaLog()" style="display:none; background-color: #dc2626; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: background 0.2s; align-items: center; gap: 6px;">
+                    💥 Hapus Semua History
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Waktu</th>
+                        <th>Nama Package</th>
+                        <th>Model</th>
+                        <th>Kategori Bug</th>
+                        <th>Rekomendasi AI</th>
+                        <th>Logcat Mentah</th>
+                        <th style="text-align: center;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="history-table-body">
+                    </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script>
+        const MODEL_LABELS = {
+            svm: 'SVM',
+            rf: 'Random Forest',
+            pac: 'PAC'
+        };
+
+        // Fungsi merender data dari Local Storage
+        function muatHistory() {
+            const tableBody = document.getElementById('history-table-body');
+            const btnHapusSemua = document.getElementById('btn-hapus-semua');
+            const filterModel = document.getElementById('filter-model').value;
+            
+            // Ambil data dari cache browser
+            let history = JSON.parse(localStorage.getItem('ai_log_history')) || [];
+
+            // Terapkan filter model (kalau bukan "Semua Model")
+            if (filterModel !== 'all') {
+                history = history.filter(log => (log.model_used || '-') === filterModel);
+            }
+
+            if (history.length === 0) {
+                btnHapusSemua.style.display = "none"; // Sembunyikan tombol hapus jika kosong
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <h3>History Cache Masih Kosong</h3>
+                            <p>Belum ada data histori yang cocok dengan filter ini.</p>
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            btnHapusSemua.style.display = "flex"; // Munculkan tombol jika ada data
+            let rowsHTML = "";
+            
+            // Render setiap data ke dalam baris tabel
+            history.forEach(log => {
+                const modelKey = log.model_used || '-';
+                const modelLabel = MODEL_LABELS[modelKey] || modelKey.toUpperCase();
+
+                rowsHTML += `
+                    <tr>
+                        <td style="color: #64748b; font-size: 0.9rem;">${log.waktu_str}</td>
+                        <td style="font-weight: 600;">${log.package_name || 'Android App'}</td>
+                        <td><span class="badge">${modelLabel}</span></td>
+                        <td>
+                            <span class="badge badge-error">${(log.prediksi_kategori || '').toUpperCase()}</span>
+                        </td>
+                        <td class="text-solution" style="white-space: pre-line; max-width: 320px;">💡 ${log.solusi_ai}</td>
+                        <td style="width: 30%;">
+                            <details>
+                                <summary>Lihat Log Mentah</summary>
+                                <div class="log-detail-box">${log.raw_logcat_full || log.raw_logcat}</div>
+                            </details>
+                        </td>
+                        <td style="text-align: center; width: 10%;">
+                            <button onclick="hapusLog('${log.id}')" style="background-color: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.8rem; transition: background 0.2s;">
+                                🗑️ Hapus
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tableBody.innerHTML = rowsHTML;
+        }
+
+        // Fungsi menghapus satu spesifik log
+        function hapusLog(logId) {
+            if (confirm("Hapus data log ini dari riwayat browser?")) {
+                let history = JSON.parse(localStorage.getItem('ai_log_history')) || [];
+                // Saring (buang) data yang ID-nya sama dengan yang diklik
+                history = history.filter(log => log.id !== logId);
+                // Simpan ulang ke cache
+                localStorage.setItem('ai_log_history', JSON.stringify(history));
+                muatHistory(); // Refresh tampilan seketika
+            }
+        }
+
+        // Fungsi menghapus semua log
+        function hapusSemuaLog() {
+            if (confirm("⚠️ PERINGATAN!\nApakah Anda yakin ingin MENGHAPUS SELURUH riwayat logcat dari browser ini?")) {
+                localStorage.removeItem('ai_log_history');
+                muatHistory(); // Refresh tampilan seketika
+                alert("Semua history berhasil dibersihkan!");
+            }
+        }
+
+        // Jalankan fungsi muat history saat halaman baru terbuka
+        window.onload = muatHistory;
+    </script>
+</body>
+</html>

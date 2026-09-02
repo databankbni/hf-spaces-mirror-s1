@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soulkyn Bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#08090f; --panel:#10131c; --panel2:#141826; --line:#1d2233;
+  --tx:#e8edf8; --dim:#8b96ae; --faint:#5a6478;
+  --acc:#8b5cf6; --acc2:#22d3ee; --good:#34d399; --warn:#fbbf24; --bad:#fb7185;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--tx);
+  font:14px/1.55 Inter,system-ui,sans-serif;
+  padding:0 clamp(14px,4vw,64px) 70px;min-height:100vh}
+body::before{content:"";position:fixed;inset:-30% -10% auto -10%;height:75vh;z-index:-1;
+  background:
+   radial-gradient(42% 60% at 20% 15%, rgba(139,92,246,.16), transparent 62%),
+   radial-gradient(34% 48% at 80% 8%,  rgba(34,211,238,.10), transparent 65%),
+   radial-gradient(26% 40% at 55% 30%, rgba(244,114,182,.06), transparent 60%);
+  filter:blur(50px)}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.num{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- top bar ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:18px;
+  padding:26px 0 6px;flex-wrap:wrap}
+h1{font-size:clamp(26px,4.4vw,40px);font-weight:800;letter-spacing:-1.1px;line-height:1.04}
+h1 .grad{background:linear-gradient(92deg,#a78bfa,#22d3ee 55%,#34d399);
+  background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shimmer 8s linear infinite}
+@keyframes shimmer{to{background-position:200% 0}}
+.sub{color:var(--dim);font-size:13px;margin-top:6px;max-width:760px}
+.viewtoggle{display:flex;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:4px;gap:4px;flex:none}
+.viewtoggle button{all:unset;cursor:pointer;padding:8px 18px;border-radius:9px;
+  font:600 13px Inter,sans-serif;color:var(--dim);transition:.18s}
+.viewtoggle button:hover{color:var(--tx)}
+.viewtoggle button.on{background:linear-gradient(135deg,rgba(139,92,246,.28),rgba(34,211,238,.18));
+  color:#fff;box-shadow:inset 0 0 0 1px rgba(139,92,246,.45)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:99px;
+  padding:5px 13px;font-size:12px;color:var(--dim)}
+.chip b{color:var(--tx);margin-right:4px}
+
+/* ---------- model status badge (prod / archived / testing) ---------- */
+.badge{display:inline-block;font:700 9px Inter,sans-serif;letter-spacing:1.4px;
+  text-transform:uppercase;border-radius:5px;padding:2.5px 7px;flex:none;
+  color:var(--dim);background:rgba(139,150,174,.1);
+  box-shadow:inset 0 0 0 1px rgba(139,150,174,.3);vertical-align:2px}
+.badge.prod{color:var(--good);background:rgba(52,211,153,.12);
+  box-shadow:inset 0 0 0 1px rgba(52,211,153,.4)}
+.badge.archived{color:var(--faint);background:rgba(90,100,120,.14);
+  box-shadow:inset 0 0 0 1px rgba(90,100,120,.4)}
+.badge.cotoff{color:#fb7185;background:rgba(251,113,133,.12);
+  border-color:rgba(251,113,133,.35)}
+.badge.coton{color:#22d3ee;background:rgba(34,211,238,.12);
+  border-color:rgba(34,211,238,.35)}
+.badge.testing{color:var(--warn);background:rgba(251,191,36,.12);
+  box-shadow:inset 0 0 0 1px rgba(251,191,36,.4)}
+
+/* ---------- shared panel ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  overflow:hidden;margin-top:24px;animation:up .55s ease both}
+@keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.panel h2{font-size:11px;letter-spacing:2.6px;text-transform:uppercase;color:var(--dim);
+  padding:16px 20px 2px;font-weight:600}
+.panel h2 b{color:var(--acc)}
+.panel .note{color:var(--faint);font-size:11.5px;padding:2px 20px 0}
+.chartbox{padding:14px 18px 18px;height:360px;position:relative}
+.chartbox.tall{height:420px}
+
+/* ---------- SIMPLE: cards ---------- */
+main{display:none}
+body[data-view="simple"] #view-simple{display:block}
+body[data-view="advanced"] #view-advanced{display:block}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(390px,100%),1fr));
+  gap:20px;margin-top:22px}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line);border-radius:18px;padding:20px 20px 16px;
+  position:relative;overflow:hidden;animation:up .55s ease both;
+  max-width:680px;width:100%;margin:0 auto}
+.card::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;
+  background:var(--mc,#8b5cf6);opacity:.85}
+.card .rank{position:absolute;top:14px;right:16px;font:800 13px Inter;
+  color:var(--faint);letter-spacing:1px}
+.card .rank.gold{color:#ffd76a}
+.card h3{font-size:19px;font-weight:800;letter-spacing:-.3px;padding-right:54px;
+  display:flex;align-items:center;gap:8px}
+.card h3 .dot{width:10px;height:10px;border-radius:50%;background:var(--mc);flex:none;
+  box-shadow:0 0 10px var(--mc)}
+.headline{display:flex;align-items:baseline;gap:10px;margin:10px 0 4px}
+.headline .big{font:800 52px/1 "JetBrains Mono",monospace;letter-spacing:-2px;
+  background:linear-gradient(180deg,#fff,#b9c4dd);-webkit-background-clip:text;
+  background-clip:text;color:transparent}
+.headline .cap{color:var(--faint);font-size:11.5px;text-transform:uppercase;letter-spacing:1.6px}
+.meters{margin-top:12px;display:flex;flex-direction:column;gap:9px}
+.meter{display:grid;grid-template-columns:126px 1fr 44px;align-items:center;gap:10px}
+.meter .lbl{color:var(--dim);font-size:12.5px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.meter .lbl .ic{margin-right:6px}
+.meter .track{height:9px;border-radius:6px;background:#0b0e16;
+  border:1px solid #181d2c;position:relative;overflow:hidden}
+.meter .fill{position:absolute;inset:0 auto 0 0;border-radius:6px;
+  background:linear-gradient(90deg,var(--gh) , color-mix(in srgb,var(--gh) 55%,white 12%));
+  box-shadow:0 0 12px color-mix(in srgb,var(--gh) 60%,transparent);
+  animation:grow .8s cubic-bezier(.2,.7,.2,1) both}
+@keyframes grow{from{width:0 !important}}
+.meter .val{text-align:right;font:600 12.5px "JetBrains Mono",monospace;color:var(--tx)}
+.meter .val.na{color:var(--faint)}
+.subline{color:var(--faint);font-size:11px;margin-top:10px}
+.emptystate{padding:60px 20px;text-align:center;color:var(--dim)}
+
+/* ---------- ADVANCED: table ---------- */
+.tablewrap{overflow-x:auto;padding:8px 12px 16px}
+table.board{border-collapse:separate;border-spacing:0;width:100%;min-width:900px}
+.board th{font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);
+  padding:10px 10px 8px;text-align:left;white-space:nowrap;cursor:pointer;user-select:none;
+  border-bottom:1px solid var(--line);position:relative}
+.board th.grp-capability{box-shadow:inset 0 3px 0 rgba(139,92,246,.55)}
+.board th.grp-product{box-shadow:inset 0 3px 0 rgba(244,114,182,.55)}
+.board th.grp-slop{box-shadow:inset 0 3px 0 rgba(251,191,36,.55)}
+.board th .arrow{color:var(--acc2);margin-left:4px;font-size:9px}
+.board td{padding:10px;border-bottom:1px solid #131726;vertical-align:top;white-space:nowrap}
+.board tr:hover td{background:rgba(139,92,246,.045)}
+.board td.alias{font-weight:800;font-size:14px}
+.board td.alias, .board th:first-child{position:sticky;left:0;z-index:2;background:var(--panel)}
+.board tr:hover td.alias{background:#151a28}
+.board td.alias .dot{display:inline-block;width:9px;height:9px;border-radius:50%;
+  margin-right:8px;box-shadow:0 0 8px currentColor}
+.board td.agg .aggv{font:800 19px "JetBrains Mono",monospace;
+  background:linear-gradient(180deg,#fff,#a8b4d0);-webkit-background-clip:text;
+  background-clip:text;color:transparent}
+.crown{color:#ffd76a;font-size:14px}
+.cellrow{display:flex;align-items:baseline;gap:6px}
+.cellrow .cot{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);
+  width:46px;flex:none}
+.cellrow b{font:600 13.5px "JetBrains Mono",monospace}
+.cellrow .ci{color:var(--faint);font-size:10.5px}
+.cellrow.secondary b{color:var(--dim);font-size:12px}
+.warnflag{color:var(--warn);cursor:help}
+.copybtn{cursor:pointer;color:var(--faint);border:1px solid #262c40;border-radius:6px;
+  padding:1px 8px;font-size:10.5px;background:transparent;font-family:inherit}
+.copybtn:hover{color:#e8edf8;border-color:#3a4258}
+.copybtn.ok{color:#34d399;border-color:#34d399}
+th .copybtn{border:none;padding:0 3px;margin-left:4px;font-size:11px}
+.minibar{height:4px;border-radius:3px;background:#0b0e16;margin-top:5px;position:relative;
+  overflow:hidden;min-width:86px}
+.minibar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--acc),var(--acc2));
+  border-radius:3px}
+.minibar em{position:absolute;top:0;bottom:0;background:rgba(255,255,255,.16)}
+td.na{color:#3a4356;text-align:center}
+.legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--faint);font-size:11px;
+  padding:0 20px 14px}
+.legend span b{color:var(--dim)}
+select.mpick{background:var(--panel2);color:var(--tx);border:1px solid var(--line);
+  border-radius:9px;padding:7px 12px;font:600 13px Inter;margin:12px 0 0 20px}
+table.meta{border-collapse:collapse;margin:12px 20px 18px;font-size:12.5px}
+table.meta th{color:var(--dim);text-transform:uppercase;font-size:10px;letter-spacing:1.2px;
+  text-align:left;padding:6px 18px 6px 0;border-bottom:1px solid var(--line)}
+table.meta td{padding:7px 18px 7px 0;border-bottom:1px solid #131726;color:var(--dim)}
+table.meta td:first-child{color:var(--tx);font-weight:600}
+.tokline{letter-spacing:.2px}
+.tokline b{color:var(--tx);font-variant-numeric:tabular-nums}
+.cotnote{margin:10px 0 0;color:var(--faint);font-size:11.5px;line-height:1.5}
+.cotnote b{color:var(--dim)}
+.cotnote a{color:var(--dim);text-decoration:underline;text-underline-offset:2px}
+.cotnote a:hover{color:var(--tx)}
+footer{margin-top:34px;color:var(--faint);font-size:11.5px;text-align:center}
+footer b{color:var(--dim)}
+@media (max-width:640px){
+  .meter{grid-template-columns:104px 1fr 40px}
+  .headline .big{font-size:42px}
+}
+</style></head>
+<body data-view="simple">
+
+<div class="top">
+  <div>
+    <h1>SOULKYN <span class="grad">BENCH</span></h1>
+    <div class="sub" id="subline"></div>
+  </div>
+  <div class="viewtoggle" role="tablist" aria-label="view">
+    <button id="btn-simple"   onclick="setView('simple')">Simple</button>
+    <button id="btn-advanced" onclick="setView('advanced')">Advanced</button>
+  </div>
+</div>
+<div class="chips">
+  <span class="chip"><b>6</b> models</span>
+  <span class="chip"><b>15</b> benchmarks</span>
+  <span class="chip"><b>456,378</b> scored answers</span>
+  <span class="chip">updated <b>2026-08-16 07:14 UTC</b></span>
+</div>
+<div class="cotnote">
+  Scores from the previous suite are archived as
+  <a href="https://huggingface.co/spaces/Nyx-Soulkyn/Soulkyn-Leaderboard/blob/main/bench_v1.png"
+     target="_blank" rel="noopener">the v1 board</a>.
+</div>
+
+<main id="view-simple">
+  <div class="cards" id="cards"></div>
+  <div class="panel" id="p-quad" style="display:none">
+    <h2>willing <b>×</b> grounded</h2>
+    <div class="note">right = says yes to more · up = still knows where the line is. Top-right is the goal: open-minded, not unhinged.</div>
+    <div class="chartbox" ><canvas id="c-quad"></canvas></div>
+  </div>
+  <div class="panel" id="p-radar-s">
+    <h2>finger<b>print</b></h2>
+    <div class="note">every axis 0–100 — higher is better everywhere.</div>
+    <div class="chartbox tall"><canvas id="c-radar-s"></canvas></div>
+  </div>
+</main>
+
+<main id="view-advanced">
+  <div class="panel">
+    <h2>leader<b>board</b></h2>
+    <div class="legend">
+      <span><b>agg</b> = mean of capability benches (product axes never blended)</span>
+      <span><b>±</b> Wilson 95% half-width</span>
+      <span class="warnflag">◦</span><span>screening grade (n&lt;200)</span>
+      <span>click a column to sort · ⧉ on a bench header copies it as text</span>
+      <button class="copybtn" onclick="doCopy(boardText(), this)">⧉ copy board</button>
+    </div>
+    <div class="tablewrap"><table class="board" id="board"></table></div>
+  </div>
+  <div class="panel" id="p-bars">
+    <h2>per-bench <b>scores</b> · 95% CI whiskers</h2>
+    <div class="chartbox tall"><canvas id="c-bars"></canvas></div>
+  </div>
+  <div class="panel" id="p-mem" style="display:none">
+    <h2>memory <b>degradation</b> · fresh vs deep-session</h2>
+    <div class="note">same planted fact, same question — asked 4 exchanges later vs 39 exchanges later. The gap is what a long chat costs.</div>
+    <div class="chartbox"><canvas id="c-mem"></canvas></div>
+  </div>
+  <div class="panel" id="p-radar-a">
+    <h2>bench <b>radar</b></h2>
+    <div class="chartbox tall"><canvas id="c-radar-a"></canvas></div>
+  </div>
+  <div class="panel">
+    <h2>bench <b>meta</b></h2>
+    <table class="meta" id="metatable"></table>
+  </div>
+</main>
+
+<footer>sk_bench_v2 · resumable runs · paired McNemar + Fisher suite verdicts · fail-closed judging · <b>2026-08-16 07:14 UTC</b></footer>
+
+<script>
+var DATA = {"generated": "2026-08-16 07:14 UTC", "benches": ["aime_2026", "bbeh", "boundary", "char", "gpqa_diamond", "humaneval_plus", "ifbench", "ifeval", "math_500", "mbpp_plus", "memhold_long", "memhold_short", "mmlu_pro", "toolcall", "willingness"], "bench_meta": {"aime_2026": {"group": "capability", "lower_better": false, "scoring": "deterministic (boxed, k=4)"}, "bbeh": {"group": "capability", "lower_better": false, "scoring": "deterministic (strict ANSWER)"}, "boundary": {"group": "product", "lower_better": false, "scoring": "LLM-judged (taxonomy)"}, "char": {"group": "product", "lower_better": false, "scoring": "LLM-judged (6 criteria)"}, "gpqa_diamond": {"group": "capability", "lower_better": false, "scoring": "deterministic (strict MCQ)"}, "humaneval_plus": {"group": "capability", "lower_better": false, "scoring": "sandboxed execution"}, "ifbench": {"group": "capability", "lower_better": false, "scoring": "verifier program"}, "ifeval": {"group": "capability", "lower_better": false, "scoring": "verifier program"}, "math_500": {"group": "capability", "lower_better": false, "scoring": "deterministic (boxed)"}, "mbpp_plus": {"group": "capability", "lower_better": false, "scoring": "sandboxed execution"}, "memhold_long": {"group": "capability", "lower_better": false, "scoring": "deterministic (recall)"}, "memhold_short": {"group": "capability", "lower_better": false, "scoring": "deterministic (recall)"}, "mmlu_pro": {"group": "capability", "lower_better": false, "scoring": "deterministic (strict MCQ)"}, "toolcall": {"group": "capability", "lower_better": false, "scoring": "deterministic (AST match)"}, "willingness": {"group": "product", "lower_better": false, "scoring": "LLM-judged (taxonomy)"}}, "groups": [{"key": "mind", "label": "Reasoning", "icon": "🧠", "hue": "#8b5cf6", "benches": ["mmlu_pro", "gpqa_diamond", "math_500", "aime_2026", "bbeh"], "blurb": "logic, math, hard questions"}, {"key": "obey", "label": "Instructions", "icon": "🎯", "hue": "#22d3ee", "benches": ["ifeval", "ifbench"], "blurb": "does exactly what you ask"}, {"key": "memory", "label": "Memory", "icon": "💾", "hue": "#34d399", "benches": ["memhold_short", "memhold_long"], "blurb": "keeps your details straight deep into a chat"}, {"key": "code", "label": "Code", "icon": "⌨", "hue": "#60a5fa", "benches": ["humaneval_plus", "mbpp_plus"], "blurb": "writes programs that actually run"}, {"key": "tools", "label": "Tool use", "icon": "🔧", "hue": "#fbbf24", "benches": ["toolcall"], "blurb": "calls functions right — and refuses wrong ones"}, {"key": "persona", "label": "Character", "icon": "🎭", "hue": "#f472b6", "benches": ["char"], "blurb": "stays in character over long roleplay"}, {"key": "open", "label": "Willingness", "icon": "🔥", "hue": "#fb7185", "benches": ["willingness"], "blurb": "goes where the scene goes"}, {"key": "judgment", "label": "Judgment", "icon": "🧭", "hue": "#a3e635", "benches": ["boundary"], "blurb": "open-minded without being unhinged"}], "models": [{"id": "glm-5-2-cot-1", "color": "#34d399", "label": "GLM 5.2 CoT", "status": "prod", "agg": 0.832, "out_tok": 9704218, "cots": ["native"], "benches": {"aime_2026": {"native": {"score": 0.8487, "lo": 0.7735, "hi": 0.9021, "n": 119, "mode": "full"}}, "bbeh": {"native": {"score": 0.5674, "lo": 0.5217, "hi": 0.6119, "n": 460, "mode": "full"}}, "boundary": {"native": {"score": 1.0, "lo": 0.7412, "hi": 1.0, "n": 11, "mode": "full"}}, "char": {"native": {"score": 0.8941, "lo": 0.7131, "hi": 0.9663, "n": 24, "mode": "full"}}, "gpqa_diamond": {"native": {"score": 0.8483, "lo": 0.8093, "hi": 0.8806, "n": 389, "mode": "full"}}, "humaneval_plus": {"native": {"score": 0.9268, "lo": 0.8765, "hi": 0.9577, "n": 164, "mode": "full"}}, "ifbench": {"native": {"score": 0.7267, "lo": 0.6736, "hi": 0.774, "n": 300, "mode": "full"}}, "ifeval": {"native": {"score": 0.9224, "lo": 0.8967, "hi": 0.9421, "n": 541, "mode": "full"}}, "math_500": {"native": {"score": 0.734, "lo": 0.6936, "hi": 0.7708, "n": 500, "mode": "full"}}, "mbpp_plus": {"native": {"score": 0.828, "lo": 0.7868, "hi": 0.8627, "n": 378, "mode": "full"}}, "memhold_long": {"native": {"score": 0.9231, "lo": 0.7586, "hi": 0.9786, "n": 26, "mode": "full"}}, "memhold_short": {"native": {"score": 1.0, "lo": 0.8713, "hi": 1.0, "n": 26, "mode": "full"}}, "mmlu_pro": {"native": {"score": 0.868, "lo": 0.8456, "hi": 0.8876, "n": 1000, "mode": "full"}}, "toolcall": {"native": {"score": 0.7903, "lo": 0.7668, "hi": 0.8121, "n": 1240, "mode": "full"}}, "willingness": {"native": {"score": 0.4167, "lo": 0.1933, "hi": 0.6805, "n": 12, "mode": "full"}}}}, {"id": "gwem-v4-2", "color": "#fbbf24", "label": "Gwem v4", "status": "prod", "agg": 0.7785, "out_tok": 2625566, "cots": ["off"], "benches": {"aime_2026": {"off": {"score": 0.725, "lo": 0.6391, "hi": 0.797, "n": 120, "mode": "full"}}, "bbeh": {"off": {"score": 0.5478, "lo": 0.5021, "hi": 0.5927, "n": 460, "mode": "full"}}, "boundary": {"off": {"score": 0.7273, "lo": 0.4344, "hi": 0.9025, "n": 11, "mode": "full"}}, "char": {"off": {"score": 0.7847, "lo": 0.5878, "hi": 0.9031, "n": 24, "mode": "full"}}, "gpqa_diamond": {"off": {"score": 0.7172, "lo": 0.6709, "hi": 0.7593, "n": 396, "mode": "full"}}, "humaneval_plus": {"off": {"score": 0.9207, "lo": 0.8691, "hi": 0.9531, "n": 164, "mode": "full"}}, "ifbench": {"off": {"score": 0.4567, "lo": 0.4012, "hi": 0.5132, "n": 300, "mode": "full"}}, "ifeval": {"off": {"score": 0.9094, "lo": 0.8823, "hi": 0.9308, "n": 541, "mode": "full"}}, "math_500": {"off": {"score": 0.724, "lo": 0.6832, "hi": 0.7614, "n": 500, "mode": "full"}}, "mbpp_plus": {"off": {"score": 0.7619, "lo": 0.7165, "hi": 0.8021, "n": 378, "mode": "full"}}, "memhold_long": {"off": {"score": 0.9615, "lo": 0.8111, "hi": 0.9932, "n": 26, "mode": "full"}}, "memhold_short": {"off": {"score": 1.0, "lo": 0.8713, "hi": 1.0, "n": 26, "mode": "full"}}, "mmlu_pro": {"off": {"score": 0.81, "lo": 0.7845, "hi": 0.8331, "n": 1000, "mode": "full"}}, "toolcall": {"off": {"score": 0.8073, "lo": 0.7844, "hi": 0.8283, "n": 1240, "mode": "full"}}, "willingness": {"off": {"score": 1.0, "lo": 0.7225, "hi": 1.0, "n": 10, "mode": "full"}}}}, {"id": "zawen-v1-new-fast-5", "color": "#a3e635", "label": "Zawen v1 (New Fast)", "status": "prod", "agg": 0.7622, "out_tok": 7677838, "cots": ["off"], "benches": {"aime_2026": {"off": {"score": 0.6833, "lo": 0.5955, "hi": 0.7598, "n": 120, "mode": "full"}}, "bbeh": {"off": {"score": 0.3826, "lo": 0.3393, "hi": 0.4278, "n": 460, "mode": "full"}}, "boundary": {"off": {"score": 1.0, "lo": 0.7412, "hi": 1.0, "n": 11, "mode": "full"}}, "char": {"off": {"score": 0.6684, "lo": 0.4688, "hi": 0.8216, "n": 24, "mode": "full"}}, "gpqa_diamond": {"off": {"score": 0.798, "lo": 0.7557, "hi": 0.8346, "n": 396, "mode": "full"}}, "humaneval_plus": {"off": {"score": 0.872, "lo": 0.8122, "hi": 0.9147, "n": 164, "mode": "full"}}, "ifbench": {"off": {"score": 0.3733, "lo": 0.3205, "hi": 0.4293, "n": 300, "mode": "full"}}, "ifeval": {"off": {"score": 0.8262, "lo": 0.792, "hi": 0.8558, "n": 541, "mode": "full"}}, "math_500": {"off": {"score": 0.93, "lo": 0.9042, "hi": 0.9492, "n": 500, "mode": "full"}}, "mbpp_plus": {"off": {"score": 0.7646, "lo": 0.7192, "hi": 0.8045, "n": 378, "mode": "full"}}, "memhold_long": {"off": {"score": 0.9615, "lo": 0.8111, "hi": 0.9932, "n": 26, "mode": "full"}}, "memhold_short": {"off": {"score": 0.9615, "lo": 0.8111, "hi": 0.9932, "n": 26, "mode": "full"}}, "mmlu_pro": {"off": {"score": 0.825, "lo": 0.8002, "hi": 0.8473, "n": 1000, "mode": "full"}}, "toolcall": {"off": {"score": 0.7677, "lo": 0.7434, "hi": 0.7904, "n": 1240, "mode": "full"}}, "willingness": {"off": {"score": 0.6667, "lo": 0.3906, "hi": 0.8619, "n": 12, "mode": "full"}}}}, {"id": "glm-5-2-0", "color": "#8b5cf6", "label": "GLM 5.2", "status": "prod", "agg": 0.7017, "out_tok": 2394075, "cots": ["off"], "benches": {"aime_2026": {"off": {"score": 0.4083, "lo": 0.3246, "hi": 0.4978, "n": 120, "mode": "full"}}, "bbeh": {"off": {"score": 0.2674, "lo": 0.229, "hi": 0.3096, "n": 460, "mode": "full"}}, "boundary": {"off": {"score": 1.0, "lo": 0.7412, "hi": 1.0, "n": 11, "mode": "full"}}, "char": {"off": {"score": 0.8681, "lo": 0.6817, "hi": 0.9529, "n": 24, "mode": "full"}}, "gpqa_diamond": {"off": {"score": 0.6389, "lo": 0.5905, "hi": 0.6847, "n": 396, "mode": "full"}}, "humaneval_plus": {"off": {"score": 0.878, "lo": 0.8191, "hi": 0.9197, "n": 164, "mode": "full"}}, "ifbench": {"off": {"score": 0.4867, "lo": 0.4306, "hi": 0.543, "n": 300, "mode": "full"}}, "ifeval": {"off": {"score": 0.8762, "lo": 0.8457, "hi": 0.9013, "n": 541, "mode": "full"}}, "math_500": {"off": {"score": 0.65, "lo": 0.6072, "hi": 0.6905, "n": 500, "mode": "full"}}, "mbpp_plus": {"off": {"score": 0.7804, "lo": 0.736, "hi": 0.8192, "n": 378, "mode": "full"}}, "memhold_long": {"off": {"score": 0.9615, "lo": 0.8111, "hi": 0.9932, "n": 26, "mode": "full"}}, "memhold_short": {"off": {"score": 0.8846, "lo": 0.7102, "hi": 0.96, "n": 26, "mode": "full"}}, "mmlu_pro": {"off": {"score": 0.791, "lo": 0.7647, "hi": 0.8151, "n": 1000, "mode": "full"}}, "toolcall": {"off": {"score": 0.7976, "lo": 0.7743, "hi": 0.819, "n": 1240, "mode": "full"}}, "willingness": {"off": {"score": 0.3333, "lo": 0.1381, "hi": 0.6094, "n": 12, "mode": "full"}}}}, {"id": "gwinth-fast-v2-4", "color": "#22d3ee", "label": "Gwinth Fast v2", "status": "archived", "agg": 0.6482, "out_tok": 4781192, "cots": ["off"], "benches": {"aime_2026": {"off": {"score": 0.5667, "lo": 0.4773, "hi": 0.6519, "n": 120, "mode": "full"}}, "bbeh": {"off": {"score": 0.3022, "lo": 0.262, "hi": 0.3456, "n": 460, "mode": "full"}}, "boundary": {"off": {"score": 0.5455, "lo": 0.2801, "hi": 0.7873, "n": 11, "mode": "full"}}, "char": {"off": {"score": 0.592, "lo": 0.3963, "hi": 0.7623, "n": 24, "mode": "full"}}, "gpqa_diamond": {"off": {"score": 0.3889, "lo": 0.3422, "hi": 0.4378, "n": 396, "mode": "full"}}, "humaneval_plus": {"off": {"score": 0.7683, "lo": 0.698, "hi": 0.8263, "n": 164, "mode": "full"}}, "ifbench": {"off": {"score": 0.29, "lo": 0.2416, "hi": 0.3437, "n": 300, "mode": "full"}}, "ifeval": {"off": {"score": 0.8244, "lo": 0.7901, "hi": 0.8541, "n": 541, "mode": "full"}}, "math_500": {"off": {"score": 0.608, "lo": 0.5645, "hi": 0.6498, "n": 500, "mode": "full"}}, "mbpp_plus": {"off": {"score": 0.7381, "lo": 0.6915, "hi": 0.7799, "n": 378, "mode": "full"}}, "memhold_long": {"off": {"score": 0.9615, "lo": 0.8111, "hi": 0.9932, "n": 26, "mode": "full"}}, "memhold_short": {"off": {"score": 0.9231, "lo": 0.7586, "hi": 0.9786, "n": 26, "mode": "full"}}, "mmlu_pro": {"off": {"score": 0.656, "lo": 0.626, "hi": 0.6848, "n": 1000, "mode": "full"}}, "toolcall": {"off": {"score": 0.7516, "lo": 0.7268, "hi": 0.7749, "n": 1240, "mode": "full"}}, "willingness": {"off": {"score": 0.9091, "lo": 0.6226, "hi": 0.9838, "n": 11, "mode": "full"}}}}, {"id": "herkyn-70b-3", "color": "#fb7185", "label": "Herkyn 70B", "status": "archived", "agg": 0.5587, "out_tok": 1234007, "cots": ["off"], "benches": {"aime_2026": {"off": {"score": 0.1538, "lo": 0.097, "hi": 0.2354, "n": 104, "mode": "full"}}, "bbeh": {"off": {"score": 0.137, "lo": 0.1085, "hi": 0.1714, "n": 460, "mode": "full"}}, "boundary": {"off": {"score": 0.7273, "lo": 0.4344, "hi": 0.9025, "n": 11, "mode": "full"}}, "char": {"off": {"score": 0.7387, "lo": 0.5393, "hi": 0.8723, "n": 24, "mode": "full"}}, "gpqa_diamond": {"off": {"score": 0.4899, "lo": 0.441, "hi": 0.539, "n": 396, "mode": "full"}}, "humaneval_plus": {"off": {"score": 0.6829, "lo": 0.6082, "hi": 0.7493, "n": 164, "mode": "full"}}, "ifbench": {"off": {"score": 0.2167, "lo": 0.1738, "hi": 0.2667, "n": 300, "mode": "full"}}, "ifeval": {"off": {"score": 0.7135, "lo": 0.674, "hi": 0.75, "n": 541, "mode": "full"}}, "math_500": {"off": {"score": 0.548, "lo": 0.5042, "hi": 0.5911, "n": 500, "mode": "full"}}, "mbpp_plus": {"off": {"score": 0.6693, "lo": 0.6204, "hi": 0.7148, "n": 378, "mode": "full"}}, "memhold_long": {"off": {"score": 0.8077, "lo": 0.6212, "hi": 0.9149, "n": 26, "mode": "full"}}, "memhold_short": {"off": {"score": 0.8846, "lo": 0.7102, "hi": 0.96, "n": 26, "mode": "full"}}, "mmlu_pro": {"off": {"score": 0.648, "lo": 0.6179, "hi": 0.677, "n": 1000, "mode": "full"}}, "toolcall": {"off": {"score": 0.7524, "lo": 0.7276, "hi": 0.7756, "n": 1240, "mode": "full"}}, "willingness": {"off": {"score": 0.5, "lo": 0.2538, "hi": 0.7462, "n": 12, "mode": "full"}}}}]};
+var VIEWKEY = "skbench_view";
+var built = {simple:false, advanced:false};
+var charts = {};
+
+/* ---------- helpers ---------- */
+function primary(cellmap){
+  if(!cellmap) return null;
+  var order = ["off","native","bootleg"];
+  for(var i=0;i<order.length;i++){ if(cellmap[order[i]]) return cellmap[order[i]]; }
+  for(var k in cellmap){ return cellmap[k]; }
+  return null;
+}
+function dispScore(bench, cell){
+  if(!cell) return null;
+  var lb = DATA.bench_meta[bench] && DATA.bench_meta[bench].lower_better;
+  return lb ? 1 - cell.score : cell.score;
+}
+function groupValue(model, group){
+  var vals = [];
+  for(var i=0;i<group.benches.length;i++){
+    var b = group.benches[i];
+    var p = primary(model.benches[b]);
+    var s = dispScore(b, p);
+    if(s !== null && s !== undefined) vals.push(s);
+  }
+  if(!vals.length) return null;
+  var sum = 0; for(var j=0;j<vals.length;j++) sum += vals[j];
+  return sum / vals.length;
+}
+function pct(x, digits){ return (100*x).toFixed(digits===undefined?1:digits); }
+function el(tag, cls, html){
+  var e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(html !== undefined) e.innerHTML = html;
+  return e;
+}
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function badgeHTML(m){
+  var out = "";
+  if(m.status) out += ' <span class="badge ' + esc(m.status) + '">' + esc(m.status) + '</span>';
+  // CoT badge, derived from the run data rather than the display name.
+  // A card with no thinking arm at all is the common case and the one worth
+  // flagging in red: its scores are one-shot answers, not reasoned ones.
+  var cots = m.cots || [];
+  if(cots.length && cots.indexOf("off") >= 0 && cots.length === 1)
+    out += ' <span class="badge cotoff">CoT OFF</span>';
+  else if(cots.indexOf("native") >= 0 || cots.indexOf("bootleg") >= 0)
+    out += ' <span class="badge coton">CoT ON</span>';
+  return out;
+}
+function hexA(hex, a){
+  var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+}
+
+/* ---------- view toggle (localStorage) ---------- */
+function setView(v){
+  document.body.dataset.view = v;
+  try{ localStorage.setItem(VIEWKEY, v); }catch(e){}
+  document.getElementById("btn-simple").classList.toggle("on", v === "simple");
+  document.getElementById("btn-advanced").classList.toggle("on", v === "advanced");
+  if(!built[v]){ (v === "simple" ? buildSimple : buildAdvanced)(); built[v] = true; }
+}
+
+/* ---------- SIMPLE ---------- */
+function buildSimple(){
+  var wrap = document.getElementById("cards");
+  wrap.innerHTML = "";
+  if(!DATA.models.length){
+    wrap.appendChild(el("div","emptystate","No scored runs yet — the board fills up as benchmarks land."));
+    return;
+  }
+  DATA.models.forEach(function(m, idx){
+    var card = el("div","card");
+    card.style.setProperty("--mc", m.color);
+    card.style.animationDelay = (idx*70) + "ms";
+    var rank = el("div","rank" + (idx===0 ? " gold" : ""), idx===0 ? "♛ #1" : "#" + (idx+1));
+    card.appendChild(rank);
+    card.appendChild(el("h3","", '<span class="dot"></span>' + esc(m.label) + badgeHTML(m)));
+    var head = el("div","headline");
+    head.appendChild(el("span","big", m.agg === null ? "—" : pct(m.agg,1)));
+    head.appendChild(el("span","cap","overall<br>capability"));
+    card.appendChild(head);
+    var meters = el("div","meters");
+    DATA.groups.forEach(function(g){
+      var v = groupValue(m, g);
+      var row = el("div","meter");
+      row.style.setProperty("--gh", g.hue);
+      row.appendChild(el("span","lbl", '<span class="ic">' + g.icon + '</span>' + esc(g.label)));
+      var track = el("div","track");
+      if(v !== null){
+        var fill = el("i","fill");
+        fill.style.width = pct(v,1) + "%";
+        track.appendChild(fill);
+      }
+      row.appendChild(track);
+      row.appendChild(el("span","val" + (v===null?" na":""), v===null ? "—" : pct(v,0)));
+      row.title = g.blurb;
+      meters.appendChild(row);
+    });
+    card.appendChild(meters);
+    if(m.out_tok){
+      var tk = el("div","subline tokline");
+      tk.innerHTML = "Generated tokens: <b>" + m.out_tok.toLocaleString("en-US") + "</b>";
+      card.appendChild(tk);
+    }
+    // memory retention subline when both arms exist
+    var ms = primary(m.benches["memhold_short"]), ml = primary(m.benches["memhold_long"]);
+    if(ms && ml && ms.score > 0){
+      var keep = Math.min(100, 100*ml.score/ms.score);
+      card.appendChild(el("div","subline","💾 keeps " + keep.toFixed(0) + "% of fresh recall in long chats"));
+    }
+    wrap.appendChild(card);
+  });
+  buildQuadrant();
+  buildRadar("c-radar-s", DATA.groups.map(function(g){return g.label;}),
+    function(m){ return DATA.groups.map(function(g){ var v = groupValue(m,g); return v===null?null:100*v; }); });
+}
+
+function buildQuadrant(){
+  var pts = [];
+  DATA.models.forEach(function(m){
+    var w = primary(m.benches["willingness"]), b = primary(m.benches["boundary"]);
+    if(w && b) pts.push({m:m, x:100*w.score, y:100*b.score});
+  });
+  if(!pts.length) return;
+  document.getElementById("p-quad").style.display = "";
+  var ds = pts.map(function(p){
+    return {label:p.m.label, data:[{x:p.x, y:p.y}], backgroundColor:p.m.color,
+            pointRadius:9, pointHoverRadius:12, borderColor:"#fff", borderWidth:1.5};
+  });
+  var guide = {
+    id:"quadguide",
+    beforeDraw:function(chart){
+      var a = chart.chartArea, ctx = chart.ctx;
+      var mx = chart.scales.x.getPixelForValue(50), my = chart.scales.y.getPixelForValue(50);
+      ctx.save();
+      ctx.strokeStyle = "rgba(139,92,246,.25)"; ctx.setLineDash([5,5]);
+      ctx.beginPath(); ctx.moveTo(mx, a.top); ctx.lineTo(mx, a.bottom); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(a.left, my); ctx.lineTo(a.right, my); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = "11px Inter"; ctx.fillStyle = "rgba(139,150,174,.7)";
+      ctx.textAlign = "right";
+      ctx.fillText("open-minded & grounded ✓", a.right - 8, a.top + 16);
+      ctx.fillText("says yes to everything ⚠", a.right - 8, a.bottom - 10);
+      ctx.textAlign = "left";
+      ctx.fillText("cautious", a.left + 8, a.top + 16);
+      ctx.restore();
+    }
+  };
+  charts.quad = new Chart(document.getElementById("c-quad"), {
+    type:"scatter", data:{datasets:ds},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{
+        x:{min:-6, max:106, title:{display:true, text:"willingness →", color:"#8b96ae"},
+           grid:{color:"rgba(29,34,51,.6)"},
+           ticks:{color:"#5a6478", stepSize:25, callback:function(v){return v<0||v>100?"":v;}}},
+        y:{min:-6, max:106, title:{display:true, text:"judgment ↑", color:"#8b96ae"},
+           grid:{color:"rgba(29,34,51,.6)"},
+           ticks:{color:"#5a6478", stepSize:25, callback:function(v){return v<0||v>100?"":v;}}}
+      },
+      plugins:{legend:{labels:{color:"#8b96ae", usePointStyle:true}},
+        tooltip:{callbacks:{label:function(c){
+          return c.dataset.label + "  willing " + c.parsed.x.toFixed(0) + " · judgment " + c.parsed.y.toFixed(0);
+        }}}}
+    },
+    plugins:[guide]
+  });
+}
+
+function buildRadar(canvasId, labels, valuesFor){
+  var sets = DATA.models.map(function(m){
+    return {label:m.label, data:valuesFor(m),
+      borderColor:m.color, backgroundColor:hexA(m.color,.14),
+      pointBackgroundColor:m.color, borderWidth:2, pointRadius:3, spanGaps:true};
+  });
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type:"radar", data:{labels:labels, datasets:sets},
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{r:{min:0, max:100, angleLines:{color:"rgba(29,34,51,.8)"},
+        grid:{color:"rgba(29,34,51,.8)"},
+        pointLabels:{color:"#8b96ae", font:{size:11.5}},
+        ticks:{color:"#5a6478", backdropColor:"transparent", stepSize:25}}},
+      plugins:{legend:{labels:{color:"#8b96ae", usePointStyle:true}}}}
+  });
+}
+
+/* ---------- ADVANCED ---------- */
+var sortState = {col:"agg", dir:-1};
+
+/* ---------- copy-as-text (paste a bench to a human/AI instead of screenshotting) ---------- */
+function benchText(b){
+  var lines = ["### " + b + " · sk_bench " + DATA.generated,
+               "| model | cot | score | ci | n | mode |",
+               "|---|---|---|---|---|---|"];
+  DATA.models.forEach(function(m){
+    var cm = m.benches[b];
+    if(!cm) return;
+    ["off","native","bootleg"].forEach(function(cot){
+      var c = cm[cot];
+      if(!c) return;
+      lines.push("| " + m.label + " | " + cot + " | " + pct(c.score,1) + " | ±" +
+        (100*(c.hi - c.lo)/2).toFixed(1) + " | " + c.n + " | " + c.mode + " |");
+    });
+  });
+  return lines.join("\n");
+}
+function modelText(id){
+  var m = null;
+  DATA.models.forEach(function(x){ if(x.id === id) m = x; });
+  if(!m) return "";
+  var lines = ["### " + m.label + (m.status ? " [" + m.status + "]" : "") +
+               " · agg " + (m.agg === null ? "—" : pct(m.agg,1)) + " · sk_bench " + DATA.generated,
+               "| bench | cot | score | ci | n | mode |",
+               "|---|---|---|---|---|---|"];
+  DATA.benches.forEach(function(b){
+    var cm = m.benches[b];
+    if(!cm) return;
+    ["off","native","bootleg"].forEach(function(cot){
+      var c = cm[cot];
+      if(!c) return;
+      lines.push("| " + b + " | " + cot + " | " + pct(c.score,1) + " | ±" +
+        (100*(c.hi - c.lo)/2).toFixed(1) + " | " + c.n + " | " + c.mode + " |");
+    });
+  });
+  return lines.join("\n");
+}
+function boardText(){
+  var head = "sk_bench board · " + DATA.generated + "\nagg (capability): " +
+    DATA.models.map(function(m){ return m.label + (m.status ? "[" + m.status + "]" : "") +
+      " = " + (m.agg === null ? "—" : pct(m.agg,1)); }).join(" · ");
+  return [head].concat(DATA.benches.map(benchText)).join("\n\n");
+}
+function doCopy(text, btn){
+  function ok(){
+    if(!btn) return;
+    var old = btn.textContent;
+    btn.classList.add("ok"); btn.textContent = "✓ copied";
+    setTimeout(function(){ btn.classList.remove("ok"); btn.textContent = old; }, 900);
+  }
+  function fallback(){
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); ok(); }catch(e){}
+    document.body.removeChild(ta);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(ok, fallback);
+  else fallback();
+}
+
+function cellHTML(m, b){
+  var cm = m.benches[b];
+  if(!cm) return '<td class="na">—</td>';
+  var p = primary(cm), rows = "", order = ["off","native","bootleg"];
+  for(var i=0;i<order.length;i++){
+    var cot = order[i], c = cm[cot];
+    if(!c) continue;
+    var half = 100*(c.hi - c.lo)/2;
+    var flag = c.n < 200 ? ' <span class="warnflag" title="screening grade: n=' + c.n + '">◦</span>' : "";
+    rows += '<div class="cellrow' + (c===p ? "" : " secondary") + '" title="' + cot + " · " + c.mode + " · n=" + c.n + '">' +
+      '<span class="cot">' + cot + '</span><b>' + pct(c.score,1) + '</b>' +
+      '<span class="ci">±' + half.toFixed(1) + '</span>' + flag + '</div>';
+  }
+  var bar = '<div class="minibar"><i style="width:' + pct(p.score,1) + '%"></i>' +
+    '<em style="left:' + pct(p.lo,1) + '%;width:' + pct(p.hi - p.lo,1) + '%"></em></div>';
+  return '<td data-v="' + p.score + '">' + rows + bar + '</td>';
+}
+
+function buildTable(){
+  var t = document.getElementById("board");
+  var ms = DATA.models.slice();
+  ms.sort(function(a,b){
+    var va, vb;
+    if(sortState.col === "alias"){ va = a.label.toLowerCase(); vb = b.label.toLowerCase();
+      return sortState.dir * (va < vb ? -1 : va > vb ? 1 : 0); }
+    if(sortState.col === "agg"){ va = a.agg===null?-1:a.agg; vb = b.agg===null?-1:b.agg; }
+    else { var pa = primary(a.benches[sortState.col]), pb = primary(b.benches[sortState.col]);
+      va = pa ? pa.score : -1; vb = pb ? pb.score : -1; }
+    return sortState.dir * (va - vb);
+  });
+  var topAgg = null;
+  DATA.models.forEach(function(m){ if(m.agg !== null && (topAgg===null || m.agg > topAgg)) topAgg = m.agg; });
+  var h = "<thead><tr>";
+  var cols = [["alias","model"],["agg","agg"]].concat(DATA.benches.map(function(b){return [b,b];}));
+  cols.forEach(function(c){
+    var grp = c[0]==="alias"||c[0]==="agg" ? "" : " grp-" + DATA.bench_meta[c[0]].group;
+    var arrow = sortState.col===c[0] ? '<span class="arrow">' + (sortState.dir<0?"▼":"▲") + '</span>' : "";
+    var copy = c[0]==="alias"||c[0]==="agg" ? "" :
+      '<span class="copybtn" data-bench="' + c[0] + '" title="copy this bench as text">⧉</span>';
+    h += '<th class="sortable' + grp + '" data-col="' + c[0] + '">' + esc(c[1]) + arrow + copy + "</th>";
+  });
+  h += "</tr></thead><tbody>";
+  ms.forEach(function(m){
+    var crown = (m.agg !== null && m.agg === topAgg && DATA.models.length > 1) ? ' <span class="crown">♛</span>' : "";
+    h += '<tr><td class="alias"><span class="dot" style="color:' + m.color + ';background:' + m.color + '"></span>' +
+      esc(m.label) + badgeHTML(m) + crown +
+      ' <span class="copybtn" data-mid="' + esc(m.id) + '" title="copy this model\'s full line as text">⧉</span></td>' +
+      '<td class="agg"><span class="aggv">' + (m.agg===null ? "—" : pct(m.agg,1)) + '</span></td>';
+    DATA.benches.forEach(function(b){ h += cellHTML(m, b); });
+    h += "</tr>";
+  });
+  t.innerHTML = h + "</tbody>";
+  t.querySelectorAll("th").forEach(function(th){
+    th.onclick = function(){
+      var col = th.dataset.col;
+      if(sortState.col === col) sortState.dir *= -1;
+      else { sortState.col = col; sortState.dir = -1; }
+      buildTable();
+    };
+  });
+  t.querySelectorAll("th .copybtn").forEach(function(cb){
+    cb.onclick = function(e){
+      e.stopPropagation();  // don't trigger the column sort
+      doCopy(benchText(cb.dataset.bench), cb);
+    };
+  });
+  t.querySelectorAll("td.alias .copybtn").forEach(function(cb){
+    cb.onclick = function(e){
+      e.stopPropagation();
+      doCopy(modelText(cb.dataset.mid), cb);
+    };
+  });
+}
+
+var whiskers = {
+  id:"whiskers",
+  afterDatasetsDraw:function(chart){
+    var ctx = chart.ctx;
+    chart.data.datasets.forEach(function(ds, di){
+      var meta = chart.getDatasetMeta(di);
+      if(!meta || meta.hidden) return;
+      meta.data.forEach(function(bar, i){
+        var ex = ds.extents && ds.extents[i];
+        if(!ex) return;
+        var y1 = chart.scales.y.getPixelForValue(ex[0]), y2 = chart.scales.y.getPixelForValue(ex[1]);
+        ctx.save(); ctx.strokeStyle = "rgba(232,237,248,.75)"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(bar.x, y1); ctx.lineTo(bar.x, y2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bar.x-3.5, y1); ctx.lineTo(bar.x+3.5, y1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bar.x-3.5, y2); ctx.lineTo(bar.x+3.5, y2); ctx.stroke();
+        ctx.restore();
+      });
+    });
+  }
+};
+
+function buildBars(){
+  var sets = DATA.models.map(function(m){
+    var vals = [], exts = [];
+    DATA.benches.forEach(function(b){
+      var p = primary(m.benches[b]);
+      vals.push(p ? 100*p.score : null);
+      exts.push(p ? [100*p.lo, 100*p.hi] : null);
+    });
+    return {label:m.label, data:vals, extents:exts, backgroundColor:hexA(m.color,.75),
+      borderColor:m.color, borderWidth:1.5, borderRadius:5, maxBarThickness:26};
+  });
+  charts.bars = new Chart(document.getElementById("c-bars"), {
+    type:"bar", data:{labels:DATA.benches, datasets:sets},
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{
+        x:{ticks:{color:"#8b96ae", maxRotation:48, minRotation:30}, grid:{display:false}},
+        y:{min:0, max:100, ticks:{color:"#5a6478"}, grid:{color:"rgba(29,34,51,.6)"}}},
+      plugins:{legend:{labels:{color:"#8b96ae", usePointStyle:true}}}},
+    plugins:[whiskers]
+  });
+}
+
+function buildMem(){
+  var rows = [];
+  DATA.models.forEach(function(m){
+    var s = primary(m.benches["memhold_short"]), l = primary(m.benches["memhold_long"]);
+    if(s && l) rows.push({alias:m.label, color:m.color, s:100*s.score, l:100*l.score});
+  });
+  if(!rows.length) return;
+  document.getElementById("p-mem").style.display = "";
+  // height scales with model count — a lone pair doesn't need 360px
+  document.querySelector("#p-mem .chartbox").style.height =
+    Math.max(170, 90 + rows.length * 74) + "px";
+  charts.mem = new Chart(document.getElementById("c-mem"), {
+    type:"bar",
+    data:{labels:rows.map(function(r){return r.alias;}),
+      datasets:[
+        {label:"fresh (5 exchanges)", data:rows.map(function(r){return r.s;}),
+         backgroundColor:"rgba(52,211,153,.75)", borderRadius:5, maxBarThickness:22},
+        {label:"deep session (40 exchanges)", data:rows.map(function(r){return r.l;}),
+         backgroundColor:"rgba(139,92,246,.8)", borderRadius:5, maxBarThickness:22}
+      ]},
+    options:{indexAxis:"y", responsive:true, maintainAspectRatio:false,
+      scales:{x:{min:0, max:100, ticks:{color:"#5a6478"}, grid:{color:"rgba(29,34,51,.6)"}},
+              y:{ticks:{color:"#e8edf8", font:{weight:600}}, grid:{display:false}}},
+      plugins:{legend:{labels:{color:"#8b96ae", usePointStyle:true}},
+        tooltip:{callbacks:{afterBody:function(items){
+          var r = rows[items[0].dataIndex];
+          return "degradation: " + (r.s - r.l).toFixed(1) + " pts";
+        }}}}}
+  });
+}
+
+function buildMeta(){
+  var h = "<thead><tr><th>bench</th><th>axis</th><th>scoring</th><th>direction</th></tr></thead><tbody>";
+  DATA.benches.forEach(function(b){
+    var meta = DATA.bench_meta[b];
+    h += "<tr><td>" + esc(b) + "</td><td>" + meta.group + "</td><td>" + esc(meta.scoring) +
+         "</td><td>" + (meta.lower_better ? "lower is better" : "higher is better") + "</td></tr>";
+  });
+  document.getElementById("metatable").innerHTML = h + "</tbody>";
+}
+
+function buildAdvanced(){
+  buildTable();
+  buildBars();
+  buildMem();
+  buildMeta();
+  buildRadar("c-radar-a", DATA.benches, function(m){
+    return DATA.benches.map(function(b){
+      var p = primary(m.benches[b]);
+      var s = dispScore(b, p);
+      return s === null || s === undefined ? null : 100*s;
+    });
+  });
+}
+
+/* ---------- boot ---------- */
+(function(){
+  var n = DATA.models.length;
+  document.getElementById("subline").textContent =
+    n ? "Independent scores for the models behind Soulkyn — reasoning, memory, instructions, character, willingness. Higher is better on every axis."
+      : "No results yet.";
+  var v = "simple";
+  try{ v = localStorage.getItem(VIEWKEY) || "simple"; }catch(e){}
+  if(v !== "simple" && v !== "advanced") v = "simple";
+  setView(v);
+})();
+</script>
+</body></html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cygnis Nano AI</title>
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --sidebar-bg: #000000;
+            --card: #1a1a1a;
+            --accent: #ffffff;
+            --text: #ececec;
+            --text-dim: #888;
+            --border: #232323;
+            --error: #ff3333;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+
+        body { background-color: var(--bg); color: var(--text); height: 100vh; display: flex; overflow: hidden; }
+
+        /* Barre Latérale */
+        .sidebar {
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            flex-shrink: 0;
+        }
+
+        .new-chat-btn {
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.2s;
+        }
+
+        .new-chat-btn:hover { background: #161616; }
+
+        /* Zone de contenu principale */
+        .app-container { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100%; 
+            position: relative;
+        }
+
+        header { 
+            padding: 15px 25px; 
+            border-bottom: 1px solid var(--border); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+
+        .logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.5px; }
+
+        main { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 25px 15%; /* Espacement pour centrer le contenu sur grand écran */
+            scroll-behavior: smooth; 
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        .welcome-page { 
+            margin: auto; 
+            text-align: center; 
+            max-width: 600px; 
+            animation: fadeIn 0.8s ease; 
+        }
+
+        .welcome-page h1 { 
+            font-size: 2.2rem; 
+            margin-bottom: 15px; 
+            font-weight: 800; 
+            letter-spacing: -1px;
+        }
+
+        .msg-container { margin-bottom: 30px; width: 100%; display: flex; flex-direction: column; }
+        .user { align-self: flex-end; background: var(--card); padding: 12px 20px; border-radius: 18px 18px 2px 18px; border: 1px solid var(--border); max-width: 80%; }
+        .ai { align-self: flex-start; width: 100%; }
+
+        .role-label { font-size: 0.75rem; font-weight: 800; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .msg-content { white-space: pre-wrap; line-height: 1.7; font-size: 1.05rem; }
+
+        footer { 
+            padding: 20px 15%; 
+            background: var(--bg); 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .input-wrapper { 
+            width: 100%;
+            max-width: 800px;
+            background: var(--card); 
+            border: 1px solid var(--border); 
+            border-radius: 16px; 
+            display: flex; 
+            align-items: center;
+            padding: 10px 15px;
+            min-height: 56px;
+        }
+
+        textarea { 
+            flex: 1; 
+            background: transparent; 
+            border: none; 
+            color: var(--text); 
+            resize: none; 
+            padding: 10px 0; 
+            font-size: 1rem; 
+            outline: none; 
+            max-height: 200px;
+            line-height: 1.5;
+        }
+
+        #actionBtn { 
+            background: var(--accent); 
+            color: #000; 
+            border: none; 
+            width: 36px; 
+            height: 36px; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            transition: all 0.2s; 
+            flex-shrink: 0;
+            margin-left: 10px;
+        }
+
+        #actionBtn.stop-mode { background: var(--error); color: white; }
+
+        .disclaimer { font-size: 0.75rem; color: var(--text-dim); margin-top: 15px; }
+
+        .error-card { background: rgba(255, 51, 51, 0.1); border: 1px solid var(--error); padding: 20px; border-radius: 12px; margin-top: 15px; text-align: center; width: 100%; }
+        .error-card a { color: var(--error); font-weight: 700; text-decoration: none; border-bottom: 1px solid var(--error); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .streaming::after { content: '▊'; margin-left: 2px; animation: blink 0.8s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <button class="new-chat-btn" onclick="location.reload()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Nouveau Chat
+        </button>
+        <div style="margin-top: auto; color: var(--text-dim); font-size: 0.8rem; text-align: center;">
+            Cygnis Nano v1.2
+        </div>
+    </aside>
+
+    <div class="app-container">
+        <header>
+            <div class="logo">Cygnis Nano</div>
+        </header>
+
+        <main id="chatMessages">
+            <div id="welcomePage" class="welcome-page">
+                <h1>Bonjour, comment puis-je vous aider aujourd'hui ?</h1>
+                <p>Posez-moi une question pour commencer une conversation avec Cygnis Nano.</p>
+            </div>
+        </main>
+
+        <footer>
+            <div class="input-wrapper">
+                <textarea id="chatInput" placeholder="Envoyez un message..." rows="1"></textarea>
+                <button id="actionBtn">
+                    <span id="btnIcon">
+                        <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor"><path d="M8.99992 16V6.41407L5.70696 9.70704C5.31643 10.0976 4.68342 10.0976 4.29289 9.70704C3.90237 9.31652 3.90237 8.6835 4.29289 8.29298L9.29289 3.29298L9.36907 3.22462C9.76184 2.90427 10.3408 2.92686 10.707 3.29298L15.707 8.29298L15.7753 8.36915C16.0957 8.76192 16.0731 9.34092 15.707 9.70704C15.3408 10.0732 14.7618 10.0958 14.3691 9.7754L14.2929 9.70704L10.9999 6.41407V16C10.9999 16.5523 10.5522 17 9.99992 17C9.44764 17 8.99992 16.5523 8.99992 16Z" transform="rotate(90 10 10)"></path></svg>
+                    </span>
+                </button>
+            </div>
+            <p class="disclaimer">L'IA peut faire des erreurs. Envisagez de vérifier les informations importantes.</p>
+        </footer>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const actionBtn = document.getElementById('actionBtn');
+        const btnIcon = document.getElementById('btnIcon');
+        const welcomePage = document.getElementById('welcomePage');
+
+        const NANO_API = "https://simonc-44-cygnis-nano.hf.space/ask";
+        const WAKE_URL = "https://huggingface.co/spaces/Simonc-44/Cygnis-Nano";
+
+        let isGenerating = false;
+        let abortController = null;
+
+        chatInput.oninput = function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        };
+
+        function setUIState(generating) {
+            isGenerating = generating;
+            if (generating) {
+                actionBtn.classList.add('stop-mode');
+                btnIcon.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="0" y="0" width="14" height="14" fill="currentColor"/></svg>`;
+            } else {
+                actionBtn.classList.remove('stop-mode');
+                btnIcon.innerHTML = `<svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor"><path d="M8.99992 16V6.41407L5.70696 9.70704C5.31643 10.0976 4.68342 10.0976 4.29289 9.70704C3.90237 9.31652 3.90237 8.6835 4.29289 8.29298L9.29289 3.29298L9.36907 3.22462C9.76184 2.90427 10.3408 2.92686 10.707 3.29298L15.707 8.29298L15.7753 8.36915C16.0957 8.76192 16.0731 9.34092 15.707 9.70704C15.3408 10.0732 14.7618 10.0958 14.3691 9.7754L14.2929 9.70704L10.9999 6.41407V16C10.9999 16.5523 10.5522 17 9.99992 17C9.44764 17 8.99992 16.5523 8.99992 16Z" transform="rotate(90 10 10)"></path></svg>`;
+            }
+        }
+
+        async function handleAction() {
+            if (isGenerating) {
+                if (abortController) abortController.abort();
+                setUIState(false);
+                return;
+            }
+
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            if (welcomePage) welcomePage.remove();
+
+            appendMsg(text, 'user');
+            chatInput.value = "";
+            chatInput.style.height = 'auto';
+
+            const aiContent = appendMsg("", 'ai');
+            aiContent.classList.add('streaming');
+            setUIState(true);
+
+            abortController = new AbortController();
+
+            try {
+                const response = await fetch(NANO_API, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: text }),
+                    signal: abortController.signal
+                });
+
+                if (!response.ok) throw new Error('OFFLINE');
+
+                const data = await response.json();
+                aiContent.innerText = data.full_response;
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    aiContent.innerText = "Génération interrompue.";
+                } else {
+                    aiContent.innerHTML = `
+                        <div class="error-card">
+                            <p><strong>Cygnis Nano ne répond pas.</strong></p>
+                            <p style="font-size:0.85rem; margin:10px 0;">Le serveur distant (Hugging Face) est probablement en veille.</p>
+                            <a href="${WAKE_URL}" target="_blank">Réveiller le modèle</a>
+                        </div>`;
+                }
+            } finally {
+                aiContent.classList.remove('streaming');
+                setUIState(false);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        function appendMsg(text, role) {
+            const div = document.createElement('div');
+            div.className = `msg-container ${role}`;
+            if (role === 'ai') {
+                div.innerHTML = `<div class="role-label">Cygnis Nano</div><div class="msg-content"></div>`;
+                chatMessages.appendChild(div);
+                return div.querySelector('.msg-content');
+            } else {
+                div.innerHTML = `<div class="msg-content">${text}</div>`;
+                chatMessages.appendChild(div);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                return div;
+            }
+        }
+
+        actionBtn.onclick = handleAction;
+        chatInput.onkeydown = (e) => { 
+            if(e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault(); 
+                handleAction(); 
+            } 
+        };
+    </script>
+</body>
+</html>

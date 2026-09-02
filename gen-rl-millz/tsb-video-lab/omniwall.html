@@ -1,0 +1,70 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- THE OMNIWALL — many inscriptions at once, each an independent player.
+
+     Every pane is the real player on a real container: same receiver, same
+     decoder pool, same readouts. The wall proves the multiplex claim honestly:
+     panes share nothing but the machine, and each pane's decoder pool is
+     capped (?pool=2) so the wall's total stays inside hardwareConcurrency
+     rather than oversubscribing it and calling the stutter a demo.
+
+     Panes and their sources come from ?srcs= (comma-separated .tsb URLs or
+     four-file base URLs). Acts are staggered one orbit apart so the wall
+     breathes instead of lockstepping. -->
+<title>OMNIWALL — many inscriptions, one machine</title>
+<style>
+:root{--ink:#08090E;--line:#1B2030;--tx:#F2F5FA;--dim:#8894AB;--sig:#FFB020;
+  --mo:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--ink);color:var(--tx);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#head{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;gap:18px;
+  align-items:baseline;padding:10px 16px;font-family:var(--mo);font-size:11px;
+  color:var(--dim);background:linear-gradient(180deg,rgba(6,7,11,.95),rgba(6,7,11,0))}
+#head b{color:var(--sig);font-weight:400}
+#head h1{font-size:13px;color:var(--tx);letter-spacing:.06em;font-weight:600}
+#grid{position:fixed;inset:0;display:grid;gap:2px;background:var(--line)}
+#grid iframe{width:100%;height:100%;border:0;background:#000}
+</style></head><body>
+<header id="head">
+  <h1>OMNIWALL</h1>
+  <span><b id="n">0</b> inscriptions</span>
+  <span>each pane is the full player — its panel is its own receipt</span>
+  <span>pools capped so the wall shares the machine honestly</span>
+</header>
+<div id="grid"></div>
+<script>
+const q = new URLSearchParams(location.search);
+/* default: the bench clip four ways — full field, acts choreography,
+   sixteen views, and a coarse rung — until more containers are listed */
+const here = new URL(".", location.href).href;
+const srcs = (q.get("srcs") || "").split(",").filter(Boolean);
+const panes = srcs.length ? srcs.map(s => ({src: s})) : null;
+const grid = document.getElementById("grid");
+const meta = document.querySelector('meta[name="evs-base"]');
+const base = q.get("src") || (meta && meta.content) || "";
+const list = panes || [
+  {src: base, extra: "acts=1"},
+  {src: base, extra: "view=full"},
+  {src: base, extra: ""},
+  {src: base, extra: "level=2"},
+];
+const n = list.length;
+const cols = Math.ceil(Math.sqrt(n));
+grid.style.gridTemplateColumns = `repeat(${cols},1fr)`;
+document.getElementById("n").textContent = n;
+list.forEach((p, i) => {
+  const f = document.createElement("iframe");
+  const u = new URL("index.html", here);
+  if (p.src) u.searchParams.set("src", p.src);
+  u.searchParams.set("pool", q.get("pool") || "2");
+  (p.extra || "").split("&").filter(Boolean).forEach(kv => {
+    const [k, v] = kv.split("="); u.searchParams.set(k, v ?? "1");
+  });
+  f.src = u.href;
+  /* stagger the acts one orbit apart so the wall breathes */
+  f.style.animationDelay = `${i * 4}s`;
+  grid.appendChild(f);
+});
+</script>
+</body></html>

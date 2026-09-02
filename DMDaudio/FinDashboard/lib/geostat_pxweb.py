@@ -226,10 +226,50 @@ def list_node(parts: Sequence[str], *, base: str = DEFAULT_BASE, session=None) -
 
 
 def get_table(parts: Sequence[str], *, base: str = DEFAULT_BASE, session=None) -> Table:
-    """Fetch a table's metadata (its dimensions and value codes/labels)."""
+    """Fetch a table's metadata (its dimensions and value codes/labels).
+
+    Geostat stamps release vintages into table ids — ``LFS_by_sex_and_urban.px``
+    came back on 2026-08-19 as ``LFS_by_sex_and_urban_(Quarter_II,_2026).px`` —
+    so a hard-coded path expires on the publisher's schedule, quarterly in that
+    case. Worse, PxWeb answers a missing table with its parent's *node listing*
+    rather than a 404, so the failure surfaced as "Malformed PxWeb metadata (no
+    'variables')": an error about the parse, not about the table being gone.
+
+    So a miss is re-resolved against the parent node by id stem (everything
+    before the vintage suffix), newest ``updated`` winning. The last path element
+    may also be given as a compiled regex to ask for that directly.
+    """
     session = session or make_session()
+    parts = list(parts)
+    if isinstance(parts[-1], re.Pattern):
+        parts[-1] = _resolve_table_id(parts[:-1], parts[-1], base=base, session=session)
     meta = _get(session, _url(base, parts))
+    if isinstance(meta, list):
+        # Not a table. PxWeb does not 404 a missing id — it serves the database
+        # ROOT listing, so the body it hands back is no help in resolving; ask the
+        # real parent node instead.
+        stem = re.sub(r"\.px$", "", str(parts[-1]))
+        parts[-1] = _resolve_table_id(
+            parts[:-1], re.compile(rf"^{re.escape(stem)}", re.I), base=base,
+            session=session, missing=str(parts[-1]))
+        meta = _get(session, _url(base, parts))
     return parse_table_meta(meta, list(parts))
+
+
+def _resolve_table_id(node: Sequence[str], pattern, *, base: str = DEFAULT_BASE,
+                      session=None, missing: str = "") -> str:
+    """Pick the current id of a table whose name carries a moving vintage."""
+    items = list_node(node, base=base, session=session)
+    hits = [it for it in items
+            if it.get("type") == "t" and pattern.search(str(it.get("id", "")))]
+    if not hits:
+        raise PxWebError(
+            f"no table under {list(node)!r} matches {pattern.pattern!r}"
+            + (f" (was {missing!r}; it has been removed or renamed beyond its stem)"
+               if missing else "")
+            + f" — available: {[it.get('id') for it in items if it.get('type') == 't']}")
+    hits.sort(key=lambda it: str(it.get("updated", "")), reverse=True)
+    return str(hits[0]["id"])
 
 
 def parse_table_meta(meta: dict, path: list[str] | None = None) -> Table:

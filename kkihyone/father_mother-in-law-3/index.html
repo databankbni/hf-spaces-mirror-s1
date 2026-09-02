@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>그리운엄마아빠</title>
+    <!-- 동해 독도체 웹폰트 추가 -->
+    <link href="https://fonts.googleapis.com/css2?family=East+Sea+Dokdo&display=swap" rel="stylesheet">
+    <style>
+        /* 기본 설정: 전체 동해 독도체 적용 및 1.2배 확대된 폰트 크기 (2.4rem) */
+        body { 
+            margin: 0; padding: 20px; overflow-x: hidden; color: #222222; 
+            font-family: 'East Sea Dokdo', cursive; 
+            text-align: center; 
+            font-size: 2.4rem;
+        }
+        
+        .video-background { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -999; }
+        body::before { content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(255, 255, 255, 0.4); z-index: -998; }
+        
+        .audio-container {
+            margin: 20px auto;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 30px;
+            padding: 10px 20px;
+            display: inline-block;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-family: 'East Sea Dokdo', cursive;
+            font-size: 2.4rem;
+        }
+
+        .hero-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 40vh;
+            margin-bottom: 20px;
+        }
+
+        /* 메인 타이틀 (1.2배 확대된 6rem) */
+        h1 { font-size: 6rem; margin: 10px 0; display: inline-block; color: #1a202c; text-shadow: 2px 2px 10px rgba(255, 255, 255, 0.9); word-break: keep-all; font-family: 'East Sea Dokdo', cursive; }
+        
+        h1 .part-1 { opacity: 0; animation: fadeInOut1 7s infinite; }
+        h1 .part-2 { opacity: 0; animation: fadeInOut2 7s infinite; }
+        
+        @keyframes fadeInOut1 { 
+            0%, 20% { opacity: 0; } 
+            25%, 55% { opacity: 1; } 
+            60%, 100% { opacity: 0; } 
+        }
+        
+        @keyframes fadeInOut2 { 
+            0%, 35% { opacity: 0; } 
+            40%, 55% { opacity: 1; } 
+            60%, 100% { opacity: 0; } 
+        }
+        
+        /* 서브타이틀 (1.2배 확대된 3.6rem) */
+        .subtitle { font-size: 3.6rem; color: #4a5568; margin-bottom: 20px; animation: blinkEffect 7s infinite; text-shadow: 1px 1px 5px rgba(255, 255, 255, 0.9); font-weight: bold; font-family: 'East Sea Dokdo', cursive; }
+        @keyframes blinkEffect { 0%, 55% { opacity: 1; } 60%, 100% { opacity: 0; } }
+        
+        /* 안내 문구 (1.2배 확대된 3rem) */
+        .guide-text { font-size: 3rem; color: #c05621; margin-bottom: 30px; font-weight: bold; background: rgba(255,255,255,0.7); display: inline-block; padding: 5px 15px; border-radius: 20px; font-family: 'East Sea Dokdo', cursive; }
+        
+        .nav-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 40px; }
+        
+        /* 네비게이션 버튼 (1.2배 확대된 2.64rem) */
+        .nav-btn { background-color: rgba(255, 255, 255, 0.9); color: #2d3748; border: 2px solid #cbd5e0; padding: 12px 20px; font-size: 2.64rem; font-weight: bold; border-radius: 12px; cursor: pointer; transition: all 0.2s; text-decoration: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: 'East Sea Dokdo', cursive; }
+        .nav-btn:hover, .nav-btn.active { background-color: #3182ce; color: #ffffff; border-color: #3182ce; }
+        
+        .sliders-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; max-width: 1400px; margin: 0 auto; justify-items: center; }
+        
+        .slider-card { 
+            background: rgba(255, 255, 255, 0.85); 
+            border: 2px solid #e2e8f0; 
+            border-radius: 20px; 
+            padding: 25px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            width: 100%; 
+            box-sizing: border-box; 
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.4s ease; 
+        }
+
+        .slider-card.zoomed-card { transform: scale(1.05) translateY(-10px); z-index: 100; background: #ffffff; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        
+        /* 사진 전환 시 카드와 슬라이드 컨테이너의 배경을 완전히 투명하게 만듦 */
+        .slider-card.video-peek { 
+            background-color: transparent !important; 
+            box-shadow: none; 
+            border-color: transparent; 
+        }
+
+        /* 카드 타이틀: 화사한 분홍색(#ed64a6), 1.2배 확대 (4.2rem) */
+        .slider-title { font-size: 4.2rem; font-weight: bold; margin-bottom: 20px; color: #ed64a6; font-family: 'East Sea Dokdo', cursive; }
+        
+        .slide-container { 
+            position: relative; 
+            width: 100%; 
+            height: 400px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            border-radius: 15px; 
+            overflow: hidden; 
+            border: 1px solid rgba(0, 0, 0, 0.2); 
+            background-color: #1a202c; 
+            cursor: pointer; 
+            transition: background-color 0.4s ease; 
+        }
+        
+        .slide-container.video-peek { 
+            background-color: transparent !important; 
+            border-color: transparent; 
+        }
+        
+        .slide-image { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+            opacity: 0; 
+            border-radius: 15px; 
+            z-index: 1; 
+        }
+        
+        .slide-image.active { 
+            opacity: 1; 
+            z-index: 2; 
+            animation: slideFromLeft 0.8s ease-out; 
+        }
+
+        @keyframes slideFromLeft { 
+            from { transform: translateX(-100%); opacity: 0; } 
+            to { transform: translateX(0); opacity: 1; } 
+        }
+        
+        /* 사진 아래 하얀 배경 영역으로 이동한 캡션(자막) 스타일 */
+        .slide-caption { 
+            margin-top: 15px; 
+            background: rgba(255, 255, 255, 0.95); 
+            color: #2d3748; 
+            font-size: 2.64rem; 
+            font-weight: bold; 
+            padding: 10px 15px; 
+            border-radius: 10px; 
+            width: 100%; 
+            box-sizing: border-box;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            word-break: keep-all; 
+            font-family: 'East Sea Dokdo', cursive; 
+        }
+        
+        /* 사진 장수 표시 (자막 아래로 이동, 글씨 크기를 줄임) */
+        .slide-info-bar { 
+            margin-top: 8px; 
+            font-size: 1.8rem; 
+            color: #718096; 
+            font-weight: bold; 
+            width: 100%; 
+            text-align: center; 
+            font-family: 'East Sea Dokdo', cursive; 
+        }
+
+        @media (min-width: 1024px) {
+            h1 { font-size: 7.2rem; }
+            .subtitle { font-size: 4.2rem; }
+            .slide-container { height: 500px; }
+        }
+    </style>
+</head>
+<body>
+    <video autoplay muted loop playsinline class="video-background">
+        <source src="static/13407753_3840_2160_60fps.mp4" type="video/mp4">
+    </video>
+
+    <div class="audio-container">
+        <span style="font-weight: bold; margin-right: 10px; color: #2d3748;">🎵 배경음악</span>
+        <audio id="background-music" controls autoplay loop>
+            <source src="music/심수봉_봄날은 간다.mp3" type="audio/mpeg">
+        </audio>
+    </div>
+
+    <div class="hero-section">
+        <div>
+            <h1><span class="part-1">그리운</span><span class="part-2">엄마아빠</span></h1>
+        </div>
+        <div class="subtitle">"시간이 흘러도 지워지지 않는 그리운 흔적..."</div>
+        <div class="guide-text">👆 사진을 터치(클릭)하시면 잠시 확대됩니다.</div>
+    </div>
+    
+    <div class="nav-buttons" id="nav-buttons-container">
+        <button class="nav-btn active" onclick="filterSliders('all', event)">전체사진</button>
+    </div>
+    
+    <div class="sliders-grid" id="sliders-container"></div>
+
+    <script>
+        const photosData = {
+            "추억여행": { 
+                name: "추억여행", 
+                caption: "사랑하는 우리 가족의 따뜻한 모습들", 
+                images: [
+                    "IMG-20260813-WA0000.jpg", "IMG-20260813-WA0001.jpg", "IMG-20260813-WA0002.jpg", "IMG-20260813-WA0003.jpg", 
+                    "IMG-20260813-WA0004.jpg", "IMG-20260813-WA0005.jpg", "IMG-20260813-WA0007.jpg", "IMG-20260813-WA0008.jpg", 
+                    "IMG-20260813-WA0009.jpg", "IMG-20260813-WA0010.jpg", "IMG-20260813-WA0011.jpg", "IMG-20260813-WA0012.jpg", 
+                    "IMG-20260813-WA0013.jpg", "IMG-20260813-WA0014.jpg", "IMG-20260813-WA0015.jpg", "IMG-20260813-WA0016.jpg", 
+                    "IMG-20260813-WA0017.jpg", "IMG-20260813-WA0019.jpg", "IMG-20260813-WA0021.jpg", "IMG-20260813-WA0022.jpg", 
+                    "IMG-20260813-WA0023.jpg", "IMG-20260813-WA0024.jpg", "IMG-20260813-WA0025.jpg", "IMG-20260813-WA0026.jpg", 
+                    "IMG-20260813-WA0027.jpg", "IMG-20260813-WA0028.jpg", "IMG-20260813-WA0029.jpg", "IMG-20260813-WA0030.jpg", 
+                    "IMG-20260813-WA0031.jpg", "IMG-20260813-WA0033.jpg", "IMG-20260813-WA0034.jpg", "IMG-20260813-WA0036.jpg", 
+                    "IMG-20260813-WA0038.jpg", "KakaoTalk_20260816_194429720_06.jpg", "KakaoTalk_20260816_194429720_08.jpg", 
+                    "KakaoTalk_20260816_194429720_09.jpg", "KakaoTalk_20260816_194429720_13.jpg"
+                ] 
+            },
+            "태산씨와정숙씨": { 
+                name: "태산씨와정숙씨", 
+                caption: "빛바랜 사진 속 아름다운 젊은 날의 추억들", 
+                images: [
+                    "IMG-20260813-WA0006.jpg", "IMG-20260813-WA0018.jpg", "IMG-20260813-WA0020.jpg", "IMG-20260813-WA0035.jpg", 
+                    "KakaoTalk_20260816_194429720_00.jpg", "KakaoTalk_20260816_194429720_01.jpg", "KakaoTalk_20260816_194429720_02.jpg", 
+                    "KakaoTalk_20260816_194429720_03.jpg", "KakaoTalk_20260816_194429720_04.jpg", "KakaoTalk_20260816_194429720_05.jpg", 
+                    "KakaoTalk_20260816_194429720_07.jpg", "KakaoTalk_20260816_194429720_10.jpg", "KakaoTalk_20260816_194429720_11.jpg", 
+                    "KakaoTalk_20260816_194429720_12.jpg", "KakaoTalk_20260816_194429720_14.jpg", "KakaoTalk_20260816_194429720_15.jpg", 
+                    "KakaoTalk_20260816_194429720_16.jpg"
+                ] 
+            },
+            "옥분졸업식": { 
+                name: "셋째졸업식", 
+                caption: "자랑스러운 셋째의 졸업식을 축하하며", 
+                images: [
+                    "IMG-20260813-WA0032.jpg", "IMG-20260813-WA0037.jpg"
+                ] 
+            }
+        };
+
+        window.onload = function() {
+            const container = document.getElementById('sliders-container');
+            const nav = document.getElementById('nav-buttons-container');
+            for (let key in photosData) {
+                const folder = photosData[key];
+                const btn = document.createElement('button');
+                btn.className = 'nav-btn'; btn.innerText = folder.name;
+                btn.onclick = (e) => filterSliders(key, e);
+                nav.appendChild(btn);
+
+                let imagesHtml = folder.images.map((img, i) => `<img src="photos/${key}/${encodeURIComponent(img)}" class="slide-image ${i===0?'active':''}">`).join('');
+                container.innerHTML += `
+                    <div class="slider-card" id="card-${key}">
+                        <div class="slider-title">${folder.name}</div>
+                        <div class="slide-container" id="slide-${key}" onclick="zoomSlider('${key}')">${imagesHtml}</div>
+                        <div class="slide-caption">${folder.caption}</div>
+                        <div class="slide-info-bar"><span id="count-${key}">사진 (1 / ${folder.images.length})</span></div>
+                    </div>`;
+                if (folder.images.length > 1) startSlider(key, folder.images);
+            }
+        };
+
+        let activeTimers = {};
+        function startSlider(key, imgs) {
+            let idx = 0;
+            setInterval(() => {
+                if (activeTimers[key]?.isPaused) return;
+                const card = document.getElementById(`card-${key}`);
+                const slideBox = document.getElementById(`slide-${key}`);
+                if (!card || !slideBox) return;
+
+                const images = card.querySelectorAll('.slide-image');
+                
+                // 1. 현재 사진을 화면에서 숨김
+                images[idx].classList.remove('active');
+                
+                // 2. 카드와 슬라이드 박스 모두 배경을 투명하게 만들어 뒤쪽 바다 영상을 노출시킴
+                card.classList.add('video-peek');
+                slideBox.classList.add('video-peek');
+
+                // 3. 1초 동안 바다가 보인 후 다음 사진을 띄움
+                setTimeout(() => {
+                    idx = (idx + 1) % imgs.length;
+                    images[idx].classList.add('active');
+                    
+                    // 배경 복구
+                    card.classList.remove('video-peek');
+                    slideBox.classList.remove('video-peek');
+                    
+                    document.getElementById(`count-${key}`).innerText = `사진 (${idx + 1} / ${imgs.length})`;
+                }, 1000);
+
+            }, 3000);
+        }
+
+        function zoomSlider(key) {
+            const card = document.getElementById(`card-${key}`);
+            activeTimers[key] = { isPaused: true };
+            card.classList.add('zoomed-card');
+            setTimeout(() => { card.classList.remove('zoomed-card'); activeTimers[key].isPaused = false; }, 4000);
+        }
+
+        function filterSliders(key, e) {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            if(e && e.target) e.target.classList.add('active');
+            document.querySelectorAll('.slider-card').forEach(c => c.style.display = (key === 'all' || c.id === `card-${key}`) ? 'flex' : 'none');
+        }
+    </script>
+</body>
+</html>

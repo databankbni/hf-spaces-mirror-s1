@@ -1,0 +1,117 @@
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>SymSTS-MiniLM · Sentence Similarity</title>
+      <style>
+        * { box-sizing: border-box; }
+        body {
+          margin: 0; min-height: 100vh;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          background: #f5f5f7; color: #111827; display: flex; align-items: flex-start; justify-content: center;
+          padding: 40px 16px;
+        }
+        .panel {
+          width: 100%; max-width: 700px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.06); overflow: hidden;
+        }
+        .head {
+          display: flex; align-items: center; justify-content: space-between; gap: 12px;
+          padding: 16px 20px; border-bottom: 1px solid #eef0f3;
+        }
+        .title { font-size: 16px; font-weight: 600; }
+        .title small { color: #6b7280; font-weight: 400; font-size: 12.5px; display: block; margin-top: 2px; }
+        .pill {
+          font-size: 11.5px; color: #374151; background: #f3f4f6; border: 1px solid #e5e7eb;
+          padding: 5px 10px; border-radius: 999px; white-space: nowrap;
+        }
+        .pill b { font-weight: 600; }
+        .pill.ok b { color: #0f766e; }
+        .body { padding: 20px; }
+        .inputs { display: flex; gap: 14px; flex-direction: column; }
+        @media (min-width: 620px) { .inputs { flex-direction: row; align-items: stretch; } }
+        .col { flex: 1; display: flex; flex-direction: column; }
+        .col textarea {
+          flex: 1; min-height: 110px; resize: vertical; border: 1px solid #d1d5db; border-radius: 8px;
+          padding: 10px 12px; font: inherit; font-size: 13.5px; color: #111827; background: #fafbfc; line-height: 1.5;
+        }
+        .col textarea:focus { outline: none; border-color: #4f46e5; background: #fff; box-shadow: 0 0 0 2px rgba(79,70,229,.12); }
+        .col label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; margin-bottom: 6px; }
+        .colsbar { display: flex; justify-content: flex-end; margin-top: 14px; }
+        .compute {
+          height: 40px; padding: 0 24px; font-size: 14px; font-weight: 600; cursor: pointer;
+          background: #0f172a; color: #fff; border: none; border-radius: 8px;
+        }
+        .compute:hover { background: #1e293b; }
+        .compute:disabled { background: #cbd5e1; cursor: not-allowed; color: #64748b; }
+        .result { display: none; margin-top: 20px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px 20px; background: #fcfcfd; }
+        .bigdiv { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+        .num { font-size: 40px; font-weight: 700; line-height: 1; color: #111827; font-variant-numeric: tabular-nums; }
+        .where { color: #6b7280; font-size: 13px; }
+        .track { height: 8px; background: #eceef1; border-radius: 999px; overflow: hidden; margin: 10px 0 14px; }
+        .fill { height: 100%; width: 0; border-radius: 999px; transition: width 1s cubic-bezier(.22,1,.36,1); }
+        .pair { font-size: 13px; color: #374151; line-height: 1.6; }
+        .pair .s { display: block; }
+        .pair i { color: #9ca3af; }
+        .foot { text-align: center; font-size: 12px; color: #9ca3af; padding: 14px 20px; border-top: 1px solid #eef0f3; }
+        .foot a { color: #4f46e5; text-decoration: none; }
+        .foot a:hover { text-decoration: underline; }
+        .examples { margin-top: 16px; }
+        .examples p { font-size: 12px; color: #6b7280; margin: 0 0 8px; }
+        .chip { display: inline-block; background: #f9fafb; border: 1px solid #e5e7eb; padding: 5px 10px; border-radius: 999px; font-size: 12px; color: #374151; cursor: pointer; margin: 0 6px 6px 0; }
+        .chip:hover { border-color: #bec5d1; background: #f3f4f6; }
+        .barlink { border: none; background: none; color: #6b7280; font-size: 12px; cursor: pointer; text-decoration: underline; padding: 0; }
+        .barlink:hover { color: #111827; }
+        #batchPanel { display: none; margin-top: 18px; }
+        #batchOut { margin-top: 12px; }
+        #batchOut .row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid #f0f1f3; font-size: 13px; }
+        #batchOut .row .sc { font-weight: 600; white-space: nowrap; }
+      </style>
+    </head>
+    <body>
+      <div class="panel">
+        <div class="head">
+          <div class="title">SymSTS-MiniLM <small>Sentence similarity · symmetric STS model</small></div>
+          <div class="pill" id="pill"><b>Loading model…</b></div>
+        </div>
+
+        <div class="body">
+          <div class="inputs">
+            <div class="col"><label>First sentence</label><textarea id="a" placeholder="Enter text (e.g. Two people are playing cricket.)"></textarea></div>
+            <div class="col"><label>Second sentence</label><textarea id="b" placeholder="Enter text (e.g. A couple of persons are playing a game of cricket.)"></textarea></div>
+          </div>
+          <div class="colsbar"><button class="compute" id="go" disabled>Compute</button></div>
+
+          <div class="result" id="result">
+            <div class="bigdiv"><span class="num" id="num">0%</span><span class="where" id="resnote"></span></div>
+            <div class="track"><div class="fill" id="fill"></div></div>
+            <div class="pair"><span class="s" id="pairA"></span><span class="s" id="pairB"></span></div>
+          </div>
+
+          <div class="examples">
+            <p>Examples</p>
+            <span class="chip" id="ex1">cricket</span>
+            <span class="chip" id="ex2">cat / dog</span>
+            <span class="chip" id="ex3">AI / shopping</span>
+          </div>
+
+          <button class="barlink" id="toggleBatch">Compare one sentence against a list &#9656;</button>
+          <div id="batchPanel">
+            <div class="inputs" style="flex-direction:column">
+              <div class="col"><label>Reference sentence</label><textarea id="bref" rows="2"></textarea></div>
+              <div class="col"><label>Other sentences — one per line</label><textarea id="blist" rows="5"></textarea></div>
+            </div>
+            <div class="colsbar"><button class="compute" id="bgobtn" disabled>Score all</button></div>
+            <div id="batchOut"></div>
+          </div>
+        </div>
+
+        <div class="foot">Model: <a href="https://huggingface.co/blueprint-ai/SymSTS-MiniLM" target="_blank" rel="noopener">blueprint-ai/SymSTS-MiniLM</a> · runs locally in your browser (ONNX/WASM)</div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js"></script>
+      <script src="mybert.js"></script>
+      <script src="app.js"></script>
+    </body>
+    </html>

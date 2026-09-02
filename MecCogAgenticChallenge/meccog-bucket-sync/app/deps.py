@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from fastapi import Depends
+
 from app.audit import AuditLogger
 from app.config import Settings, get_settings
 from app.dedup import PromotionLRU
+from app.errors import ChallengeClosed
 from app.hub import HubClient
 from app.job_quota import DurableJobQuota
 from app.jobs import JobRunner
+from app.merge_bot import MergeBot
 from app.notify import Notifier
 from app.org_roles import OrgRoles
 from app.rate_limit import CompoundLimiter, TokenBucket
@@ -96,6 +100,11 @@ def get_verifier() -> Verifier:
 
 
 @lru_cache
+def get_merge_bot() -> MergeBot:
+    return MergeBot(get_settings(), get_hub(), get_read_model())
+
+
+@lru_cache
 def get_bucket_write_limiter() -> CompoundLimiter:
     s = get_settings()
     burst = TokenBucket(capacity=s.bucket_write_burst, refill_per_minute=s.bucket_write_burst)
@@ -119,3 +128,11 @@ def get_registration_limiter() -> TokenBucket:
 
 def get_settings_dep() -> Settings:
     return get_settings()
+
+
+def require_challenge_open(settings: Settings = Depends(get_settings_dep)) -> None:
+    """Dependency guarding every write endpoint: once the challenge is closed
+    (CHALLENGE_CLOSED=true) no new registration or contribution is accepted.
+    Reads are never gated by this."""
+    if settings.challenge_closed:
+        raise ChallengeClosed()

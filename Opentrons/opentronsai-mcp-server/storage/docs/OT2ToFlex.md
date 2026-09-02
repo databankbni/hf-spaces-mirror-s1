@@ -150,6 +150,7 @@ protocol.delay(minutes=5)
 hs_mod.deactivate_shaker()
 
 # Move entire plate using the gripper
+
 hs_mod.open_labware_latch()
 protocol.move_labware(sample_plate, mag_block, use_gripper=True)
 ```

@@ -1,0 +1,258 @@
+name: Build ClimaFlora catalog v1.7 names-media candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      thumbnail_limit:
+        description: "Maximum licensed primary thumbnails to materialize in this candidate"
+        required: false
+        default: "5000"
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-catalog-v1.7.yml'
+      - '.github/tools/build_gbif_names_media_v1_7.py'
+      - '.github/tools/materialize_gbif_thumbnails_v1_7.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-catalog-v1.7
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      V16_ZST_SHA256: '752ede1549132a0a2df9a531448737a238268e327507f716ebec0939be73bc96'
+      V16_SQLITE_SHA256: 'aea9ce8577d93ff7e4350f0f8f7c36a067df3014d60a7e751ce23d046202ebdb'
+      THUMBNAIL_LIMIT: ${{ inputs.thumbnail_limit || '5000' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        timeout-minutes: 5
+        run: |
+          echo install_dependencies > .github/v1.7-current-step.txt
+          set -euo pipefail
+          missing=()
+          command -v zstd >/dev/null 2>&1 || missing+=(zstd)
+          command -v sqlite3 >/dev/null 2>&1 || missing+=(sqlite3)
+          if ((${#missing[@]})); then
+            echo "Missing runner tools: ${missing[*]}"
+            timeout 180s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update
+            timeout 120s sudo apt-get install -y "${missing[@]}"
+          else
+            echo "Runner already provides zstd and sqlite3; skipping apt-get."
+          fi
+          zstd --version
+          sqlite3 --version
+          python -m pip install --disable-pip-version-check 'httpx>=0.28,<1' 'Pillow>=11,<13'
+          df -h .
+
+      - name: Download canonical v1.6
+        run: |
+          echo download_v1_6 > .github/v1.7-current-step.txt
+          set -euo pipefail
+          curl --fail --location --retry 8 --retry-all-errors --connect-timeout 30 --max-time 1800 \
+            https://shugoan.com/climaflora/data/climaflora_global_plants_v1_6.sqlite.zst \
+            -o climaflora_global_plants_v1_6.sqlite.zst
+          echo "$V16_ZST_SHA256  climaflora_global_plants_v1_6.sqlite.zst" | sha256sum -c -
+          zstd -d -f climaflora_global_plants_v1_6.sqlite.zst -o climaflora_global_plants_v1_6.sqlite
+          echo "$V16_SQLITE_SHA256  climaflora_global_plants_v1_6.sqlite" | sha256sum -c -
+          rm climaflora_global_plants_v1_6.sqlite.zst
+          test "$(sqlite3 climaflora_global_plants_v1_6.sqlite 'PRAGMA integrity_check;')" = ok
+          df -h .
+
+      - name: Download GBIF Backbone Darwin Core Archive
+        run: |
+          echo download_gbif_backbone > .github/v1.7-current-step.txt
+          set -euo pipefail
+          curl --fail --location --retry 8 --retry-all-errors --connect-timeout 30 --max-time 3600 \
+            https://hosted-datasets.gbif.org/datasets/backbone/current/backbone.zip \
+            -o gbif-backbone.zip
+          python - <<'PY'
+          import zipfile
+          with zipfile.ZipFile('gbif-backbone.zip') as z:
+              bad=z.testzip()
+              assert bad is None, bad
+              names=set(z.namelist())
+              assert 'meta.xml' in names
+              print({'zip_entries':len(names)})
+          PY
+          sha256sum gbif-backbone.zip | tee gbif_backbone_source.sha256
+          ls -lh gbif-backbone.zip
+          df -h .
+
+      - name: Build v1.7 exact names and media metadata
+        run: |
+          echo build_names_media > .github/v1.7-current-step.txt
+          set -euo pipefail
+          python .github/tools/build_gbif_names_media_v1_7.py \
+            --base climaflora_global_plants_v1_6.sqlite \
+            --gbif gbif-backbone.zip \
+            --output climaflora_global_plants_v1_7.sqlite \
+            --report climaflora_global_plants_v1_7.report.json
+          rm climaflora_global_plants_v1_6.sqlite gbif-backbone.zip
+          df -h .
+
+      - name: Materialize licensed local WebP thumbnails
+        run: |
+          echo materialize_thumbnails > .github/v1.7-current-step.txt
+          set -euo pipefail
+          python .github/tools/materialize_gbif_thumbnails_v1_7.py \
+            --db climaflora_global_plants_v1_7.sqlite \
+            --output-dir media/plants \
+            --manifest climaflora_v1_7_media_manifest.json \
+            --public-prefix https://shugoan.com/climaflora/media/plants/ \
+            --limit "$THUMBNAIL_LIMIT" \
+            --width 300 \
+            --delay-seconds 0.05
+          du -sh media || true
+
+      - name: Validate v1.7 candidate
+        run: |
+          echo validate_v1_7 > .github/v1.7-current-step.txt
+          set -euo pipefail
+          python - <<'PY'
+          import json, sqlite3
+          from pathlib import Path
+          report=json.loads(Path('climaflora_global_plants_v1_7.report.json').read_text())
+          media=json.loads(Path('climaflora_v1_7_media_manifest.json').read_text())
+          with sqlite3.connect('climaflora_global_plants_v1_7.sqlite') as con:
+              assert con.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+              meta=dict(con.execute('SELECT key,value FROM climaflora_catalog_metadata'))
+              assert meta.get('catalog_version')=='1.7.0'
+              assert meta.get('scientific_ready')=='true'
+              assert meta.get('image_identification_evidence')=='false'
+              assert con.execute('SELECT COUNT(*) FROM plant_index').fetchone()[0] == 420532
+              assert con.execute('SELECT COUNT(*) FROM soil_geographic_prior WHERE scoring_enabled<>0').fetchone()[0] == 0
+              assert con.execute("SELECT COUNT(*) FROM plant_image_asset WHERE license LIKE '%NC%' OR license LIKE '%ND%'").fetchone()[0] == 0
+              assert con.execute('SELECT COUNT(*) FROM plant_image_asset WHERE materialized=1 AND thumbnail_url IS NULL').fetchone()[0] == 0
+              vern_taxa=con.execute('SELECT COUNT(DISTINCT taxon_id) FROM plant_vernacular_name').fetchone()[0]
+              media_taxa=con.execute('SELECT COUNT(DISTINCT taxon_id) FROM plant_image_asset').fetchone()[0]
+              materialized=con.execute('SELECT COUNT(DISTINCT taxon_id) FROM plant_image_asset WHERE materialized=1').fetchone()[0]
+          stats=report['stats']
+          assert stats['exact_matched_taxa'] >= 250000, stats['exact_matched_taxa']
+          assert vern_taxa >= 10000, vern_taxa
+          # GBIF Backbone contains relatively few directly reusable media rows once
+          # NC/ND/unknown licences are conservatively excluded. Validate observed
+          # licensed coverage and materialization quality rather than an arbitrary
+          # 5000-taxon target that the source itself cannot satisfy.
+          assert media_taxa >= 400, media_taxa
+          requested=int(media['requested'])
+          successes=int(media['successful_this_run'])
+          if requested:
+              assert successes / requested >= 0.95, (successes, requested)
+              assert materialized >= successes, (materialized, successes)
+          print(json.dumps({'stats':stats,'vernacular_taxa':vern_taxa,'media_taxa':media_taxa,'materialized_taxa':materialized,'materialization_success_rate':(successes/requested if requested else None)},indent=2))
+          PY
+
+      - name: Package media thumbnails
+        run: |
+          echo package_media > .github/v1.7-current-step.txt
+          set -euo pipefail
+          tar -cf climaflora_v1_7_media.tar media/plants climaflora_v1_7_media_manifest.json
+          zstd -T0 -12 -f climaflora_v1_7_media.tar -o climaflora_v1_7_media.tar.zst
+          rm climaflora_v1_7_media.tar
+          sha256sum climaflora_v1_7_media.tar.zst | tee climaflora_v1_7_media.tar.zst.sha256
+
+      - name: Compress v1.7 catalog
+        run: |
+          echo compress_v1_7 > .github/v1.7-current-step.txt
+          set -euo pipefail
+          sha256sum climaflora_global_plants_v1_7.sqlite | tee climaflora_global_plants_v1_7.sqlite.sha256
+          zstd -T0 -19 -f climaflora_global_plants_v1_7.sqlite -o climaflora_global_plants_v1_7.sqlite.zst
+          sha256sum climaflora_global_plants_v1_7.sqlite.zst | tee climaflora_global_plants_v1_7.sqlite.zst.sha256
+          ls -lh climaflora_global_plants_v1_7.sqlite.zst climaflora_v1_7_media.tar.zst
+
+      - name: Upload v1.7 candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: climaflora-global-plants-v1.7-candidate
+          compression-level: 0
+          retention-days: 14
+          path: |
+            climaflora_global_plants_v1_7.sqlite.zst
+            climaflora_global_plants_v1_7.report.json
+            climaflora_global_plants_v1_7.sqlite.sha256
+            climaflora_global_plants_v1_7.sqlite.zst.sha256
+            climaflora_v1_7_media.tar.zst
+            climaflora_v1_7_media.tar.zst.sha256
+            climaflora_v1_7_media_manifest.json
+            gbif_backbone_source.sha256
+
+      - name: Persist v1.7 build status
+        id: persist_success
+        if: success()
+        run: |
+          echo persist_success_status > .github/v1.7-current-step.txt
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          r=json.loads(Path('climaflora_global_plants_v1_7.report.json').read_text())
+          m=json.loads(Path('climaflora_v1_7_media_manifest.json').read_text())
+          s={
+            'status':'ready','run_id':os.environ.get('GITHUB_RUN_ID'),'commit':os.environ.get('GITHUB_SHA'),
+            'catalog_version':'1.7.0','gbif_source_sha256':r['source_sha256'],
+            'exact_matched_taxa':r['stats'].get('exact_matched_taxa',0),
+            'ambiguous_exact_names':r['stats'].get('ambiguous_exact_names',0),
+            'vernacular_taxa':r['stats'].get('vernacular_taxa',0),
+            'french_vernacular_taxa':r['stats'].get('french_vernacular_taxa',0),
+            'english_vernacular_taxa':r['stats'].get('english_vernacular_taxa',0),
+            'common_name_filled':r['stats'].get('common_name_filled',0),
+            'eligible_media_taxa':r['stats'].get('eligible_media_taxa',0),
+            'eligible_media_rows':r['stats'].get('eligible_media_rows',0),
+            'media_rejected_license':r['stats'].get('media_rejected_license',0),
+            'materialized_taxa':m.get('materialized_taxa',0),
+            'materialized_successes':m.get('successful_this_run',0),
+            'materialized_failures':m.get('failed_this_run',0),
+            'sqlite_sha256':Path('climaflora_global_plants_v1_7.sqlite.sha256').read_text().split()[0],
+            'zst_sha256':Path('climaflora_global_plants_v1_7.sqlite.zst.sha256').read_text().split()[0],
+            'media_tar_zst_sha256':Path('climaflora_v1_7_media.tar.zst.sha256').read_text().split()[0],
+            'images_identification_evidence':False,
+            'geographic_priors_scoring_enabled':False,
+          }
+          Path('/tmp/catalog-v1.7-status.json').write_text(json.dumps(s,indent=2)+'\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main && git reset --hard origin/main
+            cp /tmp/catalog-v1.7-status.json .github/catalog-v1.7-status.json
+            git add .github/catalog-v1.7-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record ClimaFlora v1.7 names-media candidate [skip ci]'
+            git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1
+
+      - name: Persist failed v1.7 build status
+        if: failure() && steps.persist_success.conclusion != 'failure'
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          marker=Path('.github/v1.7-current-step.txt')
+          Path('/tmp/catalog-v1.7-status.json').write_text(json.dumps({
+            'status':'failed','run_id':os.environ.get('GITHUB_RUN_ID'),'commit':os.environ.get('GITHUB_SHA'),
+            'failed_step':marker.read_text().strip() if marker.exists() else 'unknown'
+          },indent=2)+'\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main && git reset --hard origin/main
+            cp /tmp/catalog-v1.7-status.json .github/catalog-v1.7-status.json
+            git add .github/catalog-v1.7-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record failed ClimaFlora v1.7 candidate [skip ci]'
+            git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1

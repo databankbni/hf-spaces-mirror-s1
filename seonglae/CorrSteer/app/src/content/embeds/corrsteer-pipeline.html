@@ -1,0 +1,886 @@
+<div class="corrsteer-pipeline" id="corrsteer-pipeline">
+  <div class="pipeline-stages"></div>
+</div>
+
+<style>
+  .corrsteer-pipeline {
+    --cp-primary: #6B5CE7;
+    --cp-primary-light: #8B7FF0;
+    --cp-primary-faint: rgba(107, 92, 231, 0.12);
+    --cp-primary-glow: rgba(107, 92, 231, 0.25);
+    --cp-text: var(--text-color, #1a1a2e);
+    --cp-text-muted: var(--muted-color, rgba(0,0,0,0.55));
+    --cp-bg: var(--page-bg, #ffffff);
+    --cp-surface: var(--surface-bg, #f9f9f9);
+    --cp-card-bg: var(--surface-bg, #f9f9f9);
+    --cp-card-border: var(--border-color, rgba(0,0,0,0.1));
+    --cp-card-border-active: color-mix(in srgb, var(--cp-primary) 50%, transparent);
+    --cp-dot-pos: #6B5CE7;
+    --cp-dot-neg: var(--muted-color, rgba(0,0,0,0.2));
+    --cp-line: #6B5CE7;
+    --cp-bar1: #6B5CE7;
+    --cp-bar2: #8B7FF0;
+    --cp-bar3: #A89BF5;
+    --cp-bar4: #C5BCFA;
+    --cp-bar5: #DDD8FC;
+    --cp-connector: var(--muted-color, rgba(0,0,0,0.18));
+    --cp-connector-active: var(--cp-primary);
+    --cp-viz-bg: rgba(107, 92, 231, 0.06);
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    width: 100%;
+    padding: 20px 0;
+    overflow: hidden;
+  }
+
+  /* Dark mode overrides */
+  .corrsteer-pipeline.dark-mode {
+    --cp-primary-faint: rgba(139, 127, 240, 0.18);
+    --cp-primary-glow: rgba(139, 127, 240, 0.4);
+    --cp-text: rgba(255, 255, 255, 0.9);
+    --cp-text-muted: rgba(255, 255, 255, 0.55);
+    --cp-card-bg: #1a1d28;
+    --cp-card-border: rgba(255, 255, 255, 0.12);
+    --cp-dot-neg: rgba(255, 255, 255, 0.35);
+    --cp-viz-bg: rgba(107, 92, 231, 0.12);
+    --cp-bar4: #b0a3f7;
+    --cp-bar5: #c8bffa;
+    --cp-connector: rgba(255, 255, 255, 0.25);
+  }
+
+  .pipeline-stages {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+
+  /* --- Stage Card --- */
+  .cp-stage {
+    flex: 1;
+    max-width: 280px;
+    min-width: 200px;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .cp-stage.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .cp-card {
+    background: var(--cp-card-bg);
+    border: 1px solid var(--cp-card-border);
+    border-radius: 16px;
+    padding: 24px 20px 20px;
+    position: relative;
+    transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.3s ease;
+    cursor: pointer;
+  }
+  .cp-stage.visible .cp-card {
+    border-color: var(--cp-card-border-active);
+    box-shadow: 0 4px 24px -4px var(--cp-primary-glow),
+                0 1px 3px rgba(0,0,0,0.04);
+  }
+  .cp-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px -4px var(--cp-primary-glow),
+                0 2px 6px rgba(0,0,0,0.06);
+  }
+
+  .cp-stage-number {
+    position: absolute;
+    top: -13px;
+    left: 20px;
+    background: var(--cp-primary);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 3px 12px;
+    border-radius: 20px;
+    text-transform: uppercase;
+  }
+
+  .cp-viz {
+    width: 100%;
+    height: 140px;
+    margin-bottom: 16px;
+    border-radius: 10px;
+    background: var(--cp-viz-bg);
+    overflow: visible;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 4px;
+    box-sizing: border-box;
+  }
+
+  .cp-label {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--cp-text);
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+
+  .cp-subtitle {
+    font-size: 12.5px;
+    color: var(--cp-text-muted);
+    line-height: 1.45;
+  }
+
+  /* --- Connector Arrow --- */
+  .cp-connector {
+    flex: 0 0 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 130px;
+    margin-top: -42px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  .cp-connector.visible {
+    opacity: 1;
+  }
+
+  .cp-connector svg {
+    overflow: visible;
+  }
+
+  .cp-connector-line {
+    stroke: var(--cp-connector);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 3;
+    stroke-dashoffset: 40;
+    transition: stroke 0.4s ease;
+  }
+  .cp-connector.visible .cp-connector-line {
+    stroke: var(--cp-connector-active);
+    animation: cp-dash 0.8s ease-out forwards;
+  }
+
+  .cp-connector-arrow {
+    fill: var(--cp-connector);
+    transition: fill 0.4s ease;
+  }
+  .cp-connector.visible .cp-connector-arrow {
+    fill: var(--cp-connector-active);
+  }
+
+  @keyframes cp-dash {
+    to { stroke-dashoffset: 0; }
+  }
+
+  /* --- Scatter Plot Animation (Stage 1) --- */
+  .scatter-dot {
+    opacity: 0;
+    transform-origin: center;
+    cursor: pointer;
+    transition: r 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
+  }
+  .cp-stage.animating .scatter-dot {
+    animation: cp-dot-appear 0.3s ease-out forwards;
+  }
+
+  @keyframes cp-dot-appear {
+    0% { opacity: 0; transform: scale(0); }
+    60% { transform: scale(1.3); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .scatter-line {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+  }
+  .cp-stage.animating .scatter-line {
+    animation: cp-line-draw 0.8s ease-out forwards;
+    animation-delay: 0.8s;
+  }
+
+  @keyframes cp-line-draw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  .scatter-r-value {
+    opacity: 0;
+  }
+  .cp-stage.animating .scatter-r-value {
+    animation: cp-fade-in 0.5s ease-out forwards;
+    animation-delay: 1.4s;
+  }
+
+  /* --- Bar Chart Animation (Stage 2) --- */
+  .coeff-bar {
+    transform-origin: bottom;
+    transform: scaleY(0);
+  }
+  .cp-stage.animating .coeff-bar {
+    animation: cp-bar-grow 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  @keyframes cp-bar-grow {
+    to { transform: scaleY(1); }
+  }
+
+  .coeff-label {
+    opacity: 0;
+  }
+  .cp-stage.animating .coeff-label {
+    animation: cp-fade-in 0.4s ease-out forwards;
+  }
+
+  @keyframes cp-fade-in {
+    to { opacity: 1; }
+  }
+
+  /* --- Neural Net Animation (Stage 3) --- */
+  .nn-node {
+    opacity: 0;
+  }
+  .cp-stage.animating .nn-node {
+    animation: cp-node-appear 0.3s ease-out forwards;
+  }
+
+  @keyframes cp-node-appear {
+    0% { opacity: 0; transform: scale(0.5); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .nn-connection {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    opacity: 0.3;
+  }
+  .cp-stage.animating .nn-connection {
+    animation: cp-nn-line 0.4s ease-out forwards;
+  }
+
+  @keyframes cp-nn-line {
+    to { stroke-dashoffset: 0; opacity: 0.3; }
+  }
+
+  .nn-steer-arrow {
+    opacity: 0;
+  }
+  .cp-stage.animating .nn-steer-arrow {
+    animation: cp-steer-inject 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation-delay: 0.7s;
+  }
+
+  @keyframes cp-steer-inject {
+    0% { opacity: 0; transform: scale(0.5); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  /* Steering arrow pulse glow on highlight */
+  .nn-steer-arrow-group line {
+    transition: stroke-width 0.3s, opacity 0.3s;
+  }
+
+  .nn-steer-plus, .nn-steer-eq {
+    opacity: 0;
+  }
+  .cp-stage.animating .nn-steer-plus {
+    animation: cp-fade-in 0.4s ease-out forwards;
+    animation-delay: 0.6s;
+  }
+  .cp-stage.animating .nn-steer-eq {
+    animation: cp-fade-in 0.4s ease-out forwards;
+    animation-delay: 1.0s;
+  }
+
+  .nn-steer-result-label {
+    opacity: 0;
+  }
+  .cp-stage.animating .nn-steer-result-label {
+    animation: cp-fade-in 0.4s ease-out forwards;
+    animation-delay: 1.1s;
+  }
+
+  .nn-output-shift {
+    opacity: 0;
+  }
+  .cp-stage.animating .nn-output-shift {
+    animation: cp-output-glow 0.5s ease-out forwards;
+    animation-delay: 1.1s;
+  }
+
+  @keyframes cp-output-glow {
+    0% { opacity: 0; transform: scale(0.8); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .cp-stage.animating .nn-output-shift.pulse {
+    animation: cp-output-glow 0.5s ease-out forwards, cp-pulse 2s ease-in-out 1.6s infinite;
+  }
+
+  @keyframes cp-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.15); opacity: 0.8; }
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 768px) {
+    .pipeline-stages {
+      flex-direction: column;
+      gap: 0;
+      padding: 0 20px;
+    }
+
+    .cp-stage {
+      max-width: 100%;
+      min-width: 0;
+      width: 100%;
+    }
+
+    .cp-connector {
+      flex: 0 0 32px;
+      height: auto;
+      margin-top: 0;
+      transform: rotate(90deg);
+    }
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const root = document.getElementById('corrsteer-pipeline');
+    const container = root.querySelector('.pipeline-stages');
+
+    // ---- Dark mode detection (JS-based, like other embeds) ----
+    function applyTheme() {
+      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      root.classList.toggle('dark-mode', isDark);
+    }
+    applyTheme();
+    new MutationObserver(function(muts) {
+      for (var i = 0; i < muts.length; i++) {
+        if (muts[i].attributeName === 'data-theme') { applyTheme(); break; }
+      }
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    // --- Build Stage 1: Scatter Plot ---
+    function buildScatterSVG() {
+      // Synthetic data points mimicking correlation
+      const points = [
+        {x: 12, y: 22, pos: false}, {x: 18, y: 30, pos: false},
+        {x: 25, y: 35, pos: false}, {x: 30, y: 48, pos: true},
+        {x: 38, y: 42, pos: false}, {x: 42, y: 55, pos: true},
+        {x: 48, y: 52, pos: true}, {x: 55, y: 60, pos: true},
+        {x: 60, y: 58, pos: true}, {x: 65, y: 72, pos: true},
+        {x: 72, y: 68, pos: true}, {x: 78, y: 80, pos: true},
+        {x: 82, y: 75, pos: true}, {x: 88, y: 85, pos: true},
+        {x: 35, y: 28, pos: false}, {x: 52, y: 62, pos: true},
+        {x: 20, y: 40, pos: false}, {x: 70, y: 78, pos: true},
+      ];
+
+      // Mark top-5 positive dots by y-value (descending) → maps 1:1 to bars f₁-f₅
+      const posWithIdx = points.map((p, i) => ({...p, origIdx: i})).filter(p => p.pos);
+      posWithIdx.sort((a, b) => b.y - a.y);
+      const top5Set = {};
+      posWithIdx.slice(0, 5).forEach((p, rank) => { top5Set[p.origIdx] = rank; });
+
+      const pad = 20;
+      const w = 200, h = 110;
+      let dots = '';
+      points.forEach((p, i) => {
+        const cx = pad + (p.x / 100) * (w - 2 * pad);
+        const cy = h - pad - (p.y / 100) * (h - 2 * pad);
+        const fill = p.pos ? 'var(--cp-dot-pos)' : 'var(--cp-dot-neg)';
+        const featureAttr = (i in top5Set) ? ` data-feature="${top5Set[i]}"` : '';
+        const r = (i in top5Set) ? 4.5 : 3.5;
+        dots += `<circle class="scatter-dot" cx="${cx}" cy="${cy}" r="${r}" fill="${fill}"${featureAttr} style="animation-delay: ${0.05 * i}s"/>`;
+      });
+
+      // Regression line (approx y = 0.75x + 15)
+      const x1 = pad, y1 = h - pad - (15 / 100) * (h - 2 * pad);
+      const x2 = w - pad, y2 = h - pad - (90 / 100) * (h - 2 * pad);
+
+      return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+        <!-- Axes -->
+        <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="var(--cp-text-muted)" stroke-width="0.7" opacity="0.4"/>
+        <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h - pad}" stroke="var(--cp-text-muted)" stroke-width="0.7" opacity="0.4"/>
+        <text x="${w / 2}" y="${h - 4}" fill="var(--cp-text-muted)" font-size="7.5" text-anchor="middle" font-family="inherit" font-style="italic">z\u1d62 (activation)</text>
+        <text x="7" y="${h / 2}" fill="var(--cp-text-muted)" font-size="7.5" text-anchor="middle" font-family="inherit" font-style="italic" transform="rotate(-90, 7, ${h / 2})">y (score)</text>
+        ${dots}
+        <line class="scatter-line" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--cp-line)" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+        <g class="scatter-r-value">
+          <rect x="${w - 65}" y="8" width="52" height="20" rx="4" fill="var(--cp-primary)" opacity="0.12"/>
+          <text x="${w - 39}" y="22" fill="var(--cp-primary)" font-size="11" font-weight="700" text-anchor="middle" font-family="inherit">r = .83</text>
+        </g>
+      </svg>`;
+    }
+
+    // --- Build Stage 2: Bar Chart ---
+    function buildBarSVG() {
+      const bars = [
+        { h: 80, label: 'f\u2081' },
+        { h: 62, label: 'f\u2082' },
+        { h: 45, label: 'f\u2083' },
+        { h: 32, label: 'f\u2084' },
+        { h: 20, label: 'f\u2085' },
+      ];
+      const colors = ['var(--cp-bar1)', 'var(--cp-bar2)', 'var(--cp-bar3)', 'var(--cp-bar4)', 'var(--cp-bar5)'];
+      const w = 200, h = 110;
+      const pad = 18;
+      const barW = 24;
+      const gap = 8;
+      const totalW = bars.length * barW + (bars.length - 1) * gap;
+      const startX = (w - totalW) / 2;
+      const maxH = h - 2 * pad - 8;
+
+      let barsSVG = '';
+      bars.forEach((b, i) => {
+        const bh = (b.h / 100) * maxH;
+        const x = startX + i * (barW + gap);
+        const y = h - pad - bh;
+        const delay = 0.1 * i;
+        barsSVG += `<rect class="coeff-bar" data-bar="${i}" x="${x}" y="${y}" width="${barW}" height="${bh}" rx="3" fill="${colors[i]}" style="animation-delay: ${delay}s; transform-origin: ${x + barW/2}px ${h - pad}px; cursor: pointer"/>`;
+        barsSVG += `<text class="coeff-label" x="${x + barW / 2}" y="${h - pad + 12}" fill="var(--cp-text-muted)" font-size="8" text-anchor="middle" font-family="inherit" style="animation-delay: ${delay + 0.3}s">${b.label}</text>`;
+      });
+
+      // Y-axis label for coefficient values
+      barsSVG += `<text class="coeff-label" x="${startX - 4}" y="${pad + 4}" fill="var(--cp-text-muted)" font-size="8" text-anchor="end" font-family="inherit" font-style="italic" style="animation-delay: 0.6s">c\u1d62</text>`;
+
+      return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+        <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="var(--cp-text-muted)" stroke-width="0.7" opacity="0.4"/>
+        <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h - pad}" stroke="var(--cp-text-muted)" stroke-width="0.7" opacity="0.4"/>
+        ${barsSVG}
+      </svg>`;
+    }
+
+    // --- Build Stage 3: Neural Network + Steering ---
+    function buildNNSVG() {
+      const w = 220, h = 120;
+      // Layout: x_t label | compact NN (2 layers) | + | rotating arrow with label | = | x'_t label
+      // Compact 2-hidden-layer network positioned on the left portion
+      const nnLeftX = 30;   // start of NN
+      const layers = [
+        { nodes: 3, x: nnLeftX },
+        { nodes: 4, x: nnLeftX + 30 },
+        { nodes: 3, x: nnLeftX + 60 },
+      ];
+      const nodeR = 4.5;
+      const nnCenterY = h / 2 + 4;
+
+      function getNodeY(layerIdx, nodeIdx) {
+        const n = layers[layerIdx].nodes;
+        const spacing = 14;
+        const totalH = (n - 1) * spacing;
+        return nnCenterY - totalH / 2 + nodeIdx * spacing;
+      }
+
+      // Connections
+      let connections = '';
+      let connDelay = 0;
+      for (let l = 0; l < layers.length - 1; l++) {
+        for (let i = 0; i < layers[l].nodes; i++) {
+          for (let j = 0; j < layers[l + 1].nodes; j++) {
+            const x1 = layers[l].x + nodeR;
+            const y1 = getNodeY(l, i);
+            const x2 = layers[l + 1].x - nodeR;
+            const y2 = getNodeY(l + 1, j);
+            connections += `<line class="nn-connection" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--cp-text-muted)" stroke-width="0.6" style="animation-delay: ${connDelay * 0.02}s"/>`;
+            connDelay++;
+          }
+        }
+      }
+
+      // Nodes
+      let nodes = '';
+      let nodeDelay = 0;
+      let globalNodeIdx = 0;
+      layers.forEach((layer, l) => {
+        for (let i = 0; i < layer.nodes; i++) {
+          const cy = getNodeY(l, i);
+          const isLast = l === layers.length - 1;
+          const stroke = isLast ? 'var(--cp-primary)' : 'var(--cp-text-muted)';
+          const strokeW = isLast ? 1.2 : 0.7;
+          nodes += `<circle class="nn-node" cx="${layer.x}" cy="${cy}" r="${nodeR}" fill="var(--cp-primary-faint)" stroke="${stroke}" stroke-width="${strokeW}" data-node-idx="${globalNodeIdx}" data-base-cx="${layer.x}" data-base-cy="${cy}" data-layer="${l}" style="animation-delay: ${nodeDelay * 0.04}s"/>`;
+          nodeDelay++;
+          globalNodeIdx++;
+        }
+      });
+
+      // x_t label (before the NN)
+      const inputLabelX = nnLeftX - 14;
+      nodes += `<text class="nn-node" x="${inputLabelX}" y="${nnCenterY + 3.5}" fill="var(--cp-text-muted)" font-size="9" text-anchor="middle" font-family="inherit" font-style="italic" style="animation-delay: 0s">x\u209c</text>`;
+
+      // Positions for the equation elements after the NN
+      const lastLayerX = layers[2].x;
+      const plusX = lastLayerX + 18;    // "+" symbol
+      const arrowCenterX = plusX + 28;  // rotating arrow center
+      const eqX = arrowCenterX + 28;   // "=" symbol
+      const resultX = eqX + 16;        // x'_t label
+
+      // "+" symbol (additive operation)
+      const plusSVG = `<text class="nn-steer-plus" x="${plusX}" y="${nnCenterY + 4}" fill="var(--cp-primary)" font-size="14" font-weight="700" text-anchor="middle" font-family="inherit">+</text>`;
+
+      // Rotating steering arrow with label
+      // Arrow centered slightly below nnCenterY, default points right (90°)
+      const arrowLen = 12;
+      const half = arrowLen / 2;
+      const arrowCY = nnCenterY;
+      const baseY = arrowCY + half;
+      const tipY = arrowCY - half;
+      const steerArrow = `
+        <g class="nn-steer-arrow">
+          <g class="nn-steer-arrow-group" style="transform-origin: ${arrowCenterX}px ${arrowCY}px; transition: none; transform: rotate(90deg)">
+            <line class="nn-steer-line" x1="${arrowCenterX}" y1="${baseY}" x2="${arrowCenterX}" y2="${tipY + 3}" stroke="var(--cp-primary)" stroke-width="1.8" stroke-linecap="round"/>
+            <polygon class="nn-steer-head" points="${arrowCenterX},${tipY} ${arrowCenterX - 3},${tipY + 4.5} ${arrowCenterX + 3},${tipY + 4.5}" fill="var(--cp-primary)"/>
+          </g>
+          <text class="nn-steer-label" x="${arrowCenterX}" y="${arrowCY + half + 14}" fill="var(--cp-primary)" font-size="7" font-weight="700" text-anchor="middle" font-family="inherit">c\u1d62\u00b7W<tspan font-size="5" dy="2">dec</tspan></text>
+        </g>
+      `;
+
+      // "=" symbol
+      const eqSVG = `<text class="nn-steer-eq" x="${eqX}" y="${nnCenterY + 4}" fill="var(--cp-primary)" font-size="13" font-weight="700" text-anchor="middle" font-family="inherit">=</text>`;
+
+      // x'_t result label
+      const resultSVG = `<text class="nn-steer-result-label" x="${resultX}" y="${nnCenterY + 3.5}" fill="var(--cp-primary)" font-size="9.5" font-weight="700" text-anchor="middle" font-family="inherit" font-style="italic">x\u2032\u209c</text>`;
+
+      // Output glow around the result label area
+      const glowSVG = `<circle class="nn-output-shift pulse" cx="${resultX}" cy="${nnCenterY}" r="10" fill="none" stroke="var(--cp-primary)" stroke-width="1" opacity="0.4" style="transform-origin: ${resultX}px ${nnCenterY}px"/>`;
+
+      return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+        ${connections}
+        ${nodes}
+        ${plusSVG}
+        ${steerArrow}
+        ${eqSVG}
+        ${resultSVG}
+        ${glowSVG}
+      </svg>`;
+    }
+
+    // --- Build Connector Arrow SVG ---
+    function buildConnector() {
+      return `<svg viewBox="0 0 36 24" width="36" height="24">
+        <line class="cp-connector-line" x1="2" y1="12" x2="28" y2="12" />
+        <polygon class="cp-connector-arrow" points="26,8 34,12 26,16" />
+      </svg>`;
+    }
+
+    // --- Assemble ---
+    const stages = [
+      {
+        num: 'Stage 1',
+        label: 'Correlate',
+        subtitle: 'Find SAE features correlated with task success',
+        svg: buildScatterSVG()
+      },
+      {
+        num: 'Stage 2',
+        label: 'Estimate',
+        subtitle: 'Compute steering coefficients from successful generations',
+        svg: buildBarSVG()
+      },
+      {
+        num: 'Stage 3',
+        label: 'Steer',
+        subtitle: 'Add steering vectors during generation',
+        svg: buildNNSVG()
+      }
+    ];
+
+    let html = '';
+    stages.forEach((s, i) => {
+      if (i > 0) {
+        html += `<div class="cp-connector" data-index="${i - 1}">${buildConnector()}</div>`;
+      }
+      html += `
+        <div class="cp-stage" data-index="${i}">
+          <div class="cp-card">
+            <div class="cp-stage-number">${s.num}</div>
+            <div class="cp-viz">${s.svg}</div>
+            <div class="cp-label">${s.label}</div>
+            <div class="cp-subtitle">${s.subtitle}</div>
+          </div>
+        </div>
+      `;
+    });
+    container.innerHTML = html;
+
+    // --- IntersectionObserver Animation ---
+    let hasAnimated = false;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !hasAnimated) {
+          hasAnimated = true;
+          triggerAnimation();
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.25 });
+
+    observer.observe(root);
+
+    function triggerAnimation() {
+      const stageEls = container.querySelectorAll('.cp-stage');
+      const connectorEls = container.querySelectorAll('.cp-connector');
+
+      stageEls.forEach((el, i) => {
+        setTimeout(() => {
+          el.classList.add('visible');
+          // Trigger internal SVG animations after card appears
+          setTimeout(() => {
+            el.classList.add('animating');
+          }, 200);
+        }, i * 600);
+
+        // Show connector after previous stage
+        if (i > 0) {
+          setTimeout(() => {
+            connectorEls[i - 1].classList.add('visible');
+          }, i * 600 - 200);
+        }
+      });
+    }
+
+    // =============================================
+    // Cross-stage interactivity (bidirectional)
+    // =============================================
+    // Top-5 positive dots have data-feature="0"-"4" → maps 1:1 to bars data-bar="0"-"4"
+    // Hover any stage → all 3 stages react
+
+    const stageEls2 = container.querySelectorAll('.cp-stage');
+    const stage1 = stageEls2[0], stage2 = stageEls2[1], stage3 = stageEls2[2];
+
+    function getFeatureDot(idx) { return stage1.querySelector('.scatter-dot[data-feature="' + idx + '"]'); }
+    function getAllDots() { return stage1.querySelectorAll('.scatter-dot'); }
+    function getAllBars() { return stage2.querySelectorAll('.coeff-bar'); }
+
+    // --- Highlight helpers ---
+    function highlightFeature(featureIdx) {
+      // Stage 1: highlight matching dot, dim others
+      getAllDots().forEach(function(d) {
+        var fi = d.getAttribute('data-feature');
+        d.style.transition = 'opacity 0.25s, filter 0.25s';
+        if (fi === String(featureIdx)) {
+          d.setAttribute('r', '6.5');
+          d.style.filter = 'drop-shadow(0 0 6px var(--cp-primary))';
+          d.style.opacity = '1';
+        } else if (fi !== null) {
+          d.setAttribute('r', '4.5');
+          d.style.filter = '';
+          d.style.opacity = '0.3';
+        } else {
+          d.setAttribute('r', '3.5');
+          d.style.filter = '';
+          d.style.opacity = '0.2';
+        }
+      });
+
+      // Stage 2: highlight matching bar, dim others
+      getAllBars().forEach(function(bar) {
+        var bi = bar.getAttribute('data-bar');
+        bar.style.transition = 'opacity 0.25s, filter 0.25s';
+        if (bi === String(featureIdx)) {
+          bar.style.opacity = '1';
+          bar.style.filter = 'drop-shadow(0 0 6px var(--cp-primary)) brightness(1.15)';
+        } else {
+          bar.style.opacity = '0.25';
+          bar.style.filter = '';
+        }
+      });
+
+      // Stage 3: rotate arrow to feature-specific direction, glow
+      var arrowGroup = stage3.querySelector('.nn-steer-arrow-group');
+      var arrow = stage3.querySelector('.nn-steer-arrow');
+      var outputs = stage3.querySelectorAll('.nn-output-shift');
+      var steerLine = stage3.querySelector('.nn-steer-line');
+      // Each feature gets a fixed angle based on its index (spread across 360°)
+      // Pseudo-random angle per feature using golden angle (137.5°) for max spread
+      var angle = ((featureIdx * 137.5) + 42) % 360;
+      if (arrowGroup) {
+        arrowGroup.style.transform = 'rotate(' + angle + 'deg)';
+      }
+      if (arrow) {
+        arrow.style.filter = 'drop-shadow(0 0 10px var(--cp-primary))';
+      }
+      if (steerLine) {
+        steerLine.style.transition = 'stroke-width 0.25s';
+        steerLine.style.strokeWidth = '2.5';
+      }
+      outputs.forEach(function(o) {
+        o.style.transition = 'stroke-width 0.25s, opacity 0.25s';
+        o.style.strokeWidth = '2';
+        o.style.opacity = '0.8';
+      });
+
+      // Connectors pulse
+      container.querySelectorAll('.cp-connector-line').forEach(function(l) {
+        l.style.transition = 'stroke-width 0.25s'; l.style.strokeWidth = '3';
+      });
+      container.querySelectorAll('.cp-connector-arrow').forEach(function(a) {
+        a.style.transition = 'transform 0.25s'; a.style.transform = 'scale(1.1)';
+      });
+    }
+
+    function resetAllStages() {
+      getAllDots().forEach(function(d) {
+        var fi = d.getAttribute('data-feature');
+        d.setAttribute('r', fi !== null ? '4.5' : '3.5');
+        d.style.filter = '';
+        d.style.opacity = '1';
+        d.style.transition = 'opacity 0.25s, filter 0.25s';
+      });
+      getAllBars().forEach(function(bar) {
+        bar.style.opacity = '1';
+        bar.style.filter = '';
+        bar.style.transition = 'opacity 0.25s, filter 0.25s';
+      });
+      var arrow = stage3.querySelector('.nn-steer-arrow');
+      var arrowGroup = stage3.querySelector('.nn-steer-arrow-group');
+      var steerLine = stage3.querySelector('.nn-steer-line');
+      var outputs = stage3.querySelectorAll('.nn-output-shift');
+      if (arrow) { arrow.style.filter = ''; }
+      if (arrowGroup) { arrowGroup.style.transform = 'rotate(90deg)'; }
+      if (steerLine) { steerLine.style.strokeWidth = '1.8'; }
+      outputs.forEach(function(o) { o.style.strokeWidth = '1'; o.style.opacity = '0.4'; });
+      container.querySelectorAll('.cp-connector-line').forEach(function(l) { l.style.strokeWidth = '2'; });
+      container.querySelectorAll('.cp-connector-arrow').forEach(function(a) { a.style.transform = ''; });
+    }
+
+    // --- Stage 1 hover: find nearest dot → highlight feature across all stages ---
+    function findNearestDot(e) {
+      var viz = stage1.querySelector('.cp-viz');
+      if (!viz) return -1;
+      var svg = viz.querySelector('svg');
+      if (!svg) return -1;
+      var rect = svg.getBoundingClientRect();
+      var scaleX = 200 / rect.width, scaleY = 110 / rect.height;
+      var svgX = (e.clientX - rect.left) * scaleX;
+      var svgY = (e.clientY - rect.top) * scaleY;
+      var best = -1, bestDist = 14;
+      getAllDots().forEach(function(dot) {
+        var fi = dot.getAttribute('data-feature');
+        if (fi === null) return;
+        var cx = parseFloat(dot.getAttribute('cx'));
+        var cy = parseFloat(dot.getAttribute('cy'));
+        var dist = Math.sqrt((svgX - cx) * (svgX - cx) + (svgY - cy) * (svgY - cy));
+        if (dist < bestDist) { bestDist = dist; best = parseInt(fi); }
+      });
+      return best;
+    }
+
+    var hoveredFeature = -1;
+    stage1.addEventListener('mousemove', function(e) {
+      var fi = findNearestDot(e);
+      if (fi === hoveredFeature) return;
+      hoveredFeature = fi;
+      if (fi !== -1) highlightFeature(fi); else resetAllStages();
+    });
+    stage1.addEventListener('mouseleave', function() {
+      hoveredFeature = -1; resetAllStages();
+    });
+
+    // --- Stage 2 hover: find nearest bar → highlight feature across all stages ---
+    function findNearestBar(e) {
+      var viz = stage2.querySelector('.cp-viz');
+      if (!viz) return -1;
+      var svg = viz.querySelector('svg');
+      if (!svg) return -1;
+      var rect = svg.getBoundingClientRect();
+      var svgX = (e.clientX - rect.left) / rect.width * 200;
+      var svgY = (e.clientY - rect.top) / rect.height * 110;
+      var best = -1;
+      getAllBars().forEach(function(bar) {
+        var x = parseFloat(bar.getAttribute('x'));
+        var y = parseFloat(bar.getAttribute('y'));
+        var w = parseFloat(bar.getAttribute('width'));
+        var h = parseFloat(bar.getAttribute('height'));
+        if (svgX >= x - 4 && svgX <= x + w + 4 && svgY >= y - 4 && svgY <= y + h + 4) {
+          best = parseInt(bar.getAttribute('data-bar'));
+        }
+      });
+      return best;
+    }
+
+    stage2.addEventListener('mousemove', function(e) {
+      var fi = findNearestBar(e);
+      if (fi === hoveredFeature) return;
+      hoveredFeature = fi;
+      if (fi !== -1) highlightFeature(fi); else resetAllStages();
+    });
+    stage2.addEventListener('mouseleave', function() {
+      hoveredFeature = -1; resetAllStages();
+    });
+
+    // --- Stage 3 hover: highlight all stages when hovering the card ---
+    stage3.addEventListener('mouseenter', function() {
+      // Highlight all 5 features simultaneously (full pipeline glow)
+      getAllDots().forEach(function(d) {
+        var fi = d.getAttribute('data-feature');
+        d.style.transition = 'opacity 0.25s, filter 0.25s';
+        if (fi !== null) {
+          d.setAttribute('r', '5.5');
+          d.style.filter = 'drop-shadow(0 0 4px var(--cp-primary))';
+          d.style.opacity = '1';
+        } else {
+          d.style.opacity = '0.2';
+        }
+      });
+      getAllBars().forEach(function(bar) {
+        bar.style.transition = 'filter 0.25s';
+        bar.style.opacity = '1';
+        bar.style.filter = 'drop-shadow(0 0 4px var(--cp-primary)) brightness(1.1)';
+      });
+      var arrow = stage3.querySelector('.nn-steer-arrow');
+      if (arrow) { arrow.style.filter = 'drop-shadow(0 0 10px var(--cp-primary))'; }
+      stage3.querySelectorAll('.nn-output-shift').forEach(function(o) {
+        o.style.strokeWidth = '2'; o.style.opacity = '0.8';
+      });
+      container.querySelectorAll('.cp-connector-line').forEach(function(l) { l.style.strokeWidth = '3'; });
+      container.querySelectorAll('.cp-connector-arrow').forEach(function(a) { a.style.transform = 'scale(1.1)'; });
+    });
+    stage3.addEventListener('mouseleave', function() {
+      hoveredFeature = -1; resetAllStages();
+    });
+
+    // --- Stage 3: per-node orbit animation ---
+    var nnNodes = stage3.querySelectorAll('.nn-node[data-node-idx]');
+    var nodePhases = [];
+    nnNodes.forEach(function(node, i) {
+      // Each node gets unique phase, speed, radius based on layer position
+      var layer = parseInt(node.getAttribute('data-layer') || '0');
+      nodePhases.push({
+        phase: i * 1.3 + layer * 0.7,
+        speed: 0.4 + layer * 0.15 + (i % 3) * 0.1,
+        radius: 1.0 + layer * 0.5,
+        baseCx: parseFloat(node.getAttribute('data-base-cx')),
+        baseCy: parseFloat(node.getAttribute('data-base-cy'))
+      });
+    });
+
+    var nnAnimFrame = null;
+    function animateNodes(time) {
+      var t = time * 0.001;
+      nnNodes.forEach(function(node, i) {
+        var p = nodePhases[i];
+        var dx = Math.sin(t * p.speed + p.phase) * p.radius;
+        var dy = Math.cos(t * p.speed * 0.7 + p.phase + 1.5) * p.radius * 0.6;
+        node.setAttribute('cx', (p.baseCx + dx).toFixed(2));
+        node.setAttribute('cy', (p.baseCy + dy).toFixed(2));
+      });
+      nnAnimFrame = requestAnimationFrame(animateNodes);
+    }
+
+    // Start orbit after initial animation completes
+    setTimeout(function() {
+      if (nnNodes.length) requestAnimationFrame(animateNodes);
+    }, 2200);
+
+    // Click outside to reset
+    document.addEventListener('click', function(e) {
+      if (!root.contains(e.target)) { hoveredFeature = -1; resetAllStages(); }
+    });
+  });
+</script>

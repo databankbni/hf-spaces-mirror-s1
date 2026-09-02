@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ananta</title>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-color: #f9fafb;
+            --text-color: #1f2937;
+            --chat-bot-bg: #ffffff;
+            --chat-bot-border: #e5e7eb;
+            --chat-user-bg: #000000;
+            --chat-user-text: #ffffff;
+            --input-bg: #ffffff;
+            --input-border: #e5e7eb;
+            --accent-color: #3b82f6;
+        }
+
+        body.theme-dark {
+            --bg-color: #111827;
+            --text-color: #f9fafb;
+            --chat-bot-bg: #1f2937;
+            --chat-bot-border: #374151;
+            --chat-user-bg: #3b82f6;
+            --chat-user-text: #ffffff;
+            --input-bg: #1f2937;
+            --input-border: #374151;
+        }
+
+        body.theme-blue {
+            --bg-color: #f0f9ff;
+            --text-color: #0c4a6e;
+            --chat-bot-bg: #ffffff;
+            --chat-bot-border: #bae6fd;
+            --chat-user-bg: #0284c7;
+            --chat-user-text: #ffffff;
+            --input-bg: #ffffff;
+            --input-border: #bae6fd;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 600px;
+            position: relative;
+            padding: 80px 16px 140px 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Nav */
+        .floating-top-nav {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 600px;
+            padding: 0 16px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            z-index: 900;
+            pointer-events: none;
+        }
+
+        .floating-top-nav * {
+            pointer-events: auto;
+        }
+
+        .ping-badge {
+            background-color: var(--chat-bot-bg);
+            border: 1px solid var(--chat-bot-border);
+            color: var(--text-color);
+            padding: 0 14px;
+            height: 44px;
+            border-radius: 22px;
+            font-size: 13px;
+            font-weight: 700;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            user-select: none;
+            transition: all 0.3s ease;
+        }
+
+        .ping-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .ping-dot.green { background-color: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .ping-dot.yellow { background-color: #eab308; box-shadow: 0 0 8px #eab308; }
+        .ping-dot.red { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+        .btn-trakteer {
+            background-color: #000000;
+            color: #ffffff;
+            border: none;
+            padding: 0 20px;
+            height: 44px;
+            border-radius: 22px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            outline: none;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            transition: transform 0.1s ease, background-color 0.2s;
+        }
+
+        .btn-trakteer:active {
+            transform: scale(0.96);
+            background-color: #1f2937;
+        }
+
+        /* App Table */
+        .app-grid-table {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--chat-bot-border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 10px;
+            background: var(--chat-bot-bg);
+        }
+
+        .grid-row {
+            display: grid;
+            grid-template-columns: 100px 1fr;
+            padding: 10px 14px;
+            align-items: center;
+            border-bottom: 1px solid var(--chat-bot-border);
+        }
+
+        .grid-row:last-child { border-bottom: none; }
+        .grid-row.header { background-color: var(--input-border); font-weight: 700; font-size: 13px; }
+        .grid-row.body { font-size: 13px; }
+
+        /* Overlay iFrame */
+        .app-iframe-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #ffffff;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .app-iframe-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .app-iframe-overlay iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .iframe-top-controls {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 2010;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-floating-back {
+            background-color: #ffffff;
+            color: #000000;
+            border: 1px solid #e5e7eb;
+            height: 44px;
+            padding: 0 16px;
+            border-radius: 22px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            outline: none;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow: hidden;
+            white-space: nowrap;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-floating-back i { font-size: 14px; flex-shrink: 0; }
+        .btn-floating-back .btn-text {
+            max-width: 100px;
+            opacity: 1;
+            transition: max-width 0.4s ease, opacity 0.3s ease;
+        }
+
+        .btn-floating-back.shrunk {
+            padding: 0;
+            width: 44px;
+            justify-content: center;
+            opacity: 0.7;
+        }
+
+        .btn-floating-back.shrunk .btn-text { max-width: 0; opacity: 0; }
+        .btn-floating-back:hover, .btn-floating-back:focus {
+            padding: 0 16px !important;
+            width: auto !important;
+            opacity: 1 !important;
+        }
+
+        .btn-floating-back:hover .btn-text, .btn-floating-back:focus .btn-text {
+            max-width: 100px !important;
+            opacity: 1 !important;
+        }
+
+        .btn-floating-back:active { transform: scale(0.95); background-color: #f3f4f6; }
+
+        /* Chat Styles */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+        }
+
+        .chat-bubble {
+            max-width: 90%;
+            padding: 14px 16px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            position: relative;
+        }
+
+        .chat-bubble.bot {
+            align-self: flex-start;
+            background-color: var(--chat-bot-bg);
+            border: 1px solid var(--chat-bot-border);
+            color: var(--text-color);
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+            padding-top: 36px;
+        }
+
+        .chat-bubble.user {
+            align-self: flex-end;
+            background-color: var(--chat-user-bg);
+            color: var(--chat-user-text);
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-header-meta {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .exec-time { font-size: 10px; color: #9ca3af; font-weight: 500; }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.done { background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .status-badge.error { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+
+        .btn-retry {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 6px 14px;
+            background-color: #ef4444;
+            color: #ffffff;
+            border: none;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s ease;
+        }
+
+        .btn-retry:hover { background-color: #dc2626; }
+        .btn-retry:active { transform: scale(0.95); }
+
+        .calc-result-box {
+            background: rgba(59, 130, 246, 0.08);
+            border-left: 4px solid var(--accent-color);
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-top: 6px;
+            font-family: monospace;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .doc-container { font-size: 13.5px; line-height: 1.6; }
+        .doc-container h3 { font-size: 16px; margin-bottom: 8px; color: var(--accent-color); }
+        .doc-container h4 { font-size: 14px; margin-top: 12px; margin-bottom: 4px; }
+        .doc-container ul { padding-left: 18px; margin-bottom: 8px; }
+
+        .typing-indicator { display: flex; align-items: center; gap: 5px; padding: 4px 6px; }
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background-color: #9ca3af;
+            border-radius: 50%;
+            display: inline-block;
+            animation: waveBounce 1.3s infinite ease-in-out;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.15s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.3s; }
+
+        @keyframes waveBounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-7px); background-color: #3b82f6; }
+        }
+
+        /* FLOATING INPUT BAR */
+        .floating-bottom-wrapper {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 32px);
+            max-width: 568px;
+            z-index: 900;
+            background-color: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 30px;
+            padding: 8px 10px 8px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Top Drawer for Extra Actions */
+        .actions-drawer {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 0;
+            transition: max-height 0.3s ease, opacity 0.3s ease, margin-bottom 0.3s ease, padding 0.3s ease;
+        }
+
+        .floating-bottom-wrapper.expanded .actions-drawer {
+            max-height: 50px;
+            opacity: 1;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--input-border);
+        }
+
+        .action-chip {
+            background-color: var(--chat-bot-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-color);
+            padding: 6px 14px;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .action-chip:hover {
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border-color: var(--accent-color);
+        }
+
+        .action-chip:active { transform: scale(0.95); }
+
+        .input-controls-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            height: 36px;
+        }
+
+        .input-controls-row input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 15px;
+            color: var(--text-color);
+            background: transparent;
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            line-height: 36px;
+        }
+
+        .input-controls-row input::placeholder { color: #9ca3af; }
+
+        /* 3-Dots Button */
+        .btn-action-more {
+            background-color: transparent;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #9ca3af;
+            font-size: 15px;
+            flex-shrink: 0;
+            outline: none;
+            user-select: none;
+            transition: background-color 0.2s, color 0.2s, transform 0.3s ease;
+        }
+
+        .btn-action-more:hover {
+            background-color: rgba(156, 163, 175, 0.15);
+            color: var(--text-color);
+        }
+
+        .floating-bottom-wrapper.expanded .btn-action-more {
+            transform: rotate(90deg);
+            color: var(--accent-color);
+        }
+
+        /* Sender Icon Button */
+        .btn-send {
+            background-color: #9ca3af;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #ffffff;
+            font-size: 13px;
+            flex-shrink: 0;
+            outline: none;
+            user-select: none;
+            transition: background-color 0.2s, transform 0.1s ease;
+        }
+
+        .btn-send:active { transform: scale(0.92); }
+        .btn-send.active { background-color: var(--chat-user-bg); }
+    </style>
+</head>
+<body class="theme-dark">
+
+    <div class="floating-top-nav">
+        <div class="ping-badge" id="globalPingBadge">
+            <span class="ping-dot green" id="globalPingDot"></span>
+            <span id="globalPingVal">-- ms</span>
+        </div>
+
+        <a href="https://trakteer.id/AnantaXLIllustrious/tip" target="_blank" class="btn-trakteer">
+            <i class="fa-solid fa-mug-hot"></i> Support Us
+        </a>
+    </div>
+
+    <div class="app-iframe-overlay" id="appIframeOverlay">
+        <div class="iframe-top-controls">
+            <div class="ping-badge" id="iframePingBadge">
+                <span class="ping-dot green" id="iframePingDot"></span>
+                <span id="iframePingVal">-- ms</span>
+            </div>
+
+            <button class="btn-floating-back" id="closeIframeBtn" title="Back to Chat">
+                <i class="fa-solid fa-chevron-left"></i>
+                <span class="btn-text">Back to Chat</span>
+            </button>
+        </div>
+        <iframe id="programIframe" src=""></iframe>
+    </div>
+
+    <div class="app-container">
+        <div class="chat-container" id="chatContainer">
+            <div class="chat-bubble bot" style="padding-top: 14px;">
+                Welcome to the Assistant Chat. Type <strong>APPLIB</strong> to access Program Library.
+            </div>
+        </div>
+    </div>
+
+    <!-- FLOATING BOTTOM INPUT BAR -->
+    <div class="floating-bottom-wrapper" id="inputWrapper">
+        <div class="actions-drawer" id="actionsDrawer">
+            <!-- Chip diklik -> Memanggil fungsi executeProgram('SDXL') -->
+            <button class="action-chip" onclick="executeProgram('SDXL')">
+                <i class="fa-solid fa-image"></i> Text-To-Image
+            </button>
+            <button class="action-chip" onclick="executeProgram('SDXL')">
+                <i class="fa-solid fa-video"></i> Text-To-Video
+            </button>
+        </div>
+        <div class="input-controls-row">
+            <input type="text" id="userInput" placeholder="Ask anything or enter Program ID...">
+            
+            <button class="btn-action-more" id="moreActionsBtn" aria-label="More Actions" title="More Actions">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+            </button>
+
+            <button class="btn-send" id="sendBtn" aria-label="Send">
+                <i class="fa-solid fa-location-arrow"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const savedTheme = localStorage.getItem('appTheme') || 'theme-dark';
+        document.body.className = savedTheme;
+
+        const appIframeOverlay = document.getElementById('appIframeOverlay');
+        const programIframe = document.getElementById('programIframe');
+        const closeIframeBtn = document.getElementById('closeIframeBtn');
+
+        let shrinkTimer = null;
+        let isSettingMode = false;
+
+        function startShrinkTimer() {
+            clearTimeout(shrinkTimer);
+            shrinkTimer = setTimeout(() => {
+                closeIframeBtn.classList.add('shrunk');
+            }, 2500);
+        }
+
+        closeIframeBtn.addEventListener('mouseenter', () => {
+            closeIframeBtn.classList.remove('shrunk');
+            clearTimeout(shrinkTimer);
+        });
+        closeIframeBtn.addEventListener('mouseleave', () => startShrinkTimer());
+        closeIframeBtn.addEventListener('touchstart', () => {
+            closeIframeBtn.classList.remove('shrunk');
+            startShrinkTimer();
+        });
+
+        closeIframeBtn.addEventListener('click', () => {
+            appIframeOverlay.classList.remove('active');
+            programIframe.src = "";
+            closeIframeBtn.classList.remove('shrunk');
+            clearTimeout(shrinkTimer);
+        });
+
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const chatContainer = document.getElementById('chatContainer');
+        const inputWrapper = document.getElementById('inputWrapper');
+        const moreActionsBtn = document.getElementById('moreActionsBtn');
+
+        // Toggle Expand / Collapse Drawer
+        moreActionsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            inputWrapper.classList.toggle('expanded');
+        });
+
+        // Close drawer when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!inputWrapper.contains(e.target)) {
+                inputWrapper.classList.remove('expanded');
+            }
+        });
+
+        // Fungsi khusus untuk eksekusi langsung Program ID (seperti SDXL)
+        function executeProgram(programId) {
+            inputWrapper.classList.remove('expanded');
+            handleSendMessage(programId);
+        }
+
+        userInput.addEventListener('input', () => {
+            if (userInput.value.trim() !== '') {
+                sendBtn.classList.add('active');
+            } else {
+                sendBtn.classList.remove('active');
+            }
+        });
+
+        function getCurrentTimeString() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+
+        let pingInterval = null;
+        let isPingActive = false;
+
+        function updatePingUI(ms) {
+            if (!isPingActive) {
+                document.getElementById('globalPingBadge').style.display = 'none';
+                document.getElementById('iframePingBadge').style.display = 'none';
+                return;
+            }
+
+            const globalBadge = document.getElementById('globalPingBadge');
+            const globalDot = document.getElementById('globalPingDot');
+            const globalVal = document.getElementById('globalPingVal');
+
+            const iframeBadge = document.getElementById('iframePingBadge');
+            const iframeDot = document.getElementById('iframePingDot');
+            const iframeVal = document.getElementById('iframePingVal');
+
+            globalBadge.style.display = 'flex';
+            iframeBadge.style.display = 'flex';
+
+            let dotColorClass = 'green';
+            let displayVal = `${ms} ms`;
+
+            if (ms === null) {
+                dotColorClass = 'red';
+                displayVal = 'Error';
+            } else if (ms < 100) {
+                dotColorClass = 'green';
+            } else if (ms <= 250) {
+                dotColorClass = 'yellow';
+            } else {
+                dotColorClass = 'red';
+            }
+
+            globalDot.className = `ping-dot ${dotColorClass}`;
+            globalVal.textContent = displayVal;
+
+            iframeDot.className = `ping-dot ${dotColorClass}`;
+            iframeVal.textContent = displayVal;
+        }
+
+        function measurePing() {
+            if (!isPingActive) return;
+
+            const startTime = performance.now();
+            fetch(window.location.href, { method: 'HEAD', cache: 'no-cache' })
+                .then(() => {
+                    if (!isPingActive) return;
+                    const rawLatency = Math.round(performance.now() - startTime);
+                    const reducedLatency = Math.round(rawLatency * 0.5);
+                    updatePingUI(reducedLatency);
+                })
+                .catch(() => {
+                    if (!isPingActive) return;
+                    updatePingUI(null);
+                });
+        }
+
+        function startPingMonitoring() {
+            isPingActive = true;
+            if (pingInterval) clearInterval(pingInterval);
+            measurePing();
+            pingInterval = setInterval(measurePing, 2000);
+        }
+
+        function stopPingMonitoring() {
+            isPingActive = false;
+            if (pingInterval) {
+                clearInterval(pingInterval);
+                pingInterval = null;
+            }
+            document.getElementById('globalPingBadge').style.display = 'none';
+            document.getElementById('iframePingBadge').style.display = 'none';
+        }
+
+        function calculateExpression(expression) {
+            if (!expression || expression.trim() === "") {
+                return { success: false, error: "Please enter a mathematical expression !" };
+            }
+
+            let expr = expression.toLowerCase().trim();
+
+            expr = expr.replace(/SQUARE/g, '^2')
+                      .replace(/CUBE/g, '^3')
+                      .replace(/DEG/g, '* (Math.PI / 180)')
+                      .replace(/RAD/g, '')
+                      .replace(/×/g, '*')
+                      .replace(/÷/g, '/')
+                      .replace(/:/g, '/')
+                      .replace(/√\s*(\d+(\.\d+)?)/g, 'Math.sqrt($1)')
+                      .replace(/√\(([^)]+)\)/g, 'Math.sqrt($1)')
+                      .replace(/(\d+)%/g, '($1/100)')
+                      .replace(/\^/g, '**');
+
+            expr = expr.replace(/ sin /g, 'Math.sin')
+                      .replace(/ cos /g, 'Math.cos')
+                      .replace(/ tan /g, 'Math.tan')
+                      .replace(/ sqrt /g, 'Math.sqrt')
+                      .replace(/ log /g, 'Math.log10')
+                      .replace(/ ln /g, 'Math.log')
+                      .replace(/ pi /g, 'Math.PI')
+                      .replace(/ e /g, 'Math.E');
+
+            if (/[^0-9\+\-\*\/\(\)\.\s\%\^\,\*\*\wMath\.]/.test(expr)) {
+                return { success: false, error: "Invalid character detected in mathematical expression !" };
+            }
+
+            try {
+                const res = Function(`"use strict"; return (${expr})`)();
+                if (typeof res === 'number' && !isNaN(res) && isFinite(res)) {
+                    const cleanRes = Number.isInteger(res) ? res : parseFloat(res.toFixed(6));
+                    return { success: true, result: cleanRes, original: expression };
+                } else {
+                    return { success: false, error: "Undefined mathematical result (e.g., division by zero)" };
+                }
+            } catch (err) {
+                return { success: false, error: "Invalid mathematical format !" };
+            }
+        }
+
+        function handleSendMessage(overrideCommand = null) {
+            const rawText = overrideCommand || userInput.value.trim();
+            if (rawText === '') return;
+
+            inputWrapper.classList.remove('expanded');
+
+            // Tambahkan bubble pesan user
+            const userBubble = document.createElement('div');
+            userBubble.className = 'chat-bubble user';
+            userBubble.textContent = rawText;
+            chatContainer.appendChild(userBubble);
+
+            if (!overrideCommand) {
+                userInput.value = '';
+                sendBtn.classList.remove('active');
+            }
+
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+            // Tambahkan indikator loading bot
+            const botBubble = document.createElement('div');
+            botBubble.className = 'chat-bubble bot';
+            botBubble.innerHTML = `
+                <div class="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            `;
+            chatContainer.appendChild(botBubble);
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+            const cleanText = rawText.toUpperCase();
+
+            setTimeout(() => {
+                const execTime = getCurrentTimeString();
+
+                if (!navigator.onLine) {
+                    const metaHeader = `
+                        <div class="chat-header-meta">
+                            <span class="exec-time">${execTime}</span>
+                            <span class="status-badge error"><i class="fa-solid fa-xmark"></i> ERROR</span>
+                        </div>
+                    `;
+                    botBubble.innerHTML = `
+                        ${metaHeader}
+                        <div>Oops, something went wrong (No Internet Connection).</div>
+                        <button class="btn-retry" onclick="handleSendMessage('${rawText}')">
+                            <i class="fa-solid fa-rotate-right"></i> Try Again
+                        </button>
+                    `;
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                    return;
+                }
+
+                let redirectUrl = null;
+                let isSuccess = false;
+                let replyContent = "";
+
+                if (isSettingMode) {
+                    if (cleanText === 'SETLIGHTTHEME') {
+                        document.body.className = '';
+                        localStorage.setItem('appTheme', '');
+                        replyContent = 'Theme updated to <strong>Light Theme</strong>.';
+                        isSuccess = true;
+                    } 
+                    else if (cleanText === 'SETDARKTHEME') {
+                        document.body.className = 'theme-dark';
+                        localStorage.setItem('appTheme', 'theme-dark');
+                        replyContent = 'Theme updated to <strong>Dark Theme</strong>.';
+                        isSuccess = true;
+                    } 
+                    else if (cleanText === 'SETBLUETHEME') {
+                        document.body.className = 'theme-blue';
+                        localStorage.setItem('appTheme', 'theme-blue');
+                        replyContent = 'Theme updated to <strong>Blue Theme</strong>.';
+                        isSuccess = true;
+                    } 
+                    else if (cleanText === 'SETCLOSE') {
+                        isSettingMode = false;
+                        userInput.placeholder = "Ask anything or enter Program ID...";
+                        replyContent = 'Exiting Settings Mode. Welcome back to Main Chat!';
+                        isSuccess = true;
+                    } 
+                    else {
+                        replyContent = `Unknown setting command. Available commands in Settings Mode:<br>• <strong>SETLIGHTTHEME</strong><br>• <strong>SETDARKTHEME</strong><br>• <strong>SETBLUETHEME</strong><br>• <strong>SETCLOSE</strong>`;
+                        isSuccess = false;
+                    }
+                } 
+                else {
+                    if (cleanText.startsWith('CALC')) {
+                        const mathExp = rawText.substring(4).trim();
+                        const calcObj = calculateExpression(mathExp);
+
+                        if (calcObj.success) {
+                            replyContent = `
+                                🧮 <strong>Calc:</strong><br>
+                                Expression: <code>${calcObj.original}</code>
+                                <div class="calc-result-box">= ${calcObj.result}</div>
+                            `;
+                            isSuccess = true;
+                        } else {
+                            replyContent = `⚠️ <strong>Calculator Error:</strong> ${calcObj.error}`;
+                            isSuccess = false;
+                        }
+                    }
+                    else if (cleanText === 'PING') {
+                        startPingMonitoring();
+                        replyContent = `📶 <strong>Ping started!</strong><br>Use "CLOSEPING" to stop.`;
+                        isSuccess = true;
+                    }
+                    else if (cleanText === 'CLOSEPING') {
+                        stopPingMonitoring();
+                        replyContent = `⏹️ <strong>Ping stopped.</strong>`;
+                        isSuccess = true;
+                    }
+                    else if (cleanText === 'CLEAR') {
+                        chatContainer.innerHTML = `
+                            <div class="chat-bubble bot" style="padding-top: 14px;">
+                                Chat history cleared ! Type <strong>APPLIB</strong> to access Program Library.
+                            </div>
+                        `;
+                        return;
+                    }
+                    else if (cleanText === 'SETTING') {
+                        isSettingMode = true;
+                        userInput.placeholder = "Enter Setting Command ...";
+                        replyContent = `
+                            ⚙️ <strong>SETTINGS MODE</strong><br>
+                            Available Commands:<br>
+                            • <strong>SETLIGHTTHEME</strong> : Switch to Light Theme<br>
+                            • <strong>SETDARKTHEME</strong> : Switch to Dark Theme<br>
+                            • <strong>SETBLUETHEME</strong> : Switch to Blue Theme<br>
+                            • <strong>SETCLOSE</strong> : Exit Settings Mode
+                        `;
+                        isSuccess = true;
+                    }
+                    else if (cleanText === 'APPLIB') {
+                        replyContent = `
+                            <strong>App Library</strong>
+                            <div class="app-grid-table">
+                                <div class="grid-row header">
+                                    <div>ID</div>
+                                    <div>NAME / PROGRAM</div>
+                                </div>
+                                <div class="grid-row body">
+                                    <div><strong>SDXL</strong></div>
+                                    <div>LIVE AnantaXLIllustrious SDXL</div>
+                                </div>
+                                <div class="grid-row body">
+                                    <div><strong>PRG</strong></div>
+                                    <div>Prompt Generator</div>
+                                </div>
+                                <div class="grid-row body">
+                                    <div><strong>BMCG</strong></div>
+                                    <div>Benchmark TOP AI</div>
+                                </div>
+                                <div class="grid-row body">
+                                    <div><strong>CALC</strong></div>
+                                    <div>Calculator</div>
+                                </div>
+                                <div class="grid-row body">
+                                    <div><strong>PING</strong></div>
+                                    <div>Real-Time Latency Monitoring</div>
+                                </div>
+                                <div class="grid-row body">
+                                    <div><strong>CLOSEPING</strong></div>
+                                    <div>Stop Real-Time Latency Monitoring</div>
+                                </div>
+                                <div class="grid-row body">
+                                    <div><strong>KP</strong></div>
+                                    <div>Privacy Policy</div>
+                                </div>
+                                <div class="grid-row body">
+                                    <div><strong>KL</strong></div>
+                                    <div>Terms of Service</div>
+                                </div>
+                                <div class="grid-row body">
+                                    <div><strong>CLEAR</strong></div>
+                                    <div>Clear All Chat Logs</div>
+                                </div>
+                                <div class="grid-row body">
+                                    <div><strong>SETTING</strong></div>
+                                    <div>Open Settings Mode</div>
+                                </div>
+                            </div>
+                        `;
+                        isSuccess = true;
+                    }
+                    else if (cleanText === 'KP') {
+                        replyContent = `
+                            <div class="doc-container">
+                                <h3>Privacy Policy</h3>
+                                <p>Welcome to Ananta Artificial Intelligence platform. This Privacy Policy outlines how we collect, use, and safeguard your information when you use our web application.</p>
+                                
+                                <h4>1. Information We Collect</h4>
+                                <ul>
+                                    <li><strong>User Inputs:</strong> Text, prompts, or expressions entered into the application interface.</li>
+                                    <li><strong>Technical Data:</strong> IP address, browser type, latency metrics (ping), and basic usage logs for performance optimization.</li>
+                                </ul>
+
+                                <h4>2. How We Use Information</h4>
+                                <ul>
+                                    <li>Processing and delivering automated AI model outputs.</li>
+                                    <li>Improving system efficiency, performance, and overall user experience.</li>
+                                    <li>Maintaining platform integrity and protecting against malicious activities.</li>
+                                </ul>
+
+                                <h4>3. Data Security & Storage</h4>
+                                <p>We implement strict encryption and access control mechanisms. We do not sell, rent, or trade your personal information with third parties for marketing purposes.</p>
+
+                                <h4>4. User Rights</h4>
+                                <p>You retain the right to clear your local interaction logs at any time using the <code>CLEAR</code> command.</p>
+                            </div>
+                        `;
+                        isSuccess = true;
+                    }
+                    else if (cleanText === 'KL') {
+                        replyContent = `
+                            <div class="doc-container">
+                                <h3>Terms of Service</h3>
+                                <p>By accessing or using the Ananta platform, you agree to be bound by the following Terms of Service.</p>
+                                
+                                <h4>1. Use of Service</h4>
+                                <ul>
+                                    <li>This service is provided for informational, exploratory, and creative purposes.</li>
+                                    <li>You must not input prompts that violate applicable laws, contain hate speech, promote illegal acts, or compromise platform integrity.</li>
+                                </ul>
+
+                                <h4>2. AI Generated Outputs</h4>
+                                <ul>
+                                    <li>Outputs are generated dynamically by artificial intelligence models. We do not guarantee 100% accuracy, completeness, or absolute reliability of any output.</li>
+                                    <li>Users bear full responsibility for any reliance or actions taken based on generated content.</li>
+                                </ul>
+
+                                <h4>3. Limitation of Liability</h4>
+                                <p>The developers shall not be liable for any direct or indirect damages resulting from service interruptions, system inaccuracies, or temporary unavailability.</p>
+
+                                <h4>4. Updates to Terms</h4>
+                                <p>We reserve the right to revise or modify these Terms of Service at any time to align with technical or regulatory updates.</p>
+                            </div>
+                        `;
+                        isSuccess = true;
+                    }
+                    else if (cleanText === 'SDXL') {
+                        redirectUrl = "https://anantaxlillustrious-live-illustrious-sdxl.static.hf.space"; 
+                        replyContent = `Opening <strong>LIVE AnantaXLIllustrious SDXL</strong>...`;
+                        isSuccess = true;
+                    } 
+                    else if (cleanText === 'PRG') {
+                        redirectUrl = "https://anantaxlillustrious-prompts-generator.static.hf.space"; 
+                        replyContent = `Opening <strong>Prompt Generator</strong>...`;
+                        isSuccess = true;
+                    } 
+                    else if (cleanText === 'BMCG') {
+                        redirectUrl = "https://anantaxlillustrious-ananta-benchmark-suite.static.hf.space"; 
+                        replyContent = `Opening <strong>Benchmarks TOP AI</strong>...`;
+                        isSuccess = true;
+                    } 
+                    else {
+                        replyContent = `Code : "${rawText}" Is nothing. Let me know if you need any specific assistance !`;
+                        isSuccess = false;
+                    }
+                }
+
+                const badgeClass = isSuccess ? 'done' : 'error';
+                const badgeIcon = isSuccess ? 'fa-check' : 'fa-xmark';
+                const badgeLabel = isSuccess ? 'DONE' : 'ERROR';
+
+                const metaHeader = `
+                    <div class="chat-header-meta">
+                        <span class="exec-time">${execTime}</span>
+                        <span class="status-badge ${badgeClass}"><i class="fa-solid ${badgeIcon}"></i> ${badgeLabel}</span>
+                    </div>
+                `;
+
+                botBubble.innerHTML = `${metaHeader}${replyContent}`;
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+                if (redirectUrl) {
+                    setTimeout(() => {
+                        programIframe.src = redirectUrl;
+                        appIframeOverlay.classList.add('active');
+                        closeIframeBtn.classList.remove('shrunk');
+                        startShrinkTimer();
+                    }, 800);
+                }
+            }, 1000);
+        }
+
+        sendBtn.addEventListener('click', () => handleSendMessage());
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSendMessage();
+        });
+    </script>
+</body>
+</html>

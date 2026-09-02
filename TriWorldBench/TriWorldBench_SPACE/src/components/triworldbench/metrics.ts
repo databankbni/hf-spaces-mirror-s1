@@ -195,7 +195,6 @@ export type TriWorldMetricCode = string;
 export interface TriWorldBoardEntry {
   rank: number;
   modelName: string;
-  teamName: string;
   score: number | null;
   normalizedScore: number | null;
   status: string;

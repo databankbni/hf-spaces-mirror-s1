@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Breadcrumbs from '@/src/components/Breadcrumbs';
 import TimeSeriesChart from '@/src/components/TimeSeriesChart';
-import LeaderBoardRound from '@/src/components/LeaderBoardRound';
+import LeaderBoardRound, { type LeaderboardEntry } from '@/src/components/LeaderBoardRound';
 import Link from 'next/link';
 import { Clock, ChevronRight, Info } from 'lucide-react';
 
@@ -20,19 +20,6 @@ interface RoundMetadata {
   registration_start: string;
   registration_end: string;
   frequency?: string;
-}
-
-interface LeaderboardEntry {
-  model_id: number;
-  readable_id: string;
-  model_name: string;
-  series_id: number;
-  series_name: string;
-  forecast_count: number;
-  mase: number | null;
-  rmse: number | null;
-  is_final: boolean;
-  rank: number;
 }
 
 export default function RoundDetail() {

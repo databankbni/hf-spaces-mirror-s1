@@ -15,6 +15,7 @@ Documented ORB hit rates on NSE:
   Individual NSE stocks at ORB+0.5× extension: 68-70%
   BANKNIFTY 30-min ORB: 73% documented
 """
+import concurrent.futures
 import datetime
 import threading
 import pandas as pd
@@ -32,23 +33,48 @@ except ImportError:
 # actual download so each call gets its own ticker's data.
 _YF_DOWNLOAD_LOCK = threading.Lock()
 
+# yf.download() has no built-in timeout — a hung/stalled Yahoo connection blocks the
+# calling thread indefinitely. Because every caller serializes on _YF_DOWNLOAD_LOCK, one
+# hung call previously wedged this lock forever, freezing intraday context (and the
+# /api/ml-predict "today_high" fetch) for every ticker for the rest of the process's life.
+# Bound both the lock wait and the download itself so a stall degrades to None instead.
+_YF_LOCK_TIMEOUT = 20      # max seconds to wait for the shared download lock
+_YF_DOWNLOAD_TIMEOUT = 15  # max seconds for the actual yf.download() call
+
 # NSE market open time (IST = UTC+5:30)
 _NSE_OPEN_UTC  = datetime.time(3, 45)   # 09:15 IST
 _NSE_CLOSE_UTC = datetime.time(10, 0)   # 15:30 IST
+
+
+def _yf_download_bounded(ticker: str, period: str, interval: str):
+    """Run yf.download in a worker thread with a hard wall-clock timeout.
+
+    If the download doesn't finish in time, the worker thread is abandoned
+    (shutdown(wait=False)) so the caller is never blocked past the timeout.
+    """
+    ex = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        fut = ex.submit(yf.download, ticker, period=period, interval=interval,
+                        auto_adjust=True, progress=False, group_by="ticker")
+        return fut.result(timeout=_YF_DOWNLOAD_TIMEOUT)
+    except concurrent.futures.TimeoutError:
+        return None
+    finally:
+        ex.shutdown(wait=False)
 
 
 def get_intraday_bars(ticker: str, interval: str = "15m", period: str = "5d") -> pd.DataFrame | None:
     """
     Download intraday OHLCV bars from yfinance.
     interval: "1m" (last 7d) | "5m" | "15m" | "30m" (last 60d)
-    Returns None on failure.
+    Returns None on failure (including a timed-out lock wait or download).
     """
     if not _HAS_YF:
         return None
+    if not _YF_DOWNLOAD_LOCK.acquire(timeout=_YF_LOCK_TIMEOUT):
+        return None  # another call is stuck holding the lock — fail soft, don't pile up
     try:
-        with _YF_DOWNLOAD_LOCK:
-            df = yf.download(ticker, period=period, interval=interval,
-                             auto_adjust=True, progress=False, group_by="ticker")
+        df = _yf_download_bounded(ticker, period, interval)
         if df is None or df.empty:
             return None
         # When group_by="ticker" is honoured, the outer column level is the ticker —
@@ -62,6 +88,8 @@ def get_intraday_bars(ticker: str, interval: str = "15m", period: str = "5d") ->
         return df
     except Exception:
         return None
+    finally:
+        _YF_DOWNLOAD_LOCK.release()
 
 
 def compute_orb(bars: pd.DataFrame, orb_minutes: int = 15) -> dict:

@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1.0'>
+<title>Hermes Agent</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f0f23;color:#e0e0e0;height:100vh;display:flex;flex-direction:column}
+.header{background:linear-gradient(135deg,#1a1a3e,#2d1b69);padding:12px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #333}
+.header h1{font-size:18px;background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header .status{font-size:12px;color:#666;margin-left:auto}
+.header .home-btn{background:#1a2b40;color:#d4af37;border:1px solid #d4af37;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;text-decoration:none}
+.header .home-btn:hover{background:#2a3b50}
+.header .status.ok{color:#4ade80}
+.header .status.err{color:#f87171}
+.main{display:flex;flex:1;overflow:hidden;position:relative}
+.sidebar{width:200px;background:#16162a;border-right:1px solid #333;display:flex;flex-direction:column;flex-shrink:0}
+.sidebar .nav{padding:8px}
+.sidebar .nav-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;color:#999;transition:all .2s;display:flex;align-items:center;gap:8px}
+.sidebar .nav-item:hover{background:#1e1e3f;color:#fff}
+.sidebar .nav-item.active{background:#1e1e3f;color:#60a5fa}
+.sidebar .nav-item .icon{font-size:16px}
+.sidebar .footer{margin-top:auto;padding:12px;border-top:1px solid #333;font-size:11px;color:#555}
+.chat-area{flex:1;display:flex;flex-direction:column;min-width:0}
+.messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.message{max-width:80%;padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.6;word-break:break-all}
+.message.user{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.message.assistant{background:#1e1e3f;color:#e0e0e0;align-self:flex-start;border-bottom-left-radius:4px;border:1px solid #333}
+.message.system{background:#1a1a2e;color:#888;font-size:12px;text-align:center;align-self:center;max-width:90%}
+.message .meta{font-size:10px;color:#666;margin-top:4px}
+.message.assistant .meta{color:#555}
+.input-area{padding:16px 20px;border-top:1px solid #333;background:#12122a}
+.input-row{display:flex;gap:8px}
+textarea{flex:1;background:#1a1a2e;border:1px solid #333;border-radius:10px;padding:12px 16px;color:#e0e0e0;font-size:14px;resize:none;min-height:48px;max-height:120px;font-family:inherit}
+textarea:focus{outline:none;border-color:#60a5fa}
+textarea::placeholder{color:#555}
+.btn{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:10px;padding:12px 20px;font-size:14px;cursor:pointer;transition:opacity .2s;white-space:nowrap}
+.btn:hover{opacity:.9}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #333;border-top-color:#60a5fa;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.typing{display:flex;gap:4px;padding:4px 0}
+.typing span{width:6px;height:6px;background:#60a5fa;border-radius:50%;animation:typing 1.4s infinite}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes typing{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+.panels-area{display:none;flex-direction:column;background:#0f0f23;flex:1;overflow:hidden}
+.panels-area .panel{display:none;flex-direction:column;height:100%;padding:20px;box-sizing:border-box}
+.panels-area .panel.active{display:flex}
+.tool-item{padding:8px 10px;border-radius:6px;font-size:12px;color:#999;cursor:pointer;display:flex;align-items:center;gap:8px}
+.tool-item:hover{background:#1e1e3f;color:#fff}
+
+/* ── Mobile Responsive ── */
+@media (max-width: 768px) {
+  .header { padding: 10px 12px; }
+  .header h1 { font-size: 16px; }
+  .main { flex-direction: column; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #333; }
+  .sidebar .nav { display: flex; flex-direction: row; overflow-x: auto; padding: 8px; gap: 4px; }
+  .sidebar .nav-item { flex-shrink: 0; padding: 8px 12px; font-size: 12px; }
+  .sidebar .nav-item .icon { display: none; }
+  .sidebar .footer { display: none; }
+  .chat-area { height: calc(100vh - 120px); }
+  .panels-area { height: calc(100vh - 120px); }
+  .panel { padding: 12px; }
+  .input-area { padding: 8px; }
+  .input-row textarea { font-size: 14px; }
+  .btn { padding: 8px 12px; font-size: 12px; min-width: 60px; }
+  .tool-item { padding: 6px 8px; font-size: 11px; }
+  .messages .message { max-width: 85%; font-size: 13px; }
+  .status { font-size: 11px; }
+  pre { font-size: 11px; }
+  input[type=password] { font-size: 14px; }
+  .login-box { width: 90%; padding: 24px; }
+}
+@media (max-width: 480px) {
+  .header h1 { font-size: 14px; }
+  .sidebar .nav-item { padding: 6px 8px; font-size: 11px; }
+  .chat-area { height: calc(100vh - 100px); }
+  .panels-area { height: calc(100vh - 100px); }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>&#x1F916; Hermes Agent</h1>
+    <a href="/" class="home-btn">返回首页</a>
+    <div class="status" id="status">...</div>
+</div>
+<div class="main">
+    <div class="sidebar">
+        <div class="nav">
+            <div class="nav-item active" onclick="switchTab('chat', this)"><span class="icon">&#x1F4AC;</span>对话</div>
+            <div class="nav-item" onclick="switchTab('sessions', this)"><span class="icon">&#x1F4AC;</span>会话</div>
+            <div class="nav-item" onclick="switchTab('tools', this)"><span class="icon">&#x1F527;</span>工具</div>
+            <div class="nav-item" onclick="switchTab('weixin', this)"><span class="icon">&#x1F4F1;</span>微信</div>
+            <div class="nav-item" onclick="switchTab('settings', this)"><span class="icon">&#x2699;&#xFE0F;</span>设置</div>
+            <div class="nav-item" onclick="switchTab('agent', this)"><span class="icon">&#x1F9E0;</span>Agent</div>
+        </div>
+        <div class="footer">Hermes Agent v2.0<br>HF Space Docker</div>
+    </div>
+    <div class="chat-area">
+        <div class="messages" id="messages">
+            <div class="message system">欢迎使用 Hermes Agent！输入消息开始对话。</div>
+        </div>
+        <div class="input-area">
+            <div class="input-row">
+                <textarea id="input" placeholder="输入消息... (Shift+Enter 换行, Enter 发送)" rows="1"
+                    onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+                <button class="btn" id="sendBtn" onclick="sendMessage()">发送</button>
+            </div>
+        </div>
+    </div>
+    <div class="panels-area" id="panelsArea">
+        <div class="panel" id="sessionsPanel">
+            <h3 style="color:#60a5fa;margin-bottom:16px;">&#x1F4AC; 历史会话</h3>
+            <div id="cronNotices" style="margin-bottom:12px;max-height:200px;overflow-y:auto;"></div>
+            <div id="sessionList" style="max-height:400px;overflow-y:auto;margin-top:8px;"></div>
+            <div class="panel-buttons">
+                <button class="btn" style="flex:1;" onclick="createNewSession()">+ 新建会话</button>
+                <button class="btn" style="background:#ef4444;" onclick="toggleMultiSelect()" id="multiSelectBtn">多选</button>
+                <button class="btn" style="background:#dc2626;display:none;" onclick="deleteSelectedSessions()" id="deleteSelectedBtn">删除已选</button>
+            </div>
+        </div>
+        <div class="panel" id="toolsPanel">
+            <h3 style="color:#60a5fa;margin-bottom:16px;">&#x1F527; 工具面板</h3>
+            <div class="tool-item" onclick="runTool('clear')">清空对话</div>
+            <div class="tool-item" onclick="runTool('status')">系统状态</div>
+            <div class="tool-item" onclick="runTool('cron')">定时任务状态</div>
+            <div id="toolsOutput" style="display:none;background:#0d0d1a;border:1px solid #333;border-radius:8px;padding:12px;min-height:150px;max-height:300px;overflow:auto;font-family:monospace;font-size:12px;white-space:pre-wrap;color:#4ade80;margin-top:12px;"></div>
+        </div>
+        <div class="panel" id="weixinPanel">
+            <h3 style="color:#60a5fa;margin-bottom:16px;">&#x1F4F1; 微信集成</h3>
+            <div id="weixinStatus" style="margin-bottom:16px;padding:12px;background:#1a1a2e;border-radius:8px;font-size:13px;">Loading...</div>
+            <div style="margin-bottom:16px;">
+                <button onclick="genQR()" class="btn" style="margin-right:8px;">生成二维码</button>
+                <button onclick="refreshWeixinStatus()" class="btn" style="margin-right:8px;">刷新状态</button>
+                <button onclick="restartSpace()" class="btn" style="background:#dc2626;">重启 Space</button>
+            </div>
+            <div id="qrArea" style="text-align:center;display:none;">
+                <p style="color:#888;font-size:13px;margin-bottom:12px;">请使用微信扫描下方二维码授权</p>
+                <div id="qrImg" style="display:inline-block;background:#fff;padding:12px;border-radius:12px;"></div>
+                <p id="qrStatusText" style="margin-top:12px;font-size:13px;color:#4ade80;"></p>
+            </div>
+            <div id="tokenInfo" style="margin-top:16px;padding:12px;background:#1a1a2e;border-radius:8px;font-size:12px;color:#666;display:none;"></div>
+        </div>
+        <div class="panel" id="settingsPanel">
+            <h3 style="color:#60a5fa;margin-bottom:16px;">&#x2699;&#xFE0F; 设置</h3>
+            <div style="margin-bottom:16px;padding:12px;background:#1a1a2e;border-radius:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:14px;color:#e0e0e0;">退出登录</div>
+                        <div style="font-size:12px;color:#666;margin-top:2px;">清除认证 cookie 并返回登录页</div>
+                    </div>
+                    <button onclick="doLogout()" class="btn" style="background:#dc2626;min-width:100px;">退出登录</button>
+                </div>
+            </div>
+            <div style="margin-bottom:16px;padding:12px;background:#1a1a2e;border-radius:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:14px;color:#e0e0e0;">重构 Space</div>
+                        <div style="font-size:12px;color:#666;margin-top:2px;">重新构建容器，约30-60秒完成</div>
+                    </div>
+                    <button onclick="rebuildSpace()" class="btn" style="background:#8b5cf6;min-width:100px;">重构 Space</button>
+                </div>
+            </div>
+            <div style="margin-bottom:16px;padding:12px;background:#1a1a2e;border-radius:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:14px;color:#e0e0e0;">版本恢复</div>
+                        <div style="font-size:12px;color:#666;margin-top:2px;">恢复至固化的已知良好版本</div>
+                    </div>
+                    <button onclick="restoreVersion()" class="btn" style="background:#f59e0b;min-width:100px;">版本恢复</button>
+                </div>
+            </div>
+            <div style="padding:12px;background:#1a1a2e;border-radius:8px;">
+                <div style="font-size:12px;color:#666;">
+                    <div>Hermes Agent v2.0</div>
+                    <div style="margin-top:4px;">HF Space Docker</div>
+                    <div style="margin-top:4px;">Powered by Agnes AI</div>
+                </div>
+            </div>
+        </div>
+        <div class="panel" id="agentPanel">
+            <h3 style="color:#60a5fa;margin-bottom:16px;">&#x1F4BB; Terminal</h3><div id="agentStatus" style="padding:8px 12px;background:#0d0d1a;border:1px solid #333;border-radius:6px;margin-bottom:12px;font-size:12px;color:#4ade80;"></div>
+            <div style="margin-bottom:12px;">
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+                    <span onclick="fillCmd('ls -la')" style="padding:4px 10px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;cursor:pointer;color:#60a5fa;">ls -la</span>
+                    <span onclick="fillCmd('ls -la /opt/data')" style="padding:4px 10px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;cursor:pointer;color:#60a5fa;">/opt/data</span>
+                    <span onclick="fillCmd('ls -la /app')" style="padding:4px 10px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;cursor:pointer;color:#60a5fa;">/app</span>
+                    <span onclick="fillCmd('cat /app/config.yaml')" style="padding:4px 10px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;cursor:pointer;color:#60a5fa;">config.yaml</span>
+                    <span onclick="fillCmd('ps aux')" style="padding:4px 10px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;cursor:pointer;color:#60a5fa;">ps aux</span>
+                    <span onclick="fillCmd('df -h')" style="padding:4px 10px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;cursor:pointer;color:#60a5fa;">df -h</span>
+                    <span onclick="fillCmd('free -m')" style="padding:4px 10px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;cursor:pointer;color:#60a5fa;">free -m</span>
+                    <span onclick="fillCmd('git -C /app status')" style="padding:4px 10px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;cursor:pointer;color:#60a5fa;">git status</span>
+                    <span onclick="fillCmd('printenv | sort')" style="padding:4px 10px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;cursor:pointer;color:#60a5fa;">环境变量</span>
+                    <span onclick="saveKnownGood()" style="padding:4px 10px;background:#10b981;border-radius:4px;font-size:11px;cursor:pointer;color:#fff;margin-left:auto;">固化版本</span>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <input id="cmdInput" placeholder="输入命令..." value="ls -la /opt/data" style="flex:1;padding:10px;background:#0d0d1a;border:1px solid #333;border-radius:6px;color:#4ade80;font-family:monospace;font-size:13px;outline:none;" onkeydown="if(event.key==='Enter')execCmd()">
+                    <button onclick="execCmd()" style="background:#3b82f6;min-width:80px;">执行</button>
+                </div>
+            </div>
+            <pre id="terminalOutput" style="background:#0d0d1a;border:1px solid #333;border-radius:8px;padding:12px;min-height:250px;max-height:400px;overflow:auto;font-family:monospace;font-size:12px;white-space:pre-wrap;color:#4ade80;margin:0;"></pre>
+        </div>
+    </div>
+</div>
+
+
+<script>
+var typingEl = null;
+var currentSessionId = null;
+var qrPollTimer = null;
+var tools = {clear:'/clear', status:'/status'};
+
+function $(id){ return document.getElementById(id); }
+
+function addMessage(role, text, meta) {
+    meta = meta || '';
+    var d = document.createElement('div');
+    d.className = 'message ' + role;
+    d.innerHTML = text.split('\n').join('<br>') + (meta ? '<div class="meta">' + meta + '</div>' : '');
+    $('messages').appendChild(d);
+    $('messages').scrollTop = $('messages').scrollHeight;
+}
+
+function showTyping() {
+    if (typingEl) return;
+    typingEl = document.createElement('div');
+    typingEl.className = 'message assistant';
+    typingEl.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+    $('messages').appendChild(typingEl);
+    $('messages').scrollTop = $('messages').scrollHeight;
+}
+
+function hideTyping() {
+    if (typingEl) { typingEl.remove(); typingEl = null; }
+}
+
+function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+async function sendMessage() {
+    var text = $('input').value.trim();
+    if (!text) return;
+    $('input').value = '';
+    addMessage('user', text);
+    saveMsg('user', text);
+    saveToSession('user', text);
+    $('sendBtn').disabled = true;
+    showTyping();
+    try {
+        var r = await fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:text})});
+        var d = await r.json();
+        hideTyping();
+        if (d.response) {
+            var meta = d.time ? new Date(d.time * 1000).toLocaleTimeString() : '';
+            addMessage('assistant', d.response.replace(/\r?\n/g, '<br>'), meta);
+            saveMsg('assistant', d.response);
+            saveToSession('assistant', d.response);
+        } else if (d.error) {
+            addMessage('system', '\u26A0\uFE0F ' + d.error);
+        }
+    } catch(e) {
+        hideTyping();
+        addMessage('system', '\u26A0\uFE0F \u53D1\u9001\u5931\u8D25: ' + e.message);
+    }
+    $('sendBtn').disabled = false;
+    $('input').focus();
+}
+
+function runTool(tool) {
+    if (tool === 'clear') {
+        $('messages').innerHTML = '<div class="message system">对话已清除</div>';
+        return;
+    }
+    if (tool === 'status') {
+        fetch('/api/status').then(function(r){return r.json()}).then(function(d){
+            var el = $('toolsOutput');
+            if(el){el.style.display='block';el.innerHTML='<pre style="margin:0">'+JSON.stringify(d,null,2)+'</pre>';}
+        }).catch(function(e){alert('Error: '+e)});
+        return;
+    }
+    if (tool === 'cron') {
+        fetch('/api/cron/status').then(function(r){return r.json()}).then(function(d){
+var el = $('toolsOutput');
+            if(el){el.style.display='block';el.innerHTML='<pre style="margin:0">'+JSON.stringify(d,null,2)+'</pre>';}
+        }).catch(function(e){alert('Error: '+e)});
+        return;
+    }
+    addMessage('user', '[工具] ' + tool);
+    showTyping();
+    fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:tools[tool]})})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ hideTyping(); addMessage('assistant', d.response || '无响应'); })
+    .catch(function(e){ hideTyping(); addMessage('system', '错误: ' + e.message); });
+}
+
+// Session Management
+function genSessionId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+function loadSessions() {
+    try { return JSON.parse(localStorage.getItem('sessions') || '{}'); } catch(e) { return {}; }
+}
+
+function saveSessions(s) { localStorage.setItem('sessions', JSON.stringify(s)); }
+
+function loadSession(id) {
+    var sessions = loadSessions();
+    if (sessions[id] && sessions[id].msgs) {
+        currentSessionId = id;
+        $('messages').innerHTML = '';
+        for (var i = 0; i < sessions[id].msgs.length; i++) {
+            addMessage(sessions[id].msgs[i].role, sessions[id].msgs[i].content);
+        }
+        renderSessionList();
+        return true;
+    }
+    return false;
+}
+
+function createNewSession() {
+    var id = genSessionId();
+    var sessions = loadSessions();
+    sessions[id] = { name: '\u4F1A\u8BDD ' + new Date().toLocaleString('zh-CN'), msgs: [], created: Date.now() };
+    saveSessions(sessions);
+    currentSessionId = id;
+    $('messages').innerHTML = '<div class="message system">\u65B0\u4F1A\u8BDD\u5DF2\u521B\u5EFA</div>';
+    renderSessionList();
+}
+
+function deleteCurrentSession() {
+    if (!currentSessionId) { alert('\u8BF7\u5148\u9009\u62E9\u6216\u521B\u5EFA\u4E00\u4E2A\u4F1A\u8BDD'); return; }
+    if (!confirm('\u786E\u8BA4\u5220\u9664\u5F53\u524D\u4F1A\u8BDD\uFF1F')) return;
+    var sessions = loadSessions();
+    delete sessions[currentSessionId];
+    saveSessions(sessions);
+    currentSessionId = null;
+    var ids = Object.keys(sessions);
+    if (ids.length > 0) { loadSession(ids[ids.length - 1]); }
+    else { $('messages').innerHTML = ''; renderSessionList(); }
+}
+
+function saveToSession(role, content) {
+    if (!currentSessionId) return;
+    var sessions = loadSessions();
+    if (sessions[currentSessionId]) {
+        sessions[currentSessionId].msgs.push({ role: role, content: content });
+        saveSessions(sessions);
+    }
+}
+
+function renderSessionList() {
+    var sessions = loadSessions();
+    var list = $('sessionList');
+    if (!list) return;
+    var html = '';
+    var sorted = Object.entries(sessions).sort(function(a,b){ return (b[1].created||0) - (a[1].created||0); });
+    for (var i = 0; i < sorted.length; i++) {
+        var id = sorted[i][0], s = sorted[i][1];
+        var active = id === currentSessionId ? 'active' : '';
+        var count = s.msgs ? s.msgs.length : 0;
+        var preview = (s.msgs && s.msgs.length > 0) ? (s.msgs[0].content || '').substring(0, 25) : '\u7A7A\u4F1A\u8BDD';
+        html += '<div class="tool-item ' + active + '" style="padding:8px;margin-bottom:4px;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;" onclick="loadSession(\'' + id + '\')">' +
+            '<div style="flex:1;min-width:0;">' +
+            '<div style="font-weight:bold;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (s.name || '\u672A\u547D\u540D') + '</div>' +
+            '<div style="font-size:11px;color:#94a3b8;">' + count + ' \u6761\u6D88\u606F | ' + preview + '...</div></div>' +
+            '<button onclick="event.stopPropagation();deleteSession(\'' + id + '\')" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;flex-shrink:0;">\u5220\u9664</button></div>';
+    }
+    list.innerHTML = html;
+}
+
+// Delete single session
+function deleteSession(id) {
+    if (!confirm('\u786E认删除这个会话？')) return;
+    var sessions = loadSessions();
+    delete sessions[id];
+    localStorage.setItem('sessions', JSON.stringify(sessions));
+    if (currentSessionId === id) {
+        currentSessionId = null;
+        var ids = Object.keys(sessions);
+        if (ids.length > 0) { loadSession(ids[ids.length - 1]); }
+        else { $('messages').innerHTML = ''; createNewSession(); }
+    }
+    renderSessionList();
+}
+
+// Multi-select for batch delete
+var multiSelectMode = false;
+var selectedSessions = {};
+
+function toggleMultiSelect() {
+    multiSelectMode = !multiSelectMode;
+    selectedSessions = {};
+    var btn = $('multiSelectBtn');
+    var delBtn = $('deleteSelectedBtn');
+    if (multiSelectMode) {
+        btn.textContent = '\u53D6消';
+        btn.style.background = '#6b7280';
+        delBtn.style.display = 'inline-block';
+    } else {
+        btn.textContent = '\u591A选';
+        btn.style.background = '#ef4444';
+        delBtn.style.display = 'none';
+    }
+    renderSessionList();
+}
+
+function deleteSelectedSessions() {
+    var ids = Object.keys(selectedSessions);
+    if (ids.length === 0) { alert('\u8BF7先选择要删除的会话'); return; }
+    if (!confirm('\u786E认删除已选的 ' + ids.length + ' 个会话？')) return;
+    var sessions = loadSessions();
+    for (var i = 0; i < ids.length; i++) {
+        delete sessions[ids[i]];
+        if (currentSessionId === ids[i]) currentSessionId = null;
+    }
+    localStorage.setItem('sessions', JSON.stringify(sessions));
+    var remaining = Object.keys(sessions);
+    if (remaining.length > 0) { loadSession(remaining[remaining.length - 1]); }
+    else { $('messages').innerHTML = ''; createNewSession(); }
+    multiSelectMode = false;
+    selectedSessions = {};
+    var btn = $('multiSelectBtn');
+    var delBtn = $('deleteSelectedBtn');
+    btn.textContent = '\u591A选';
+    btn.style.background = '#ef4444';
+    delBtn.style.display = 'none';
+    renderSessionList();
+}
+
+// WeChat Integration
+function refreshWeixinStatus() {
+    var el = $('weixinStatus');
+    if (!el) return;
+    fetch('/api/health').then(function(r){ return r.json(); }).then(function(d) {
+        var wx = d.weixin || '\u672A\u914D\u7F6E';
+        var hasToken = d.has_token;
+        var err = d.poll_weixin_error || '';
+        var processed = d.processed_messages || 0;
+        var h = '';
+        if (hasToken) {
+            h += '<div style="color:#4ade80;margin-bottom:4px;">\u2705 \u5DF2\u6388\u6743</div>';
+            h += '<div>\u8F6E\u8BE2\u72B6\u6001: ' + wx + '</div>';
+            h += '<div>\u5DF2\u5904\u7406\u6D88\u606F: ' + processed + ' \u6761</div>';
+            if (err) h += '<div style="color:#f87171;">\u9519\u8BEF: ' + err + '</div>';
+        } else {
+            h += '<div style="color:#f87171;margin-bottom:4px;">\u274C \u672A\u914D\u7F6E</div>';
+            h += '<div>\u8BF7\u70B9\u51FB\u4E0B\u65B9\u6309\u94AE\u751F\u6210\u4E8C\u7EF4\u7801\uFF0C\u7528\u5FAE\u4FE1\u626B\u7801\u6388\u6743</div>';
+        }
+        el.innerHTML = h;
+    }).catch(function(){ el.innerHTML = '<div style="color:#f87171;">\u8FDE\u63A5\u5931\u8D25</div>'; });
+}
+
+function genQR() {
+    var qrArea = $('qrArea');
+    var qrImg = $('qrImg');
+    var qrStatus = $('qrStatusText');
+    qrArea.style.display = 'block';
+    qrImg.innerHTML = '<div style="padding:40px;color:#666;">\u751F\u6210\u4E2D...</div>';
+    qrStatus.textContent = '';
+    fetch('/api/qr/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+        if (d.error) { qrImg.innerHTML = '<div style="padding:40px;color:#f87171;">' + d.error + '</div>'; return; }
+        if (d.qrcode_img) { qrImg.innerHTML = '<img src="data:image/png;base64,' + d.qrcode_img + '" style="width:200px;height:200px;" />'; }
+        else if (d.qrcode_url) { qrImg.innerHTML = '<img src="' + d.qrcode_url + '" style="width:200px;height:200px;" />'; }
+        else if (d.qrcode) { qrImg.innerHTML = '<div style="padding:20px;font-size:12px;word-break:break-all;max-width:280px;">' + d.qrcode + '</div>'; }
+        qrStatus.textContent = '\u7B49\u5F85\u626B\u7801...';
+        qrStatus.style.color = '#fbbf24';
+        if (qrPollTimer) clearInterval(qrPollTimer);
+        qrPollTimer = setInterval(pollQRStatus, 2000);
+    }).catch(function(e){ qrImg.innerHTML = '<div style="padding:40px;color:#f87171;">\u8BF7\u6C42\u5931\u8D25: ' + e + '</div>'; });
+}
+
+function pollQRStatus() {
+    fetch('/api/qr/status').then(function(r){ return r.json(); }).then(function(d) {
+        var qrStatus = $('qrStatusText');
+        qrStatus.textContent = d.status_text || d.status;
+        if (d.status === 'confirmed') {
+            qrStatus.style.color = '#4ade80';
+            qrStatus.textContent = '\u2705 \u6388\u6743\u6210\u529F\uFF01\u6B63\u5728\u4FDD\u5B58\u5E76\u91CD\u542F Space...';
+            clearInterval(qrPollTimer);
+            fetch('/api/qr/confirm', {method:'GET'})
+            .then(function(r){ return r.json(); })
+            .then(function(cd) {
+                var ti = $('tokenInfo');
+                ti.style.display = 'block';
+                if (cd.ok) {
+                    ti.innerHTML = '<div style="color:#4ade80;">\u2705 ' + (cd.message || '\u6388\u6743\u6210\u529F\uFF01Space \u6B63\u5728\u91CD\u542F\uFF0C\u7EA6 30-60 \u79D2\u540E\u6062\u590D\u3002') + '</div>';
+                    qrStatus.textContent = '\u2705 \u6388\u6743\u6210\u529F\uFF01Space \u91CD\u542F\u4E2D...';
+                    setTimeout(function(){ location.reload(); }, 60000);
+                } else {
+                    ti.innerHTML = '<div style="color:#f87171;">\u26A0\uFE0F ' + (cd.error || cd.warning || '\u5904\u7406\u5931\u8D25') + '</div>';
+                }
+                refreshWeixinStatus();
+            }).catch(function() {
+                var ti = $('tokenInfo');
+                ti.style.display = 'block';
+                ti.innerHTML = '<div style="color:#4ade80;">\u2705 \u6388\u6743\u6210\u529F\uFF01\u4F46\u786E\u8BA4\u8BF7\u6C42\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u5237\u65B0\u9875\u9762\u3002</div>';
+                refreshWeixinStatus();
+            });
+        } else if (d.status === 'expired') {
+            qrStatus.style.color = '#f87171';
+            clearInterval(qrPollTimer);
+        } else if (d.status === 'scaned') {
+            qrStatus.style.color = '#fbbf24';
+        }
+    }).catch(function(){});
+}
+
+function restartSpace() {
+    if (!confirm('\u786E\u5B9A\u8981\u91CD\u542F Space \u5417\uFF1F\u91CD\u542F\u540E\u7EA6 30-60 \u79D2\u6062\u590D\uFF0C\u671F\u95F4\u4F1A\u77ED\u6682\u79BB\u7EBF\u3002')) return;
+    var el = $('weixinStatus');
+    el.innerHTML = '<div style="color:#fbbf24;">\u23F3 \u6B63\u5728\u91CD\u542F Space...</div>';
+    fetch('/api/space/restart', {method:'GET', credentials:'include'})
+    .then(function(r) {
+        if (r.status === 401) { alert('\u767B\u5F55\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55'); window.location.href = '/'; return null; }
+        return r.json();
+    })
+    .then(function(d) {
+        if (!d) return;
+        if (d.ok) { el.innerHTML = '<div style="color:#4ade80;">\u2705 ' + d.message + '</div>'; setTimeout(function(){ location.reload(); }, 60000); }
+        else { el.innerHTML = '<div style="color:#f87171;">\u274C \u91CD\u542F\u5931\u8D25: ' + (d.error || '\u672A\u77E5\u9519\u8BEF') + '</div>'; }
+    })
+    .catch(function(e){ el.innerHTML = '<div style="color:#f87171;">\u274C \u91CD\u542F\u5931\u8D25: ' + e + '</div>'; });
+}
+
+function doLogout() {
+    if (!confirm('\u786E\u5B9A\u8981\u9000\u51FA\u767B\u5F55\u5417\uFF1F')) return;
+    document.cookie = 'auth_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    window.location.href = '/';
+}
+
+// Tab switching
+function switchTab(tab, el) {
+    document.querySelectorAll('.nav-item').forEach(function(e){ e.classList.remove('active'); });
+    if (el) el.classList.add('active');
+    
+    var pa = $('panelsArea');
+    var panels = ['sessionsPanel','toolsPanel','weixinPanel','settingsPanel','agentPanel'];
+    
+    // Hide all panels
+    for (var i = 0; i < panels.length; i++) {
+        var p = $(panels[i]);
+        if (p) p.classList.remove('active');
+    }
+    
+    if (tab === 'chat') {
+        // Hide panels area, show chat
+        if (pa) pa.style.display = 'none';
+    } else {
+        // Hide chat, show panels area
+        if (pa) pa.style.display = 'flex';
+        // Show selected panel
+        var target = $(tab + 'Panel');
+        if (target) target.classList.add('active');
+        // Tab-specific refresh
+        if (tab === 'weixin') refreshWeixinStatus();
+        if (tab === 'sessions') renderSessionList();
+        if (tab === 'agent') refreshAgentStatus();
+    }
+}
+
+function saveMsg(role, text) {
+    try {
+        var h = JSON.parse(localStorage.getItem('chat_history') || '[]');
+        h.push({role:role, text:text, time:Date.now()/1000});
+        if (h.length > 200) h.splice(0, h.length - 200);
+        localStorage.setItem('chat_history', JSON.stringify(h));
+    } catch(e) {}
+}
+
+async function loadHistory() {
+    var sessions = loadSessions();
+    var ids = Object.keys(sessions);
+    if (ids.length > 0) {
+        loadSession(ids[ids.length - 1]);
+    } else {
+        createNewSession();
+    }
+}
+async function loadCronNotices() {
+    try {
+        var r = await fetch('/api/history?openid=cron_notifier');
+        var d = await r.json();
+        var box = $('cronNotices');
+        if (!box) return;
+        if (!d.history || d.history.length === 0) { box.innerHTML = ''; return; }
+        var html = '';
+        for (var i = d.history.length - 1; i >= 0; i--) {
+            var h = d.history[i];
+            var time = h.time || '';
+            var content = (h.content || '').replace(/</g, '&lt;');
+            html += '<div style="padding:8px 10px;background:#1a1a2e;border-left:3px solid #3b82f6;border-radius:0 6px 6px 0;margin-bottom:6px;font-size:12px;color:#e0e0e0;">' +
+                '<div style="color:#666;font-size:10px;margin-bottom:4px;">' + time + '</div>' +
+                '<div style="white-space:pre-wrap;">' + content + '</div></div>';
+        }
+        box.innerHTML = html;
+    } catch(e) {}
+}
+
+
+async function checkStatus() {
+    var statusEl = $('status');
+    if (!statusEl) return;  // Guard: not on main page
+    try {
+        var r = await fetch('/api/health');
+        var d = await r.json();
+        var wxStatus = d.weixin || '\u672A\u914D\u7F6E';
+        if (d.poll_weixin_error && wxStatus === 'polling') { wxStatus = 'token\u8FC7\u671F'; }
+        statusEl.textContent = '\u25CF ' + (d.stage || '\u8FD0\u884C\u4E2D') + ' | \u5FAE\u4FE1: ' + wxStatus;
+        statusEl.className = (d.stage === 'running' && wxStatus === 'polling') ? 'status ok' : 'status err';
+    } catch(e) {
+        statusEl.textContent = '\u25CF \u79BB\u7EBF';
+        statusEl.className = 'status err';
+    }
+}
+
+// Agent functions
+function agentApi(path, method, body) {
+    var opts = {method: method || 'GET', credentials: 'include'};
+    if (body) { opts.headers = {'Content-Type': 'application/json'}; opts.body = JSON.stringify(body); }
+    return fetch('/api/agent' + path, opts).then(function(r){ return r.json(); });
+}
+
+function agentOutput(text) {
+    var el = $('agentOutput') || $('terminalOutput');
+    if(!el) return;
+    el.textContent = typeof text === 'string' ? text : JSON.stringify(text, null, 2);
+}
+
+function agentListFiles() {
+    var path = prompt('\u8F93\u5165\u8DEF\u5F84:', '/opt/data');
+    if (!path) return;
+    agentApi('/files/list?path=' + encodeURIComponent(path)).then(agentOutput);
+}
+
+function agentReadFile() {
+    var path = prompt('\u8F93\u5165\u6587\u4EF6\u8DEF\u5F84:', '/opt/data/notes');
+    if (!path) return;
+    agentApi('/files/read?path=' + encodeURIComponent(path)).then(function(d){
+        if (d.content !== undefined) agentOutput(d.content); else agentOutput(d);
+    });
+}
+
+function agentWriteFile() {
+    var path = prompt('\u8F93\u5165\u6587\u4EF6\u8DEF\u5F84:', '/opt/data/notes/test.md');
+    if (!path) return;
+    var content = prompt('\u8F93\u5165\u6587\u4EF6\u5185\u5BB9:');
+    if (content === null) return;
+    agentApi('/files/write', 'POST', {path: path, content: content}).then(agentOutput);
+}
+
+function agentExecCmd() {
+    var cmd = prompt('\u8F93\u5165\u547D\u4EE4 (\u767D\u540D\u5355\u9650\u5236):', 'ls -la /opt/data');
+    if (!cmd) return;
+    agentApi('/shell/exec', 'POST', {cmd: cmd, timeout: 30}).then(agentOutput);
+}
+
+function agentSubmitTask() {
+    var desc = prompt('\u63CF\u8FF0\u4EFB\u52A1:', '\u5217\u51FA /opt/data \u76EE\u5F55\u4E0B\u7684\u6240\u6709\u6587\u4EF6');
+    if (!desc) return;
+    agentApi('/task/submit', 'POST', {description: desc}).then(function(d) {
+        agentOutput(d);
+        if (d.task_id) {
+            var poll = setInterval(function() {
+                agentApi('/task/status?id=' + d.task_id).then(function(td) {
+                    agentOutput(td);
+                    if (td.status === 'completed' || td.status === 'failed') clearInterval(poll);
+                });
+            }, 2000);
+        }
+    });
+}
+
+function agentRemember() {
+    var text = prompt('\u8BA9 Agent \u8BB0\u4F4F\u4EC0\u4E48?');
+    if (!text) return;
+    var cat = prompt('\u5206\u7C7B:', 'general');
+    agentApi('/remember', 'POST', {text: text, category: cat || 'general'}).then(agentOutput);
+}
+
+function refreshAgentStatus() {
+    agentApi('/status').then(function(d) {
+        var el = $('agentStatus'); if(!el) return;
+        var tasks = d.active_tasks || 0;
+        var completed = d.completed_tasks || 0;
+        var notes = (d.notes_files || []).length;
+        el.innerHTML = '\u6D3B\u8DC3\u4EFB\u52A1: ' + tasks + ' | \u5DF2\u5B8C\u6210: ' + completed + ' | \u7B14\u8BB0\u6587\u4EF6: ' + notes;
+        agentOutput(d);
+    });
+}
+
+// Init
+checkStatus();
+loadHistory();
+loadCronNotices();
+setInterval(loadCronNotices, 30000);
+setInterval(checkStatus, 30000);
+
+// === Terminal functions ===
+async function saveKnownGood(){
+  if(!confirm('确定固化当前版本？将当前 commit 标记为已知良好版本。'))return;
+  try{
+    var r=await fetch('/api/known_good/save');
+    var d=await r.json();
+    alert(d.message||d.error||'OK');
+  }catch(e){
+    alert('Error: '+e.message);
+  }
+}
+
+function fillCmd(cmd){
+  document.getElementById('cmdInput').value=cmd;
+  document.getElementById('cmdInput').focus();
+}
+async function execCmd(){
+  var input=document.getElementById('cmdInput');
+  var cmd=input.value.trim();
+  if(!cmd)return;
+  var out=document.getElementById('terminalOutput');
+  out.textContent+='\n$ '+cmd+'\n执行中...\n';
+  out.scrollTop=out.scrollHeight;
+  try{
+    var r=await fetch('/api/agent/shell/exec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd:cmd,timeout:30})});
+    var d=await r.json();
+    var output='';
+    if(d.stdout)output+=d.stdout;
+    if(d.stderr)output+='[stderr]\n'+d.stderr;
+    if(d.error)output+='[error] '+d.error;
+    if(!output)output+='(no output, exit_code='+(d.exit_code||'?')+')';
+    out.textContent+=output+'\n';
+  }catch(e){
+    out.textContent+='[error] '+e.message+'\n';
+  }
+  out.scrollTop=out.scrollHeight;
+}
+async function loadEnvVars(){
+  var r=await fetch('/api/env');
+  var d=await r.json();
+  var el=document.getElementById('terminalOutput');
+  if(el){el.textContent+='\n$ printenv | sort\n'+JSON.stringify(d,null,2)+'\n';el.scrollTop=el.scrollHeight;}
+}
+async function loadCronStatus(){
+  var r=await fetch('/api/cron/status');
+  var d=await r.json();
+  var el=document.getElementById('terminalOutput');
+  if(el){el.textContent+='\n$ cron status\n'+JSON.stringify(d,null,2)+'\n';el.scrollTop=el.scrollHeight;}
+}
+async function rebuildSpace(){
+  if(!confirm('确定重构 Space？约30-60秒完成'))return;
+  var r=await fetch('/api/space/rebuild',{method:'POST',headers:{'Content-Type':'application/json'}});
+  var d=await r.json();
+  alert(d.message||d.error||'Triggered');
+}
+async function restoreVersion(){
+  if(!confirm('确定恢复至固化版本？这将覆盖当前所有文件并触发重构。'))return;
+  try{
+    var r=await fetch('/api/known_good/restore',{method:'POST',headers:{'Content-Type':'application/json'}});
+    var d=await r.json();
+    if(d.ok){
+      alert(d.message);
+      location.reload();
+    }else{
+      alert('恢复失败: '+(d.error||'未知错误'));
+    }
+  }catch(e){
+    alert('Error: '+e.message);
+  }
+}
+</script>
+</body>
+</html>

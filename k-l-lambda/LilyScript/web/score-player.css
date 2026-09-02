@@ -1,0 +1,341 @@
+/* LilyScript score player — preview + transport. Light theme to match Gradio Soft. */
+
+/* Gradio's `.gradio-container .prose * { color: var(--body-text-color) }` sets a
+   color DIRECTLY on every descendant of our mount, overriding anything we set by
+   inheritance and out-specifying a plain class. We mount under id #ls-score, so
+   prefixing our color rules with that id (specificity beats two classes) lets them
+   win WITHOUT !important. This base rule pins the default text color for the whole
+   subtree; the specific rules below override per element. (The SVG ink color is a
+   separate concern — see the `.ls-svg svg` block.) */
+#ls-score, #ls-score :where(.ls-status, .ls-btn, .ls-time, .ls-err-pre, span, div, button) {
+	color: #333;
+}
+
+.ls-score-root {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 600px;
+}
+
+.ls-preview {
+	flex: 1;
+	overflow: auto;
+	background: #fafafa;
+	border: 1px solid #e5e5e5;
+	border-radius: 8px;
+	padding: 12px;
+	position: relative;
+}
+
+#ls-score .ls-status {
+	font-size: 12px;
+	color: #888;
+	min-height: 16px;
+	margin-bottom: 4px;
+}
+#ls-score .ls-status.ls-busy { color: #2b7; }
+#ls-score .ls-status.ls-err { color: #c0392b; }
+/* multi-line parse errors: preserve the caret alignment, wrap overflow. */
+#ls-score .ls-status.ls-err .ls-err-pre {
+	margin: 0;
+	font-family: ui-monospace, Consolas, Monaco, monospace;
+	font-size: 11px;
+	line-height: 1.35;
+	white-space: pre-wrap;
+	word-break: break-word;
+	color: #c0392b;
+}
+
+.ls-svg {
+	background: #fff;
+	display: inline-block;
+	min-width: 100%;
+	position: relative;    /* anchor for the absolutely-positioned playback cursor */
+}
+/* faint warm/yellow tint behind the score while generating */
+.ls-svg.ls-generating-bg {
+	background: #fffdf2;
+}
+.ls-svg svg {
+	max-width: 100%;
+	height: auto;
+}
+/* Stacked Verovio pages (a long score paginates into several SVGs). Each page is a
+   block so they stack vertically; a small gap separates pages. */
+.ls-svg .ls-svg-page {
+	display: block;
+	margin: 0 auto 8px;
+}
+.ls-svg .ls-svg-page:last-of-type {
+	margin-bottom: 0;
+}
+/* Playback cursor: a vertical line tracking the currently-sounding note. */
+.ls-cursor {
+	position: absolute;
+	width: 2px;
+	background: rgba(124, 92, 255, 0.85);
+	pointer-events: none;
+	z-index: 5;
+	display: none;
+	transition: left 0.06s linear;
+}
+/* Verovio draws everything with stroke|fill="currentColor", which resolves to the
+   computed `color`. We can't rely on inheritance from a container `color`: Gradio's
+   `.prose * { color: var(--body-text-color) }` sets color DIRECTLY on every
+   descendant (so it wins over an inherited value), which under the dark theme is a
+   light grey — leaving staff lines, bar lines and the per-system left brace/bracket
+   (grpSym) too pale. Force a dark `color` on the whole svg subtree (high enough
+   specificity + !important to beat `.prose *`), and pin stroke on the line elements
+   as belt-and-suspenders. */
+.ls-svg svg,
+.ls-svg svg * {
+	color: #1a1a1a !important;
+}
+.ls-svg svg .staff path,
+.ls-svg svg .barLine path,
+.ls-svg svg .ledgerLines path,
+.ls-svg svg .grpSym path {
+	stroke: #1a1a1a;
+}
+
+/* playing-note highlight on the SVG */
+.ls-hl {
+	fill: #ff6b35 !important;
+	stroke: #ff6b35 !important;
+}
+
+/* transport bar */
+.ls-player {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 12px;
+	margin-bottom: 8px;
+	background: #f3f3f5;
+	border: 1px solid #e5e5e5;
+	border-radius: 8px;
+}
+
+#ls-score .ls-btn {
+	border: 1px solid #d0d0d6;
+	background: #fff;
+	color: #333;
+	width: 30px;
+	height: 30px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 13px;
+	line-height: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+#ls-score .ls-btn:hover:not(:disabled) { border-color: #8aa; background: #f0f6ff; }
+#ls-score .ls-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Loading state on the play button: while the sound library / MIDI player is still
+   loading, hide the ▶ glyph and spin a small ring in its place. Kept fully opaque
+   (overriding :disabled's dim) so the animation reads as "working", not just greyed.
+   The button stays disabled (cursor: wait) — clicking does nothing until ready. */
+#ls-score .ls-btn.ls-loading {
+	opacity: 1;
+	cursor: wait;
+	color: transparent;            /* hide the ▶ text glyph without reflow */
+	position: relative;
+}
+#ls-score .ls-btn.ls-loading::after {
+	content: '';
+	position: absolute;
+	width: 14px;
+	height: 14px;
+	border: 2px solid #c9c9d2;
+	border-top-color: #7c5cff;     /* accent matches the progress fill */
+	border-radius: 50%;
+	animation: ls-spin 0.7s linear infinite;
+}
+@keyframes ls-spin {
+	to { transform: rotate(360deg); }
+}
+/* Respect reduced-motion: pulse the ring opacity instead of spinning. */
+@media (prefers-reduced-motion: reduce) {
+	#ls-score .ls-btn.ls-loading::after {
+		animation: ls-sf-pulse 1.4s ease-in-out infinite;
+	}
+}
+
+#ls-score .ls-time {
+	font-family: ui-monospace, Consolas, monospace;
+	font-size: 12px;
+	color: #555;
+	min-width: 88px;
+}
+
+.ls-progress {
+	flex: 1;
+	height: 6px;
+	background: #ddd;
+	border-radius: 3px;
+	cursor: pointer;
+	overflow: hidden;
+}
+.ls-fill {
+	height: 100%;
+	width: 0;
+	background: #7c5cff;
+	transition: width 0.1s linear;
+}
+
+/* Sound-library status badge in the transport bar. While the GM soundfont loads:
+   dimmed + grayscaled + pulsing 🎹 (the small grand-piano fallback is audible).
+   Once ready: full-color 🎹 with a green ✓, shown 2s then faded out (hover reveals). */
+#ls-score .ls-sf {
+	position: relative;
+	font-size: 14px;
+	line-height: 1;
+	margin-left: 2px;
+	flex: 0 0 auto;
+	cursor: default;
+	opacity: 0.45;
+	filter: grayscale(1);
+	animation: ls-sf-pulse 1.4s ease-in-out infinite;
+}
+#ls-score .ls-sf.ready {
+	opacity: 1;
+	filter: none;
+	animation: none;
+}
+@keyframes ls-sf-pulse {
+	0%, 100% { opacity: 0.30; }
+	50%      { opacity: 0.65; }
+}
+/* green ✓ badge superscript on the ready piano */
+#ls-score .ls-sf .ls-sf-check {
+	display: none;
+	position: absolute;
+	top: -0.4em;
+	right: -0.7em;
+	font-size: 0.85em;
+	font-weight: 700;
+	color: #3fb950;
+	text-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+}
+#ls-score .ls-sf.ready .ls-sf-check {
+	display: inline;
+}
+
+/* In-panel renderer-loading overlay: shown inside the freshly-mounted score panel
+   while the 7.6MB verovio bundle is still downloading (score-player.js mounts early,
+   before verovio finishes — see app.py head order). Mirrors the static placeholder
+   spinner so the loading feedback is continuous across the mount handover. Removed
+   (display:none) once verovio is ready or a score has rendered. */
+#ls-score .ls-renderer-loading {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 240px;
+	color: #999;
+	text-align: center;
+}
+#ls-score .ls-renderer-loading .ls-loading-spinner {
+	width: 38px;
+	height: 38px;
+	margin-bottom: 14px;
+	border: 4px solid #e3e3ea;
+	border-top-color: #7c5cff;
+	border-radius: 50%;
+	animation: ls-spin 0.8s linear infinite;
+}
+#ls-score .ls-renderer-loading .ls-loading-text {
+	font-size: 14px;
+}
+@media (prefers-reduced-motion: reduce) {
+	#ls-score .ls-renderer-loading .ls-loading-spinner {
+		animation: ls-spin 2.4s linear infinite;
+	}
+}
+
+/* Empty-state placeholder: large staff/clef icon + prompt, shown when the renderer is
+   ready but no score is loaded (fresh page or cleared editor). Keeps the panel from
+   sitting blank. Absolutely fills the preview area so the icon + text sit dead-center
+   (the panel is much taller than the content, so flex-centering a normal-flow block
+   would only center within its own small box, leaving it near the top). */
+#ls-score .ls-empty {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+	text-align: center;
+	user-select: none;
+	pointer-events: none;   /* don't block clicks meant for the panel underneath */
+}
+#ls-score .ls-empty .ls-empty-icon {
+	width: 132px;
+	height: 88px;
+	margin-bottom: 18px;
+	color: #7c5cff;         /* vivid accent (matches the app's purple), not a faint grey */
+	opacity: 0.92;
+}
+#ls-score .ls-empty .ls-empty-text {
+	font-size: 13px;
+	max-width: 300px;
+	line-height: 1.5;
+	color: #c4c4cc;         /* lighter than the icon so the icon reads as the focal point */
+}
+
+/* Renderer-load FAILURE state (network error): shown inside the loading overlay in
+   place of the spinner. A clickable ⟳ retry icon + prompt; re-fetches verovio. */
+#ls-score .ls-renderer-error {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+}
+#ls-score .ls-retry-btn {
+	width: 52px;
+	height: 52px;
+	margin-bottom: 14px;
+	border: none;
+	border-radius: 50%;
+	background: #f0ecff;
+	color: #7c5cff;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background 0.15s, transform 0.15s;
+}
+#ls-score .ls-retry-btn:hover { background: #e2dbff; transform: scale(1.05); }
+#ls-score .ls-retry-btn:active { transform: scale(0.97); }
+#ls-score .ls-retry-icon { font-size: 30px; line-height: 1; }
+#ls-score .ls-renderer-error .ls-retry-text {
+	font-size: 13px;
+	max-width: 300px;
+	line-height: 1.5;
+	color: #c0392b;
+}
+
+/* Soundfont (gm.sf3) load FAILURE: the 🎹 badge becomes a clickable retry. The base
+   glyph is dimmed and a ⟳ overlay is shown on top; click handler calls retrySoundfont. */
+#ls-score .ls-sf .ls-sf-retry {
+	display: none;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 0.95em;
+	font-weight: 700;
+	color: #c0392b;
+}
+#ls-score .ls-sf.ls-sf-err {
+	cursor: pointer;
+	animation: none;
+	filter: grayscale(1);
+	opacity: 0.85;
+}
+#ls-score .ls-sf.ls-sf-err .ls-sf-retry { display: inline; }
+#ls-score .ls-sf.ls-sf-err .ls-sf-check { display: none; }

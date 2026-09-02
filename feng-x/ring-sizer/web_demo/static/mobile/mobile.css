@@ -1,0 +1,896 @@
+/* Mobile flow stylesheet. Pulls design tokens from shared/tokens.css
+   so the palette matches the desktop. Visual treatments here mirror
+   the desktop's hero copy, hero-card panel, capture-tips, primary
+   button, image-frame, finger-cards, and size-ref-table — the mobile
+   flow is the desktop page paginated, not a different visual
+   identity. */
+
+@import url("../shared/tokens.css");
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-1);
+  color: var(--ink);
+  font-family: "Iowan Old Style", "Palatino", "Book Antiqua", "Times New Roman", serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#mobileRoot {
+  width: 100%;
+  /* Cascade order: each later rule overrides on browsers supporting
+     that unit. Old browsers stop at vh; modern iOS Safari reaches
+     dvh which tracks URL-bar transitions, so per-step footers stay
+     visible. */
+  height: 100vh;
+  height: 100svh;
+  height: 100dvh;
+}
+
+/* --- Step base layout -------------------------------------------- */
+
+.step {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: max(16px, env(safe-area-inset-top, 0px)) 20px
+    max(16px, env(safe-area-inset-bottom, 0px));
+  background:
+    radial-gradient(circle at 10% 10%, var(--bg-3), transparent 55%),
+    radial-gradient(circle at 90% 0%, var(--bg-2), transparent 55%),
+    linear-gradient(140deg, var(--bg-1), #fff8f2 60%, #f0e2d8 100%);
+}
+
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  min-height: 40px;
+  flex: 0 0 auto;
+}
+
+.step-back {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: white;
+  color: var(--ink);
+  font-size: 22px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-back:active {
+  background: var(--sand);
+}
+
+.step-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.step-foot {
+  flex: 0 0 auto;
+  padding-top: 14px;
+}
+
+/* Secondary action under a primary button — text-link weight so it
+   reads as an "escape hatch" rather than an equally-weighted choice.
+   Padding is sized to clear the WCAG 2.5.5 / Apple HIG ~44px minimum
+   touch target. */
+.step-link {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.step-link:hover {
+  color: var(--ink);
+}
+
+.step-link:focus-visible {
+  color: var(--ink);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.guide-upload-error {
+  margin: 8px 4px 0;
+  font-size: 0.85rem;
+  color: var(--accent);
+  text-align: center;
+}
+
+/* --- Typography (matches desktop hero/panel) --------------------- */
+
+.hero-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-dark);
+  margin: 0 0 24px;
+}
+
+.hero-headline {
+  font-family: "Futura", "Gill Sans", "Optima", "Trebuchet MS", sans-serif;
+  font-size: clamp(2rem, 8vw, 2.4rem);
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  margin: 0 0 28px;
+  color: var(--ink);
+}
+
+.hero-sub {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  margin: 0;
+  max-width: 36ch;
+}
+
+/* Step 1 leans into a softly centered hero: vertically nudge the copy
+   toward the middle so the eye lands on the headline, not the very
+   top of the page. */
+.step-intro .step-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* --- Panel (matches desktop .hero-card / .panel) ----------------- */
+
+.panel {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 22px;
+  box-shadow: 0 18px 40px rgba(43, 31, 31, 0.08);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  margin-bottom: 16px;
+}
+
+.panel:last-child {
+  margin-bottom: 0;
+}
+
+.panel-title {
+  font-family: "Futura", "Gill Sans", "Optima", "Trebuchet MS", sans-serif;
+  font-size: 1.4rem;
+  margin: 0 0 14px;
+  color: var(--ink);
+}
+
+/* --- Form controls (matches desktop) ----------------------------- */
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.controls input[type="text"],
+.controls input[type="email"],
+.controls select {
+  /* Lock both controls to the same height. iOS Safari's native
+     <select> renders at a slightly shorter intrinsic height than
+     <input>, so identical padding alone doesn't match — an explicit
+     height (with box-sizing: border-box, set globally) does. */
+  height: 48px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0 14px;
+  /* iOS auto-zoom guard — must be ≥ 16px. */
+  font-size: 1rem;
+  line-height: 1.4;
+  background: white;
+  color: var(--ink);
+}
+
+/* Strip the native <select> chrome (Safari's tiny up/down chevrons,
+   inset shadows, etc.) so the visual treatment matches the text
+   input. We restore a single chevron via a background-image so the
+   dropdown affordance is still visible. */
+.controls select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%234b3d3d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='1,2 6,7 11,2'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 8px;
+}
+
+.form-error {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* --- Capture tips (matches desktop) ----------------------------- */
+
+.capture-tips {
+  margin: 0;
+  padding: 14px 18px 14px 32px;
+  list-style: disc;
+  background: rgba(191, 58, 43, 0.06);
+  border-left: 3px solid rgba(191, 58, 43, 0.55);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.capture-tips li + li {
+  margin-top: 6px;
+}
+
+.capture-tips strong {
+  color: var(--ink);
+}
+
+/* "Like this" sample below the tips on the guide step. Same rounded
+   image-frame chrome as the confirm preview / result overlay so the
+   visual treatment is consistent across the three places we show a
+   photo. */
+.guide-example {
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.guide-example img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 14px;
+  background: #f6efea;
+  box-shadow: 0 6px 18px var(--shadow);
+}
+
+.guide-example figcaption {
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  text-align: center;
+  font-style: italic;
+}
+
+/* --- Primary button --------------------------------------------- */
+
+.primary {
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(120deg, var(--accent), #e25f4f);
+  box-shadow: 0 12px 30px var(--shadow);
+  cursor: pointer;
+}
+
+.primary:active {
+  transform: translateY(1px);
+}
+
+.primary:disabled {
+  /* Distinct solid color rather than an opacity fade. Opacity makes
+     a disabled button look like a "weak" version of the live one,
+     which is visually noisy on top of a busy video preview. A solid
+     warm beige-gray with no shadow reads unambiguously as inactive
+     while staying inside the cream palette. */
+  background: #a89e8f;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* --- Image frame (matches desktop input/result image panels) ---- */
+
+.image-frame {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f6efea;
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+}
+
+.image-frame img {
+  width: 100%;
+  height: auto;
+  display: none;
+}
+
+.image-frame.show img {
+  display: block;
+}
+
+/* --- Confirm step status text ----------------------------------- */
+
+/* Lives in the step-foot (not the panel) so it's always visible —
+   tall photos can push panel content out of the visible step-body
+   area, which would otherwise hide the live "Measuring… Xs" timer. */
+.confirm-status {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  text-align: center;
+  /* Keep the timer line single-line so the layout doesn't jump as the
+     seconds counter ticks; the message is short by design. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.confirm-status.error {
+  color: var(--accent);
+  font-weight: 600;
+  /* Errors can be longer than the live timer; allow wrapping there. */
+  white-space: normal;
+}
+
+/* --- Step 4 — Capture stage (full-bleed camera) ----------------- */
+
+.step-capture {
+  --capture-url-bar-inset: 0px;
+  --capture-bottom-inset: max(
+    28px,
+    calc(var(--capture-url-bar-inset) + env(safe-area-inset-bottom, 0px) + 16px)
+  );
+  position: relative;
+  padding: 0;
+  background: #000;
+}
+
+.capture-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+.capture-back,
+.capture-flash {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top, 12px));
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.capture-back {
+  left: 12px;
+}
+
+.capture-flash {
+  right: 12px;
+  font-size: 18px;
+}
+
+.capture-back:hover,
+.capture-back:focus-visible,
+.capture-flash:hover,
+.capture-flash:focus-visible {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.capture-flash[aria-pressed="true"] {
+  background: #fff8d4;
+  color: #8a5b0a;
+}
+
+.capture-chips {
+  position: absolute;
+  bottom: calc(var(--capture-bottom-inset) + 64px);
+  left: 16px;
+  right: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  z-index: 2;
+}
+
+.capture-status {
+  position: absolute;
+  bottom: calc(var(--capture-bottom-inset) + 110px);
+  left: 16px;
+  right: 16px;
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  z-index: 2;
+}
+
+.capture-status.error {
+  color: #ffd5d0;
+  font-weight: 600;
+}
+
+.capture-controls {
+  position: absolute;
+  bottom: var(--capture-bottom-inset);
+  left: 16px;
+  right: 16px;
+  z-index: 2;
+}
+
+.capture-controls .capture-shutter {
+  width: 100%;
+}
+
+/* --- Status chips (distance / level) ---------------------------- */
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink-soft);
+}
+
+.status-chip .chip-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.status-chip.pending {
+  color: var(--ink-soft);
+  border-color: var(--border);
+}
+
+.status-chip.skipped {
+  color: var(--ink-soft);
+  border-color: var(--border);
+  opacity: 0.6;
+}
+
+.status-chip.red {
+  color: #b1271b;
+  background: #fde7e3;
+  border-color: rgba(177, 39, 27, 0.4);
+}
+
+.status-chip.amber {
+  color: #8a5b0a;
+  background: #fbeed1;
+  border-color: rgba(138, 91, 10, 0.4);
+}
+
+.status-chip.green {
+  color: #1f6b34;
+  background: #d8f1de;
+  border-color: rgba(31, 107, 52, 0.4);
+}
+
+/* --- Bubble level (capture stage) ------------------------------- */
+/* iPhone-style two-cross level. A static white cross marks the center
+   target; a second cross of the same shape drifts toward the high side
+   of the device. When the device is in tolerance the moving cross snaps
+   to the center and turns green (the two crosses visually merge). When
+   out of tolerance it floats out, clamped to a max radius, in red. The
+   ±5° tolerance ring is decorative — it gives the user a sense of how
+   far "in tolerance" is — and stays neutral white. */
+
+.capture-level-bubble {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 128px;
+  height: 128px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2;
+  --neutral-color: rgba(255, 255, 255, 0.85);
+  --indicator-color: rgba(255, 255, 255, 0.85);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+
+.capture-level-bubble[data-state="green"] {
+  --indicator-color: #6ce39a;
+}
+
+.capture-level-bubble[data-state="red"] {
+  --indicator-color: #ff8a7e;
+}
+
+/* Tolerance ring + center crosshair stay neutral so only the moving
+   cross signals state (per design feedback). */
+.capture-level-bubble .bubble-tolerance {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid var(--neutral-color);
+  opacity: 0.85;
+}
+
+.capture-level-bubble .bubble-crosshair-h,
+.capture-level-bubble .bubble-crosshair-v {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: var(--neutral-color);
+  opacity: 0.6;
+}
+
+.capture-level-bubble .bubble-crosshair-h {
+  width: 14px;
+  height: 1.5px;
+  transform: translate(-50%, -50%);
+}
+
+.capture-level-bubble .bubble-crosshair-v {
+  width: 1.5px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+}
+
+/* Moving cross. The wrapper is the element JS translates every tick;
+   the two arms inside form the cross relative to the wrapper's origin. */
+.capture-level-bubble .bubble-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  /* Linear transform transition smooths the 100 ms detection tick;
+     also gives the snap-to-center on green a brief settle motion. */
+  transition: transform 0.08s linear;
+}
+
+.capture-level-bubble .bubble-indicator-h,
+.capture-level-bubble .bubble-indicator-v {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: var(--indicator-color);
+  transition: background 0.18s ease;
+}
+
+.capture-level-bubble .bubble-indicator-h {
+  width: 18px;
+  height: 2px;
+  transform: translate(-50%, -50%);
+}
+
+.capture-level-bubble .bubble-indicator-v {
+  width: 2px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+}
+
+.capture-level-bubble[data-state="pending"] .bubble-indicator {
+  opacity: 0;
+}
+
+/* --- Step 6 — Result -------------------------------------------- */
+
+/* Top-of-result feedback banner. Mirrors the desktop's status text
+   semantically (single line of feedback after measurement) but is
+   visually a small panel-shaped card so it reads as a result rather
+   than form chrome. Color-coded: green = success, red = failure. */
+.result-status {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: white;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--ink-soft);
+  box-shadow: 0 6px 18px var(--shadow);
+}
+
+.result-status p {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.result-status-success {
+  background: #e8f4ec;
+  border-color: rgba(31, 107, 52, 0.4);
+  border-left-color: #1f6b34;
+}
+
+.result-status-success p {
+  color: #1f6b34;
+}
+
+.result-status-error {
+  background: #fde7e3;
+  border-color: rgba(177, 39, 27, 0.4);
+  border-left-color: var(--accent);
+}
+
+.result-status-error p {
+  color: #b1271b;
+}
+
+/* Three finger cards stacked vertically (instead of the desktop's
+   3-column grid) — narrower mobile width fits a single column more
+   comfortably without shrinking the size number. */
+.finger-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Padding-top (not margin-top) clears the floating "Recommended"
+     badge that overhangs the first card at top: -12px. Margin-top
+     would collapse with .panel-title's margin-bottom: 14px and produce
+     no visible change; padding doesn't collapse. */
+  padding-top: 16px;
+  margin-bottom: 12px;
+}
+
+.finger-card {
+  position: relative;
+  background: var(--sand);
+  border-radius: 10px;
+  padding: 14px 16px 16px;
+  text-align: center;
+  box-shadow: 0 1px 4px var(--shadow);
+}
+
+.finger-card .finger-badge {
+  position: absolute;
+  top: -12px;
+  right: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  line-height: 1;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.finger-card .finger-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.finger-card .finger-size-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+.finger-card .finger-size {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.1;
+  margin: 2px 0;
+}
+
+.finger-card .finger-range {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.finger-card .finger-width {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+.finger-card-failed {
+  opacity: 0.85;
+}
+
+.finger-card .finger-failed {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #721c24;
+  margin: 8px 0 4px;
+}
+
+.finger-card .finger-fail-reason {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  word-break: break-word;
+}
+
+.finger-count {
+  text-align: left;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+/* --- Size reference table (mirrors desktop) --------------------- */
+
+.size-ref-table {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.size-ref-title {
+  font-family: "Futura", "Gill Sans", "Optima", "Trebuchet MS", sans-serif;
+  font-size: 1rem;
+  margin: 0 0 8px;
+  color: var(--ink);
+  /* Center the model-label heading so it lines up with the centered
+     SIZE / Inner Diameter (mm) columns below — same alignment story as
+     the desktop. */
+  /*text-align: center;*/
+}
+
+.size-ref-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.size-ref-table th,
+.size-ref-table td {
+  padding: 8px 10px;
+  /* Match the desktop alignment — both headers and values are
+     centered, which is more comfortable to scan when the columns
+     are short numeric values. */
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.size-ref-table th {
+  font-weight: 600;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.size-ref-table tbody tr:nth-child(even) {
+  background: rgba(245, 241, 231, 0.5);
+}
+
+/* --- Feedback panel (mirrors desktop .feedback-*) ---------------- */
+
+.feedback-panel .feedback-hint {
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feedback-rating {
+  display: flex;
+  gap: 6px;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  font-size: 2rem;
+  line-height: 1;
+  color: rgba(45, 33, 33, 0.25);
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.1s ease;
+}
+
+.star-btn.star-filled { color: #e3a73b; }
+
+.feedback-form textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  /* 1rem keeps iOS Safari from auto-zooming the page on focus
+     (same reason the .controls inputs use 1rem). */
+  font-size: 1rem;
+  font-family: inherit;
+  background: white;
+  color: var(--ink);
+  resize: vertical;
+  min-height: 80px;
+}
+
+.feedback-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+.feedback-submit {
+  width: auto;
+  padding: 10px 22px;
+}
+
+.feedback-status {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.feedback-status-ok { color: #2f7a3d; }
+.feedback-status-error { color: var(--accent); font-weight: 600; }

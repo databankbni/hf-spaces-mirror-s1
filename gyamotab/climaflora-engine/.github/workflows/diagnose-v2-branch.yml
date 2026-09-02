@@ -1,0 +1,122 @@
+name: Verify ClimaFlora production v2.0
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy to Hugging Face"]
+    types: [completed]
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnose-v2-branch.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: verify-production-v2.0
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout deployed revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Resolve deployed application version
+        run: |
+          set -euo pipefail
+          version="$(python - <<'PY'
+          import re
+          from pathlib import Path
+          text=Path('app/version.py').read_text()
+          m=re.search(r'^APP_VERSION\s*=\s*["\x27]([^"\x27]+)', text, re.M)
+          assert m
+          print(m.group(1))
+          PY
+          )"
+          echo "EXPECTED_APP_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Verify live v2 API, hashes and scientific metadata
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, time, urllib.request
+          expected=json.load(open('.github/catalog-v2.0-promotion.json'))
+          expected_app=os.environ['EXPECTED_APP_VERSION']
+          base='https://gyamotab-climaflora-engine.hf.space'
+          def get(path):
+              with urllib.request.urlopen(base+path,timeout=30) as r:
+                  return json.load(r)
+          last=None
+          for _ in range(36):
+              try:
+                  readiness=get('/api/v1/readiness')
+                  scientific=get('/api/v1/scientific/status')
+                  meta=get('/api/v1/meta')
+                  health=get('/api/v1/health')
+                  master=readiness.get('master') or {}
+                  plants=readiness.get('plants') or {}
+                  build_meta=plants.get('build_metadata') or {}
+                  meta_catalog=meta.get('catalog') or {}
+                  checks={
+                    'readiness_ready':readiness.get('ready') is True,
+                    'scientific_ready':readiness.get('scientific_ready') is True,
+                    'infrastructure_ready':readiness.get('infrastructure_ready') is True,
+                    'scientific_status_ready':scientific.get('ready') is True,
+                    'scientific_catalog':scientific.get('catalog')=='climaflora_global_plants_v2_0.sqlite',
+                    'scientific_schema':scientific.get('catalog_schema_version')=='2.0.0',
+                    'plants_scientific_ready':plants.get('scientific_ready') is True,
+                    'prior_scoring_safe':readiness.get('soil_geographic_prior_scoring_safe') is True,
+                    'prior_scoring_rows_zero':int(plants.get('soil_geographic_prior_scoring_rows',-1))==0,
+                    'master_ready':master.get('ready') is True,
+                    'master_catalog':master.get('master_db')=='/data/climaflora_global_plants_v2_0.sqlite',
+                    'master_zst_hash':master.get('compressed_sha256')==expected['zst_sha256'],
+                    'master_sqlite_hash':master.get('sqlite_sha256')==expected['sqlite_sha256'],
+                    'meta_app_version':meta.get('version')==expected_app,
+                    'meta_catalog_filename':meta_catalog.get('filename')=='climaflora_global_plants_v2_0.sqlite',
+                    'meta_catalog_version':meta_catalog.get('catalog_version')=='2.0.0',
+                    'health_ok':health.get('status')=='ok',
+                    'health_app_version':health.get('version')==expected_app,
+                    'health_master_ready':health.get('master_phase')=='ready',
+                    'v2_enriched':build_meta.get('edaphic_v2_enriched')=='true',
+                    'v2_usda_semantics':build_meta.get('edaphic_v2_usda_ph_semantics')=='compatibility_range_no_optimum_inferred',
+                    'v2_baseflor_semantics':build_meta.get('edaphic_v2_baseflor_semantics')=='native_ordinal_context_only_no_physical_conversion',
+                  }
+                  last={'checks':checks,'readiness':readiness,'scientific':scientific,'meta':meta,'health':health}
+                  if all(checks.values()): break
+              except Exception as exc:
+                  last={'error':repr(exc)}
+              time.sleep(10)
+          else:
+              raise SystemExit('Production v2.0 did not become ready: '+json.dumps(last))
+          status={
+            'status':'ready','catalog_version':'2.0.0','app_version':expected_app,'scientific_ready':True,
+            'sqlite_sha256':expected['sqlite_sha256'],'zst_sha256':expected['zst_sha256'],
+            'edaphic_build_repo':expected['build_repo'],'edaphic_build_path':expected['build_path'],
+            'stats':expected['stats'],'live_checks':last['checks'],'live_readiness':last['readiness'],
+            'live_scientific_status':last['scientific'],'live_meta':last['meta'],'live_health':last['health']}
+          print(json.dumps(status,indent=2))
+          open('/tmp/production-v2.0-status.json','w').write(json.dumps(status,indent=2)+'\n')
+          PY
+
+      - name: Record production-ready status
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main && git reset --hard origin/main
+            cp /tmp/production-v2.0-status.json .github/production-v2.0-status.json
+            git add .github/production-v2.0-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record ClimaFlora v2.0 production verification [skip ci]'
+            git push origin HEAD:main && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

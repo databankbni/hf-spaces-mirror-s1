@@ -7,10 +7,12 @@
 
 	const NAV = [
 		{ href: '/matchups', label: 'Matchups' },
+		{ href: '/best-bets', label: 'Best bets' },
 		{ href: '/players', label: 'Players' },
 		{ href: '/teams', label: 'Teams' },
 		{ href: '/simulate', label: 'Simulate' },
 		{ href: '/accuracy', label: 'Accuracy' },
+		{ href: '/nfl-test', label: 'NFL test' },
 		{ href: '/docs', label: 'Docs' }
 	];
 

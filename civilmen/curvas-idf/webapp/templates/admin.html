@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administración — HYDROFRA</title>
+  <style>
+    :root { --navy:#0d2a5e; --navy2:#10387f; --gold:#f4cf5e; --line:#dfe4ee; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:#eef1f6; color:#1a2230; min-height:100vh; padding:24px; }
+    .wrap { max-width:900px; margin:0 auto; }
+    .card { background:#fff; border-radius:16px; padding:26px 28px;
+      box-shadow:0 10px 30px rgba(13,42,94,.12); margin-bottom:18px; }
+    .login-wrap { min-height:80vh; display:flex; align-items:center; justify-content:center; }
+    .login { max-width:400px; width:100%; }
+    .logo { font-weight:800; letter-spacing:.05em; font-size:24px; color:var(--navy); text-align:center; }
+    .sub { text-align:center; color:#5a6577; font-size:13px; margin-top:4px; }
+    h1 { font-size:20px; color:var(--navy); margin:0 0 4px; }
+    h2 { font-size:15px; color:var(--navy); margin:0 0 12px; }
+    .head { display:flex; align-items:center; justify-content:space-between; gap:12px;
+      flex-wrap:wrap; margin-bottom:16px; }
+    label { display:block; font-size:12.5px; font-weight:600; color:#3a4557; margin:12px 0 6px; }
+    input, select { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:9px;
+      font-size:14px; outline:none; }
+    input:focus, select:focus { border-color:var(--navy2); box-shadow:0 0 0 3px rgba(16,56,127,.1); }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+    .row > div { flex:1 1 160px; }
+    button { padding:11px 16px; border:none; border-radius:9px; background:var(--navy);
+      color:#fff; font-size:14px; font-weight:700; cursor:pointer; }
+    button:hover { background:var(--navy2); }
+    button.ghost { background:#eef1f6; color:var(--navy); border:1px solid var(--line); }
+    button.danger { background:#a12020; }
+    a.link { color:var(--navy2); text-decoration:none; font-weight:600; font-size:13px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+    th, td { text-align:left; padding:9px 8px; border-bottom:1px solid var(--line); }
+    th { color:#5a6577; font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+    .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:700; }
+    .pill.ok { background:#e5f4ea; color:#1c7a3f; }
+    .pill.no { background:#fdecec; color:#a12020; }
+    .pill.lic { background:#fff4d6; color:#8a6410; }
+    .flash { background:#e7f0ff; color:#123a7a; border:1px solid #c3d6f5; border-radius:10px;
+      padding:11px 14px; font-size:13.5px; margin-bottom:14px; }
+    .muted { color:#6b7688; font-size:12.5px; }
+    .tblwrap { overflow-x:auto; }
+    .inline { display:inline; }
+  </style>
+</head>
+<body>
+{% if not autenticado %}
+  <div class="login-wrap">
+    <form class="card login" method="POST" action="{{ url_for('admin') }}">
+      <div class="logo">HYDROFRA</div>
+      <div class="sub">Panel de administración</div>
+      {% with ms = get_flashed_messages() %}{% if ms %}{% for m in ms %}
+        <div class="flash">{{ m }}</div>{% endfor %}{% endif %}{% endwith %}
+      <input type="hidden" name="accion" value="login">
+      <label for="token">Token de administrador</label>
+      <input id="token" name="token" type="password" required placeholder="••••••••" autofocus>
+      <button type="submit" style="width:100%; margin-top:18px;">Entrar</button>
+      {% if not configurado %}
+      <p class="muted" style="margin-top:14px;">Nota: definí <code>HYDROFRA_ADMIN_TOKEN</code>
+        como variable de entorno del servidor para habilitar el acceso.</p>
+      {% endif %}
+    </form>
+  </div>
+{% else %}
+  <div class="wrap">
+    <div class="head">
+      <div><h1>Administración de licencias</h1>
+        <div class="muted">Cupo gratuito: {{ limite }} ejecuciones · Licencia: Bs {{ costo_bs }} / {{ dias_licencia }} días</div></div>
+      <form method="POST" action="{{ url_for('admin') }}" class="inline">
+        <input type="hidden" name="accion" value="logout">
+        <button type="submit" class="ghost">Cerrar sesión</button>
+      </form>
+    </div>
+
+    {% with ms = get_flashed_messages() %}{% if ms %}{% for m in ms %}
+      <div class="flash">{{ m }}</div>{% endfor %}{% endif %}{% endwith %}
+
+    <div class="card">
+      <h2>Activar licencia mensual</h2>
+      <form method="POST" action="{{ url_for('admin') }}">
+        <input type="hidden" name="accion" value="otorgar">
+        <div class="row">
+          <div>
+            <label for="email">Correo del usuario</label>
+            <input id="email" name="email" type="email" required placeholder="cliente@correo.com">
+          </div>
+          <div style="flex:0 0 130px;">
+            <label for="dias">Días</label>
+            <input id="dias" name="dias" type="number" min="1" value="{{ dias_licencia }}">
+          </div>
+          <div style="flex:0 0 auto;">
+            <button type="submit">Activar licencia</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Resetear contraseña de un usuario</h2>
+      <p class="muted" style="margin-bottom:10px;">Útil cuando un usuario olvidó
+        su contraseña y el envío de correo no está disponible. Le comunicás la
+        nueva contraseña; puede cambiarla luego.</p>
+      <form method="POST" action="{{ url_for('admin') }}">
+        <input type="hidden" name="accion" value="reset_password">
+        <div class="row">
+          <div>
+            <label for="rp_email">Correo del usuario</label>
+            <input id="rp_email" name="email" type="email" required placeholder="usuario@correo.com">
+          </div>
+          <div>
+            <label for="rp_pass">Nueva contraseña</label>
+            <input id="rp_pass" name="password" type="text" required minlength="6" placeholder="Mínimo 6 caracteres">
+          </div>
+          <div style="flex:0 0 auto;">
+            <button type="submit">Resetear</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Usuarios ({{ usuarios|length }})</h2>
+      {% if usuarios %}
+      <div class="tblwrap">
+      <table>
+        <thead><tr>
+          <th>Correo</th><th>Nombre</th><th>Verif.</th><th>Contraseña</th>
+          <th>Ejecuciones</th><th>Licencia</th><th>Acción</th>
+        </tr></thead>
+        <tbody>
+        {% for u in usuarios %}
+          <tr>
+            <td>{{ u.email }}</td>
+            <td>{{ u.nombre or '—' }}</td>
+            <td>{% if u.verificado %}<span class="pill ok">sí</span>{% else %}<span class="pill no">no</span>{% endif %}</td>
+            <td>{% if u.tiene_password %}<span class="pill ok">sí</span>{% else %}<span class="pill no">no</span>{% endif %}</td>
+            <td>{{ u.conteo }} / {{ u.limite }}</td>
+            <td>
+              {% if u.licenciado %}<span class="pill lic">hasta {{ u.licencia_hasta }}</span>
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            <td>
+              <form method="POST" action="{{ url_for('admin') }}" class="inline">
+                <input type="hidden" name="email" value="{{ u.email }}">
+                {% if u.licenciado %}
+                  <input type="hidden" name="accion" value="revocar">
+                  <button type="submit" class="danger">Revocar</button>
+                {% else %}
+                  <input type="hidden" name="accion" value="otorgar">
+                  <button type="submit">Activar</button>
+                {% endif %}
+              </form>
+              {% if u.tiene_password %}
+              <form method="POST" action="{{ url_for('admin') }}" class="inline"
+                    onsubmit="return confirm('¿Quitar la contraseña de {{ u.email }}? Deberá registrarse de nuevo.');">
+                <input type="hidden" name="email" value="{{ u.email }}">
+                <input type="hidden" name="accion" value="quitar_password">
+                <button type="submit" class="ghost">Quitar contraseña</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+        <p class="muted">Todavía no hay usuarios registrados.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+</body>
+</html>

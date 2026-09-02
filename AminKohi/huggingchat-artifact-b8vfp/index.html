@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ستاره‌ی پرنده ⭐</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+        
+        canvas {
+            display: block;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.7);
+            pointer-events: auto;
+            border-radius: 12px;
+        }
+        
+        #gameOverScreen {
+            display: none;
+        }
+        
+        h1 {
+            color: #ffd700;
+            font-size: 2.5em;
+            text-shadow: 0 0 20px rgba(255,215,0,0.5);
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #aaa;
+            font-size: 1.1em;
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #ffd700, #ff8c00);
+            border: none;
+            padding: 15px 50px;
+            font-size: 1.3em;
+            color: #1a1a2e;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 5px 20px rgba(255,215,0,0.3);
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 30px rgba(255,215,0,0.5);
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        #scoreDisplay {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 3em;
+            font-weight: bold;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        
+        #finalScore {
+            color: #ffd700;
+            font-size: 2em;
+            margin: 10px 0;
+        }
+        
+        #bestScore {
+            color: #aaa;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+        
+        .instructions {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 20px;
+        }
+        
+        .star-emoji {
+            font-size: 4em;
+            margin-bottom: 10px;
+            animation: float 2s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        
+        <div id="scoreDisplay" class="hidden">0</div>
+        
+        <div id="startScreen">
+            <div class="star-emoji">⭐</div>
+            <h1>ستاره‌ی پرنده</h1>
+            <p class="subtitle">با کلیک یا لمس، ستاره رو بالا ببر!</p>
+            <button class="btn" onclick="startGame()">شروع بازی</button>
+            <p class="instructions">🖱️ کلیک یا Space = پرش<br>📱 لمس صفحه = پرش</p>
+        </div>
+        
+        <div id="gameOverScreen">
+            <div class="star-emoji">💥</div>
+            <h1 style="font-size: 2em;">باختی!</h1>
+            <div id="finalScore">0</div>
+            <div id="bestScore">بهترین: 0</div>
+            <button class="btn" onclick="restartGame()">دوباره بازی کن</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const finalScoreEl = document.getElementById('finalScore');
+        const bestScoreEl = document.getElementById('bestScore');
+        
+        // Game state
+        let gameRunning = false;
+        let score = 0;
+        let bestScore = 0;
+        let frames = 0;
+        
+        // Star (player)
+        const star = {
+            x: 100,
+            y: 250,
+            velocity: 0,
+            gravity: 0.5,
+            jumpStrength: -8,
+            size: 20,
+            rotation: 0
+        };
+        
+        // Pipes
+        let pipes = [];
+        const pipeWidth = 60;
+        const pipeGap = 160;
+        const pipeSpeed = 3;
+        
+        // Background stars
+        const bgStars = [];
+        for (let i = 0; i < 50; i++) {
+            bgStars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 2 + 0.5,
+                twinkle: Math.random() * Math.PI * 2
+            });
+        }
+        
+        // Particles
+        let particles = [];
+        
+        function createParticle(x, y, color) {
+            return {
+                x, y,
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                life: 1,
+                color
+            };
+        }
+        
+        function drawBackground() {
+            // Gradient sky
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#1a1a2e');
+            gradient.addColorStop(0.5, '#16213e');
+            gradient.addColorStop(1, '#0f3460');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Twinkling stars
+            bgStars.forEach(s => {
+                s.twinkle += 0.02;
+                const alpha = 0.3 + Math.sin(s.twinkle) * 0.7;
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        
+        function drawStar(x, y, size, rotation) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(rotation);
+            
+            // Glow
+            const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 2);
+            glow.addColorStop(0, 'rgba(255, 215, 0, 0.8)');
+            glow.addColorStop(0.5, 'rgba(255, 215, 0, 0.2)');
+            glow.addColorStop(1, 'rgba(255, 215, 0, 0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Star shape
+            ctx.fillStyle = '#ffd700';
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+                const px = Math.cos(angle) * size;
+                const py = Math.sin(angle) * size;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+            
+            // Inner bright part
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        
+        function drawPipe(pipe) {
+            const gradient = ctx.createLinearGradient(pipe.x, 0, pipe.x + pipeWidth, 0);
+            gradient.addColorStop(0, '#2d8a3e');
+            gradient.addColorStop(0.5, '#4ade80');
+            gradient.addColorStop(1, '#2d8a3e');
+            
+            // Top pipe
+            ctx.fillStyle = gradient;
+            ctx.fillRect(pipe.x, 0, pipeWidth, pipe.topHeight);
+            
+            // Top pipe cap
+            ctx.fillStyle = '#22c55e';
+            ctx.fillRect(pipe.x - 5, pipe.topHeight - 30, pipeWidth + 10, 30);
+            
+            // Bottom pipe
+            ctx.fillStyle = gradient;
+            ctx.fillRect(pipe.x, pipe.topHeight + pipeGap, pipeWidth, canvas.height - pipe.topHeight - pipeGap);
+            
+            // Bottom pipe cap
+            ctx.fillStyle = '#22c55e';
+            ctx.fillRect(pipe.x - 5, pipe.topHeight + pipeGap, pipeWidth + 10, 30);
+            
+            // Highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.fillRect(pipe.x + 10, 0, 8, pipe.topHeight);
+            ctx.fillRect(pipe.x + 10, pipe.topHeight + pipeGap, 8, canvas.height - pipe.topHeight - pipeGap);
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            frames++;
+            
+            // Update star
+            star.velocity += star.gravity;
+            star.y += star.velocity;
+            star.rotation += 0.05;
+            
+            // Trail particles
+            if (frames % 3 === 0) {
+                particles.push(createParticle(star.x, star.y, '#ffd700'));
+            }
+            
+            // Update particles
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                return p.life > 0;
+            });
+            
+            // Generate pipes
+            if (frames % 100 === 0) {
+                const minHeight = 50;
+                const maxHeight = canvas.height - pipeGap - minHeight;
+                const topHeight = Math.random() * (maxHeight - minHeight) + minHeight;
+                pipes.push({
+                    x: canvas.width,
+                    topHeight,
+                    passed: false
+                });
+            }
+            
+            // Update pipes
+            pipes = pipes.filter(pipe => {
+                pipe.x -= pipeSpeed;
+                
+                // Score
+                if (!pipe.passed && pipe.x + pipeWidth < star.x) {
+                    pipe.passed = true;
+                    score++;
+                    scoreDisplay.textContent = score;
+                    
+                    // Score particles
+                    for (let i = 0; i < 10; i++) {
+                        particles.push(createParticle(star.x, star.y, '#4ade80'));
+                    }
+                }
+                
+                return pipe.x + pipeWidth > 0;
+            });
+            
+            // Collision
+            if (star.y < 0 || star.y > canvas.height) {
+                gameOver();
+                return;
+            }
+            
+            for (const pipe of pipes) {
+                if (star.x + star.size > pipe.x && 
+                    star.x - star.size < pipe.x + pipeWidth) {
+                    if (star.y - star.size < pipe.topHeight || 
+                        star.y + star.size > pipe.topHeight + pipeGap) {
+                        gameOver();
+                        return;
+                    }
+                }
+            }
+        }
+        
+        function draw() {
+            drawBackground();
+            
+            // Draw pipes
+            pipes.forEach(drawPipe);
+            
+            // Draw particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+            
+            // Draw star
+            if (gameRunning || !gameOverScreen.style.display.includes('flex')) {
+                drawStar(star.x, star.y, star.size, star.rotation);
+            }
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function jump() {
+            if (!gameRunning) return;
+            star.velocity = star.jumpStrength;
+            
+            // Jump particles
+            for (let i = 0; i < 5; i++) {
+                particles.push(createParticle(star.x, star.y + star.size, '#ffd700'));
+            }
+        }
+        
+        function startGame() {
+            gameRunning = true;
+            score = 0;
+            frames = 0;
+            star.y = 250;
+            star.velocity = 0;
+            pipes = [];
+            particles = [];
+            
+            scoreDisplay.textContent = '0';
+            scoreDisplay.classList.remove('hidden');
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            
+            if (score > bestScore) {
+                bestScore = score;
+            }
+            
+            finalScoreEl.textContent = `امتیاز: ${score}`;
+            bestScoreEl.textContent = `بهترین: ${bestScore}`;
+            
+            scoreDisplay.classList.add('hidden');
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        function restartGame() {
+            startGame();
+        }
+        
+        // Controls
+        canvas.addEventListener('mousedown', jump);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            jump();
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!gameRunning && startScreen.style.display !== 'none') {
+                    startGame();
+                } else if (!gameRunning && gameOverScreen.style.display === 'flex') {
+                    restartGame();
+                } else {
+                    jump();
+                }
+            }
+        });
+        
+        // Start loop
+        gameLoop();
+    </script>
+</body>
+</html>
+<script data-huggingchat-badge="script">
+(function () {
+	try {
+		if (document.querySelector("[data-huggingchat-badge]:not(script)")) return;
+		var host = document.createElement("div");
+		host.setAttribute("data-huggingchat-badge", "");
+		var styles = [["all","initial"],["position","fixed"],["right","12px"],["bottom","12px"],["z-index","2147483647"],["display","block"],["visibility","visible"],["opacity","1"],["pointer-events","auto"],["width","auto"],["height","auto"],["margin","0"],["padding","0"],["max-width","none"],["max-height","none"],["transform","none"],["filter","none"],["clip-path","none"],["color-scheme","light"]];
+		for (var i = 0; i < styles.length; i++) {
+			host.style.setProperty(styles[i][0], styles[i][1], "important");
+		}
+		host.attachShadow({ mode: "closed" }).innerHTML = "<style>\n:host { all: initial; }\na {\n  display: flex;\n  align-items: center;\n  gap: 5px;\n  box-sizing: border-box;\n  height: 26px;\n  padding: 0 9px 0 7px;\n  border-radius: 999px;\n  border: 1px solid rgba(0, 0, 0, 0.07);\n  background: rgba(255, 255, 255, 0.92);\n  -webkit-backdrop-filter: saturate(180%) blur(8px);\n  backdrop-filter: saturate(180%) blur(8px);\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);\n  color: #111827;\n  font: 500 11px/1 ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  letter-spacing: 0.01em;\n  text-decoration: none;\n  white-space: nowrap;\n  opacity: 0.72;\n  transition: opacity 0.15s ease, transform 0.15s ease;\n}\na:hover, a:focus-visible { opacity: 1; transform: translateY(-1px); }\nsvg { width: 14px; height: 14px; flex: none; }\n@media print { a { display: none; } }\n<\/style><a href=\"https://huggingface.co/chat\" target=\"_blank\" rel=\"noopener noreferrer nofollow\"><svg viewBox=\"0 0 32 32\" fill=\"none\" aria-hidden=\"true\"><path d=\"M16.0006 25.9992C13.8266 25.999 11.7118 25.2901 9.97686 23.9799C8.2419 22.6698 6.98127 20.8298 6.38599 18.7388C5.79071 16.6478 5.89323 14.4198 6.678 12.3923C7.46278 10.3648 8.88705 8.64837 10.735 7.50308C12.5829 6.35779 14.7538 5.84606 16.9187 6.04544C19.0837 6.24481 21.1246 7.14442 22.7323 8.60795C24.34 10.0715 25.4268 12.0192 25.8281 14.1559C26.2293 16.2926 25.9232 18.5019 24.9561 20.449C24.7703 20.8042 24.7223 21.2155 24.8211 21.604L25.4211 23.8316C25.4803 24.0518 25.4805 24.2837 25.4216 24.5039C25.3627 24.7242 25.2468 24.925 25.0856 25.0862C24.9244 25.2474 24.7235 25.3633 24.5033 25.4222C24.283 25.4811 24.0512 25.4809 23.831 25.4217L21.6034 24.8217C21.2172 24.7248 20.809 24.7729 20.4558 24.9567C19.0683 25.6467 17.5457 26.0068 16.0006 26.0068V25.9992Z\" fill=\"currentColor\"/><path d=\"M9.62598 16.0013C9.62598 15.3799 10.1294 14.8765 10.7508 14.8765C11.3721 14.8765 11.8756 15.3799 11.8756 16.0013C11.8756 17.0953 12.3102 18.1448 13.0838 18.9184C13.8574 19.692 14.9069 20.1266 16.001 20.1267C17.095 20.1267 18.1445 19.692 18.9181 18.9184C19.6918 18.1448 20.1264 17.0953 20.1264 16.0013C20.1264 15.3799 20.6299 14.8765 21.2512 14.8765C21.8725 14.8765 22.3759 15.3799 22.3759 16.0013C22.3759 17.6921 21.7046 19.3137 20.509 20.5093C19.3134 21.7049 17.6918 22.3762 16.001 22.3762C14.3102 22.3762 12.6885 21.7049 11.4929 20.5093C10.2974 19.3137 9.62598 17.6921 9.62598 16.0013Z\" fill=\"#fff\"/><\/svg><span>Made with HuggingChat<\/span><\/a>";
+		function attach() {
+			var parent = document.body || document.documentElement;
+			if (parent && host.parentNode !== parent) parent.appendChild(host);
+		}
+		attach();
+		// Artifacts that rewrite document.body wholesale would drop the badge.
+		if (document.body && typeof MutationObserver === "function") {
+			new MutationObserver(attach).observe(document.body, { childList: true });
+		} else {
+			document.addEventListener("DOMContentLoaded", attach);
+		}
+	} catch (e) {}
+})();
+</script>

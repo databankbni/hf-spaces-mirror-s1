@@ -5,12 +5,12 @@
  */
 import { Router } from 'express';
 import * as SprintStore from '../storage/sprints';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requireEditor, requireAdmin } from '../middleware/auth';
 import type { CreateSprintInput, UpdateSprintInput } from '../../shared/types';
 
 const router = Router();
 
-router.get('/', (_req, res) => {
+router.get('/', requireAuth, (_req, res) => {
   res.json(SprintStore.getAllSprints());
 });
 
@@ -19,7 +19,7 @@ router.get('/', (_req, res) => {
  * Triggers auto-maintenance: complete past months and create the current month if missing.
  * Called by the client on page load to ensure data is always fresh.
  */
-router.post('/maintain', (_req, res) => {
+router.post('/maintain', requireEditor, (_req, res) => {
   const result = SprintStore.autoMaintainSprints();
   res.json({ ok: true, ...result });
 });
@@ -33,7 +33,7 @@ router.post('/maintain', (_req, res) => {
  *   because those tasks have no other sprint they could belong to
  * Safe to call on every page load.
  */
-router.post('/recover-august-2026', (_req, res) => {
+router.post('/recover-august-2026', requireAdmin, (_req, res) => {
   const db = SprintStore.getDb();
 
   // 1. Ensure August 2026 sprint exists and is active
@@ -74,13 +74,13 @@ router.post('/recover-august-2026', (_req, res) => {
   });
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', requireAuth, (req, res) => {
   const sprint = SprintStore.getSprintById(Number(req.params.id));
   if (!sprint) return res.status(404).json({ error: 'Sprint not found' });
   res.json(sprint);
 });
 
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireEditor, (req, res) => {
   const input = req.body as CreateSprintInput;
   if (!input.name?.trim() || !input.start_date || !input.end_date) {
     return res.status(400).json({ error: 'Name, start_date, and end_date are required' });
@@ -89,14 +89,14 @@ router.post('/', requireAuth, (req, res) => {
   res.status(201).json(sprint);
 });
 
-router.patch('/:id', requireAuth, (req, res) => {
+router.patch('/:id', requireEditor, (req, res) => {
   const input = req.body as UpdateSprintInput;
   const sprint = SprintStore.updateSprint(Number(req.params.id), input);
   if (!sprint) return res.status(404).json({ error: 'Sprint not found' });
   res.json(sprint);
 });
 
-router.delete('/:id', requireAuth, (req, res) => {
+router.delete('/:id', requireEditor, (req, res) => {
   const deleted = SprintStore.deleteSprint(Number(req.params.id));
   if (!deleted) return res.status(404).json({ error: 'Sprint not found' });
   res.status(204).send();

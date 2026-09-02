@@ -1,0 +1,135 @@
+name: Diagnose exhaustive search production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-exhaustive-production.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect live HF and OVH diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from collections import Counter
+          from datetime import datetime, timezone
+          import json
+          from pathlib import Path
+          import time
+          import urllib.parse
+          import urllib.request
+
+          API='https://gyamotab-climaflora-engine.hf.space/api/v1'
+          OVH='https://shugoan.com/climaflora/static'
+
+          def fetch_json(path, params=None, timeout=240):
+              url=API+path
+              if params:
+                  url += '?' + urllib.parse.urlencode(params, doseq=True)
+              start=time.perf_counter()
+              try:
+                  req=urllib.request.Request(url, headers={'Cache-Control':'no-cache'})
+                  with urllib.request.urlopen(req, timeout=timeout) as r:
+                      payload=json.load(r)
+                  return {'ok':True,'seconds':round(time.perf_counter()-start,3),'payload':payload}
+              except Exception as exc:
+                  return {'ok':False,'seconds':round(time.perf_counter()-start,3),'error':f'{type(exc).__name__}: {exc}'}
+
+          def summarize(name, result):
+              if not result['ok']:
+                  return {'name':name, **result}
+              p=result['payload']
+              recs=p.get('recommendations', [])
+              facets=p.get('facets', {})
+              names=[x.get('scientific_name','') for x in recs]
+              initials=Counter(n[:1].upper() for n in names if n)
+              return {
+                  'name':name,
+                  'ok':True,
+                  'seconds':result['seconds'],
+                  'version':p.get('version'),
+                  'method_version':p.get('method_version'),
+                  'catalog_schema_version':p.get('catalog_schema_version'),
+                  'search_scope':p.get('search_scope'),
+                  'alphabetical_prelimit':p.get('alphabetical_prelimit'),
+                  'function_code_space':p.get('function_code_space'),
+                  'life_form_mapping':p.get('life_form_mapping'),
+                  'cache_hit':p.get('cache_hit'),
+                  'metrics':p.get('metrics'),
+                  'pagination':p.get('pagination'),
+                  'active_filters':p.get('active_filters'),
+                  'life_form_facets':facets.get('life_form'),
+                  'function_facets':facets.get('functions'),
+                  'climate_status_facets':facets.get('climate_status'),
+                  'soil_status_facets':facets.get('soil_status'),
+                  'climate_status_sum':sum(int(v) for v in facets.get('climate_status',{}).values()),
+                  'soil_status_sum':sum(int(v) for v in facets.get('soil_status',{}).values()),
+                  'top_initials':dict(sorted(initials.items())),
+                  'first_20_names':names[:20],
+              }
+
+          health=fetch_json('/health', timeout=30)
+          base={'lat':'47.16','lon':'-1.27','horizon':'2050','scenario':'MEDIUM','life_form':'TREE','offset':'0','limit':'50'}
+          checks=[
+              summarize('tree', fetch_json('/recommendations/search', base)),
+              summarize('tree_page2', fetch_json('/recommendations/search', {**base,'offset':'50'})),
+              summarize('tree_food_human', fetch_json('/recommendations/search', {**base,'function':['FOOD_HUMAN'],'limit':'20'})),
+              summarize('herb', fetch_json('/recommendations/search', {**base,'life_form':'HERB','limit':'10'})),
+          ]
+
+          expected={
+              'config.js':['search-v1.js?rev=20260822-2','funnel-v1.js?rev=20260822-2'],
+              'search-v1.js':['recommendations/search','active-filter-chip','server-filter-group'],
+              'search-v1.css':['server-filter-group','progress-row-five'],
+              'funnel-v1.js':['Type de végétaux','Fonction documentée','Sol local'],
+          }
+          assets={}
+          for name,tokens in expected.items():
+              url=f'{OVH}/{name}?diag={int(time.time())}'
+              try:
+                  req=urllib.request.Request(url, headers={'Cache-Control':'no-cache'})
+                  with urllib.request.urlopen(req, timeout=30) as r:
+                      text=r.read().decode('utf-8',errors='replace')
+                  assets[name]={'ok':True,'missing_tokens':[t for t in tokens if t not in text],'bytes':len(text.encode('utf-8'))}
+              except Exception as exc:
+                  assets[name]={'ok':False,'error':f'{type(exc).__name__}: {exc}'}
+
+          report={
+              'status':'diagnostic',
+              'collected_at':datetime.now(timezone.utc).isoformat(),
+              'health':health,
+              'checks':checks,
+              'assets':assets,
+          }
+          Path('/tmp/exhaustive-search-production-diagnostic.json').write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+          print(json.dumps(report, ensure_ascii=False, indent=2), flush=True)
+          PY
+
+      - name: Persist diagnostic report
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/exhaustive-search-production-diagnostic.json .github/exhaustive-search-production-diagnostic.json
+            git add .github/exhaustive-search-production-diagnostic.json
+            git diff --cached --quiet && exit 0
+            git commit -m "Record exhaustive search production diagnostic [skip ci]"
+            git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1

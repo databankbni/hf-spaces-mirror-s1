@@ -1,0 +1,101 @@
+version: 2
+
+models:
+  - name: customer_health_daily
+    description: "Per-customer health metrics computed daily from all signal sources"
+    columns:
+      - name: customer_id
+        description: "Unique identifier for the customer"
+        tests:
+          - not_null
+      - name: tenant_id
+        description: "B2B SaaS tenant identifier"
+        tests:
+          - not_null
+      - name: snapshot_date
+        description: "Date when metrics snapshot was taken"
+        tests:
+          - not_null
+      - name: avg_priority
+        description: "Weighted average priority score of tickets (1-4)"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 4
+
+  - name: ticket_funnel_daily
+    description: "Daily ticket volume by category, priority, and source"
+    columns:
+      - name: tenant_id
+        description: "B2B SaaS tenant identifier"
+        tests:
+          - not_null
+      - name: event_count
+        description: "Total ticket count for the day"
+        tests:
+          - not_null
+
+  - name: incident_severity_hourly
+    description: "Hourly incident counts by severity"
+    columns:
+      - name: tenant_id
+        description: "B2B SaaS tenant identifier"
+        tests:
+          - not_null
+      - name: incident_count
+        description: "Number of system incidents detected"
+        tests:
+          - not_null
+
+  - name: billing_failure_summary
+    description: "Daily billing failures and subscription cancellations summary"
+    columns:
+      - name: tenant_id
+        description: "B2B SaaS tenant identifier"
+        tests:
+          - not_null
+      - name: billing_event_count
+        description: "Total billing events registered"
+        tests:
+          - not_null
+
+  - name: product_adoption_features
+    description: "Daily count of product interactions per customer account"
+    columns:
+      - name: tenant_id
+        description: "B2B SaaS tenant identifier"
+        tests:
+          - not_null
+      - name: customer_id
+        description: "Unique identifier for the customer"
+        tests:
+          - not_null
+      - name: total_product_events
+        description: "Total product usage events"
+        tests:
+          - not_null
+
+  - name: retention_cohort_metrics
+    description: "Weekly and monthly retention metrics by customer signup cohorts"
+    columns:
+      - name: tenant_id
+        description: "B2B SaaS tenant identifier"
+        tests:
+          - not_null
+      - name: cohort_size
+        description: "Number of new customers signed up on the cohort date"
+        tests:
+          - not_null
+
+  - name: support_agent_performance
+    description: "Daily summary of ticket volume and descriptive stats for agents"
+    columns:
+      - name: tenant_id
+        description: "B2B SaaS tenant identifier"
+        tests:
+          - not_null
+      - name: tickets_created
+        description: "Number of tickets processed for this slice"
+        tests:
+          - not_null

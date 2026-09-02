@@ -1,0 +1,894 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MiniMax Music 3 vs LeVo 2 — one voice, no instruments</title>
+<style>
+:root{--bg:#fbfaf8;--fg:#1c1b19;--mut:#6b6862;--line:#e3e0da;--card:#fff;--acc:#7c3aed;--good:#15803d;--bad:#b91c1c;--warn:#a16207}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#14131a;--fg:#e9e7e4;--mut:#9a968e;--line:#2c2a33;--card:#1b1a22;--acc:#a78bfa;--good:#4ade80;--bad:#f87171;--warn:#fbbf24}}
+:root[data-theme=dark]{--bg:#14131a;--fg:#e9e7e4;--mut:#9a968e;--line:#2c2a33;--card:#1b1a22;--acc:#a78bfa;--good:#4ade80;--bad:#f87171;--warn:#fbbf24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:44px 18px 90px}
+h1{font-size:2rem;margin:0 0 .25em;letter-spacing:-.02em;line-height:1.2}
+h2{font-size:1.3rem;margin:2.4em 0 .5em;border-bottom:1px solid var(--line);padding-bottom:.3em}
+h3{font-size:1.02rem;margin:1.7em 0 .3em}
+.sub{color:var(--mut);font-size:1.04rem;margin:0 0 1.8em}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:1em 0}
+table{border-collapse:collapse;width:100%;font-size:.87rem;min-width:640px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+th:first-child,td:first-child{text-align:left}
+th{font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);white-space:nowrap}
+audio{width:100%;max-width:260px;height:32px;display:block;margin:6px 0}
+.up{color:var(--good);font-weight:600}.dn{color:var(--bad);font-weight:600}
+.t{font-size:.75rem;color:var(--mut);font-weight:400}
+.q{font-size:.81rem;color:var(--mut);font-style:italic;text-align:left!important}
+.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:11px;padding:15px 18px;margin:1.3em 0}
+.note.b{border-left-color:var(--bad)}.note.w{border-left-color:var(--warn)}.note.g{border-left-color:var(--good)}
+code{background:var(--card);border:1px solid var(--line);padding:1px 5px;border-radius:4px;font-size:.87em}
+pre{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:13px 15px;overflow-x:auto;font-size:.84rem;white-space:pre-wrap}
+a{color:var(--acc)} ul{padding-left:22px}li{margin:6px 0}
+.nav{display:flex;gap:9px;flex-wrap:wrap;margin:1.2em 0}
+.nav a{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:5px 13px;text-decoration:none;color:var(--acc);font-size:.85rem}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin:1.5em 0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:13px 15px}
+.tile b{display:block;font-size:1.5rem;line-height:1.15;letter-spacing:-.02em}
+.tile span{font-size:.76rem;color:var(--mut)}
+.row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:16px 0}
+.rowhead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between}
+.rowhead b{font-size:1.05rem}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px;margin-top:12px}
+.col{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:var(--bg)}
+.col h4{margin:0 0 6px;font-size:.9rem}
+.sc{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px;font-size:.78rem}
+.sc i{font-style:normal;color:var(--mut)}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:2px 7px;white-space:nowrap}
+.diff{font-size:.85rem;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+</style>
+<div class="wrap">
+<p><a href="index.html">&larr; overview</a></p>
+
+<h1>MiniMax Music 3 vs LeVo 2 &mdash; one voice, no instruments</h1>
+<p class="sub">Twenty prompts spread across the measured genre space, the same prompt to both models, vocals only. Every clip judged blind, twice, by Gemini&nbsp;3.6&nbsp;Flash on five anchored axes, and the "no instruments" claim checked against BS-Roformer stem separation rather than left to the judge. All audio 160&nbsp;kbps stereo.</p>
+<div class="nav"><a href="#verdict">verdict</a><a href="#scores">scores</a><a href="#noise">how much is noise</a><a href="#objective">objective check</a><a href="#method">method</a><a href="#rows">all 20, side by side</a></div>
+<div class="tiles"><div class="tile"><b>1.62</b><span>MiniMax — overall (0-5)</span></div><div class="tile"><b>3.20</b><span>LeVo vocal — overall (0-5)</span></div><div class="tile"><b class="dn">0.45</b><span>re-judging the same clip moves overall by this much</span></div><div class="tile"><b>0.3751</b><span>MiniMax — accompaniment fraction</span></div><div class="tile"><b>0.0000</b><span>LeVo vocal — accompaniment fraction</span></div></div>
+<div class="note" id="verdict"><b>Verdict.</b> <b>LeVo 2 wins overall</b>: 1.62 vs 3.20, a paired difference of 1.57 &plusmn; 0.35 against a re-judging spread of 0.45 on the same axis, winning 18 of the 20 prompts, so the difference survives the measurement's own noise. Axis by axis, the differences that clear their own noise floor are: <b>singing quality</b> 2.90 vs 3.77, paired difference -0.88 &plusmn; 0.18 (noise floor 0.45; 2 prompts to 15, 3 tied); <b>no instruments</b> 2.55 vs 4.65, paired difference -2.10 &plusmn; 0.23 (noise floor 0.23; 0 prompts to 18, 2 tied); <b>genre match</b> 2.27 vs 3.17, paired difference -0.90 &plusmn; 0.37 (noise floor 0.55; 3 prompts to 16, 1 tied); <b>overall</b> 1.62 vs 3.20, paired difference -1.57 &plusmn; 0.35 (noise floor 0.45; 2 prompts to 18, 0 tied). Not separable: one voice alone. Objectively, BS-Roformer assigns 0.3751 of MiniMax's separated energy to something other than the voice, against 0.0000 for LeVo 2 in its a cappella mode.<br><br><b>Read the LeVo column with this in mind.</b> LeVo 2's a cappella clips are rendered with <code>gen_type='vocal'</code>, which never decodes the model's bgm codebook at all: an accompaniment is not suppressed by the prompt, it is structurally impossible. MiniMax Music 3 has no equivalent switch, so for it "no instruments" is a request the model can refuse. The third column is the control &mdash; the identical prompt given to LeVo 2 with <code>gen_type='mixed'</code>, where it must comply by prompt alone, and where its accompaniment fraction rises to 0.5812. Comparing MiniMax against that column is the like-for-like prompt-compliance test; comparing it against the vocal column is a comparison of what each system can be made to deliver.<br><br><b>Against that control, the picture changes.</b> Paired, MiniMax minus LeVo&nbsp;2 in mixed mode: singing quality -0.82 &plusmn; 0.18 (noise 0.45); one voice alone +0.25 &plusmn; 0.46 (noise 0.58); no instruments +0.55 &plusmn; 0.22 (noise 0.23); genre match -0.10 &plusmn; 0.35 (noise 0.55); overall +0.33 &plusmn; 0.24 (noise 0.45). The differences that clear both their noise floor and twice their standard error are singing quality, no instruments. So when both models have to keep the instruments out by prompt alone, MiniMax is the better of the two at doing it &mdash; it just sings less well. Neither is close to a cappella in that condition.</div>
+<h2 id="scores">Per-axis scores</h2>
+<p>Five axes, each anchored in words at every level rather than left as a bare 0-5 scale. <b>S</b> is the singing alone; <b>V</b> counts voices and ignores instruments; <b>I</b> counts non-vocal sound and ignores how many singers there are; <b>G</b> is fit to the requested style, age and gender; <b>O</b> is one holistic judgement. V and I are deliberately separated: the older two-axis rubric folded them together, which is exactly the confound the stem-separation row below exists to break. Each arm appears twice &mdash; as generated, and as its BS-Roformer vocal stem.</p>
+<div class="scroll"><table><thead><tr><th>arm</th><th>n</th><th>singing quality<br><span class="t">S</span></th><th>one voice alone<br><span class="t">V</span></th><th>no instruments<br><span class="t">I</span></th><th>genre match<br><span class="t">G</span></th><th>overall<br><span class="t">O</span></th></tr></thead><tbody>
+<tr><td>MiniMax Music 3</td><td>20</td>
+<td><span class="dn">2.90</span><br><span class="t">&plusmn;0.68</span></td>
+<td>3.73<br><span class="t">&plusmn;1.22</span></td>
+<td><span class="dn">2.55</span><br><span class="t">&plusmn;0.93</span></td>
+<td><span class="dn">2.27</span><br><span class="t">&plusmn;1.35</span></td>
+<td><span class="dn">1.62</span><br><span class="t">&plusmn;0.97</span></td>
+</tr>
+<tr><td><span class="t">&mdash; vocal stem</span></td><td>20</td>
+<td><span class="dn">2.33</span><br><span class="t">&plusmn;0.92</span></td>
+<td><span class="up">4.15</span><br><span class="t">&plusmn;1.27</span></td>
+<td><span class="up">4.45</span><br><span class="t">&plusmn;0.94</span></td>
+<td><span class="dn">2.10</span><br><span class="t">&plusmn;1.17</span></td>
+<td><span class="dn">1.93</span><br><span class="t">&plusmn;1.04</span></td>
+</tr>
+<tr><td>LeVo 2 <span class="t">(gen_type=vocal)</span></td><td>20</td>
+<td>3.77<br><span class="t">&plusmn;0.47</span></td>
+<td><span class="up">4.28</span><br><span class="t">&plusmn;1.15</span></td>
+<td><span class="up">4.65</span><br><span class="t">&plusmn;0.76</span></td>
+<td>3.17<br><span class="t">&plusmn;1.68</span></td>
+<td>3.20<br><span class="t">&plusmn;1.37</span></td>
+</tr>
+<tr><td><span class="t">&mdash; vocal stem</span></td><td>20</td>
+<td>3.77<br><span class="t">&plusmn;0.66</span></td>
+<td><span class="up">4.28</span><br><span class="t">&plusmn;1.11</span></td>
+<td><span class="up">4.95</span><br><span class="t">&plusmn;0.22</span></td>
+<td>3.25<br><span class="t">&plusmn;1.54</span></td>
+<td>3.20<br><span class="t">&plusmn;1.33</span></td>
+</tr>
+<tr><td>LeVo 2 <span class="t">(gen_type=mixed)</span></td><td>20</td>
+<td>3.73<br><span class="t">&plusmn;0.44</span></td>
+<td>3.48<br><span class="t">&plusmn;1.26</span></td>
+<td><span class="dn">2.00</span><br><span class="t">&plusmn;0.16</span></td>
+<td><span class="dn">2.38</span><br><span class="t">&plusmn;1.44</span></td>
+<td><span class="dn">1.30</span><br><span class="t">&plusmn;0.41</span></td>
+</tr>
+<tr><td><span class="t">&mdash; vocal stem</span></td><td>20</td>
+<td>3.55<br><span class="t">&plusmn;0.74</span></td>
+<td>3.70<br><span class="t">&plusmn;1.45</span></td>
+<td><span class="up">4.97</span><br><span class="t">&plusmn;0.11</span></td>
+<td>3.23<br><span class="t">&plusmn;1.42</span></td>
+<td><span class="dn">2.95</span><br><span class="t">&plusmn;1.23</span></td>
+</tr>
+</tbody></table></div>
+<p class="t">Mean over n clips &plusmn; standard deviation across clips. Each clip's score is the mean of two independent judging passes. Green &ge; 4.00, red &lt; 3.00.</p>
+<h3>Paired, prompt by prompt</h3>
+<p>Both arms saw byte-identical prompts on the same 20 genres, so the comparison can be paired: for each prompt, MiniMax minus LeVo. Pairing removes the between-genre variance, which is much larger than the between-model variance and would otherwise bury it. A positive number favours MiniMax.</p>
+<div class="scroll"><table><thead><tr><th>comparison</th><th>axis</th><th>mean difference</th><th>&plusmn; s.e.</th><th>prompts won by MiniMax</th><th>tied</th><th>won by LeVo</th></tr></thead><tbody>
+<tr><td>MiniMax &minus; LeVo vocal <span class="t">(n=20)</span></td><td>singing quality</td><td>-0.88</td><td>0.18</td><td>2</td><td>3</td><td>15</td></tr>
+<tr><td></td><td>one voice alone</td><td>-0.55</td><td>0.42</td><td>4</td><td>6</td><td>10</td></tr>
+<tr><td></td><td>no instruments</td><td>-2.10</td><td>0.23</td><td>0</td><td>2</td><td>18</td></tr>
+<tr><td></td><td>genre match</td><td>-0.90</td><td>0.37</td><td>3</td><td>1</td><td>16</td></tr>
+<tr><td></td><td>overall</td><td>-1.57</td><td>0.35</td><td>2</td><td>0</td><td>18</td></tr>
+<tr><td>MiniMax &minus; LeVo mixed <span class="t">(n=20)</span></td><td>singing quality</td><td>-0.82</td><td>0.18</td><td>1</td><td>5</td><td>14</td></tr>
+<tr><td></td><td>one voice alone</td><td>+0.25</td><td>0.46</td><td>10</td><td>4</td><td>6</td></tr>
+<tr><td></td><td>no instruments</td><td>+0.55</td><td>0.22</td><td>6</td><td>13</td><td>1</td></tr>
+<tr><td></td><td>genre match</td><td>-0.10</td><td>0.35</td><td>7</td><td>4</td><td>9</td></tr>
+<tr><td></td><td>overall</td><td>+0.33</td><td>0.24</td><td>6</td><td>11</td><td>3</td></tr>
+</tbody></table></div>
+<h2 id="noise">How much of this is noise</h2>
+<p>Every clip was judged twice, in two independent passes over a shuffled queue, 120 clips in both. The table is the disagreement between those two passes: it is the smallest difference this measurement can see. Any gap in the table above that is narrower than the corresponding row here is noise, and the verdict treats it as such.</p>
+<div class="scroll"><table><thead><tr><th>axis</th><th>n clips</th><th>mean |pass1 &minus; pass2|</th><th>identical</th><th>within 1 point</th><th>r</th></tr></thead><tbody>
+<tr><td>singing quality <span class="t">S</span></td><td>120</td><td>0.45</td><td>61%</td><td>95%</td><td>0.668</td></tr>
+<tr><td>one voice alone <span class="t">V</span></td><td>120</td><td>0.58</td><td>67%</td><td>82%</td><td>0.682</td></tr>
+<tr><td>no instruments <span class="t">I</span></td><td>120</td><td>0.23</td><td>87%</td><td>93%</td><td>0.882</td></tr>
+<tr><td>genre match <span class="t">G</span></td><td>120</td><td>0.55</td><td>54%</td><td>92%</td><td>0.847</td></tr>
+<tr><td>overall <span class="t">O</span></td><td>120</td><td>0.45</td><td>66%</td><td>92%</td><td>0.823</td></tr>
+</tbody></table></div>
+<h2 id="objective">The objective check: accompaniment fraction</h2>
+<p>The judge is a language model listening to audio; it can be wrong about whether a guitar is there. <code>acc_frac</code> is not: it is BS-Roformer's own energy split, <code>&#124;&#124;instrumental&#124;&#124;&sup2; / (&#124;&#124;vocal&#124;&#124;&sup2; + &#124;&#124;instrumental&#124;&#124;&sup2;)</code>, the share of separated energy the separator assigned to something that is not a voice. A bare voice sits near zero; an ordinary pop mix is 0.5&ndash;0.9. The last column is the diagnostic that matters: if <b>V</b> (one voice alone) does <i>not</i> improve once the instruments are stripped out, whatever the judge heard was a second <i>singer</i>, because a vocal separator pulls voice away from instruments and never voice away from voice.</p>
+<div class="scroll"><table><thead><tr><th>arm</th><th>n</th><th>mean</th><th>median</th><th>min</th><th>max</th><th>clips &gt; 0.05</th><th>judge I (mix)</th><th>judge V mix &rarr; stem</th></tr></thead><tbody>
+<tr><td>MiniMax Music 3</td><td>20</td><td>0.3751</td><td>0.4028</td><td>0.0578</td><td>0.7159</td><td>20</td><td>3.73</td><td>3.73 &rarr; 4.15 <span class="t">(+0.43)</span></td></tr>
+<tr><td>LeVo 2 <span class="t">(gen_type=vocal)</span></td><td>20</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0002</td><td>0</td><td>4.28</td><td>4.28 &rarr; 4.28 <span class="t">(+0.00)</span></td></tr>
+<tr><td>LeVo 2 <span class="t">(gen_type=mixed)</span></td><td>20</td><td>0.5812</td><td>0.5847</td><td>0.3189</td><td>0.7879</td><td>20</td><td>3.48</td><td>3.48 &rarr; 3.70 <span class="t">(+0.23)</span></td></tr>
+</tbody></table></div>
+<h2 id="method">Method</h2>
+
+<h3>How the 20 prompts were sampled</h3>
+<p>The frame is the 153-genre solo-voice taxonomy built earlier in this project, reduced to
+<b>50 clusters</b> by Ward linkage on VoiceCLAP genre centroids; each cluster is represented by
+its <b>medoid</b>, a real genre rather than a synthetic average. From those 50 medoids the 20
+here were chosen by <b>farthest-point sampling</b> on the same cosine geometry &mdash; seed the
+largest cluster, then repeatedly take the medoid whose minimum distance to everything already
+chosen is largest. No RNG, so the set is reproducible from
+<code>song/scripts/mm_prompts.py</code>.</p>
+<p>The result is a spread rather than 20 variations of one thing: minimum pairwise cosine
+distance inside the 20 is <b>0.303</b>, against <b>0.082</b> across all 50 medoids, so no two
+prompts are near-duplicates. It covers <b>10 of the 11</b> families present among the medoids,
+all five age bands (one child, two teen, four young adult, twelve adult, one older) and all
+three gender targets. Family and age coverage were <i>checked</i>, never <i>imposed</i>: they
+fall out of the geometry.</p>
+
+<h3>One prompt, given to both</h3>
+<p>Every genre has a single prompt string handed verbatim to both models, and one lyric shared
+across all 20 genres so that any measured difference is the singing and not the words.</p>
+<p><b>A ceiling set by LeVo, applied to both.</b> LeVo 2 feeds the description to its
+<code>type_info</code> conditioner, configured <code>max_len: 100</code> and truncating with
+<code>x[:, :max_len]</code> &mdash; a silent tail cut. One token is the <code>&lt;|im_start|&gt;</code>
+it prepends, leaving 99. This project's standard vocals-only caption tokenises to 94&ndash;109
+Qwen tokens, so <b>9 of these 20 prompts would have been cut</b>, several of them losing the
+words &ldquo;no choir or background vocals&rdquo;. The caption was therefore rewritten compactly
+to <b>57&ndash;65 tokens</b>, keeping every element (solo, a&nbsp;cappella, gender, age, no
+instruments, no backing track, no second voice, no harmony, no choir, the genre clause, dry
+close-mic) &mdash; and the same short caption went to <i>both</i> models. Shortening is prompt
+tailoring, so it was applied to both arms or it would not have been applied at all.</p>
+<p><b>The lyric syntax differs, and has to.</b> The words are identical; only the separators
+change, because the two checkpoints have incompatible input contracts:</p>
+<ul>
+<li><b>MiniMax Music 3</b> &mdash; each <code>[tag]</code> on its own line. Text sharing a line
+with a leading tag is dropped by the checkpoint
+(<code>diffusers/modular_pipelines/minimax_music3/encoders.py::_normalize_lyrics</code>).</li>
+<li><b>LeVo 2</b> &mdash; one line, <code>' ; '</code> between sections, <code>'.'</code> between
+phrases.</li>
+</ul>
+<p>The one lyric, in both forms, in full:</p>
+<pre>MiniMax Music 3
+[verse]
+I left the window open half the night
+counting all the reasons I should stay
+the morning came in quiet as a hand
+and took the argument away
+[chorus]
+So carry me, carry me home
+over the water and back through the town
+carry me, carry me home
+before the light goes down
+
+LeVo 2
+[verse] I left the window open half the night. counting all the reasons I should stay. the morning came in quiet as a hand. and took the argument away. ; [chorus] So carry me, carry me home. over the water and back through the town. carry me, carry me home. before the light goes down.</pre>
+
+<h3>What was reused and what was generated</h3>
+<p><b>Nothing was reused.</b> All 60 clips were generated for this comparison.
+The existing LeVo 2 corpora were checked rather than assumed: all 20 genres appear in
+<code>TTS-AGI/levo2-vocals-captioned</code> (8,582 clips, 85 genres) and 15 of 20 in
+<code>levo2-vocals-gender-rebalance</code>, but those corpora use short tag-style descriptions
+(&ldquo;male, rock, sixties surf pop lead vocal, &hellip;&rdquo;) &mdash; 210 and 60 distinct
+prompts respectively, and <b>zero</b> of them match any of the 20 prompts used here. Under a
+rule of identical prompts to both models, genre-matched is not prompt-matched, so none of them
+were eligible.</p>
+
+<h3>Generation</h3>
+<ul>
+<li><b>MiniMax Music 3</b> &mdash; the diffusers modular pipeline. The model card's three
+runtimes are SGLang-Omni, diffusers and ComfyUI; the sglang-omni build present on this system
+has no <code>minimax_music3</code> model, so diffusers was the route taken. It lives in an
+unmerged PR, installed with <code>--no-deps</code> into a directory on
+<code>PYTHONPATH</code> so no existing environment was modified.
+One GH200 per shard, four shards, bf16, peak 22.8&nbsp;GiB &mdash; it fits the 24&nbsp;GB card the model card claims. 61&nbsp;s of wall clock per clip (20 GPU-minutes for all 20), 44.1&nbsp;kHz stereo, <code>audio_duration=45</code>, 30 flow-matching steps per chunk. The language model emits an end-of-audio token when it has finished the lyric, so the renders run 15&ndash;30&nbsp;s (mean 22.4&nbsp;s) rather than the full 45.</li>
+<li><b>LeVo 2 / SongGeneration-v2-large</b> &mdash; <code>gen_type='vocal'</code> for the main
+arm and <code>gen_type='mixed'</code> for the control, otherwise identical settings
+(temperature 0.9, top-k 50, cfg 2.0, 30 s). 50&nbsp;s per clip, 48&nbsp;kHz stereo, renders 20&ndash;30&nbsp;s (mean 28.2&nbsp;s). The two arms therefore differ in mean clip length by about 6&nbsp;s, which is stated because a shorter clip gives an instrument less time to appear; the objective accompaniment fraction is an energy ratio and is not affected by it.</li>
+<li>Both arms: one seed per prompt, the same seed (4242) for every clip, 30 s kept.</li>
+</ul>
+
+<h3>What it took to run MiniMax Music 3 here</h3>
+<p>Recorded because &ldquo;it runs&rdquo; was not a given: aarch64 GH200, torch already installed,
+compute nodes with no internet. Nothing was <code>pip install</code>ed without
+<code>--no-deps</code>, and no existing environment was modified.</p>
+<ul>
+<li><b>Weights</b> &mdash; 57 GB in the repo; only the 28 GB the diffusers path needs was
+fetched (the 9.8 GB <code>flowmatching_vae.pth</code> and the 48-shard <code>qwen_7B/</code>
+tree serve the SGLang runtime). Fetched on the login node, 32 files in 29 s.</li>
+<li><b>diffusers</b> &mdash; MiniMax Music 3 is in an unmerged PR
+(<code>huggingface/diffusers@dafe3733</code>). Installed with
+<code>uv pip install --no-deps --target song/dfmm</code> and put on <code>PYTHONPATH</code>, so
+<code>env_song</code>'s own diffusers 0.39.0 is untouched. That is the only thing installed for
+this work.</li>
+<li><b>The hub id does not work offline.</b> <code>modular_model_index.json</code> names the
+repo id for every component, so with a warm cache and <code>HF_HUB_OFFLINE=1</code> the loader
+still calls the Hub API and fails. Fixed by materialising a directory of symlinks with the
+component paths rewritten to point at it (<code>mm_localise.py</code>).</li>
+<li><b>The tokenizer folder is incomplete for the class the pipeline declares.</b> The pipeline
+asks for the slow <code>Qwen2Tokenizer</code>, which wants <code>vocab.json</code> +
+<code>merges.txt</code>; <code>tokenizer/</code> ships only <code>tokenizer.json</code>, and the
+protobuf fallback is not installed. The repo's other tokenizer copy has both files, and it was
+checked to be the same tokenizer &mdash; identical vocab, merges and added tokens, differing
+only in serialised bytes &mdash; before being linked in.</li>
+<li><b>One import from the future.</b> <code>diffusers/pipelines/pipeline_utils.py</code>
+imports <code>get_cached_repo_tree</code> / <code>CachedRepoTreeNotFoundError</code>, which
+postdate huggingface_hub 0.36.2. Shimmed in-process to raise the "nothing cached" error rather
+than upgrading huggingface_hub underneath ACE-Step.</li>
+<li><b>It then just works.</b> bf16, peak 22.8&nbsp;GiB, no flash-attention wheel needed, no
+custom kernels, 60&nbsp;s per clip on one GH200. The vocoder reports 44.1&nbsp;kHz, not the
+32&nbsp;kHz the model card states.</li>
+</ul>
+
+<h3>Verifying the LeVo 2 baseline rather than assuming it</h3>
+<p>The prior figures for LeVo 2 on this task were singing quality 4.40, one-voice compliance
+4.07, no change across stem separation, and a measured accompaniment fraction of 0.0037.
+Two of those reproduce and two do not, for reasons worth stating:</p>
+<ul>
+<li><b>No change across stem separation: reproduced exactly.</b> LeVo's one-voice score is
+4.28 on the mix and 4.28 on the stem &mdash; a delta of
++0.00. There is nothing for a separator to take away.</li>
+<li><b>Accompaniment fraction: lower still, 0.0000</b> (max over 20 clips
+0.0002). Measured here as the separator's own energy split rather than by the
+earlier method, so the two numbers are not the same statistic; both say the same thing.</li>
+<li><b>Singing quality 3.77, not 4.40</b>, and one-voice 4.28, not 4.07.
+Neither is a contradiction: this is a different rubric with different anchors, a different
+prompt, one seed per genre, and a genre set chosen for spread rather than for what LeVo does
+well. The prior numbers are not a baseline this run can be scored against, which is why they
+are not used as one anywhere above.</li>
+</ul>
+
+<h3>Judging</h3>
+<p>Gemini 3.6 Flash over the native <code>generateContent</code> endpoint with
+<code>thinkingConfig: {"thinkingLevel": "low"}</code> &mdash;
+<code>{"thinkingBudget": 0}</code> returns HTTP&nbsp;400 for this model on this endpoint,
+verified against the live API before the run. Audio at 128&nbsp;kbps, because one of the axes
+is audio quality and the codec must not be the thing being graded.</p>
+<p><b>Blind by construction.</b> Each request carries exactly one clip plus the prompt and
+lyrics it was generated from. No model name, no file name, no arm label, and never two clips in
+one request, so there is nothing in the request that could identify the generator; the queue is
+shuffled as well, so dispatch order carries no signal either. Each clip was judged twice, in two
+independent passes with separate caches.</p>
+
+<h2 id="rows">All 20, side by side</h2>
+<p>Each row shows the prompt exactly as both models received it, both takes, the five per-clip scores (mean of the two judging passes), the accompaniment fraction, and the judge's own one-line description of what it heard. The note under each row is generated from the numbers, not written by hand.</p>
+<div class="row">
+<div class="rowhead"><b>1. Sámi joik</b><span class="t">joik &middot; world &middot; adult &middot; any &middot; stands for 8 genres</span></div>
+<pre>a cappella solo voice, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; sami joik, cyclical wordless vocable chant, guttural and hypnotic; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_00_joik.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 2.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 3.0 V 5.0 I 4.5 G 1.0 O 1.5</div>
+<div class="t">accompaniment fraction 0.6143</div>
+<div class="q">&ldquo;A male lead voice singing folk-pop accompanied by acoustic guitar, subtle ambient synth pads, percussion snaps, and layering vocal harmonies.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_00_joik.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 4.0 V 5.0 I 5.0 G 1.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;a single female voice singing a soft folk-pop melody with no instruments or backing voices&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_00_joik.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 4.0 V 5.0 I 5.0 G 1.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.7034</div>
+<div class="q">&ldquo;A female voice singing a sweet folk/pop melody accompanied by a prominent acoustic ukulele or guitar and light percussion.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 2.0: LeVo ahead by 1.0, wider than the 0.45-point noise floor. The widest axis is <b>one voice alone</b> (2.0 vs 5.0). Accompaniment fraction 0.614 vs 0.000. Stripping the instruments raises MiniMax's one-voice score by 3.0, so what the judge heard was instrumental bleed.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>2. Teen pop</b><span class="t">pop_teen &middot; pop &middot; teen &middot; female &middot; stands for 6 genres</span></div>
+<pre>a cappella solo voice, female, a teenager; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; teen pop, bright youthful thin-bodied voice, eager and unweathered; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_01_pop_teen.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 2.5</span><span class="pill"><i>V</i> 4.0</span><span class="pill"><i>I</i> 3.5</span><span class="pill"><i>G</i> 4.0</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 3.0 V 4.0 I 2.0 G 3.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.0990</div>
+<div class="q">&ldquo;A single young female voice singing dry and completely unaccompanied, though with heavy digital glitchey vocal artifacts.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_01_pop_teen.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 4.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 5.0</span><span class="pill"><i>O</i> 4.5</span></div>
+<div class="t">vocal stem: S 4.5 V 5.0 I 5.0 G 5.0 O 5.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;a single teen female voice singing alone in the verses, joined by layered harmonies/doubling in the chorus with no instruments present&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_01_pop_teen.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 3.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 4.0</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 4.0 V 2.0 I 5.0 G 4.5 O 3.0</div>
+<div class="t">accompaniment fraction 0.7785</div>
+<div class="q">&ldquo;A female teenage voice singing with a full instrumental arrangement including guitar, synths, and percussion.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 2.0 vs 4.5: LeVo ahead by 2.5, wider than the 0.45-point noise floor. The widest axis is <b>singing quality</b> (2.5 vs 4.0). Accompaniment fraction 0.099 vs 0.000. Stripping the instruments moves MiniMax's one-voice score by +0.0 &mdash; barely, so the extra voice is a real second singer, not an instrument.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>3. Punk</b><span class="t">punk &middot; rock &middot; young_adult &middot; male &middot; stands for 4 genres</span></div>
+<pre>a cappella solo voice, male, in their twenties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; punk, shouted snarling barked delivery, aggressive and untrained; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_02_punk.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 3.0 V 5.0 I 4.0 G 1.0 O 1.5</div>
+<div class="t">accompaniment fraction 0.4362</div>
+<div class="q">&ldquo;A single male voice singing a soft folk-pop melody accompanied by strummed acoustic guitar and ambient synth pads.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_02_punk.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 4.5</span><span class="pill"><i>G</i> 4.5</span><span class="pill"><i>O</i> 4.5</span></div>
+<div class="t">vocal stem: S 4.0 V 5.0 I 5.0 G 4.5 O 4.5</div>
+<div class="t">accompaniment fraction 0.0002</div>
+<div class="q">&ldquo;nothing but a single voice&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_02_punk.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 3.0</span><span class="pill"><i>O</i> 1.5</span></div>
+<div class="t">vocal stem: S 4.5 V 5.0 I 5.0 G 5.0 O 5.0</div>
+<div class="t">accompaniment fraction 0.7231</div>
+<div class="q">&ldquo;A male voice singing with an acoustic guitar and backing drums/bass instrumental track.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 4.5: LeVo ahead by 3.5, wider than the 0.45-point noise floor. The widest axis is <b>genre match</b> (1.0 vs 4.5). Accompaniment fraction 0.436 vs 0.000.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>4. Indie pop</b><span class="t">indie_pop &middot; pop &middot; young_adult &middot; any &middot; stands for 1 genre</span></div>
+<pre>a cappella solo voice, in their twenties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; indie pop, slightly nasal untrained charm, close-mic breathiness, casual; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_03_indie_pop.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 3.5</span><span class="pill"><i>G</i> 4.0</span><span class="pill"><i>O</i> 3.5</span></div>
+<div class="t">vocal stem: S 3.5 V 5.0 I 5.0 G 4.5 O 4.0</div>
+<div class="t">accompaniment fraction 0.1964</div>
+<div class="q">&ldquo;A young female voice singing accompanied by an acoustic guitar.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_03_indie_pop.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.5</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 5.0</span><span class="pill"><i>O</i> 5.0</span></div>
+<div class="t">vocal stem: S 5.0 V 5.0 I 5.0 G 5.0 O 5.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;A single young female voice singing completely unaccompanied with no instruments or extra vocal layers present.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_03_indie_pop.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 2.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 3.5</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 3.5 V 2.0 I 5.0 G 5.0 O 3.0</div>
+<div class="t">accompaniment fraction 0.7879</div>
+<div class="q">&ldquo;A female indie pop voice singing over a full instrumental track of drums, bass, and guitar, with layered harmonized vocals joining in the chorus.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 3.5 vs 5.0: LeVo ahead by 1.5, wider than the 0.45-point noise floor. The widest axis is <b>no instruments</b> (3.5 vs 5.0). Accompaniment fraction 0.196 vs 0.000.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>5. Afrobeats</b><span class="t">afrobeats &middot; urban &middot; young_adult &middot; male &middot; stands for 1 genre</span></div>
+<pre>a cappella solo voice, male, in their twenties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; afrobeats, lilting melodic pidgin-inflected phrasing, relaxed buoyant swing; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_04_afrobeats.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 2.5</span><span class="pill"><i>V</i> 3.5</span><span class="pill"><i>I</i> 3.0</span><span class="pill"><i>G</i> 2.0</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 1.0 V 5.0 I 5.0 G 1.0 O 1.0</div>
+<div class="t">accompaniment fraction 0.5643</div>
+<div class="q">&ldquo;a male lead voice accompanied by finger snaps, subtle pad/bass tones, and layered vocal harmonies.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_04_afrobeats.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 4.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 4.0</span><span class="pill"><i>O</i> 3.5</span></div>
+<div class="t">vocal stem: S 4.0 V 5.0 I 4.0 G 4.0 O 3.5</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;a single young male voice singing with vocal pops, snaps, rhythmic vocal noises, and faint background vocal harmonizations/doubling&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_04_afrobeats.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 2.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 4.5</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 4.5 V 4.5 I 5.0 G 4.5 O 4.5</div>
+<div class="t">accompaniment fraction 0.5730</div>
+<div class="q">&ldquo;A male voice singing Afrobeats with backing vocal ad-libs, acoustic guitar, bass, shaker, and percussion.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 2.0 vs 3.5: LeVo ahead by 1.5, wider than the 0.45-point noise floor. The widest axis is <b>no instruments</b> (3.0 vs 5.0). Accompaniment fraction 0.564 vs 0.000. Stripping the instruments raises MiniMax's one-voice score by 1.5, so what the judge heard was instrumental bleed.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>6. Gothic metal soprano</b><span class="t">metal_gothic_female &middot; metal &middot; adult &middot; female &middot; stands for 2 genres</span></div>
+<pre>a cappella solo voice, female, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; gothic symphonic metal soprano, operatic vibrato over heaviness, ethereal; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_05_metal_gothic_female.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.5</span><span class="pill"><i>V</i> 3.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 3.5</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 4.0 V 5.0 I 5.0 G 3.0 O 4.0</div>
+<div class="t">accompaniment fraction 0.7159</div>
+<div class="q">&ldquo;A single operatic female soprano singing alone initially, joined by heavy metal percussion and drums halfway through.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_05_metal_gothic_female.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 2.0</span><span class="pill"><i>O</i> 3.0</span></div>
+<div class="t">vocal stem: S 3.0 V 5.0 I 5.0 G 2.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;nothing but a single voice&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_05_metal_gothic_female.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.5</span><span class="pill"><i>V</i> 2.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 3.0 V 1.5 I 5.0 G 1.5 O 1.5</div>
+<div class="t">accompaniment fraction 0.4651</div>
+<div class="q">&ldquo;A female voice singing acoustic folk-pop accompanied by acoustic guitar strumming and backing harmonies.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 2.0 vs 3.0: LeVo ahead by 1.0, wider than the 0.45-point noise floor. The widest axis is <b>no instruments</b> (2.0 vs 5.0). Accompaniment fraction 0.716 vs 0.000. Stripping the instruments raises MiniMax's one-voice score by 1.5, so what the judge heard was instrumental bleed.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>7. Chorister solo</b><span class="t">choirboy_solo &middot; classical &middot; child &middot; male &middot; stands for 1 genre</span></div>
+<pre>a cappella solo voice, male, a child of about eight; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; solo chorister boy, pure vibrato-free treble, echoing cathedral clarity; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_06_choirboy_solo.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.5</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 2.5 V 5.0 I 3.0 G 2.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.4206</div>
+<div class="q">&ldquo;An adult male singer performing with acoustic guitar accompaniment.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_06_choirboy_solo.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.5</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 4.0</span><span class="pill"><i>O</i> 4.0</span></div>
+<div class="t">vocal stem: S 3.5 V 5.0 I 5.0 G 4.0 O 4.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;nothing but a single voice&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_06_choirboy_solo.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 4.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 0.5</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 3.0 V 5.0 I 5.0 G 4.0 O 3.5</div>
+<div class="t">accompaniment fraction 0.5303</div>
+<div class="q">&ldquo;I hear an adult female singer accompanied by a full pop/soul instrumental arrangement with drums, bass, and electric guitar.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 4.0: LeVo ahead by 3.0, wider than the 0.45-point noise floor. The widest axis is <b>no instruments</b> (2.0 vs 5.0). Accompaniment fraction 0.421 vs 0.000.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>8. Power metal</b><span class="t">metal_power &middot; metal &middot; adult &middot; male &middot; stands for 1 genre</span></div>
+<pre>a cappella solo voice, male, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; power metal, soaring operatic high tenor, sustained ringing screams; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_07_metal_power.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 2.0 V 2.5 I 5.0 G 1.5 O 1.5</div>
+<div class="t">accompaniment fraction 0.2030</div>
+<div class="q">&ldquo;A male voice singing with prominent acoustic guitar accompaniment, fingerpicking, and rhythmic tapping sounds.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_07_metal_power.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 2.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 2.0</span><span class="pill"><i>O</i> 1.5</span></div>
+<div class="t">vocal stem: S 3.0 V 2.0 I 5.0 G 2.5 O 2.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;A male vocal singing in a folk/rock style, accompanied by acoustic guitar strumming and brief backing harmonies in the chorus.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_07_metal_power.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 2.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 2.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 3.0 V 2.5 I 5.0 G 2.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.5648</div>
+<div class="q">&ldquo;A male voice singing with prominent acoustic guitar strums and double-tracked/harmony voices joining in the chorus.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 1.5: LeVo ahead by 0.5, wider than the 0.45-point noise floor. The widest axis is <b>one voice alone</b> (5.0 vs 2.5). Accompaniment fraction 0.203 vs 0.000.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>9. Boy-band tenor</b><span class="t">pop_boyband &middot; pop &middot; teen &middot; male &middot; stands for 1 genre</span></div>
+<pre>a cappella solo voice, male, a teenager; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; boy-band lead, light high tenor, earnest and smooth, adolescent brightness; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_08_pop_boyband.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 2.5</span><span class="pill"><i>V</i> 2.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 3.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 1.0 V 5.0 I 5.0 G 1.5 O 1.0</div>
+<div class="t">accompaniment fraction 0.3268</div>
+<div class="q">&ldquo;A male vocalist accompanied by an acoustic guitar, percussion snaps, and stacked backing vocals.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_08_pop_boyband.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.5</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 5.0</span><span class="pill"><i>O</i> 5.0</span></div>
+<div class="t">vocal stem: S 4.5 V 5.0 I 5.0 G 5.0 O 5.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;nothing but a single voice&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_08_pop_boyband.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.5</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 4.5</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 5.0 V 5.0 I 5.0 G 5.0 O 5.0</div>
+<div class="t">accompaniment fraction 0.4698</div>
+<div class="q">&ldquo;A single young male voice singing lead accompanied by an audible electric piano track.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 5.0: LeVo ahead by 4.0, wider than the 0.45-point noise floor. The widest axis is <b>one voice alone</b> (2.0 vs 5.0). Accompaniment fraction 0.327 vs 0.000. Stripping the instruments raises MiniMax's one-voice score by 3.0, so what the judge heard was instrumental bleed.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>10. Patter song</b><span class="t">patter_song &middot; theatre &middot; adult &middot; male &middot; stands for 2 genres</span></div>
+<pre>a cappella solo voice, male, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; comic patter song, extremely fast precise consonants, breathless wit; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_09_patter_song.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 2.5</span><span class="pill"><i>V</i> 1.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 0.5</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 2.0 V 0.5 I 5.0 G 0.5 O 1.0</div>
+<div class="t">accompaniment fraction 0.4908</div>
+<div class="q">&ldquo;A male lead voice accompanied by harmonizing backing vocals and a sustained synth pad.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_09_patter_song.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 4.0</span><span class="pill"><i>G</i> 2.0</span><span class="pill"><i>O</i> 2.5</span></div>
+<div class="t">vocal stem: S 4.0 V 5.0 I 5.0 G 2.5 O 3.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;a single male voice singing accompanied by rhythmic finger snaps&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_09_patter_song.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.5</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.5</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 3.5 V 5.0 I 4.5 G 3.0 O 3.0</div>
+<div class="t">accompaniment fraction 0.6163</div>
+<div class="q">&ldquo;A male voice singing a mid-tempo pop melody accompanied by an acoustic guitar, bass, and percussion beat.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 2.5: LeVo ahead by 1.5, wider than the 0.45-point noise floor. The widest axis is <b>one voice alone</b> (1.0 vs 5.0). Accompaniment fraction 0.491 vs 0.000. Stripping the instruments moves MiniMax's one-voice score by -0.5 &mdash; barely, so the extra voice is a real second singer, not an instrument.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>11. Bel canto</b><span class="t">bel_canto &middot; classical &middot; adult &middot; any &middot; stands for 1 genre</span></div>
+<pre>a cappella solo voice, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; bel canto, effortless even legato across registers, elegant messa di voce swells; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_10_bel_canto.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 1.5</span><span class="pill"><i>V</i> 3.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 1.0 V 3.5 I 5.0 G 1.0 O 1.0</div>
+<div class="t">accompaniment fraction 0.4579</div>
+<div class="q">&ldquo;A glitchy, unstable voice singing fragmented lines accompanied by acoustic guitar chords and subtle bass towards the end.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_10_bel_canto.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.5</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 3.5</span><span class="pill"><i>G</i> 1.5</span><span class="pill"><i>O</i> 1.5</span></div>
+<div class="t">vocal stem: S 3.0 V 5.0 I 5.0 G 2.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;a single female voice singing unaccompanied with rhythmic finger snaps or quiet clicking in the background&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_10_bel_canto.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.5</span><span class="pill"><i>V</i> 3.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 3.5 V 5.0 I 5.0 G 3.5 O 3.5</div>
+<div class="t">accompaniment fraction 0.5160</div>
+<div class="q">&ldquo;A female pop vocalist singing accompanied by an upbeat synth, bass, and rhythmic electronic drums arrangement.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 1.5: LeVo ahead by 0.5, wider than the 0.45-point noise floor. The widest axis is <b>one voice alone</b> (3.0 vs 5.0). Accompaniment fraction 0.458 vs 0.000. Stripping the instruments raises MiniMax's one-voice score by 0.5, so what the judge heard was instrumental bleed.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>12. Cabaret</b><span class="t">cabaret &middot; theatre &middot; adult &middot; any &middot; stands for 2 genres</span></div>
+<pre>a cappella solo voice, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; cabaret, arch knowing delivery, spoken asides sliding into sung line; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_11_cabaret.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.5</span><span class="pill"><i>V</i> 3.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 3.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 1.5 V 5.0 I 5.0 G 2.5 O 1.5</div>
+<div class="t">accompaniment fraction 0.4872</div>
+<div class="q">&ldquo;A male voice singing in a theatrical style accompanied by an acoustic guitar throughout.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_11_cabaret.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 4.5</span><span class="pill"><i>O</i> 3.5</span></div>
+<div class="t">vocal stem: S 3.5 V 2.0 I 5.0 G 4.5 O 3.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;nothing but a single voice&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_11_cabaret.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 2.5</span><span class="pill"><i>I</i> 2.5</span><span class="pill"><i>G</i> 4.5</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 4.5 V 5.0 I 5.0 G 5.0 O 5.0</div>
+<div class="t">accompaniment fraction 0.6694</div>
+<div class="q">&ldquo;A female cabaret vocal with percussive finger snaps, vocal bass percussion, and layered backing vocal harmonies in the chorus.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 3.5: LeVo ahead by 2.5, wider than the 0.45-point noise floor. The widest axis is <b>no instruments</b> (2.0 vs 5.0). Accompaniment fraction 0.487 vs 0.000. Stripping the instruments raises MiniMax's one-voice score by 1.5, so what the judge heard was instrumental bleed.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>13. Forró</b><span class="t">forro &middot; world &middot; adult &middot; male &middot; stands for 1 genre</span></div>
+<pre>a cappella solo voice, male, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; forro, warm northeastern brazilian accent, rustic bouncing delivery; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_12_forro.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 2.0</span><span class="pill"><i>V</i> 4.5</span><span class="pill"><i>I</i> 4.0</span><span class="pill"><i>G</i> 2.0</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 2.0 V 4.0 I 5.0 G 2.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.3016</div>
+<div class="q">&ldquo;A high, heavily artifacted and glitching male vocal with audible pitch-shifting artifacts and no instruments.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_12_forro.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 3.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 2.5</span><span class="pill"><i>O</i> 2.5</span></div>
+<div class="t">vocal stem: S 3.5 V 3.0 I 5.0 G 3.5 O 3.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;A male voice singing alone, joined by self-harmony and layering in the chorus, with no musical instruments present.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_12_forro.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 2.0</span><span class="pill"><i>I</i> 1.5</span><span class="pill"><i>G</i> 3.5</span><span class="pill"><i>O</i> 1.5</span></div>
+<div class="t">vocal stem: S 4.0 V 3.0 I 5.0 G 2.5 O 2.5</div>
+<div class="t">accompaniment fraction 0.3189</div>
+<div class="q">&ldquo;A male lead voice singing with a upbeat forró style acoustic bass, accordion, and percussive instrumentation in the background, along with backing vocal harmonies during the chorus.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 2.0 vs 2.5: LeVo ahead by 0.5, wider than the 0.45-point noise floor. The widest axis is <b>singing quality</b> (2.0 vs 4.0). Accompaniment fraction 0.302 vs 0.000.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>14. Saeta</b><span class="t">flamenco_sae &middot; world &middot; adult &middot; female &middot; stands for 3 genres</span></div>
+<pre>a cappella solo voice, female, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; spanish saeta, unaccompanied processional cry from a balcony, raw and piercing; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_13_flamenco_sae.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 4.0</span><span class="pill"><i>G</i> 5.0</span><span class="pill"><i>O</i> 4.5</span></div>
+<div class="t">vocal stem: S 4.0 V 5.0 I 5.0 G 4.0 O 4.0</div>
+<div class="t">accompaniment fraction 0.1767</div>
+<div class="q">&ldquo;nothing but a single voice&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_13_flamenco_sae.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.5</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 3.5 V 5.0 I 5.0 G 1.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;nothing but a single voice&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_13_flamenco_sae.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 0.5</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 4.0 V 5.0 I 5.0 G 2.0 O 2.5</div>
+<div class="t">accompaniment fraction 0.6737</div>
+<div class="q">&ldquo;A female singing accompanied by rhythmic claps, bass guitar, and a ukuele/acoustic guitar arrangement.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 4.5 vs 2.0: MiniMax ahead by 2.5, wider than the 0.45-point noise floor. The widest axis is <b>genre match</b> (5.0 vs 1.0). Accompaniment fraction 0.177 vs 0.000.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>15. Ranchera</b><span class="t">ranchera &middot; world &middot; adult &middot; male &middot; stands for 2 genres</span></div>
+<pre>a cappella solo voice, male, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; mexican ranchera, huge open-throated grito, proud sustained belt; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_14_ranchera.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 2.0</span><span class="pill"><i>V</i> 3.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 2.0 V 3.0 I 4.5 G 1.0 O 1.0</div>
+<div class="t">accompaniment fraction 0.6745</div>
+<div class="q">&ldquo;A single male voice singing softly, accompanied by acoustic guitar strumming, bass, and atmospheric synth pads.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_14_ranchera.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 2.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 2.0</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 2.5 V 3.5 I 5.0 G 2.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;A male voice starts alone singing in a gentle pop/folk style, but is then joined by stacked harmonizing voices that create a choir effect in the chorus, with no musical instruments present.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_14_ranchera.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.5</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.5</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 2.5 V 2.0 I 5.0 G 1.5 O 1.5</div>
+<div class="t">accompaniment fraction 0.6325</div>
+<div class="q">&ldquo;A male voice singing with an acoustic bass and acoustic guitar backing track.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 2.0: LeVo ahead by 1.0, wider than the 0.45-point noise floor. The widest axis is <b>no instruments</b> (2.0 vs 5.0). Accompaniment fraction 0.675 vs 0.000. Stripping the instruments moves MiniMax's one-voice score by -0.5 &mdash; barely, so the extra voice is a real second singer, not an instrument.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>16. Quiet storm</b><span class="t">quiet_storm &middot; soul &middot; adult &middot; male &middot; stands for 1 genre</span></div>
+<pre>a cappella solo voice, male, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; quiet storm R&amp;B, smooth low seductive croon, silky sustained falsetto; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_15_quiet_storm.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 3.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 4.0</span><span class="pill"><i>O</i> 2.0</span></div>
+<div class="t">vocal stem: S 2.0 V 5.0 I 2.5 G 2.0 O 1.5</div>
+<div class="t">accompaniment fraction 0.4469</div>
+<div class="q">&ldquo;A male R&amp;B voice singing accompanied by finger snaps, synth pads, guitar chords, and light background harmony vocals.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_15_quiet_storm.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 3.5</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 5.0</span><span class="pill"><i>O</i> 3.5</span></div>
+<div class="t">vocal stem: S 4.0 V 5.0 I 5.0 G 5.0 O 5.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;A single smooth male voice singing a cappella with a brief self-harmony/doubling layer appearing on the final phrase, and no instruments present.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_15_quiet_storm.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 3.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 3.5</span><span class="pill"><i>O</i> 1.5</span></div>
+<div class="t">vocal stem: S 3.5 V 5.0 I 5.0 G 4.5 O 4.0</div>
+<div class="t">accompaniment fraction 0.5965</div>
+<div class="q">&ldquo;A smooth male voice singing R&amp;B accompanied by a full instrumental track including drums, bass, and guitar.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 2.0 vs 3.5: LeVo ahead by 1.5, wider than the 0.45-point noise floor. The widest axis is <b>no instruments</b> (2.0 vs 5.0). Accompaniment fraction 0.447 vs 0.000. Stripping the instruments raises MiniMax's one-voice score by 2.0, so what the judge heard was instrumental bleed.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>17. Delta blues</b><span class="t">blues_delta &middot; blues &middot; older &middot; male &middot; stands for 2 genres</span></div>
+<pre>a cappella solo voice, male, over sixty; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; delta blues, rough weathered voice, bent notes, moaning field-holler inflection; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_16_blues_delta.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 3.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.5</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 3.0 V 4.0 I 5.0 G 3.5 O 3.0</div>
+<div class="t">accompaniment fraction 0.3581</div>
+<div class="q">&ldquo;A young male voice singing accompanied by acoustic guitar strumming and foot stomps/claps, with layered backing vocals joining in on the chorus.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_16_blues_delta.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 2.5</span><span class="pill"><i>O</i> 3.0</span></div>
+<div class="t">vocal stem: S 3.5 V 4.0 I 5.0 G 2.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;nothing but a single voice&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_16_blues_delta.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 2.5 V 5.0 I 5.0 G 2.5 O 2.5</div>
+<div class="t">accompaniment fraction 0.3740</div>
+<div class="q">&ldquo;A female singing voice with acoustic bass, finger snapping, and light drums accompanying the melody.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 3.0: LeVo ahead by 2.0, wider than the 0.45-point noise floor. The widest axis is <b>no instruments</b> (2.0 vs 5.0). Accompaniment fraction 0.358 vs 0.000. Stripping the instruments raises MiniMax's one-voice score by 0.5, so what the judge heard was instrumental bleed.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>18. Dancehall</b><span class="t">dancehall &middot; urban &middot; adult &middot; male &middot; stands for 2 genres</span></div>
+<pre>a cappella solo voice, male, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; dancehall, rapid patois toasting sliding into melody, rhythmic and percussive; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_17_dancehall.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 2.0 V 2.0 I 5.0 G 1.0 O 1.0</div>
+<div class="t">accompaniment fraction 0.3849</div>
+<div class="q">&ldquo;A male voice singing accompanied by an acoustic guitar.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_17_dancehall.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 1.5</span><span class="pill"><i>I</i> 4.0</span><span class="pill"><i>G</i> 0.0</span><span class="pill"><i>O</i> 0.5</span></div>
+<div class="t">vocal stem: S 3.5 V 3.5 I 5.0 G 0.5 O 1.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;A female vocalist singing a folk ballad with background synth pads and multi-part harmonic backing vocals.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_17_dancehall.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 2.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.5</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 2.5 V 2.5 I 5.0 G 1.0 O 1.0</div>
+<div class="t">accompaniment fraction 0.7152</div>
+<div class="q">&ldquo;A female synth-pop singing voice accompanied by a prominent synth bass, electronic percussion beat, and vocal harmonies.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 0.5: MiniMax ahead by 0.5, wider than the 0.45-point noise floor. The widest axis is <b>one voice alone</b> (5.0 vs 1.5). Accompaniment fraction 0.385 vs 0.000.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>19. Pure falsetto</b><span class="t">falsetto_pure &middot; functional &middot; adult &middot; male &middot; stands for 1 genre</span></div>
+<pre>a cappella solo voice, male, in their thirties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; pure falsetto, light hooty unsupported head voice, fragile; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_18_falsetto_pure.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 2.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 2.0</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 1.5 V 4.5 I 3.5 G 2.5 O 1.5</div>
+<div class="t">accompaniment fraction 0.0900</div>
+<div class="q">&ldquo;I hear a male voice accompanied by an acoustic guitar and layered vocal harmonies.&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_18_falsetto_pure.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 5.0</span><span class="pill"><i>O</i> 5.0</span></div>
+<div class="t">vocal stem: S 4.0 V 2.5 I 5.0 G 4.0 O 3.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;nothing but a single voice&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_18_falsetto_pure.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 2.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 1.5</span><span class="pill"><i>O</i> 1.0</span></div>
+<div class="t">vocal stem: S 3.0 V 2.0 I 5.0 G 3.5 O 2.0</div>
+<div class="t">accompaniment fraction 0.3843</div>
+<div class="q">&ldquo;A male falsetto singing with acoustic guitar, light percussion, and backing vocal harmonies.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 1.0 vs 5.0: LeVo ahead by 4.0, wider than the 0.45-point noise floor. The widest axis is <b>no instruments</b> (2.0 vs 5.0). Accompaniment fraction 0.090 vs 0.000. Stripping the instruments raises MiniMax's one-voice score by 2.0, so what the judge heard was instrumental bleed.</div>
+</div>
+<div class="row">
+<div class="rowhead"><b>20. Britpop</b><span class="t">britpop &middot; rock &middot; young_adult &middot; male &middot; stands for 1 genre</span></div>
+<pre>a cappella solo voice, male, in their twenties; unaccompanied, no instruments, no backing track, no second voice, no harmony, no choir; britpop, adenoidal regional-accented drawl, cocky flat delivery; dry close-mic, no reverb</pre>
+<div class="cols">
+<div class="col">
+<h4>MiniMax Music 3</h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/minimax__vl_19_britpop.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 2.5</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 3.5</span><span class="pill"><i>O</i> 2.5</span></div>
+<div class="t">vocal stem: S 2.5 V 5.0 I 5.0 G 3.5 O 2.5</div>
+<div class="t">accompaniment fraction 0.0578</div>
+<div class="q">&ldquo;nothing but a single male voice&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=vocal)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_vocal__vl_19_britpop.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 4.0</span><span class="pill"><i>V</i> 5.0</span><span class="pill"><i>I</i> 5.0</span><span class="pill"><i>G</i> 5.0</span><span class="pill"><i>O</i> 5.0</span></div>
+<div class="t">vocal stem: S 5.0 V 5.0 I 5.0 G 5.0 O 5.0</div>
+<div class="t">accompaniment fraction 0.0000</div>
+<div class="q">&ldquo;nothing but a single voice&rdquo;</div>
+</div>
+<div class="col">
+<h4>LeVo 2 <span class="t">(gen_type=mixed)</span></h4>
+<audio controls preload="none" src="https://huggingface.co/datasets/TTS-AGI/moss-voice-pilot-audio/resolve/main/mmvl/levo_mixed__vl_19_britpop.mp3"></audio>
+<div class="sc"><span class="pill"><i>S</i> 3.0</span><span class="pill"><i>V</i> 2.5</span><span class="pill"><i>I</i> 2.0</span><span class="pill"><i>G</i> 3.5</span><span class="pill"><i>O</i> 1.5</span></div>
+<div class="t">vocal stem: S 3.0 V 2.0 I 5.0 G 3.0 O 2.0</div>
+<div class="t">accompaniment fraction 0.5304</div>
+<div class="q">&ldquo;A male lead voice singing with acoustic guitar, light percussion, and layered backing vocals during the chorus.&rdquo;</div>
+</div>
+</div>
+<div class="diff">Overall 2.5 vs 5.0: LeVo ahead by 2.5, wider than the 0.45-point noise floor. The widest axis is <b>singing quality</b> (2.5 vs 4.0). Accompaniment fraction 0.058 vs 0.000.</div>
+</div>
+<p class="t">Built 2026-08-14. 60 clips generated, 60 judged twice on the mix and 60 on the vocal stem. Scripts: song/scripts/mm_prompts.py, gen_minimax.py, gen_levo.py, mm_stems.py, mm_judge.py, mm_agg.py, mm_page.py.</p>
+</div>

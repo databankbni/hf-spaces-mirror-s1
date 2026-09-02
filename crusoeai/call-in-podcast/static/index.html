@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Call-In Podcast</title>
+<style>
+  :root {
+    --bg: #0c0d12; --panel: #14161f; --panel2: #1a1d29; --line: #262a3a;
+    --text: #e8eaf2; --muted: #8b90a5; --accent: #f59e0b;
+    --atlas: #a78bfa; --nova: #34d399; --caller: #fbbf24; --danger: #f87171;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 70% -10%, #1b1e33 0%, var(--bg) 55%);
+    color: var(--text); font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 24px 20px 40px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  header h1 { font-size: 20px; letter-spacing: .3px; }
+  header .mic { font-size: 26px; }
+  .badge {
+    margin-left: auto; display: none; align-items: center; gap: 8px;
+    background: #2a0f13; border: 1px solid #7f1d1d; color: #fca5a5;
+    padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 1px;
+  }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .badge.on { display: inline-flex; }
+  #timer { color: var(--muted); font-variant-numeric: tabular-nums; margin-left: 12px; display: none; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: .8px; }
+  input[type=text], select, textarea {
+    width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 9px; padding: 10px 12px; font-size: 14.5px; outline: none; font-family: inherit;
+  }
+  textarea { resize: none; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+  /* inspire */
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .pill {
+    background: var(--panel2); border: 1px solid var(--line); color: var(--muted);
+    padding: 4px 12px; border-radius: 999px; font-size: 12.5px; cursor: pointer; text-transform: capitalize;
+  }
+  .pill.sel { background: var(--accent); border-color: var(--accent); color: #1a1204; font-weight: 700; }
+  .ideas { display: grid; gap: 8px; margin-top: 10px; }
+  .idea {
+    text-align: left; background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 9px; padding: 9px 13px; font-size: 14px; cursor: pointer; font-weight: 400;
+  }
+  .idea:hover, .idea.sel { border-color: var(--accent); }
+  #inspirebtn { width: 100%; margin-top: 4px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+  #inspirebtn:hover { border-color: var(--accent); }
+
+  .hosts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 6px; }
+  @media (max-width: 720px) { .hosts { grid-template-columns: 1fr; } }
+  .hostcfg { background: var(--panel2); border: 1px solid var(--line); border-radius: 11px; padding: 14px; }
+  .hostcfg .who { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #0c0d12; flex-shrink: 0; }
+  .hostcfg input, .hostcfg textarea, .hostcfg select { background: var(--panel); margin-bottom: 8px; }
+  .hostcfg .sub { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin: 2px 0 4px; }
+
+  .row { display: flex; gap: 12px; align-items: end; margin-top: 18px; }
+  .row > div { flex: 1; }
+  button {
+    background: var(--accent); color: #1a1204; font-weight: 700; border: 0; border-radius: 9px;
+    padding: 11px 22px; font-size: 15px; cursor: pointer;
+  }
+  button:disabled { opacity: .45; cursor: default; }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  .note { color: var(--muted); font-size: 12.5px; margin-top: 14px; }
+  .note b { color: var(--caller); }
+
+  /* live view */
+  #live { display: none; }
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .hostcard {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+    display: flex; align-items: center; gap: 14px; transition: box-shadow .25s, border-color .25s;
+  }
+  .hostcard .avatar { width: 46px; height: 46px; font-size: 18px; }
+  .hostcard .model { font-size: 12px; color: var(--muted); }
+  .hostcard.speaking { border-color: currentColor; box-shadow: 0 0 22px -6px currentColor; }
+  .hostcard .eq { margin-left: auto; display: none; gap: 3px; align-items: flex-end; height: 20px; }
+  .hostcard.speaking .eq { display: flex; }
+  .eq i { width: 4px; background: currentColor; border-radius: 2px; animation: eq .7s infinite ease-in-out; }
+  .eq i:nth-child(1) { height: 8px; } .eq i:nth-child(2) { height: 16px; animation-delay: .15s; }
+  .eq i:nth-child(3) { height: 11px; animation-delay: .3s; }
+  @keyframes eq { 50% { transform: scaleY(.4); } }
+
+  #topicbar { color: var(--muted); font-size: 13.5px; margin-bottom: 14px; }
+  #topicbar b { color: var(--text); }
+  #statusline {
+    text-align: center; color: var(--muted); font-size: 13px; padding: 26px 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; min-height: 72px;
+  }
+
+  .callbar { display: flex; gap: 10px; margin-top: 14px; }
+  .callbar input { flex: 1; }
+  .micbtn { background: var(--panel2); border: 1px solid var(--line); color: var(--text); font-size: 18px; padding: 10px 14px; }
+  .micbtn.live { border-color: var(--danger); color: var(--danger); }
+  .micbtn.off { color: var(--muted); }
+  #hint { margin-top: 10px; }
+  #err { color: var(--danger); font-size: 13px; margin-top: 12px; display: none; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="mic">🎙️</span><h1 id="showname">Call-In Podcast</h1>
+    <span class="badge" id="onair"><span class="dot"></span>ON AIR</span>
+    <span id="timer"></span>
+  </header>
+
+  <!-- setup -->
+  <section class="card" id="setup">
+    <label for="topic">Episode topic — anything at all</label>
+    <input type="text" id="topic" placeholder="e.g. why octopuses would run better cities than us (leave blank for a surprise)" />
+    <div class="pills" id="pills"></div>
+    <button id="inspirebtn">🎲 Inspire me</button>
+    <div class="ideas" id="ideas"></div>
+
+    <label>Your two hosts</label>
+    <div class="hosts">
+      <div class="hostcfg" id="cfg_a">
+        <div class="who"><span class="avatar" style="background:var(--atlas)" id="av_a">A</span>
+          <input type="text" id="name_a" maxlength="24" placeholder="Host name" /></div>
+        <div class="sub">Personality</div>
+        <textarea id="pers_a" rows="3" maxlength="400"></textarea>
+        <div class="sub">Model (Crusoe Managed Inference)</div>
+        <select id="model_a"></select>
+        <div class="sub">Voice (Kokoro, via Pipecat)</div>
+        <select id="voice_a"></select>
+      </div>
+      <div class="hostcfg" id="cfg_b">
+        <div class="who"><span class="avatar" style="background:var(--nova)" id="av_b">N</span>
+          <input type="text" id="name_b" maxlength="24" placeholder="Host name" /></div>
+        <div class="sub">Personality</div>
+        <textarea id="pers_b" rows="3" maxlength="400"></textarea>
+        <div class="sub">Model (Crusoe Managed Inference)</div>
+        <select id="model_b"></select>
+        <div class="sub">Voice (Kokoro, via Pipecat)</div>
+        <select id="voice_b"></select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="duration">Episode length</label>
+        <select id="duration">
+          <option value="15">15 minutes</option>
+          <option value="30" selected>30 minutes</option>
+          <option value="60">60 minutes</option>
+        </select>
+      </div>
+      <button id="golive" disabled>Loading models…</button>
+    </div>
+    <p class="note">🎧 <b>Wear headphones.</b> You're the caller: once live, just speak (or type) and the hosts will take your call. Without headphones they hear themselves and take phantom calls.</p>
+    <p id="err"></p>
+  </section>
+
+  <!-- live -->
+  <section id="live">
+    <div class="stage">
+      <div class="hostcard" id="card_a" style="color:var(--atlas)">
+        <span class="avatar" style="background:var(--atlas)" id="live_av_a">A</span>
+        <div><b id="live_name_a">Atlas</b><div class="model" id="live_model_a"></div></div>
+        <span class="eq"><i></i><i></i><i></i></span>
+      </div>
+      <div class="hostcard" id="card_b" style="color:var(--nova)">
+        <span class="avatar" style="background:var(--nova)" id="live_av_b">N</span>
+        <div><b id="live_name_b">Nova</b><div class="model" id="live_model_b"></div></div>
+        <span class="eq"><i></i><i></i><i></i></span>
+      </div>
+    </div>
+    <div id="topicbar">Today's episode: <b id="live_topic"></b></div>
+    <div id="statusline">Connecting…</div>
+    <div class="callbar">
+      <button class="micbtn" id="micbtn" title="Toggle your microphone">🎤</button>
+      <input type="text" id="saybox" placeholder="Call in by typing… (or just speak)" maxlength="500" />
+      <button id="saybtn">Call in</button>
+      <button class="ghost" id="endbtn">End</button>
+    </div>
+    <p class="note" id="hint">Speak any time to barge in — the hosts will stop and take your call.</p>
+  </section>
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const state = { session: null, ws: null, ctx: null, micStream: null, es: null, micOn: false, ended: false, category: "all", playhead: 0, currentSpeaker: null };
+
+function showErr(msg) { const e = $("err"); e.style.display = "block"; e.textContent = msg; }
+
+/* ---------- setup ---------- */
+async function loadModels() {
+  try {
+    const r = await fetch("/api/models");
+    if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+    const data = await r.json();
+    $("showname").textContent = data.show;
+    document.title = data.show;
+    for (const key of ["a", "b"]) {
+      const h = data.hosts[key];
+      $("name_" + key).value = h.name;
+      $("pers_" + key).value = h.personality;
+      const msel = $("model_" + key);
+      msel.innerHTML = "";
+      for (const m of data.models) {
+        const o = document.createElement("option");
+        o.value = m; o.textContent = m;
+        if (m === h.model) o.selected = true;
+        msel.appendChild(o);
+      }
+      const vsel = $("voice_" + key);
+      vsel.innerHTML = "";
+      for (const v of data.voices) {
+        const o = document.createElement("option");
+        o.value = v.id; o.textContent = v.label;
+        if (v.id === h.voice) o.selected = true;
+        vsel.appendChild(o);
+      }
+      $("name_" + key).addEventListener("input", () => {
+        $("av_" + key).textContent = ($("name_" + key).value.trim()[0] || "?").toUpperCase();
+      });
+    }
+    // inspire category pills
+    const pills = $("pills");
+    for (const cat of ["all", ...data.categories]) {
+      const b = document.createElement("span");
+      b.className = "pill" + (cat === "all" ? " sel" : "");
+      b.textContent = cat;
+      b.onclick = () => {
+        state.category = cat;
+        pills.querySelectorAll(".pill").forEach((p) => p.classList.toggle("sel", p === b));
+      };
+      pills.appendChild(b);
+    }
+    $("golive").disabled = false;
+    $("golive").textContent = "Go live";
+  } catch (e) {
+    showErr("Couldn't load the model catalog: " + e.message);
+    $("golive").textContent = "Unavailable";
+  }
+}
+loadModels();
+
+$("inspirebtn").onclick = async () => {
+  const btn = $("inspirebtn");
+  btn.disabled = true; btn.textContent = "⚙️ Generating ideas…";
+  try {
+    const r = await fetch("/api/inspire", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: state.category }),
+    });
+    const { ideas } = await r.json();
+    const box = $("ideas");
+    box.innerHTML = "";
+    for (const idea of ideas) {
+      const b = document.createElement("button");
+      b.className = "idea"; b.textContent = idea;
+      b.onclick = () => {
+        $("topic").value = idea;
+        box.querySelectorAll(".idea").forEach((x) => x.classList.toggle("sel", x === b));
+      };
+      box.appendChild(b);
+    }
+  } catch (e) { showErr("Inspire failed: " + e.message); }
+  btn.disabled = false; btn.textContent = "🎲 Inspire me";
+};
+
+/* ---------- status line (no transcript — audio-first) ---------- */
+function addSys(text) { $("statusline").textContent = text; }
+
+/* Speaking animation driven by ACTUAL client-side audio playback so it never
+   lags: the server says who is talking, the audio clock says when. */
+setInterval(() => {
+  const playing = !state.ended && state.ctx && state.playhead > state.ctx.currentTime + 0.02;
+  $("card_a").classList.toggle("speaking", !!playing && state.currentSpeaker === "a");
+  $("card_b").classList.toggle("speaking", !!playing && state.currentSpeaker === "b");
+}, 100);
+
+/* ---------- episode timer ---------- */
+let timerInterval = null;
+function startTimer(startedAt, durationSecs) {
+  $("timer").style.display = "inline";
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const left = Math.max(0, Math.round(startedAt + durationSecs - Date.now() / 1000));
+    $("timer").textContent = String(Math.floor(left / 60)).padStart(2, "0") + ":" + String(left % 60).padStart(2, "0");
+    if (left <= 0) clearInterval(timerInterval);
+  }, 500);
+}
+
+/* ---------- SSE ---------- */
+function openEvents(sessionId) {
+  const es = new EventSource("/api/events?session=" + sessionId);
+  state.es = es;
+  es.onmessage = (m) => {
+    const ev = JSON.parse(m.data);
+    if (ev.kind === "line") {
+      if (ev.speaker === "caller") addSys("📞 Your call is in — the hosts are on it.");
+    } else if (ev.kind === "speaking") {
+      if (ev.host) state.currentSpeaker = ev.host;
+    } else if (ev.kind === "status") {
+      if (ev.state === "preparing") addSys("Warming up the studio…");
+      if (ev.state === "live") {
+        $("onair").classList.add("on");
+        $("live_topic").textContent = ev.topic;
+        for (const key of ["a", "b"]) {
+          $("live_name_" + key).textContent = ev.hosts[key].name;
+          $("live_av_" + key).textContent = (ev.hosts[key].name[0] || "?").toUpperCase();
+          $("live_model_" + key).textContent = ev.hosts[key].model;
+        }
+        startTimer(ev.started_at, ev.duration_secs);
+        addSys("You're live. Speak or type to call in.");
+      }
+      if (ev.state === "wrapping_up") addSys("Wrapping up the episode…");
+      if (ev.state === "ended") { addSys("That's the show — thanks for calling in!"); endShow(false); }
+    } else if (ev.kind === "error") addSys("⚠ " + ev.message);
+  };
+}
+
+/* ---------- audio wire protocol (pipecat ProtobufFrameSerializer) ----------
+   Frame { oneof frame { ... AudioRawFrame audio = 2; ... } }
+   AudioRawFrame { bytes audio = 3; uint32 sample_rate = 4; uint32 num_channels = 5; }
+   Hand-rolled so we don't depend on any SDK/CDN. */
+function varint(n) {
+  const out = [];
+  while (n > 127) { out.push((n & 127) | 128); n >>>= 7; }
+  out.push(n);
+  return out;
+}
+function encodeAudioFrame(pcmBytes, sampleRate) {
+  const inner = [
+    0x1a, ...varint(pcmBytes.length), // field 3: audio bytes
+  ];
+  const head = new Uint8Array(inner);
+  const tail = new Uint8Array([0x20, ...varint(sampleRate), 0x28, 0x01]); // fields 4, 5
+  const innerLen = head.length + pcmBytes.length + tail.length;
+  const outerHead = new Uint8Array([0x12, ...varint(innerLen)]); // Frame field 2 (audio)
+  const buf = new Uint8Array(outerHead.length + innerLen);
+  buf.set(outerHead, 0);
+  buf.set(head, outerHead.length);
+  buf.set(pcmBytes, outerHead.length + head.length);
+  buf.set(tail, outerHead.length + head.length + pcmBytes.length);
+  return buf;
+}
+function readVarint(b, i) {
+  let n = 0, shift = 0;
+  while (true) {
+    const byte = b[i++];
+    n |= (byte & 127) << shift;
+    if (!(byte & 128)) return [n >>> 0, i];
+    shift += 7;
+  }
+}
+function decodeAudioFrame(buf) {
+  const b = new Uint8Array(buf);
+  let i = 0;
+  while (i < b.length) {
+    let tag, len;
+    [tag, i] = readVarint(b, i);
+    const wire = tag & 7, fieldNo = tag >>> 3;
+    if (wire === 2) {
+      [len, i] = readVarint(b, i);
+      if (fieldNo === 2) { // Frame.audio
+        let j = i, end = i + len;
+        const out = { pcm: null, sampleRate: 16000, channels: 1 };
+        while (j < end) {
+          let t, l;
+          [t, j] = readVarint(b, j);
+          const w = t & 7, f = t >>> 3;
+          if (w === 2) {
+            [l, j] = readVarint(b, j);
+            if (f === 3) out.pcm = b.subarray(j, j + l);
+            j += l;
+          } else if (w === 0) {
+            let v; [v, j] = readVarint(b, j);
+            if (f === 4) out.sampleRate = v;
+            if (f === 5) out.channels = v;
+          } else return null;
+        }
+        return out.pcm ? out : null;
+      }
+      i += len; // other oneof members (text/transcription/message): skip
+    } else if (wire === 0) { [, i] = readVarint(b, i); }
+    else return null;
+  }
+  return null;
+}
+
+/* ---------- audio client ---------- */
+async function connectAudio(wsUrl) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  await ctx.resume();
+  state.playhead = 0;
+
+  const ws = new WebSocket(wsUrl);
+  ws.binaryType = "arraybuffer";
+  state.ws = ws;
+  state.ctx = ctx;
+
+  ws.onmessage = (m) => {
+    if (!(m.data instanceof ArrayBuffer)) return;
+    const frame = decodeAudioFrame(m.data);
+    if (!frame || frame.pcm.length < 2) return;
+    const n = Math.floor(frame.pcm.length / 2);
+    const f32 = new Float32Array(n);
+    const dv = new DataView(frame.pcm.buffer, frame.pcm.byteOffset, n * 2);
+    for (let k = 0; k < n; k++) f32[k] = dv.getInt16(k * 2, true) / 32768;
+    const ab = ctx.createBuffer(1, n, frame.sampleRate);
+    ab.getChannelData(0).set(f32);
+    const src = ctx.createBufferSource();
+    src.buffer = ab;
+    src.connect(ctx.destination);
+    const at = Math.max(state.playhead, ctx.currentTime + 0.06);
+    src.start(at);
+    state.playhead = at + ab.duration;
+  };
+  ws.onclose = () => { if (!state.ended) addSys("Connection closed."); };
+  ws.onerror = () => { if (!state.ended) addSys("⚠ Audio connection error."); };
+
+  await new Promise((res, rej) => {
+    ws.onopen = res;
+    ws.addEventListener("close", () => rej(new Error("websocket closed during connect")), { once: true });
+    setTimeout(() => rej(new Error("websocket connect timeout")), 15000);
+  }).catch((e) => { throw new Error("Failed to connect to websocket: " + e.message); });
+
+  // Mic capture: downsample to 16 kHz PCM16 and stream as protobuf frames.
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true }, video: false,
+    });
+    const srcNode = ctx.createMediaStreamSource(stream);
+    const proc = ctx.createScriptProcessor(2048, 1, 1);
+    const ratio = ctx.sampleRate / 16000;
+    proc.onaudioprocess = (e) => {
+      if (!state.micOn || ws.readyState !== WebSocket.OPEN) return;
+      const input = e.inputBuffer.getChannelData(0);
+      const outLen = Math.floor(input.length / ratio);
+      const pcm = new Uint8Array(outLen * 2);
+      const dv = new DataView(pcm.buffer);
+      for (let k = 0; k < outLen; k++) {
+        const s = Math.max(-1, Math.min(1, input[Math.floor(k * ratio)]));
+        dv.setInt16(k * 2, s * 32767, true);
+      }
+      ws.send(encodeAudioFrame(pcm, 16000));
+    };
+    srcNode.connect(proc);
+    proc.connect(ctx.destination); // required for ScriptProcessor to fire; emits silence
+    state.micStream = stream;
+    state.micOn = true;
+  } catch (e) {
+    console.warn("Mic unavailable:", e);
+    state.micOn = false;
+    $("micbtn").classList.add("off");
+    $("hint").textContent = "Mic unavailable — you can still call in by text.";
+  }
+  updateMicBtn();
+}
+
+function updateMicBtn() {
+  $("micbtn").classList.toggle("live", state.micOn);
+  $("micbtn").title = state.micOn ? "Mic is live — click to mute" : "Mic is muted — click to go live";
+}
+
+/* ---------- actions ---------- */
+$("golive").onclick = async () => {
+  $("golive").disabled = true; $("golive").textContent = "Starting…";
+  const hosts = {};
+  for (const key of ["a", "b"]) {
+    hosts[key] = {
+      name: $("name_" + key).value,
+      personality: $("pers_" + key).value,
+      model: $("model_" + key).value,
+      voice: $("voice_" + key).value,
+    };
+  }
+  try {
+    const resp = await fetch("/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        topic: $("topic").value,
+        hosts,
+        durationMinutes: parseInt($("duration").value, 10),
+      }),
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const { wsUrl, sessionId } = await resp.json();
+    state.session = sessionId;
+    $("setup").style.display = "none";
+    $("live").style.display = "block";
+    openEvents(sessionId);
+    await connectAudio(wsUrl);
+  } catch (e) {
+    showErr("Couldn't go live: " + e.message);
+    $("setup").style.display = "block"; $("live").style.display = "none";
+    $("golive").disabled = false; $("golive").textContent = "Go live";
+  }
+};
+
+async function sayIt() {
+  const text = $("saybox").value.trim();
+  if (!text || !state.session) return;
+  $("saybox").value = "";
+  try {
+    await fetch("/api/callin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: state.session, text }),
+    });
+  } catch (e) { addSys("⚠ Couldn't send: " + e.message); }
+}
+$("saybtn").onclick = sayIt;
+$("saybox").addEventListener("keydown", (e) => { if (e.key === "Enter") sayIt(); });
+
+$("micbtn").onclick = () => {
+  if (!state.micStream) return;
+  state.micOn = !state.micOn;
+  updateMicBtn();
+};
+
+function endShow(disconnect = true) {
+  state.ended = true;
+  $("onair").classList.remove("on");
+  clearInterval(timerInterval);
+  if (disconnect && state.ws) { try { state.ws.close(); } catch {} }
+  if (state.ctx) { try { state.ctx.close(); } catch {} }
+  if (state.micStream) { try { state.micStream.getTracks().forEach((t) => t.stop()); } catch {} }
+  if (state.es) { state.es.close(); }
+  $("card_a").classList.remove("speaking");
+  $("card_b").classList.remove("speaking");
+  $("endbtn").textContent = "New episode";
+}
+
+function resetToSetup() {
+  Object.assign(state, { session: null, ws: null, ctx: null, micStream: null, es: null, micOn: false, ended: false, playhead: 0, currentSpeaker: null });
+  $("feed").innerHTML = "";
+  $("timer").style.display = "none";
+  $("micbtn").classList.remove("off", "live");
+  $("hint").textContent = "Speak any time to barge in — the hosts will stop and take your call.";
+  $("endbtn").textContent = "End";
+  $("golive").disabled = false; $("golive").textContent = "Go live";
+  $("live").style.display = "none";
+  $("setup").style.display = "block";
+}
+
+$("endbtn").onclick = () => {
+  if (state.ended) { resetToSetup(); return; }
+  endShow(true);
+  addSys("You left the show.");
+};
+</script>
+</body>
+</html>

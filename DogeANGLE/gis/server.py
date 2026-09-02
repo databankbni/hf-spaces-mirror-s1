@@ -43,14 +43,22 @@ if not API_KEY:
 app = FastAPI(title="GIS-Review", version="0.3.0")
 
 # ── 持久化缓存 ────────────────────────────────────────────
-_cache: dict[str, str] = {}
+# 条目格式: {"v": <回答文本>, "p": <用途>}。用途用于按需定向清除(问答/判题预检索/判题评分/指南/冲刺/闪卡等)
+_cache: dict[str, dict] = {}
 _cache_lock = threading.Lock()
 
 def _load_cache():
     global _cache
     if CACHE_FILE.exists():
         try:
-            _cache = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+            raw = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+            _cache = {}
+            for k, v in raw.items():
+                if isinstance(v, str):
+                    # v1.9.3 前旧格式:纯字符串,归为通用"chat"用途
+                    _cache[k] = {"v": v, "p": "chat"}
+                elif isinstance(v, dict):
+                    _cache[k] = {"v": v.get("v", ""), "p": v.get("p", "chat")}
             logger.info(f"缓存已加载: {len(_cache)} 条")
         except Exception as e:
             logger.error(f"缓存加载失败: {e}")
@@ -78,6 +86,7 @@ _load_cache()
 class ChatRequest(BaseModel):
     messages: list[dict]
     skip_cache: bool = False
+    purpose: str = "chat"   # 缓存用途标签:chat/retrieval/grading/guide/cram/flashcard/quiz
 
 
 class ChatResponse(BaseModel):
@@ -99,7 +108,7 @@ async def chat(req: ChatRequest):
         with _cache_lock:
             if key in _cache:
                 logger.info(f"缓存命中: {key[:12]}...")
-                return ChatResponse(answer=_cache[key], cached=True, cache_size=len(_cache))
+                return ChatResponse(answer=_cache[key]["v"], cached=True, cache_size=len(_cache))
 
     logger.info(f"调用百炼 API，消息数: {len(req.messages)}")
 
@@ -121,10 +130,12 @@ async def chat(req: ChatRequest):
         data = resp.json()
         answer = data.get("output", {}).get("text", "（未获取到回答）")
 
-        with _cache_lock:
-            _cache[key] = answer
-            _save_cache()
-        logger.info(f"已缓存 (共 {len(_cache)} 条)，答案长度: {len(answer)}")
+        # v1.9.3:仅 skip_cache=false 的请求写缓存(skip_cache=true 的判题/冲刺回答按唯一内容做键,永不复用,写入只会膨胀缓存)
+        if not req.skip_cache:
+            with _cache_lock:
+                _cache[key] = {"v": answer, "p": req.purpose}
+                _save_cache()
+            logger.info(f"已缓存 (共 {len(_cache)} 条，用途={req.purpose}，答案长度: {len(answer)})")
 
         return ChatResponse(answer=answer, cached=False, cache_size=len(_cache))
 
@@ -137,18 +148,31 @@ async def chat(req: ChatRequest):
 
 @app.get("/api/cache")
 async def cache_info():
-    return {"total": len(_cache), "keys": list(_cache.keys())[:20]}
+    """缓存信息:总数 + 按用途计数 + 前 20 个键"""
+    with _cache_lock:
+        counts = {}
+        for e in _cache.values():
+            p = e.get("p", "chat")
+            counts[p] = counts.get(p, 0) + 1
+        return {"total": len(_cache), "purposes": counts, "keys": list(_cache.keys())[:20]}
 
 
 @app.delete("/api/cache")
-async def clear_cache():
+async def clear_cache(purpose: str | None = None):
+    """清除缓存。可选 ?purpose=xxx 只清某用途;不带则清全部"""
     global _cache
     with _cache_lock:
-        count = len(_cache)
-        _cache = {}
+        if purpose:
+            removed = [k for k, e in _cache.items() if e.get("p") == purpose]
+            for k in removed:
+                del _cache[k]
+            count = len(removed)
+        else:
+            count = len(_cache)
+            _cache = {}
     _save_cache()
-    logger.info(f"缓存已清除 ({count} 条)")
-    return {"cleared": count}
+    logger.info(f"缓存已清除 ({count} 条) purpose={purpose}")
+    return {"cleared": count, "purpose": purpose}
 
 
 @app.get("/api/health")

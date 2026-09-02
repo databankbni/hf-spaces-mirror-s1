@@ -13,18 +13,42 @@ export function latestSnapshot(snapshotParam?: string | null): LeaderboardSnapsh
   const db = getDb();
   if (snapshotParam && snapshotParam !== "latest") {
     return (
-      dbGet<LeaderboardSnapshot>(db.prepare("SELECT * FROM leaderboard_snapshots WHERE id = ?"), snapshotParam) ||
-      dbGet<LeaderboardSnapshot>(db.prepare("SELECT * FROM leaderboard_snapshots WHERE label = ?"), snapshotParam)
+      dbGet<LeaderboardSnapshot>(
+        db.prepare(
+          `SELECT id, label, snapshot_time, status, ranking_policy, NULL AS notes,
+                  is_latest, created_at
+             FROM leaderboard_snapshots WHERE id = ?`
+        ),
+        snapshotParam
+      ) ||
+      dbGet<LeaderboardSnapshot>(
+        db.prepare(
+          `SELECT id, label, snapshot_time, status, ranking_policy, NULL AS notes,
+                  is_latest, created_at
+             FROM leaderboard_snapshots WHERE label = ?`
+        ),
+        snapshotParam
+      )
     );
   }
   return dbGet<LeaderboardSnapshot>(
-    db.prepare("SELECT * FROM leaderboard_snapshots ORDER BY is_latest DESC, snapshot_time DESC, id DESC LIMIT 1")
+    db.prepare(
+      `SELECT id, label, snapshot_time, status, ranking_policy, NULL AS notes,
+              is_latest, created_at
+         FROM leaderboard_snapshots
+        ORDER BY is_latest DESC, snapshot_time DESC, id DESC LIMIT 1`
+    )
   );
 }
 
 export function getSnapshotHistory(): LeaderboardSnapshot[] {
   return all<LeaderboardSnapshot>(
-    getDb().prepare("SELECT * FROM leaderboard_snapshots ORDER BY snapshot_time DESC, id DESC")
+    getDb().prepare(
+      `SELECT id, label, snapshot_time, status, ranking_policy, NULL AS notes,
+              is_latest, created_at
+         FROM leaderboard_snapshots
+        ORDER BY snapshot_time DESC, id DESC`
+    )
   );
 }
 
@@ -43,14 +67,12 @@ export function getLeaderboard(
   const rawEntries = db
     .prepare(
       `SELECT e.rank, e.status_label, e.updated_label, e.submission_id,
-              t.id AS team_id, t.slug AS team_slug, t.name AS team_name, t.affiliation, t.strengths,
               mo.id AS model_id, mo.slug AS model_slug, mo.name AS model_name,
               s.version_label, s.status AS submission_status, s.dataset_split, s.submitted_at,
               sr.normalized_value, sr.percentile, sr.raw_value
        FROM leaderboard_snapshot_entries e
        JOIN submissions s ON s.id = e.submission_id
        JOIN models mo ON mo.id = s.model_id
-       JOIN teams t ON t.id = mo.team_id
        JOIN score_records sr ON sr.id = e.score_record_id
        WHERE e.snapshot_id = ? ORDER BY e.rank LIMIT ?`
     )
@@ -63,11 +85,6 @@ export function getLeaderboard(
     rank: entry.rank as number,
     statusLabel: entry.status_label as string | null,
     updatedLabel: entry.updated_label as string | null,
-    team: {
-      id: entry.team_id as number, slug: entry.team_slug as string,
-      name: entry.team_name as string, affiliation: entry.affiliation as string | null,
-      strengths: entry.strengths as string | null,
-    },
     model: {
       id: entry.model_id as number, slug: entry.model_slug as string,
       name: entry.model_name as string,
@@ -95,7 +112,7 @@ export function getRadarData(
   const codes = metricCodes?.length ? metricCodes : DEFAULT_RADAR_METRICS;
   const board = getLeaderboard("latest");
   const entries = board.entries.slice(0, top).map((entry) => ({
-    rank: entry.rank, model: entry.model, team: entry.team, score: entry.score,
+    rank: entry.rank, model: entry.model, score: entry.score,
     axes: codes.map((code) => {
       const metric = entry.metrics[code];
       return { code, label: metric ? metric.displayName : code, value: metric?.percentile ?? null };
@@ -129,14 +146,19 @@ export function getModelScores(modelId: string): {
 } {
   const db = getDb();
   const model = db.prepare(
-    `SELECT mo.*, t.name AS team_name FROM models mo JOIN teams t ON t.id = mo.team_id WHERE mo.id = ? OR mo.slug = ?`
+    `SELECT mo.id, mo.slug, mo.name
+       FROM models mo
+      WHERE mo.id = ? OR mo.slug = ?`
   ).get(modelId, modelId) as Record<string, unknown> | null;
 
   if (!model) return { model: null, submission: null, scores: [] };
 
   const modelIdNum = model.id as number;
   const submission = db.prepare(
-    "SELECT * FROM submissions WHERE model_id = ? ORDER BY submitted_at DESC, id DESC LIMIT 1"
+    `SELECT id, model_id, version_label, submitted_at, status, dataset_split
+       FROM submissions
+      WHERE model_id = ?
+      ORDER BY submitted_at DESC, id DESC LIMIT 1`
   ).get(modelIdNum) as Record<string, unknown> | null;
 
   if (!submission) return { model, submission: null, scores: [] };

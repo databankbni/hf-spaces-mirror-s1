@@ -319,6 +319,17 @@ class SQLiteRepository:
         except ValueError:
             return None
 
+    def earliest_accuracy_date(self) -> Optional[date]:
+        """The first day with anything graded — where "lifetime" starts."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT MIN(date) FROM accuracy_games").fetchone()
+        if not row or not row[0]:
+            return None
+        try:
+            return date.fromisoformat(row[0])
+        except ValueError:
+            return None
+
     def accuracy_game_ids(self, start: date, end: date) -> set[str]:
         """Which games in a window are already scored — so a rebuild can skip
         them instead of re-simulating work it has already done."""

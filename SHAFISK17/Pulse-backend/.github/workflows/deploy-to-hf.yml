@@ -1,0 +1,37 @@
+name: Sync to Hugging Face Spaces
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  sync-to-huggingface:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+      
+      - name: Push to Hugging Face Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          
+          # Add Hugging Face remote
+          git remote add hf https://SHAFISK17:$HF_TOKEN@huggingface.co/spaces/SHAFISK17/Pulse-backend || true
+          
+          # Force push to Hugging Face (main branch)
+          git push --force hf HEAD:main
+      
+      - name: Deployment status
+        run: |
+          echo "✅ Successfully synced to Hugging Face Spaces!"
+          echo "🔗 Space URL: https://huggingface.co/spaces/SHAFISK17/Pulse-backend"

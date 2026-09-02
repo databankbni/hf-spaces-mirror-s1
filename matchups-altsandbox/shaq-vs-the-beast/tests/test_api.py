@@ -435,7 +435,7 @@ class TestBestBets:
     def test_only_props_are_ever_priced(self, monkeypatch) -> None:
         """No market outside the two prop families may appear."""
         import datetime
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast import simcache
         from thebeast.data.names import normalize_name, player_names
         from thebeast.data.repository import SQLiteRepository
@@ -449,8 +449,8 @@ class TestBestBets:
         hitter = player_names(repo, card.batting_order[:1], 2026)[card.batting_order[0]]
 
         monkeypatch.setattr(
-            sleeper_mod.SleeperPropsSource, "fetch_props",
-            lambda s, sport="mlb": [sleeper_mod.PlayerProp(
+            props_mod.PrizePicksSource, "fetch_props",
+            lambda s, sport="mlb", drops=None: [props_mod.PlayerProp(
                 hitter, normalize_name(hitter), "batter", "hits", 0.5,
                 over_price=2000, under_price=-2000)])
 
@@ -467,14 +467,14 @@ class TestBestBets:
             assert b["market"].startswith("prop_")
             assert b["player"] == hitter
             # Every price is the props book's, since it's the only source left.
-            assert b["book"] == "Sleeper"
+            assert b["book"] == "PrizePicks"
 
     def test_started_games_are_not_offered_pregame_props(self, monkeypatch) -> None:
         """A pregame prop must never be priced off a game already under way."""
         import dataclasses
         import datetime
         import thebeast.betting.best_bets as bb
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast import simcache
         from thebeast.data.names import normalize_name, player_names
         from thebeast.data.repository import SQLiteRepository
@@ -490,8 +490,8 @@ class TestBestBets:
 
         # A *pregame* quote, on a game that has started.
         monkeypatch.setattr(
-            sleeper_mod.SleeperPropsSource, "fetch_props",
-            lambda s, sport="mlb": [sleeper_mod.PlayerProp(
+            props_mod.PrizePicksSource, "fetch_props",
+            lambda s, sport="mlb", drops=None: [props_mod.PlayerProp(
                 hitter, normalize_name(hitter), "batter", "hits", 0.5,
                 over_price=2000, under_price=-2000, is_live=False)])
         # No live state resolvable, so nothing should be priced at all.
@@ -508,14 +508,14 @@ class TestBestBets:
     def test_props_can_be_turned_off(self, monkeypatch) -> None:
         """With props disabled the feed must not be contacted."""
         import datetime
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast.data.repository import SQLiteRepository
         from thebeast.betting.best_bets import build_best_bets
 
-        def boom(self, sport="mlb"):
+        def boom(self, sport="mlb", drops=None):
             raise AssertionError("props feed must not be contacted")
 
-        monkeypatch.setattr(sleeper_mod.SleeperPropsSource, "fetch_props", boom)
+        monkeypatch.setattr(props_mod.PrizePicksSource, "fetch_props", boom)
         rep = build_best_bets(SQLiteRepository(), datetime.date(2024, 4, 1),
                               n=200, budget_seconds=30, props=False)
         assert rep.props_available is False
@@ -524,20 +524,30 @@ class TestBestBets:
     def test_props_probe_reports_the_feed(self, monkeypatch) -> None:
         """The probe exists so the undocumented feed's real shape can be read
         off production rather than guessed at."""
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
 
-        payload = [{
-            "subject_id": "1", "sport": "mlb", "subject_type": "player",
-            "wager_type": "hits", "outcome_type": "over_under",
-            "status": "active", "game_status": "pre_game",
-            "options": [{"outcome": "over", "outcome_value": 1.5,
-                         "payout_multiplier": "1.85", "status": "active",
-                         "subject_team": "CLE"}],
-        }]
-        monkeypatch.setattr(sleeper_mod.SleeperPropsSource, "_get",
+        # JSON:API: the line is in `data`, the player is in `included`, and the
+        # two are joined by reference. A parser that read only `data` would
+        # come back with an empty board and no idea why.
+        payload = {
+            "data": [{
+                "type": "projection", "id": "1",
+                "attributes": {"line_score": 1.5, "stat_type": "Hits",
+                               "odds_type": "standard", "status": "pre_game",
+                               "is_promo": False,
+                               "projection_type": "Single Stat"},
+                "relationships": {
+                    "new_player": {"data": {"type": "new_player", "id": "p1"}}},
+            }],
+            "included": [{
+                "type": "new_player", "id": "p1",
+                "attributes": {"name": "Test Hitter", "team": "CLE",
+                               "position": "CF"},
+            }],
+            "meta": {"total_count": 1},
+        }
+        monkeypatch.setattr(props_mod.PrizePicksSource, "_get",
                             lambda self, url, params=None, timeout=None: payload)
-        monkeypatch.setattr(sleeper_mod.SleeperPropsSource, "_players",
-                            lambda self: {"1": {"full_name": "Test Hitter"}})
 
         r = client.get("/api/props-probe")
         assert r.status_code == 200
@@ -545,6 +555,9 @@ class TestBestBets:
         assert body["reachable"] is True
         assert body["parsed"] == 1
         assert body["parsed_sample"][0]["player_name"] == "Test Hitter"
+        # The assumption rides along on every probe, so it can never be
+        # mistaken for something PrizePicks quoted.
+        assert body["break_even_pct"] == 57.74
 
 
 class TestBestBetsCategories:
@@ -554,7 +567,7 @@ class TestBestBetsCategories:
         """Each play carries the panel it belongs in, and no family may take
         more than its share — one fat-edge family must not empty the other."""
         import datetime
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast import simcache
         from thebeast.data.names import normalize_name, player_names
         from thebeast.data.repository import SQLiteRepository
@@ -570,11 +583,11 @@ class TestBestBetsCategories:
         assert len(hitters) >= 4, "fixture should name several hitters"
 
         # More qualifying batter props than the per-family cap allows.
-        props = [sleeper_mod.PlayerProp(
+        props = [props_mod.PlayerProp(
             h, normalize_name(h), "batter", "hits", 0.5,
             over_price=2000, under_price=-2000) for h in hitters]
-        monkeypatch.setattr(sleeper_mod.SleeperPropsSource, "fetch_props",
-                            lambda s, sport="mlb": props)
+        monkeypatch.setattr(props_mod.PrizePicksSource, "fetch_props",
+                            lambda s, sport="mlb", drops=None: props)
 
         class Slate(SQLiteRepository):
             def get_schedule(self, d):
@@ -593,7 +606,7 @@ class TestBestBetsCategories:
         """The number backing a listed bet must come from the same run behind
         that game's card — not a second opinion a point or so away."""
         import datetime
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast import simcache
         from thebeast.data.names import normalize_name, player_names
         from thebeast.data.repository import SQLiteRepository
@@ -610,8 +623,8 @@ class TestBestBetsCategories:
         hitter = player_names(repo, [pid], 2026)[pid]
 
         monkeypatch.setattr(
-            sleeper_mod.SleeperPropsSource, "fetch_props",
-            lambda s, sport="mlb": [sleeper_mod.PlayerProp(
+            props_mod.PrizePicksSource, "fetch_props",
+            lambda s, sport="mlb", drops=None: [props_mod.PlayerProp(
                 hitter, normalize_name(hitter), "batter", "hits", 0.5,
                 over_price=2000, under_price=-2000)])
 
@@ -636,7 +649,7 @@ class TestBestBetsCategories:
         import dataclasses
         import datetime
         import thebeast.betting.best_bets as bb
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast import simcache
         from thebeast.data.names import normalize_name, player_names
         from thebeast.data.repository import SQLiteRepository
@@ -671,8 +684,8 @@ class TestBestBetsCategories:
         monkeypatch.setattr(bb, "_live_state_for",
                             lambda *a, **k: (state, {}, {}, box))
         monkeypatch.setattr(
-            sleeper_mod.SleeperPropsSource, "fetch_props",
-            lambda s, sport="mlb": [sleeper_mod.PlayerProp(
+            props_mod.PrizePicksSource, "fetch_props",
+            lambda s, sport="mlb", drops=None: [props_mod.PlayerProp(
                 hitter, normalize_name(hitter), "batter", "hits", 0.5,
                 over_price=2000, under_price=-2000,
                 is_live=True, game_status="in_game")])
@@ -936,7 +949,7 @@ class TestProbabilityHonesty:
         import dataclasses
         import datetime
         import thebeast.betting.best_bets as bb
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast import simcache
         from thebeast.data.names import normalize_name, player_names
         from thebeast.data.repository import SQLiteRepository
@@ -970,16 +983,16 @@ class TestProbabilityHonesty:
         )
         monkeypatch.setattr(bb, "_live_state_for",
                             lambda *a, **k: (state, {}, {}, box))
-        settled = sleeper_mod.PlayerProp(
+        settled = props_mod.PlayerProp(
             hitter, normalize_name(hitter), "batter", "hits", 1.5,
             over_price=-2000, under_price=1200, is_live=True,
             game_status="in_game")
-        still_open = sleeper_mod.PlayerProp(
+        still_open = props_mod.PlayerProp(
             hitter, normalize_name(hitter), "batter", "hits", 4.5,
             over_price=600, under_price=-900, is_live=True,
             game_status="in_game")
-        monkeypatch.setattr(sleeper_mod.SleeperPropsSource, "fetch_props",
-                            lambda s, sport="mlb": [settled, still_open])
+        monkeypatch.setattr(props_mod.PrizePicksSource, "fetch_props",
+                            lambda s, sport="mlb", drops=None: [settled, still_open])
 
         class LiveSlate(SQLiteRepository):
             def get_schedule(self, d):
@@ -1022,7 +1035,7 @@ class TestBestBetsFills:
         Those are not people, so no prop could ever be matched to them — 68
         props parsed and one player matched, all of them the same pitcher."""
         import datetime
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast import simcache
         from thebeast.data.names import normalize_name, player_names
         from thebeast.data.repository import SQLiteRepository
@@ -1044,12 +1057,12 @@ class TestBestBetsFills:
             for pid in home_lu.batting_order[:3]:
                 nm = player_names(repo, [pid], 2026).get(pid)
                 if nm:
-                    props.append(sleeper_mod.PlayerProp(
+                    props.append(props_mod.PlayerProp(
                         nm, normalize_name(nm), "batter", "hits", 0.5,
                         over_price=-140, under_price=110))
         assert props, "fixture rosters should name some hitters"
-        monkeypatch.setattr(sleeper_mod.SleeperPropsSource, "fetch_props",
-                            lambda s, sport="mlb": props)
+        monkeypatch.setattr(props_mod.PrizePicksSource, "fetch_props",
+                            lambda s, sport="mlb", drops=None: props)
 
         class Slate(SQLiteRepository):
             def get_schedule(self, d):
@@ -1065,7 +1078,7 @@ class TestBestBetsFills:
         edge. A filtered panel is then simply empty, which says nothing about
         the slate and reads as broken."""
         import datetime
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast import simcache
         from thebeast.data.names import normalize_name, player_names
         from thebeast.data.repository import SQLiteRepository
@@ -1087,11 +1100,11 @@ class TestBestBetsFills:
             for pid in home_lu.batting_order[:4]:
                 nm = player_names(repo, [pid], 2026).get(pid)
                 if nm:
-                    props.append(sleeper_mod.PlayerProp(
+                    props.append(props_mod.PlayerProp(
                         nm, normalize_name(nm), "batter", "hits", 0.5,
                         over_price=-100000, under_price=-100000))
-        monkeypatch.setattr(sleeper_mod.SleeperPropsSource, "fetch_props",
-                            lambda s, sport="mlb": props)
+        monkeypatch.setattr(props_mod.PrizePicksSource, "fetch_props",
+                            lambda s, sport="mlb", drops=None: props)
 
         class Slate(SQLiteRepository):
             def get_schedule(self, d):
@@ -1107,7 +1120,7 @@ class TestBestBetsFills:
     def test_five_of_each_family_are_offered(self, monkeypatch) -> None:
         """Five pitcher and five batter plays whenever that many are priced."""
         import datetime
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast import simcache
         from thebeast.data.names import normalize_name, player_names
         from thebeast.data.repository import SQLiteRepository
@@ -1128,16 +1141,16 @@ class TestBestBetsFills:
                 for pid in lu.batting_order[:3]:
                     nm = player_names(repo, [pid], 2026).get(pid)
                     if nm:
-                        props.append(sleeper_mod.PlayerProp(
+                        props.append(props_mod.PlayerProp(
                             nm, normalize_name(nm), "batter", "hits", 0.5,
                             over_price=-140, under_price=110))
                 nm = player_names(repo, [lu.starter_id], 2026).get(lu.starter_id)
                 if nm:
-                    props.append(sleeper_mod.PlayerProp(
+                    props.append(props_mod.PlayerProp(
                         nm, normalize_name(nm), "pitcher", "k", 4.5,
                         over_price=-115, under_price=-105))
-        monkeypatch.setattr(sleeper_mod.SleeperPropsSource, "fetch_props",
-                            lambda s, sport="mlb": props)
+        monkeypatch.setattr(props_mod.PrizePicksSource, "fetch_props",
+                            lambda s, sport="mlb", drops=None: props)
 
         class Slate(SQLiteRepository):
             def get_schedule(self, d):
@@ -1156,7 +1169,7 @@ class TestBestBetsFills:
         import dataclasses
         import datetime
         import thebeast.betting.best_bets as bb
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast import simcache
         from thebeast.data.names import normalize_name, player_names
         from thebeast.data.repository import SQLiteRepository
@@ -1184,7 +1197,7 @@ class TestBestBetsFills:
                 nm = player_names(repo, [pid], 2026).get(pid)
                 if nm:
                     # Live quotes only — no pregame lines exist any more.
-                    props.append(sleeper_mod.PlayerProp(
+                    props.append(props_mod.PlayerProp(
                         nm, normalize_name(nm), "batter", "hits", 1.5,
                         over_price=250, under_price=-160,
                         is_live=True, game_status="in_game"))
@@ -1204,8 +1217,8 @@ class TestBestBetsFills:
             ), {}, {}, boxes[gid])
 
         monkeypatch.setattr(bb, "_live_state_for", live_state)
-        monkeypatch.setattr(sleeper_mod.SleeperPropsSource, "fetch_props",
-                            lambda s, sport="mlb": props)
+        monkeypatch.setattr(props_mod.PrizePicksSource, "fetch_props",
+                            lambda s, sport="mlb", drops=None: props)
 
         class LiveSlate(SQLiteRepository):
             def get_schedule(self, d):
@@ -1224,7 +1237,7 @@ class TestBestBetsFills:
         import dataclasses
         import datetime
         import thebeast.betting.best_bets as bb
-        import thebeast.data.sources.sleeper as sleeper_mod
+        import thebeast.data.sources.prizepicks as props_mod
         from thebeast import simcache
         from thebeast.data.repository import SQLiteRepository
         from thebeast.betting.best_bets import build_best_bets
@@ -1237,8 +1250,8 @@ class TestBestBetsFills:
 
         monkeypatch.setattr(bb, "_live_state_for",
                             lambda *a, **k: (None, None, None, None))
-        monkeypatch.setattr(sleeper_mod.SleeperPropsSource, "fetch_props",
-                            lambda s, sport="mlb": [])
+        monkeypatch.setattr(props_mod.PrizePicksSource, "fetch_props",
+                            lambda s, sport="mlb", drops=None: [])
 
         class LiveSlate(SQLiteRepository):
             def get_schedule(self, d):
@@ -1475,3 +1488,188 @@ class TestNothingRunsBeforeTheSimulations:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
         monkeypatch.setattr(slate, "status", lambda day: None)
         assert client.get("/api/chat/status").json()["slate_ready"] is True
+
+
+class TestNoEndpointRunsItsOwnSimulation:
+    """Every reader shares the slate's run. Two didn't, and both were quoting
+    numbers beside a card built from a different draw of the same matchup."""
+
+    def test_bet_prices_against_the_cached_run(self, monkeypatch) -> None:
+        """It re-simulated: 2.95s where the card answers in 0.03s, and with the
+        seed left at its default the two disagreed by a few tenths of a point —
+        the same number quoted twice on one page, differently."""
+        reached = {"cache": False}
+
+        def through_the_cache(*a, **k):
+            reached["cache"] = True
+            raise RuntimeError("reached the shared cache")
+
+        # Bound at import in `api.main`, so that is the name to patch.
+        monkeypatch.setattr("thebeast.api.main.simulate_cached",
+                            through_the_cache)
+        # The endpoint lets the error through; reaching the cache at all is
+        # the assertion, so swallow it rather than asserting on the response.
+        try:
+            client.post("/api/bet", json={
+                "game_id": "2024-04-01-NYY-BOS", "n": 200, "seed": 7,
+                "odds": {"home_ml": -120, "away_ml": 100, "total_line": 8.5,
+                         "over_ml": -110, "under_ml": -110}})
+        except RuntimeError:
+            pass
+        assert reached["cache"], "/api/bet ran its own simulation"
+
+    def test_bet_is_deterministic_without_being_given_a_seed(self) -> None:
+        """The API's own default was seed=None. Only the frontend hardcoding 7
+        kept it agreeing with the card."""
+        body = {"game_id": "2024-04-01-NYY-BOS", "n": 200,
+                "odds": {"home_ml": -120, "away_ml": 100, "total_line": 8.5,
+                         "over_ml": -110, "under_ml": -110}}
+        first = client.post("/api/bet", json=body).json()
+        second = client.post("/api/bet", json=body).json()
+        assert first and first == second
+
+
+class TestOneDefinitionEach:
+    """Facts written down twice come apart. These are the ones that had."""
+
+    def test_the_season_is_defined_once(self) -> None:
+        """`live.py` carried its own copy with a comment saying it mirrored the
+        API's. At the rollover one gets edited and the other doesn't, and a live
+        game silently looks up statlines for the wrong year."""
+        from thebeast import live, seasons
+        from thebeast.api import main
+
+        assert main.CURRENT_SEASON is seasons.CURRENT_SEASON
+        assert live.CURRENT_SEASON is seasons.CURRENT_SEASON
+        assert main.PARK_SEASON is seasons.PARK_SEASON
+
+    def test_game_ids_are_parsed_in_one_place(self) -> None:
+        from thebeast import gameid
+        from thebeast.accuracy import parse_game_id
+        from thebeast.api import main
+        from thebeast import pipeline
+
+        assert main._teams_from_game_id is gameid.teams_of
+        assert pipeline._teams_from_game_id is gameid.teams_of
+        assert main._base_game_id is gameid.base_id
+        assert parse_game_id is gameid.parse
+
+    def test_strict_and_lenient_parsing_both_survive(self) -> None:
+        """Both tolerances are wanted: teams must not be guessed, but the
+        assistant has to resolve what a model typed as prose."""
+        from thebeast import gameid
+
+        assert gameid.parse("2026-08-03 STL at NYY")[0] is None
+        assert gameid.date_of("2026-08-03 STL at NYY") is not None
+        assert gameid.teams_of("2026-08-03-STL-NYY") == ("NYY", "STL")
+        assert gameid.base_id("2026-08-03-STL-NYY-g2") == "2026-08-03-STL-NYY"
+
+    def test_one_lineup_writer(self) -> None:
+        """`_fill_roster` was a second implementation with its own placeholder
+        test, and the two disagreed on a game with no stored lineup. Having two
+        is also how the injury filter came to be bypassed — only one was ever
+        patched."""
+        import inspect
+        from thebeast.api import main
+
+        assert "ensure_lineups" in inspect.getsource(main._fill_roster)
+
+    def test_the_placeholder_test_is_shared(self) -> None:
+        import inspect
+        from thebeast import pipeline
+
+        # The test itself, not the comment explaining why it changed.
+        code = [l for l in inspect.getsource(pipeline.ensure_lineups).splitlines()
+                if not l.strip().startswith("#")]
+        assert any("is_placeholder" in l for l in code)
+        assert not any("9_000_000" in l for l in code), \
+            "no second spelling of the same test"
+
+
+
+
+class TestNextAtBat:
+    """The pitch forecast endpoint, whose main job is failing politely.
+
+    A live panel that shows nothing is the most common thing a viewer will
+    see from it — the game hasn't started, the feed is down, the reliever
+    isn't in our database. Those are three different facts, and an endpoint
+    that raised or returned an empty body would render them identically.
+    """
+
+    def test_a_bad_game_id_is_rejected(self) -> None:
+        r = client.get("/api/game/not-a-game/next-at-bat")
+        assert r.status_code == 422
+
+    def test_a_game_with_no_live_feed_answers_with_a_reason(self) -> None:
+        """200 with `available: false`, never a 500.
+
+        This is polled every twenty seconds beside the box score; an endpoint
+        that threw would take the live tab down with it.
+        """
+        r = client.get("/api/game/2026-08-15-STL-CHC/next-at-bat")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["available"] is False
+        assert body["reason"]
+
+    def test_a_forecast_carries_a_complete_at_bat(self, monkeypatch) -> None:
+        import dataclasses
+
+        import thebeast.next_at_bat as nab
+        from thebeast.pitch_sequence import AtBatForecast
+
+        fake = nab.NextAtBat(
+            game_id="2026-08-15-STL-CHC", available=True, subject="on_deck",
+            batter="Pete Crow-Armstrong", pitcher="Sonny Gray",
+            inning=4, is_top_inning=False, outs=1,
+            current_batter="Nico Hoerner",
+            forecast=dataclasses.asdict(AtBatForecast(
+                batter="Pete Crow-Armstrong", pitcher="Sonny Gray",
+                batter_hand="L", pitcher_hand="R",
+                expected_pitches=3.8, likely_pitches=4,
+                more_pct=33.0, same_pct=18.0, fewer_pct=49.0,
+                distribution=[{"n": 1, "pct": 15.0}],
+                strikeout_pct=24.0, walk_pct=8.0, in_play_pct=67.0,
+                hit_by_pitch_pct=1.0)))
+        monkeypatch.setattr(nab, "build", lambda *a, **k: fake)
+
+        body = client.get("/api/game/2026-08-15-STL-CHC/next-at-bat").json()
+        assert body["available"] is True
+        assert body["subject"] == "on_deck"
+        assert body["forecast"]["likely_pitches"] == 4
+        assert body["forecast"]["strikeout_pct"] == 24.0
+
+    def test_an_exploding_builder_does_not_take_the_panel_down(self, monkeypatch) -> None:
+        import thebeast.next_at_bat as nab
+
+        def boom(*a, **k):
+            raise RuntimeError("statsapi on fire")
+
+        monkeypatch.setattr(nab, "build", boom)
+        r = client.get("/api/game/2026-08-15-STL-CHC/next-at-bat")
+        assert r.status_code == 200
+        assert r.json()["available"] is False
+        assert "statsapi on fire" in r.json()["reason"]
+
+    def test_repeat_polls_are_served_from_cache(self, monkeypatch) -> None:
+        """The panel is polled every few seconds; MLB must not be.
+
+        The work is identical for every viewer of a game, so one fetch serves
+        all of them. Without this, a fast refresh would mean an external round
+        trip per viewer per poll.
+        """
+        import thebeast.next_at_bat as nab
+
+        calls = {"n": 0}
+
+        def counted(*a, **k):
+            calls["n"] += 1
+            return nab.NextAtBat(game_id="2026-08-15-STL-CHC", available=False,
+                                 reason="nothing doing")
+
+        monkeypatch.setattr(nab, "build", counted)
+        for _ in range(5):
+            assert client.get(
+                "/api/game/2026-08-15-STL-CHC/next-at-bat").status_code == 200
+        assert calls["n"] == 1, "five polls should have cost one build"

@@ -1,0 +1,117 @@
+name: Measure edaphic v2 source coverage
+
+on:
+  push:
+    branches: [edaphic-v2.0-enrichment]
+    paths: ['.github/workflows/measure-edaphic-v2-sources.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      V19_URL: https://shugoan.com/climaflora/data/climaflora_global_plants_v1_9.sqlite.zst
+      V19_ZST_SHA: 5851572bd48dea34d3b69e16a78126d1ac149c907e5db8fa7af1bc36812779dc
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Prepare sources
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+          python -m pip install --quiet openpyxl
+          curl -fL --retry 5 "$V19_URL" -o v19.sqlite.zst
+          echo "$V19_ZST_SHA  v19.sqlite.zst" | sha256sum -c -
+          zstd -d -f v19.sqlite.zst -o v19.sqlite
+          curl -fL --retry 5 -A 'ClimaFlora scientific source audit/2.0' \
+            'https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/plantlst.txt' -o plantlst.txt
+          curl -fL --retry 5 -A 'Mozilla/5.0 ClimaFlora scientific source audit/2.0' \
+            'https://web.archive.org/web/20231002005253id_/https://philippe.julve.pagesperso-orange.fr/baseflor.xlsx' -o baseflor.xlsx
+      - name: Measure exact taxonomic overlap
+        run: |
+          python - <<'PY'
+          import csv, json, re, sqlite3
+          from pathlib import Path
+          from openpyxl import load_workbook
+
+          con=sqlite3.connect('v19.sqlite')
+          names={str(r[0]).strip():str(r[1]) for r in con.execute('SELECT scientific_name,taxon_id FROM plant_index') if r[0]}
+          species_names={n for n in names if len(n.split())==2}
+
+          # USDA: accepted rows are those with empty Synonym Symbol. Restrict the
+          # initial coverage measure to clean species binomials, because growth
+          # characteristics are primarily species-level and this avoids fuzzy matching.
+          accepted=[]; usda_matches=[]
+          with open('plantlst.txt',encoding='utf-8-sig',newline='') as f:
+              for row in csv.DictReader(f):
+                  if (row.get('Synonym Symbol') or '').strip():
+                      continue
+                  sci=(row.get('Scientific Name with Author') or '').strip()
+                  toks=sci.replace('× ','×').split()
+                  if len(toks)<2: continue
+                  genus,epithet=toks[0],toks[1]
+                  if epithet.lower() in {'subsp.','ssp.','var.','forma','f.'}: continue
+                  canonical=f'{genus} {epithet}'.strip()
+                  # remove simple trailing hybrid punctuation, but do not guess names
+                  canonical=canonical.rstrip(',;')
+                  accepted.append((row.get('Symbol','').strip(),canonical,sci,row.get('Family','').strip()))
+                  if canonical in species_names:
+                      usda_matches.append((row.get('Symbol','').strip(),canonical,names[canonical]))
+
+          wb=load_workbook('baseflor.xlsx',read_only=True,data_only=True)
+          ws=wb['baseflor']
+          rows=ws.iter_rows(values_only=True)
+          header=[str(x or '').strip() for x in next(rows)]
+          idx={h:i for i,h in enumerate(header)}
+          bf=[]; bf_matches=[]; observed={k:[] for k in ['Humidité_édaphique','Réaction_du_sol_(pH)','Niveau_trophique','Salinité','Texture','Matière_organique']}
+          for vals in rows:
+              rank=str(vals[idx['rang_taxinomique']] or '').strip()
+              canonical=str(vals[idx['nomH']] or '').strip()
+              if not canonical:
+                  raw=str(vals[idx['NOM_SCIENTIFIQUE']] or '').strip()
+                  canonical=' '.join(raw.split()[:2]) if len(raw.split())>=2 else ''
+              rec={'rank':rank,'name':canonical}
+              for col in observed:
+                  v=vals[idx[col]]
+                  if isinstance(v,(int,float)):
+                      observed[col].append(float(v))
+                      rec[col]=float(v)
+                  elif v not in (None,''):
+                      rec[col]=str(v).strip()
+              bf.append(rec)
+              if canonical in names:
+                  bf_matches.append((canonical,names[canonical],rank))
+
+          report={
+            'climaflora_taxa':len(names),
+            'climaflora_species_binomials':len(species_names),
+            'usda_accepted_species_candidates':len(accepted),
+            'usda_exact_species_matches':len(usda_matches),
+            'usda_match_rate_of_candidates':len(usda_matches)/len(accepted) if accepted else 0,
+            'usda_sample_matches':usda_matches[:30],
+            'baseflor_rows':len(bf),
+            'baseflor_exact_matches':len(bf_matches),
+            'baseflor_match_rate':len(bf_matches)/len(bf) if bf else 0,
+            'baseflor_sample_matches':bf_matches[:30],
+            'baseflor_observed_scales':{
+              k:{'n':len(v),'min':min(v) if v else None,'max':max(v) if v else None,'unique':sorted(set(v))[:40]}
+              for k,v in observed.items()
+            },
+          }
+          Path('/tmp/edaphic-v2-source-coverage.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n')
+          print(json.dumps(report,indent=2,ensure_ascii=False))
+          PY
+      - name: Record coverage
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin edaphic-v2.0-enrichment
+          git reset --hard origin/edaphic-v2.0-enrichment
+          cp /tmp/edaphic-v2-source-coverage.json .github/edaphic-v2-source-coverage.json
+          git add .github/edaphic-v2-source-coverage.json
+          git commit -m 'Record edaphic v2 source coverage [skip ci]'
+          git push origin HEAD:edaphic-v2.0-enrichment

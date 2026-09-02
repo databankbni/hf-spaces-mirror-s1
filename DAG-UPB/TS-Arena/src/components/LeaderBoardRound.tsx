@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ChevronRight, Clock } from 'lucide-react';
 import Pagination from './Pagination';
 
-interface LeaderboardEntry {
+export interface LeaderboardEntry {
   model_id: number;
   readable_id: string;
   model_name: string;
@@ -14,16 +14,36 @@ interface LeaderboardEntry {
   forecast_count: number;
   mase: number | null;
   rmse: number | null;
+  /**
+   * Scaled Quantile Loss for this model on this series. Only computed at final
+   * evaluation, so it is null while a round is still being scored on the fly.
+   */
+  sql_score: number | null;
+  /**
+   * Whether the score came from a real submitted distribution. False means the
+   * point forecast was substituted at every quantile, which produces a number
+   * that is not comparable with a genuine one; null means not evaluated yet.
+   */
+  has_quantiles: boolean | null;
   is_final: boolean;
   rank: number;
+}
+
+interface SeriesResult {
+  rank: number;
+  mase: number | null;
+  sql: number | null;
+  hasQuantiles: boolean | null;
 }
 
 interface ModelRow {
   model_id: number;
   readable_id: string;
   model_name: string;
-  seriesRanks: Record<number, { rank: number; mase: number | null }>;
+  seriesRanks: Record<number, SeriesResult>;
   avgRank: number;
+  /** Mean SQL across the series this model was scored on, or null if none were. */
+  avgSql: number | null;
 }
 
 interface LeaderBoardRoundProps {
@@ -111,17 +131,36 @@ export default function LeaderBoardRound({ leaderboard, loading, status }: Leade
                 readable_id: entry.readable_id,
                 model_name: entry.model_name,
                 seriesRanks: {},
-                avgRank: 0
+                avgRank: 0,
+                avgSql: null
               });
             }
             const model = modelMap.get(entry.model_id)!;
-            model.seriesRanks[entry.series_id] = { rank: entry.rank, mase: entry.mase };
+            model.seriesRanks[entry.series_id] = {
+              rank: entry.rank,
+              mase: entry.mase,
+              sql: entry.sql_score,
+              hasQuantiles: entry.has_quantiles
+            };
           });
-          
+
+          // SQL only appears once a round is finally evaluated; before that the
+          // board is computed on the fly from raw forecasts and carries MASE alone.
+          const sqlPending = leaderboard.length > 0 && leaderboard.every(entry => !entry.is_final);
+
           // Calculate average rank and sort
           const modelRows = Array.from(modelMap.values()).map(model => {
             const ranks = Object.values(model.seriesRanks).map(r => r.rank);
             model.avgRank = ranks.length > 0 ? ranks.reduce((sum, r) => sum + r, 0) / ranks.length : Infinity;
+            // Averaged over the series where the model actually submitted a
+            // distribution. Degenerate rows are left out rather than folded in:
+            // they would drag the mean toward the model's point accuracy.
+            const sqlValues = Object.values(model.seriesRanks)
+              .filter(r => r.hasQuantiles === true && r.sql !== null)
+              .map(r => r.sql as number);
+            model.avgSql = sqlValues.length > 0
+              ? sqlValues.reduce((sum, v) => sum + v, 0) / sqlValues.length
+              : null;
             return model;
           }).sort((a, b) => a.avgRank - b.avgRank);
 
@@ -142,6 +181,13 @@ export default function LeaderBoardRound({ leaderboard, loading, status }: Leade
                       </th>
                       <th scope="col" className="px-2 py-2 sm:px-3 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50">
                         Avg Rank
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-2 py-2 sm:px-3 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50"
+                        title="Scaled Quantile Loss: mean pinball loss over the nine deciles, divided by the same naive-forecast MAE that scales MASE. Lower is better. Only models that submit quantile forecasts are scored on it."
+                      >
+                        Avg SQL
                       </th>
                       {seriesIds.map(seriesId => (
                         <th key={seriesId} scope="col" className="px-1.5 py-2 sm:px-2 sm:py-3 text-center text-xs font-medium text-gray-500 tracking-wider align-bottom min-w-[60px] max-w-[100px]">
@@ -169,6 +215,24 @@ export default function LeaderBoardRound({ leaderboard, loading, status }: Leade
                         <td className="px-2 py-2 sm:px-3 sm:py-3 text-center text-sm font-semibold text-gray-900 bg-blue-50">
                           {model.avgRank.toFixed(2)}
                         </td>
+                        <td className="px-2 py-2 sm:px-3 sm:py-3 text-center text-sm bg-blue-50">
+                          {model.avgSql !== null ? (
+                            <span className="font-semibold text-gray-900">
+                              {model.avgSql.toFixed(3)}
+                            </span>
+                          ) : (
+                            <span
+                              className="text-gray-400"
+                              title={
+                                sqlPending
+                                  ? 'Available once the round is finally evaluated.'
+                                  : 'This model submitted point forecasts only for this round.'
+                              }
+                            >
+                              {sqlPending ? 'pending' : '—'}
+                            </span>
+                          )}
+                        </td>
                         {seriesIds.map(seriesId => {
                           const rankData = model.seriesRanks[seriesId];
                           if (!rankData) {
@@ -190,7 +254,14 @@ export default function LeaderBoardRound({ leaderboard, loading, status }: Leade
                                     ? 'bg-orange-100 text-orange-800'
                                     : 'bg-gray-100 text-gray-600'
                                 }`}
-                                title={rankData.mase !== null ? `MASE: ${rankData.mase.toFixed(4)}` : 'MASE: N/A'}
+                                title={[
+                                  rankData.mase !== null ? `MASE: ${rankData.mase.toFixed(4)}` : 'MASE: N/A',
+                                  rankData.hasQuantiles === true && rankData.sql !== null
+                                    ? `SQL: ${rankData.sql.toFixed(4)}`
+                                    : rankData.hasQuantiles === false
+                                    ? 'SQL: point forecast only'
+                                    : 'SQL: pending',
+                                ].join(' · ')}
                               >
                                 {rankData.rank}
                               </span>
@@ -200,6 +271,11 @@ export default function LeaderBoardRound({ leaderboard, loading, status }: Leade
                               <span className="sm:hidden mt-0.5 block text-[10px] leading-none text-gray-500">
                                 {rankData.mase !== null ? rankData.mase.toFixed(3) : 'N/A'}
                               </span>
+                              {rankData.hasQuantiles === true && rankData.sql !== null && (
+                                <span className="sm:hidden mt-0.5 block text-[10px] leading-none text-gray-400">
+                                  q {rankData.sql.toFixed(3)}
+                                </span>
+                              )}
                             </td>
                           );
                         })}

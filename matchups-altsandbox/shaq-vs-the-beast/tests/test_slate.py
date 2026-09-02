@@ -616,3 +616,5 @@ class TestWatchingForLineups:
         s = slate._Slate(DAY.isoformat())
         slate._count_confirmed(s, Repo(), DAY)
         assert s.progress.lineup_slots == 2 and s.progress.confirmed == 1
+
+

@@ -8,51 +8,13 @@ on:
 jobs:
   ping-space:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
-    concurrency:
-      group: keep-cognilens-space-awake
-      cancel-in-progress: false
+    timeout-minutes: 5
     steps:
       - name: Ping deployed health endpoint
-        id: ping
-        continue-on-error: true
         run: |
           set -euo pipefail
           URL="${COGNILENS_SPACE_URL:-https://conradfishe-cognilens.hf.space}/health"
           echo "Pinging ${URL}"
-          curl --fail --show-error --silent --retry 3 --retry-delay 20 --max-time 90 "$URL"
-        env:
-          COGNILENS_SPACE_URL: ${{ vars.COGNILENS_SPACE_URL }}
-
-      - name: Restart Space if health failed
-        if: steps.ping.outcome == 'failure'
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE_ID: ${{ vars.HF_SPACE_ID || 'ConradFishe/CogniLens' }}
-        run: |
-          set -euo pipefail
-          if [ -z "${HF_TOKEN:-}" ]; then
-            echo "Health check failed and HF_TOKEN secret is not configured."
-            echo "Add a Hugging Face token with write access as GitHub secret HF_TOKEN."
-            exit 1
-          fi
-          python -m pip install --quiet --upgrade huggingface_hub
-          python - <<'PY'
-          import os
-          from huggingface_hub import HfApi
-
-          repo_id = os.environ.get("HF_SPACE_ID", "ConradFishe/CogniLens")
-          print(f"Restarting Hugging Face Space: {repo_id}")
-          HfApi(token=os.environ["HF_TOKEN"]).restart_space(repo_id=repo_id)
-          PY
-
-      - name: Verify Space after restart
-        if: steps.ping.outcome == 'failure'
-        run: |
-          set -euo pipefail
-          URL="${COGNILENS_SPACE_URL:-https://conradfishe-cognilens.hf.space}/health"
-          echo "Waiting for Space restart..."
-          sleep 120
-          curl --fail --show-error --silent --retry 6 --retry-delay 30 --max-time 90 "$URL"
+          curl --fail --show-error --silent --max-time 60 "$URL"
         env:
           COGNILENS_SPACE_URL: ${{ vars.COGNILENS_SPACE_URL }}

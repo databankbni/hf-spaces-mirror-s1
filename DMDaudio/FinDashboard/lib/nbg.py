@@ -200,26 +200,50 @@ def _pick_sheet(wb):
 
 
 # ---------------------------------------------------------------------------
-# Balance of payments — current account (BPM5 analytical presentation)
+# Balance of payments — current account (BPM5 STANDARD presentation)
 # ---------------------------------------------------------------------------
+#
+# The same workbook carries two presentations and they do NOT agree:
+#
+#   'Short (ENG)' / 'Long (ENG)'  standard presentation, thousand USD  <- used here
+#   'BOP-anlt'                    analytical presentation, million USD
+#
+# The analytical sheet reclassifies part of current transfers (exceptional
+# financing) out of the current account, so its deficit runs ~US$39m/yr wider
+# recently and ~US$180m wider in 2020 — enough to move the headline ratio by
+# 0.1-1.1pp (2020: -13.5% of GDP analytical vs -12.4% standard). The standard
+# presentation is NBG's headline series and what GCAP's macro deck quotes, so
+# that is what the dashboard reports. Verified 2019-2025 against the deck to
+# 0.1pp on every year.
 
 BOP_XLSX_URL = (
     "https://nbg.gov.ge/fm/"
     "%E1%83%A1%E1%83%A2%E1%83%90%E1%83%A2%E1%83%98%E1%83%A1%E1%83%A2%E1%83%98%E1%83%99%E1%83%90"
     "/external_sector/eng/bop-bpm5-eng.xlsx"
 )
-BOP_SHEET = "BOP-anlt"  # quarterly analytical presentation, million USD
+BOP_SHEET = "Short (ENG)"   # quarterly standard presentation, THOUSAND USD
+BOP_SCALE = 1 / 1000.0      # thousand USD -> million USD (the unit we publish)
 
-# Current-account decomposition (BPM5). Each output component is the NET of the
-# listed source rows (debit rows are already negative in the sheet). They sum to
-# the current-account balance (the TOTAL component).
+# Current-account decomposition. Each row here is already the NET of its own
+# credit/debit pair in the sheet, and the four sum to the balance. Labels are
+# BPM5 ("Income" / "Current transfers"); we publish them under the BPM6 names
+# the rest of the app uses, which are the same concepts.
 _CA_COMPONENTS = [
-    ("TOTAL", ["A. Current Account"]),               # current-account balance
-    ("Goods", ["Balance on Goods"]),
-    ("Services", ["Services: credit", "Services: debit"]),
-    ("Primary income", ["Income: credit", "Income: debit"]),        # BPM5 "Income"
-    ("Secondary income", ["Current transfers: credit", "Current transfers: debit"]),
+    ("TOTAL", "Current account"),               # current-account balance
+    ("Goods", "A. Goods"),
+    ("Services", "B. Services"),
+    ("Primary income", "C. Income"),
+    ("Secondary income", "D. Current transfers"),
 ]
+
+# Inbound tourism receipts = the CREDIT side of the BoP 'Travel' service line,
+# which is what "tourism revenue" means in every Georgian macro publication.
+# It is NOT Geostat's inbound-visitor expenditure survey (which the macro page
+# also carries, for the spend mix): the survey grosses a monthly average up over
+# 12 months and lands ~15-20% higher — 2025 was ₾15.0bn ≈ US$5.5bn survey vs
+# US$4.69bn of travel credit.
+BOP_LONG_SHEET = "Long (ENG)"
+_TRAVEL_ROW = "Travel"
 
 
 def download_bop_xlsx(session=None, *, timeout: float = 120.0) -> bytes:
@@ -236,27 +260,29 @@ def download_bop_xlsx(session=None, *, timeout: float = 120.0) -> bytes:
     return r.content
 
 
-def parse_bop_current_account(xlsx_bytes: bytes) -> list[dict]:
-    """Parse the BPM5 analytical BoP sheet into current-account component rows.
-
-    Returns ``[{"component", "period" (YYYY-Qn), "value"}]`` in million USD, for
-    the current-account balance (component ``"TOTAL"``) and its Goods / Services /
-    Primary-income / Secondary-income nets (which sum to the balance).
-    """
+def _bop_grid(xlsx_bytes: bytes, sheet: str) -> list[list]:
     import io
-    import re
 
     import openpyxl
 
     wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes), data_only=True, read_only=True)
     try:
-        ws = wb[BOP_SHEET] if BOP_SHEET in wb.sheetnames else wb[wb.sheetnames[0]]
-        grid = [list(r) for r in ws.iter_rows(values_only=True)]
+        ws = wb[sheet] if sheet in wb.sheetnames else wb[wb.sheetnames[0]]
+        return [list(r) for r in ws.iter_rows(values_only=True)]
     finally:
         wb.close()
 
+
+def _bop_quarter_columns(grid: list[list]) -> dict[int, str]:
+    """{column index → 'YYYY-Qn'} from the 'Short (ENG)' single-row header.
+
+    The header also carries an annual 'YYYY' column after each Q4; the regex
+    requires the quarter suffix, so those are skipped (we re-derive the year by
+    summing, which is checked against the published annual in the tests).
+    """
+    import re
+
     qre = re.compile(r"^(\d{4})Q([1-4])$")
-    # Header = the row with the most "YYYYQn" cells.
     hdr_idx, best = 0, 0
     for i, row in enumerate(grid[:8]):
         cnt = sum(1 for c in row if isinstance(c, str) and qre.match(c.strip()))
@@ -264,30 +290,100 @@ def parse_bop_current_account(xlsx_bytes: bytes) -> list[dict]:
             best, hdr_idx = cnt, i
     if best == 0:
         raise NbgError("BoP: no quarter header found — layout changed?")
-    qcols: dict[int, str] = {}
+    cols: dict[int, str] = {}
     for ci, c in enumerate(grid[hdr_idx]):
         if isinstance(c, str):
             m = qre.match(c.strip())
             if m:
-                qcols[ci] = f"{m.group(1)}-Q{m.group(2)}"
+                cols[ci] = f"{m.group(1)}-Q{m.group(2)}"
+    return cols
 
-    def _row(label: str):
-        for row in grid:
-            if row and isinstance(row[0], str) and row[0].strip() == label:
-                return row
-        return None
+
+def _bop_row(grid: list[list], label: str):
+    """First row whose label cell matches ``label`` (whitespace-insensitive)."""
+    for row in grid:
+        if row and isinstance(row[0], str) and row[0].strip() == label:
+            return row
+    return None
+
+
+def parse_bop_current_account(xlsx_bytes: bytes) -> list[dict]:
+    """Parse the BoP standard presentation into current-account component rows.
+
+    Returns ``[{"component", "period" (YYYY-Qn), "value"}]`` in **million USD**
+    (the sheet is in thousands) for the current-account balance (component
+    ``"TOTAL"``) and its Goods / Services / Primary-income / Secondary-income
+    nets, which sum to the balance. See the ``BOP_SHEET`` note above for why this
+    reads the standard rather than the analytical sheet.
+    """
+    grid = _bop_grid(xlsx_bytes, BOP_SHEET)
+    qcols = _bop_quarter_columns(grid)
 
     out: list[dict] = []
-    for comp, labels in _CA_COMPONENTS:
-        srcs = [_row(l) for l in labels]
-        if any(s is None for s in srcs):
-            raise NbgError(f"BoP: missing row(s) for {comp} ({labels}) — layout changed?")
+    for comp, label in _CA_COMPONENTS:
+        src = _bop_row(grid, label)
+        if src is None:
+            raise NbgError(f"BoP: missing row {label!r} for {comp} — layout changed?")
         for ci, period in qcols.items():
-            nums = [s[ci] for s in srcs
-                    if ci < len(s) and isinstance(s[ci], (int, float)) and not isinstance(s[ci], bool)]
-            if not nums:
+            v = src[ci] if ci < len(src) else None
+            if not isinstance(v, (int, float)) or isinstance(v, bool):
                 continue
-            out.append({"component": comp, "period": period, "value": round(sum(nums), 2)})
+            out.append({"component": comp, "period": period,
+                        "value": round(v * BOP_SCALE, 2)})
     if not out:
         raise NbgError("parsed zero BoP current-account rows")
+    return out
+
+
+def parse_bop_travel_credit(xlsx_bytes: bytes) -> list[dict]:
+    """Inbound tourism receipts — the credit side of the BoP 'Travel' line.
+
+    Returns ``[{"period" (YYYY-Qn), "value"}]`` in million USD. The detailed
+    'Long (ENG)' sheet nests each service line as ``<label>`` (net) followed by
+    ``Credit`` then ``Debit``, so the receipt is the first ``Credit`` row under
+    ``Travel``; its two-row header puts the year on one row (only on the first
+    column of each year block) and the quarter on the next.
+    """
+    import re
+
+    grid = _bop_grid(xlsx_bytes, BOP_LONG_SHEET)
+    if len(grid) < 5:
+        raise NbgError("BoP travel: 'Long (ENG)' sheet is too short — layout changed?")
+
+    # Two-row header: year (sparse, forward-filled) + quarter, plus a
+    # "Total\nYYYY" column per year that we skip. The quarter label switches
+    # numbering part-way through the sheet — roman ("I Q") for the early years,
+    # arabic ("4 Q") for the recent ones — so both forms have to be accepted or
+    # the series silently starts in the middle of its history.
+    yrow, qrow = grid[2], grid[3]
+    quarters = {"I": 1, "II": 2, "III": 3, "IV": 4, "1": 1, "2": 2, "3": 3, "4": 4}
+    cols: dict[int, str] = {}
+    year = None
+    for ci in range(1, max(len(yrow), len(qrow))):
+        cell = yrow[ci] if ci < len(yrow) else None
+        if cell and re.fullmatch(r"\s*\d{4}\s*", str(cell)):
+            year = str(cell).strip()
+        q = str(qrow[ci]).strip().upper() if ci < len(qrow) and qrow[ci] else ""
+        m = re.fullmatch(r"(I{1,3}|IV|[1-4])\s*Q", q)
+        if year and m:
+            cols[ci] = f"{year}-Q{quarters[m.group(1)]}"
+    if not cols:
+        raise NbgError("BoP travel: no year/quarter header found — layout changed?")
+
+    idx = next((i for i, r in enumerate(grid)
+                if r and isinstance(r[0], str) and r[0].strip() == _TRAVEL_ROW), None)
+    if idx is None:
+        raise NbgError(f"BoP travel: no {_TRAVEL_ROW!r} row — layout changed?")
+    credit = next((grid[j] for j in range(idx + 1, min(idx + 4, len(grid)))
+                   if grid[j] and isinstance(grid[j][0], str)
+                   and grid[j][0].strip() == "Credit"), None)
+    if credit is None:
+        raise NbgError("BoP travel: no 'Credit' row under 'Travel' — layout changed?")
+
+    out = [{"period": p, "value": round(credit[ci] * BOP_SCALE, 2)}
+           for ci, p in sorted(cols.items())
+           if ci < len(credit) and isinstance(credit[ci], (int, float))
+           and not isinstance(credit[ci], bool)]
+    if not out:
+        raise NbgError("parsed zero BoP travel-credit rows")
     return out

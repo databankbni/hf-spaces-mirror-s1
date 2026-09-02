@@ -76,6 +76,25 @@ COI_HTML = """
 </div>
 """
 
+# Jump menu, built like COI_HTML: a checkbox toggles a CSS-only popup, so it needs no JS and
+# works inside the embedded Hugging Face Space iframe. Targets are the section anchors set in
+# pages.render_internal_page.
+TOC_HTML = """
+<div class="toc-widget">
+  <input type="checkbox" id="toc-toggle" class="toc-toggle">
+  <label for="toc-toggle" class="toc-badge" title="Jump to a section">📑 Contents</label>
+  <label for="toc-toggle" class="toc-backdrop" aria-label="Close"></label>
+  <div class="toc-menu">
+    <a href="#ta-controls-anchor" onclick="document.getElementById('toc-toggle').checked=false">🎛️ Select Your Leaderboard</a>
+    <a href="#ta-overview-section" onclick="document.getElementById('toc-toggle').checked=false">🔭 Performance across leaderboards</a>
+    <a href="#lb-detailed" onclick="document.getElementById('toc-toggle').checked=false">🏆 TabArena Leaderboard</a>
+    <a href="#ta-perdataset-section" onclick="document.getElementById('toc-toggle').checked=false">🔎 Per-dataset results</a>
+    <a href="#ta-agentic-section" onclick="document.getElementById('toc-toggle').checked=false">⚙️ Agentic Use &amp; Interpretation</a>
+    <a href="#ta-version-section" onclick="document.getElementById('toc-toggle').checked=false">📂 Version History</a>
+  </div>
+</div>
+"""
+
 OVERVIEW_DATASETS = """
 The leaderboard is built on a manually curated collection of **51 classification and regression datasets**
 for independent and identically distributed (IID) tabular data. They span the small-to-medium data regime and
@@ -85,54 +104,111 @@ were chosen to reflect a wide range of real-world predictive machine learning us
 to include imputed models or switch to TabArena-Lite.
 """
 OVERVIEW_MODELS = """
-The leaderboard focuses on **model-specific pipelines**. Each model is wrapped in a tested, real-world pipeline
-tuned to get the most out of it — by the TabArena maintainers and, where possible, together with the model's
-original authors. Every pipeline is evaluated in three regimes: with its **default** configuration, with a
-**tuned** configuration, and as an **ensemble of tuned** configurations.
+TabArena ranks two kinds of entrant, and the difference is the pipeline.
 
-**Verified models:** A ✔️ in the *Verified* column marks models whose implementation was confirmed by the
-original authors or the TabArena maintainers. Established, stable models (e.g. XGBoost, LightGBM, CatBoost,
-Random Forests, and the baselines) count as verified once the maintainers confirm the implementation. Treat
-unverified or very recent models with more caution.
+- 🤖 **Models** are single methods, and TabArena owns the pipeline around them. It tunes each one
+  under a shared protocol on the same compute budget as every other model, and reports three
+  regimes: **default**, **tuned**, and an **ensemble of tuned** configurations. Each sits in a
+  tested, real-world pipeline built by the maintainers and, where possible, with the model's
+  original authors.
+- 📊 **Systems** own their pipeline end to end. A system decides what to fit, how much to tune it
+  (if at all), and how to combine the result, all inside one budget; TabArena hands it the data
+  and the constraints and nothing else. AutoGluon is the familiar example; TabFM+, agents and
+  hosted APIs are others.
+
+Both are measured the same way and held to the same budget, so the comparison is fair on final
+performance. What differs is how much the setup is controlled. A model's score isolates one
+method under a fixed pipeline; a system is free to step outside those constraints and do whatever
+works, so its score reflects the whole package without saying which part earned it. That makes
+systems the better guide to what you should run, and models the better basis for a research
+claim. Use **Who's competing?** at the top of the page to choose which of them appear.
+
+Systems carry tags for the things that might rule them out for you. **with LLMs** means an LLM
+is somewhere in the loop, possibly as an agent, so the result depends on a model we cannot
+inspect and that may already have seen the test data. 🔒 **closed-source API** means the system
+runs remotely, we cannot see what it did, and it can behave differently on another day.
+
+**Verified:** A ✔️ marks an implementation confirmed by the original authors or the TabArena
+maintainers. Established, stable models (XGBoost, LightGBM, CatBoost, Random Forests, the
+baselines) count as verified once the maintainers confirm the implementation. Treat unverified or
+very recent entries with more caution.
 """
 OVERVIEW_METRICS = """
-**Metrics vs. aggregations.** Each model is scored on every dataset with a task-appropriate **metric** —
-**ROC AUC** for binary classification, **log-loss** for multiclass classification, and **RMSE** for regression.
-These per-dataset scores are then combined across all datasets into a single leaderboard number by an
-**aggregation**. The leaderboards are ranked by the **Elo** aggregation, and we report several complementary
+Each model is scored on every dataset with a **metric** suited to the task: **ROC AUC** for binary
+classification, **log-loss** for multiclass classification, **RMSE** for regression. Those per-dataset
+scores are then combined into a single leaderboard number by an **aggregation**. The leaderboards are ranked by the **Elo** aggregation, and we report several complementary
 aggregations (Score, Improvability, Average & Harmonic Rank). Click any column in the key above the leaderboard
 table for its definition and motivation.
 
-**Imputation:** Toggle *Include imputed models* to add models that cannot run on all datasets due to task or dataset
-size constraints. We impute their missing results with the performance of a default RandomForest. Imputation
-negatively represents the model's performance, punishing it for not being able to run on all datasets.
+**Imputation:** Toggle *Include imputed models* to add models that cannot run on every dataset, whether
+because of the task type or the dataset size. Their missing results are filled in with a default
+RandomForest's, which drags their score down. That is deliberate: a model that only covers part of the
+benchmark should not rank as if it covered all of it.
 
-**Repeats:** Toggle *TabArena-Lite* to view results where each experiment is repeated only once instead of multiple
-times per dataset. TabArena-Lite is less reliable than the full *All Repeats* setting but is often a good proxy for
-overall performance while being much cheaper to compute.
+**Repeats:** Toggle *TabArena-Lite* to score each experiment on a single repeat instead of several. It is
+noisier than the full setting, but much cheaper to compute and usually close enough to be worth it.
 """
-OVERVIEW_REF_PIPE = """
-Reference pipelines are evaluated **outside** the tuning protocol and constraints we apply to the models in
-TabArena; they represent the performance a practitioner can quickly achieve on a dataset. The current reference
-is **AutoGluon**, an ensemble pipeline spanning many model types — a strong yardstick for the individual
-model-specific pipelines.
+# One warning per system category, shown only when that category is competing. They are not the
+# same kind of caveat, and the styling says so: the open-source one is about how to *read* a
+# result that is otherwise sound, so it gets the amber accent; the other two are about results
+# that may not be sound at all, and keep the red.
+WARNING_SYSTEMS = """
+### ⚠️ Systems and models are not the same kind of result
+
+A system faces the same datasets, splits and metric as every model here, and it is held to the
+same budget, so the comparison is fair on final performance: if a system scores higher, it really
+did do better on this benchmark. What it gives up is the controlled setup. A model is one method
+under a fixed pipeline, so its score isolates the method; a system is free to step outside those
+constraints and do whatever works, so its score tells you what the whole package achieves without
+telling you which part earned it.
 """
+
+WARNING_WITH_LLM = """
+### ⚠️ Results from LLM-based systems may be contaminated
+
+These systems call an LLM, in some cases as an agent driving the whole pipeline. We cannot see
+what that model was trained on, so we cannot rule out that it has already seen these datasets,
+or read about them. A score that looks strong may be partly recall rather than prediction.
+
+The model behind an API can also be replaced without notice, so the same system may not score
+the same next month.
+"""
+
+WARNING_CLOSED_API = """
+### ⚠️ Closed-source API results cannot be verified
+
+These systems run on someone else's machine. We send the data and record what comes back, but we
+cannot inspect what ran, pin a version, or reproduce the numbers from source. Treat them as a
+measurement of a service on the day it was queried rather than of a fixed method.
+"""
+
+# The per-dataset browser. Shown while collapsed (the teaser), above it once opened (the
+# intro), and instead of it when a leaderboard has no per-dataset artifact yet.
+PER_DATASET_TEASER = (
+    "Open this to browse the benchmark one dataset at a time: pick a method and see where it "
+    "wins, where it loses, and how the whole field got there on each dataset."
+)
+
+PER_DATASET_MISSING = (
+    "Per-dataset results have not been published for this leaderboard yet. They are generated "
+    "with the rest of the artifacts and appear here once this combination has been rerun."
+)
 
 ABOUT_TEXT = r"""
 TabArena is a living benchmark for predictive machine learning on tabular data. Here are the key resources
 for understanding, using, and contributing to it.
 
 #### 📚 Papers & talks
-- **Paper —** [TabArena: A Living Benchmark for Machine Learning on Tabular Data](https://tabarena.ai/paper-tabular-ml-iid-study): the full methodology and motivation.
-- **Talk —** [TabArena overview on YouTube](https://www.youtube.com/watch?v=mcPRMcJHW2Y).
+- The paper, [TabArena: A Living Benchmark for Machine Learning on Tabular Data](https://tabarena.ai/paper-tabular-ml-iid-study), covers the methodology and the motivation.
+- A [talk on YouTube](https://www.youtube.com/watch?v=mcPRMcJHW2Y) walks through it.
 
 #### 🧪 Benchmark your own method
-Compare your method against the pre-computed results for every model on the leaderboard using the TabArena
-framework — see the [code examples](https://tabarena.ai/code-examples) to get started.
+Compare your method against the pre-computed results for every model on the leaderboard. The
+[code examples](https://tabarena.ai/code-examples) are the place to start.
 
 #### 🤝 Contribute
-- **Models & results —** to add your model or submit results to the official leaderboard, follow the guidelines in the [code repository](https://tabarena.ai/code).
-- **Datasets —** for anything related to the benchmark datasets, see the [data documentation](https://tabarena.ai/data-tabular-ml-iid-study).
+- To add your model or submit results, follow the guidelines in the [code repository](https://tabarena.ai/code).
+- For anything about the benchmark datasets themselves, see the [data documentation](https://tabarena.ai/data-tabular-ml-iid-study).
 
 #### 📈 Metrics & aggregations
 Each model is scored per dataset with a task-appropriate **metric** (ROC AUC, log-loss, or RMSE); these scores
@@ -226,7 +302,7 @@ METRICS = [
             "hardware shown in the Hardware column."
         ),
         "why": (
-            "Peak accuracy is not free — these columns let you trade quality against training "
+            "Peak accuracy is not free. These columns let you trade quality against training "
             "cost and inference latency for your own deployment."
         ),
     },
@@ -257,22 +333,22 @@ METRICS = [
 AGENTIC_GUIDE = """
 ### ⚙️ Using TabArena results in agentic & automated pipelines
 
-TabArena is designed so that an automated system — or an LLM agent — can pick a tabular model from
+TabArena is designed so that an automated system, an LLM agent included, can pick a tabular model from
 evidence rather than guesswork. The leaderboards expose exactly the signals such a system needs:
 accuracy (**Elo** / **Score**), robustness (**Average** & **Harmonic Rank**), and cost
 (**Train / Predict Time**). A few heuristics for choosing automatically:
 
-- **No tuning budget?** Compare the **(default)** variants — they show what each model achieves out-of-the-box,
+- **No tuning budget?** Compare the **(default)** variants, which show what each model achieves out-of-the-box,
   with no hyperparameter search.
 - **Small datasets?** Check the **Small** subset to see which models lead in that regime.
 - **Medium / larger datasets?** Check the **Medium** subset for the strongest models at that scale.
 - **Task-specific?** Use the **Classification**, **Regression**, **Binary**, and **Multiclass** subsets to find the
   leaders for your task type.
 - **Latency-bound deployment?** Sort by **Median Predict Time (s/1K)** to weigh accuracy against inference cost.
-- **Want one robust pipeline instead of a single model?** Look at the **AutoGluon** reference pipeline.
+- **Want one robust pipeline instead of a single model?** Switch *Who's competing?* to include systems and look at **AutoGluon**.
 - **Production trust:** prefer **Verified ✔️** models, and treat unverified or very recent entries as provisional.
 
-These are starting heuristics, not guarantees — always validate on your own data. These aggregations and their
+These are starting heuristics rather than guarantees, so always validate on your own data. These aggregations and their
 trade-offs are motivated in our [paper](https://arxiv.org/abs/2506.16791).
 
 #### Reading the numbers programmatically
@@ -293,18 +369,18 @@ under `data_beyondarena/subsets/{subset}/`.
 This Space is also an **MCP server**, so an assistant can query the leaderboard as a tool instead of you
 pasting numbers into a chat. Four tools are exposed:
 
-- `list_leaderboards` — the available benchmarks, their valid subset values, and the keys every record carries.
+- `list_leaderboards`: the available benchmarks, their valid subset values, and the keys every record carries.
   Worth calling first.
-- `get_tabarena_leaderboard` — ranked results for one IID subset (tasks, datasets, imputation, splits).
-- `get_beyondarena_leaderboard` — the same for a BeyondArena subset.
-- `get_pareto_frontier` — the accuracy-versus-time trade-off. Ask this rather than reading the top row: the
+- `get_tabarena_leaderboard`: ranked results for one IID subset (tasks, datasets, imputation, splits).
+- `get_beyondarena_leaderboard`: the same for a BeyondArena subset.
+- `get_pareto_frontier`: the accuracy-versus-time trade-off. Ask this rather than reading the top row: the
   highest-Elo model is often far slower than one just behind it, and this returns the outright best, the
   models nothing beats on both axes at once, and the best model that fits a train- or predict-time budget.
 
-All four take a `kind` of `models` (the default), `systems`, or `all` — individual models like TabPFN, whole
+All four take a `kind` of `models` (the default), `systems`, or `all`: individual models like TabPFN, whole
 AutoML systems like AutoGluon, or both.
 
-**Claude Code** — add the server once, then use it in any session:
+**Claude Code**: add the server once, then use it in any session:
 
 ```bash
 claude mcp add --transport http tabarena https://tabarena-leaderboard.hf.space/gradio_api/mcp/
@@ -313,7 +389,7 @@ claude mcp add --transport http tabarena https://tabarena-leaderboard.hf.space/g
 Add `--scope user` to make it available across all your projects. `claude mcp list` shows `✔ Connected`
 when it worked, and `/mcp` inside a session lists the tools. The trailing slash on the URL matters.
 
-**Claude Desktop and claude.ai** — add the same URL as a custom connector in settings.
+**Claude Desktop and claude.ai**: add the same URL as a custom connector in settings.
 
 Any other MCP client works too; the endpoint speaks streamable HTTP. Then just ask, for example:
 *"Using TabArena, what's the best tabular model for a 5k-row regression dataset if inference has to stay
@@ -326,20 +402,20 @@ under 0.5 s per 1000 rows?"*
 # OVERVIEW_* / ABOUT_TEXT / CITATION_* structure but with BeyondArena specifics.
 BEYOND_INTRODUCTION_TEXT = """
 **BeyondArena** is the first unified, holistic benchmark for tabular data that goes **beyond the IID
-assumption** — spanning IID, temporal, and grouped splits across a wide range of dataset sizes and
+assumption**: spanning IID, temporal, and grouped splits across a wide range of dataset sizes and
 feature dimensionalities.
 """
 
 BEYOND_OVERVIEW_DATASETS = """
 BeyondArena is built on a curated collection of **142 datasets** that deliberately go **beyond the IID
-assumption**. Datasets span three **split regimes** — **IID / random**, **temporal** (train on the
-past, test on the future), and **grouped** (disjoint groups between train and test) — across a wide
+assumption**. Datasets span three **split regimes**: **IID / random**, **temporal** (train on the
+past, test on the future), and **grouped** (disjoint groups between train and test): across a wide
 range of **sizes** (tiny → large) and **feature dimensionalities** (incl. text and high-cardinality
 categorical columns).
 
 **Subsets:** Use the tabs above the leaderboard to focus on a split regime, size bucket, or feature
 subset. Every leaderboard is always computed on the recommended **core** protocol (each dataset's
-first few splits — already enough for stable rankings).
+first few splits, already enough for stable rankings).
 """
 BEYOND_OVERVIEW_MODELS = """
 Like TabArena, BeyondArena focuses on **model-specific pipelines**: each model is wrapped in a tested,
@@ -358,7 +434,7 @@ leaderboards are ranked by the **Elo** aggregation, alongside complementary aggr
 Improvability, Average & Harmonic Rank). Click any column in the key above the table for its
 definition.
 
-**Core protocol:** All results use BeyondArena's recommended **core** subset — a set of splits chosen to
+**Core protocol:** All results use BeyondArena's recommended **core** subset, a set of splits chosen to
 yield stable rankings (see the appendix of the [paper](https://arxiv.org/abs/2606.30410) for how we computed it).
 
 **Imputation:** Models that cannot run on all datasets (due to task or dataset-size constraints) have
@@ -369,31 +445,31 @@ everywhere. A `[X% IMPUTED]` tag marks affected models.
 # Shown in the expandable "What do the subsets mean?" panel next to the subset tabs.
 BEYOND_SUBSETS_EXPLAINER = """
 BeyondArena is sliced into **curated subsets** so you can see how methods hold up *beyond* the IID
-assumption — not just on average, but on the kinds of data where the average hides big differences.
+assumption, and specifically on the kinds of data where an average hides big differences.
 Pick a subset with the tabs below; **Full** is the whole benchmark. Every subset is evaluated on the
 recommended **core** protocol.
 
-**🔀 Split regime — the beyond-IID axis** (how the train/test splits are drawn)
-- **IID** — random splits, the classic i.i.d. assumption (train and test come from the same distribution).
-- **Temporal** — time-based splits: train on the past, test on the future (distribution shift over time).
-- **Grouped** — disjoint groups between train and test (e.g. different users/sites), so no group leaks across the split.
+**🔀 Split regime, the beyond-IID axis** (how the train/test splits are drawn)
+- **IID**: random splits, the classic i.i.d. assumption (train and test come from the same distribution).
+- **Temporal**: time-based splits: train on the past, test on the future (distribution shift over time).
+- **Grouped**: disjoint groups between train and test (e.g. different users/sites), so no group leaks across the split.
 
 **📏 Dataset size** (by number of training rows)
-- **Tiny** — ≤ 1,000 rows &nbsp;·&nbsp; **Small** — 1,001–10,000 &nbsp;·&nbsp; **Medium** — 10,001–100,000 &nbsp;·&nbsp; **Large** — 100,001–1,000,000
+- **Tiny**: ≤ 1,000 rows &nbsp;·&nbsp; **Small**: 1,001–10,000 &nbsp;·&nbsp; **Medium**: 10,001–100,000 &nbsp;·&nbsp; **Large**: 100,001–1,000,000
 
 **🧬 Features**
-- **Low-dim** — ≤ 100 columns after preprocessing &nbsp;·&nbsp; **High-dim** — more than 100 columns.
-- **Text** — datasets containing one or more text columns.
-- **High-cardinality** — datasets containing one or more high-cardinality categorical columns.
+- **Low-dim**: ≤ 100 columns after preprocessing &nbsp;·&nbsp; **High-dim**: more than 100 columns.
+- **Text**: datasets containing one or more text columns.
+- **High-cardinality**: datasets containing one or more high-cardinality categorical columns.
 """
 
 BEYOND_ABOUT_TEXT = r"""
-BeyondArena is the second benchmark in the TabArena Ecosystem — the first unified, holistic benchmark
+BeyondArena is the second benchmark in the TabArena Ecosystem, and the first unified benchmark
 for tabular data that goes beyond the IID assumption. It is built on the same experiment / runner /
 evaluation code as [TabArena](https://tabarena.ai).
 
 #### 📚 Paper
-- **Paper —** [Beyond IID: How General Are Tabular Foundation Models, Really?](https://arxiv.org/abs/2606.30410): the full methodology, datasets, and findings.
+- The paper, [Beyond IID: How General Are Tabular Foundation Models, Really?](https://arxiv.org/abs/2606.30410), covers the methodology, datasets, and findings.
 
 #### 📦 Datasets & Data Foundry
 BeyondArena's [142 datasets](https://huggingface.co/datasets/TabArena/BeyondArena) are curated and
@@ -401,7 +477,7 @@ distributed through **Data Foundry**, a framework for curating tabular datasets 
 the benchmark. Datasets are downloaded and converted on demand.
 
 #### 🧪 Benchmark your own method
-BeyondArena uses the same API as TabArena — the only swap is the context (`BeyondArenaContext`). See
+BeyondArena uses the same API as TabArena; the only swap is the context (`BeyondArenaContext`). See
 the [code examples](https://tabarena.ai/code) to compare your model against the cached baselines.
 
 #### 📬 Contact
@@ -421,10 +497,10 @@ BEYOND_CITATION_BUTTON_TEXT = r"""@misc{purucker2026beyondiid,
 }
 """
 
-RAMANBENCH_TAGLINE = "From photons to predictions — benchmarking machine learning on Raman spectra."
+RAMANBENCH_TAGLINE = "Benchmarking machine learning on Raman spectra."
 RAMANBENCH_BLURB = """
-Raman spectra are a **special kind of tabular data** — each spectrum is a fixed-length vector of intensity
-measurements across wavenumbers — which makes them a natural fit for the tabular ML methods benchmarked across
+Raman spectra are a **special kind of tabular data**: each spectrum is a fixed-length vector of intensity
+measurements across wavenumbers, which makes them a natural fit for the tabular ML methods benchmarked across
 the TabArena Ecosystem.
 
 > ℹ️ **Please note:** RamanBench is developed and maintained independently, not by the TabArena team. We have
@@ -436,7 +512,7 @@ a sample is excited with a monochromatic laser beam, and the small fraction of l
 scattered by the vibrations of its molecular bonds shifts in energy, encoding information about the molecular
 structure. These spectra are used across material identification, bioprocess monitoring, medical diagnostics,
 pharmaceutical quality control, and chemical process analysis, and machine learning has become central to
-automating their analysis — from material classification and disease detection to the quantitative prediction of
+automating their analysis, across material classification, disease detection, and the quantitative prediction of
 chemical concentrations. RamanBench brings a dedicated, reproducible leaderboard to this domain; explore the full
 benchmark on Hugging Face, or read the paper for the methodology and results.
 """
@@ -447,16 +523,16 @@ benchmark on Hugging Face, or read the paper for the methodology and results.
 # differs from IID tabular ML, highlights the TimeCopilot "Impermanent" living
 # leaderboard, and points to the main forecasting and classification/regression
 # benchmarks (the time-series related work referenced from BeyondArena).
-TIMESERIES_TAGLINE = "Tabular ML lives here — time series can be found elsewhere."
+TIMESERIES_TAGLINE = "Tabular ML lives here; time series can be found elsewhere."
 
 TIMESERIES_INTRO = """
-**TabArena** and **BeyondArena** benchmark machine learning on **tabular data** — including tabular data with
+**TabArena** and **BeyondArena** benchmark machine learning on **tabular data**: including tabular data with
 *temporal* relationships (BeyondArena's **`temporal`** subset). Dedicated **time-series** modelling is the
 neighbouring world, split into two families:
 
-- **Forecasting** — extrapolate a series *forward* in time (rolling-window evaluation, forecast horizons,
+- **Forecasting**: extrapolate a series *forward* in time (rolling-window evaluation, forecast horizons,
   careful leakage control).
-- **Classification & regression** — map a *whole* sequence to a label or a continuous target.
+- **Classification & regression**: map a *whole* sequence to a label or a continuous target.
 
 > ℹ️ **Note:** these benchmarks are maintained independently, not by the TabArena team.
 """
@@ -464,15 +540,15 @@ neighbouring world, split into two families:
 TIMESERIES_FORECASTING = """
 #### 📈 Time-series forecasting benchmarks & leaderboards
 
-- **[Impermanent](https://impermanent.timecopilot.dev/)** (TimeCopilot) — the live, leakage-free weekly
+- **[Impermanent](https://impermanent.timecopilot.dev/)** (TimeCopilot): the live, leakage-free weekly
   leaderboard for *temporal generalization*. [Paper](https://arxiv.org/abs/2603.08707).
-- **[GIFT-Eval](https://huggingface.co/spaces/Salesforce/GIFT-Eval)** (Salesforce) — a broad general-purpose
+- **[GIFT-Eval](https://huggingface.co/spaces/Salesforce/GIFT-Eval)** (Salesforce): a broad general-purpose
   benchmark: 23 datasets, ~144k series and 177M points across 7 domains and 10 frequencies.
   [Paper](https://arxiv.org/abs/2410.10393).
-- **[fev-bench](https://huggingface.co/spaces/autogluon/fev-bench)** (AutoGluon / Amazon) — 100 realistic
+- **[fev-bench](https://huggingface.co/spaces/autogluon/fev-bench)** (AutoGluon / Amazon): 100 realistic
   forecasting tasks over 7 domains, 46 of them with covariates.
   [Paper](https://arxiv.org/abs/2509.26468).
-- **[TIME](https://huggingface.co/spaces/Real-TSF/TIME-leaderboard)** (ICML 2026) — a next-generation,
+- **[TIME](https://huggingface.co/spaces/Real-TSF/TIME-leaderboard)** (ICML 2026): a next-generation,
   leakage-controlled benchmark for zero-shot foundation models: 50 freshly collected, human-vetted datasets and
   98 forecasting tasks. [Paper](https://arxiv.org/abs/2602.12147).
 """
@@ -481,16 +557,16 @@ TIMESERIES_CLASSREG = """
 #### 🏷️ Time-series classification & regression
 Here the task is to label or score an *entire* sequence rather than extend it:
 
-- **[UCR Time Series Archive](https://arxiv.org/abs/1810.07758)** — the standard *univariate* classification
+- **[UCR Time Series Archive](https://arxiv.org/abs/1810.07758)**: the standard *univariate* classification
   archive.
-- **[UEA multivariate archive](https://arxiv.org/abs/1811.00075)** — its *multivariate* counterpart, recently
+- **[UEA multivariate archive](https://arxiv.org/abs/1811.00075)**: its *multivariate* counterpart, recently
   extended by **["The Multiverse of Time Series ML"](https://arxiv.org/abs/2603.20352)** (2026).
-- **[Time Series Extrinsic Regression (TSER)](http://tseregression.org/)** — the Monash/UEA/UCR archive for
+- **[Time Series Extrinsic Regression (TSER)](http://tseregression.org/)**: the Monash/UEA/UCR archive for
   predicting a continuous target from a whole series. [Paper](https://arxiv.org/abs/2006.10996).
 """
 
 TIMESERIES_CLOSING = """
-Building a time-series benchmark you would like featured here — or curious whether tabular foundation models
+Building a time-series benchmark you would like featured here, or curious whether tabular foundation models
 transfer to your temporal data? We would love to hear about it: see the **➕ Your Benchmark?** tab.
 """
 
@@ -499,16 +575,16 @@ transfer to your temporal data? We would love to hear about it: see the **➕ Yo
 # into the TabArena Ecosystem — either an existing one we endorse & double-check
 # (like RamanBench) or a brand-new one we help shape.
 YOUR_BENCHMARK_TAGLINE = (
-    "Your benchmark could live right here — let's grow the tabular ML ecosystem together."
+    "Your benchmark could live right here. Let's build this out together."
 )
 
 YOUR_BENCHMARK_INTRO = """
 The **TabArena Ecosystem** is more than a single leaderboard. It is growing into a home for *living,
-trustworthy benchmarks* for machine learning on tabular and tabular-like data — each one reproducible
+trustworthy benchmarks* for machine learning on tabular and tabular-like data, each one reproducible
 and clearly documented.
 
 Maybe you already maintain a benchmark and want it to reach more people. Maybe you are just starting to
-think about building one and could use a hand. Either way, there is a place for it here — and we are happy
+think about building one and could use a hand. Either way there is a place for it here, and we are happy
 to help you get there. 🤝
 """
 
@@ -520,7 +596,7 @@ YOUR_BENCHMARK_PATHS = [
         "You already have a benchmark",
         "Wonderful! If you maintain a reproducible benchmark for a tabular (or tabular-like) ML problem, "
         "we would love to feature it. We will go through the methodology with you, double-check the "
-        "results, and — once we are confident in it — endorse it and add it to the ecosystem as a "
+        "results, and once we are confident in it, endorse it and add it to the ecosystem as a "
         "trusted, clearly attributed benchmark, exactly as we did with RamanBench. You stay the owner "
         "and maintainer; we help with quality, visibility, and a shared home.",
     ),
@@ -530,24 +606,24 @@ YOUR_BENCHMARK_PATHS = [
         "Even better to talk early. Designing a fair, reproducible benchmark is genuinely hard, and we "
         "have learned a lot building TabArena. Reach out and we can help with dataset curation, "
         "evaluation protocols, metrics, leaderboard tooling, and fitting cleanly into the wider "
-        "ecosystem — so your benchmark stands on solid ground from day one.",
+        "ecosystem, so your benchmark stands on solid ground from day one.",
     ),
 ]
 
 YOUR_BENCHMARK_FIT = """
 #### ✨ What makes a good fit
-- **Tabular at heart** — classic tabular data, or data that is naturally represented as fixed-length
+- **Tabular at heart**: classic tabular data, or data that is naturally represented as fixed-length
   feature vectors (like Raman spectra).
-- **Reproducible** — clear datasets, splits, metrics, and an evaluation protocol that others can re-run.
-- **Open & well-documented** — ideally backed by a paper or write-up and public code and data.
+- **Reproducible**: clear datasets, splits, metrics, and an evaluation protocol that others can re-run.
+- **Open & well-documented**: ideally backed by a paper or write-up and public code and data.
 
-Not sure whether your idea fits? **Reach out anyway** — we are glad to think it through with you, and we
+Not sure whether your idea fits? **Reach out anyway**: we are glad to think it through with you, and we
 genuinely enjoy meeting people building benchmarks for the community.
 """
 
 YOUR_BENCHMARK_CONTACT = """
 #### 📬 Get in touch
-Drop us a line and tell us about your benchmark — what it covers, where the data comes from, and what you
+Drop us a line and tell us about your benchmark: what it covers, where the data comes from, and what you
 are hoping to achieve. No formal proposal needed to start a conversation; an email is plenty. You can email
 the TabArena team, or reach out to our primary contact, **Lennart Purucker**, directly.
 """
@@ -567,10 +643,56 @@ YOUR_BENCHMARK_LINKS = [
 ]
 
 VERSION_HISTORY_BUTTON_TEXT = """
-**Current Version: TabArena-v0.1.7.1**
+**Current Version: TabArena-v0.1.8.2**
 
 The following details updates to the leaderboard (date format is YYYY/MM/DD):
 
+* 2026/08/17-v0.1.8.2:
+    * The *Performance across leaderboards* table now has a row per model variant, so default,
+      tuned and tuned + ensembled each get their own line and the cost of tuning is on the page.
+      Its new *One per model* toggle collapses each method to its best variant, as the win-rate
+      matrix's button of the same name does.
+    * Fixed the *Fit (s/1K)* and *Infer (s/1K)* columns of that table, which reported the cheapest
+      variant of each model rather than the variant on the row. A row labelled
+      *(tuned + ensembled)* showed its default's fit time, roughly 200x too low, because tuning
+      fits 200 configurations where the default fits one.
+* 2026/08/10-v0.1.8.1:
+    * Updated verified model: ChimeraBoost, now at version 0.30.0.
+* 2026/08/06-v0.1.8:
+    * New *Per-dataset results* section: the benchmark one dataset at a time. Pick a contender
+      and each row reports its rank and its gap to the best method on that dataset, with a ★
+      marking where it landed among the whole field. Sort by any column, search or filter the
+      list, then select a dataset for its own tuning trajectories and its full ranking; ← and
+      → step through the list.
+    * The full leaderboard table and the per-dataset browser are collapsed by default, so the
+      page opens on the figures; the contents row above them opens either one. The two
+      reference panels about the site itself now sit under an *Appendix* heading.
+    * Systems are now their own class of entrant rather than a "reference pipeline" alongside
+      the models. A system is a whole pipeline that picks, tunes and ensembles models inside
+      its own budget: AutoGluon, TabFM+, an agent, a hosted API.
+    * New *Who's competing?* control at the top of the page. Every leaderboard number is
+      relative to the field (Elo is a pairwise rating, Improvability is the gap to the best
+      entrant), so each setting is a separate published evaluation rather than a row filter.
+      Models-only is the default, and it is now genuinely models-only: previously AutoGluon
+      sat in the Elo pool while the figures hid it.
+    * New *I care about* control, which leads with the figure that answers your question:
+      best quality, fastest to train, or fastest to predict.
+    * Systems carry tags for what you may need to rule out: 🤖 with LLMs and 🔒 closed-source
+      API. See the new "Systems" info panel.
+    * Add new verified systems: AutoGluon 1.6 (extreme, 4h) and AutoGluon 1.6
+      (noncommercial, 4h). The noncommercial preset is extreme plus TabPFN-3, whose license
+      does not permit commercial use.
+    * Add new verified system: TabFM+. It ran before the July rerun that stopped reloading
+      models from disk around inference, so its inference time reads high next to the models
+      it sits beside on the Pareto front.
+    * The win-rate matrix carries every tuning variant again, so you can compare a tuned
+      model against another model's default. It still opens on one row per model.
+    * The jump menu, the conflict-of-interest badge and the selection summary stay on screen
+      on huggingface.co, and the conflict-of-interest popup opens where you are reading
+      instead of sending you back to the top of the page.
+    * An AI assistant connected to this Space now gets tool descriptions that say what
+      TabArena measures and which questions each tool answers, so it can tell that a question
+      about tabular models belongs here. The entrant pool is exposed as an argument too.
 * 2026/08/03-v0.1.7.1:
     * Add new verified model: EXAONE-Tabular (classification only; its regression results are imputed)
 * 2026/07/31-v0.1.7:

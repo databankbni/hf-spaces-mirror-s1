@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Best-of-N — Interlace AI</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="mark" aria-hidden="true">
+    <svg viewBox="0 0 64 64" width="46" height="46" fill="none">
+      <defs><linearGradient id="ig" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#0a58ff"/><stop offset="1" stop-color="#12b6e8"/>
+      </linearGradient>
+      <mask id="weave"><rect width="64" height="64" fill="#fff"/>
+        <rect x="21.5" y="21.5" width="21" height="21" rx="6" fill="#000"/></mask></defs>
+      <rect x="7" y="7" width="30" height="30" rx="8.5" stroke="url(#ig)" stroke-width="4"/>
+      <g mask="url(#weave)">
+        <rect x="27" y="27" width="30" height="30" rx="8.5" stroke="url(#ig)" stroke-width="4"/>
+      </g>
+      <rect x="27" y="27" width="30" height="30" rx="8.5" stroke="url(#ig)" stroke-width="4"
+            mask="url(#weave)"/>
+    </svg>
+  </div>
+  <div>
+    <div class="word">INTERLACE</div>
+    <div class="sub">A I</div>
+  </div>
+</header>
+
+<h1>Your model already knows more than it tells you.</h1>
+
+<p class="lede">
+  A language model does not give you an answer. It gives you a probability
+  distribution over answers, and generating text draws <em>one</em> sample from
+  it. Ask the same question twice and you can get two different results.
+  <strong>Most people treat that as a defect. It is an untapped resource.</strong>
+</p>
+
+<div class="headline">
+  <div class="hcell">
+    <div class="hnum grey" id="h-single">45.3%</div>
+    <div class="hlab">one sample</div>
+  </div>
+  <div class="harrow">→</div>
+  <div class="hcell">
+    <div class="hnum blue" id="h-maj">66.5%</div>
+    <div class="hlab">Best-of-128</div>
+  </div>
+  <div class="hnote">
+    Qwen2.5-0.5B-Instruct on GSM8K.<br>
+    <strong>Nothing was trained.</strong> The weights never moved.
+  </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<h2>Drag N and watch two lines separate</h2>
+
+<p>
+  The green line is what the model <em>reached</em> — whether the correct
+  answer appeared anywhere in its N attempts. The blue line is what the system
+  actually <em>returned</em>. The distance between them is the part of the
+  problem that is selection rather than knowledge.
+</p>
+
+<div class="panel">
+  <div class="sliderow">
+    <label for="n">N =</label>
+    <input type="range" id="n" min="0" max="7" value="7" step="1">
+    <output id="nval">128</output>
+    <span class="hint">trajectories sampled per problem</span>
+  </div>
+
+  <div class="bars">
+    <div class="barrow">
+      <div class="blab">single sample</div>
+      <div class="btrack"><div class="bfill grey" id="b-single"></div></div>
+      <div class="bval" id="v-single">45.3%</div>
+    </div>
+    <div class="barrow">
+      <div class="blab">random pick <span class="tag">baseline</span></div>
+      <div class="btrack"><div class="bfill grey" id="b-rnd"></div></div>
+      <div class="bval" id="v-rnd">46.3%</div>
+    </div>
+    <div class="barrow">
+      <div class="blab">majority vote <span class="tag blue">returned</span></div>
+      <div class="btrack"><div class="bfill blue" id="b-maj"></div></div>
+      <div class="bval" id="v-maj">66.5%</div>
+    </div>
+    <div class="barrow">
+      <div class="blab">coverage <span class="tag green">reachable</span></div>
+      <div class="btrack"><div class="bfill green" id="b-cov"></div></div>
+      <div class="bval" id="v-cov">93.5%</div>
+    </div>
+  </div>
+
+  <p class="gap">
+    At N=<span id="g-n">128</span>, <strong id="g-gap">27.0</strong> points
+    separate what came back from what was reachable.
+  </p>
+</div>
+
+<p class="caption">
+  These are the measured runs from the published dataset — 200 GSM8K problems,
+  128 trajectories each, 25,600 in total. Nothing is generated in your browser.
+</p>
+
+<!-- ------------------------------------------------------------------ -->
+<h2>Why counting votes works this well</h2>
+
+<blockquote>Correct answers agree with each other. Wrong answers scatter.</blockquote>
+
+<p>
+  A wrong reasoning chain has a thousand available ways to be wrong, and picks
+  a different one each time, so errors fragment into singletons. The correct
+  answer is the only thing several attempts can converge on together. Over N
+  samples the right answer accumulates mass while the wrong ones divide it —
+  which is why the mode can be correct even when correct trajectories are a
+  minority of the pool.
+</p>
+
+<p>
+  The model does not need to be right most of the time. It needs to be right
+  <em>more consistently than it is wrong in any one particular way</em>.
+</p>
+
+<!-- ------------------------------------------------------------------ -->
+<h2>Where the gain actually comes from</h2>
+
+<p>
+  Most reports skip this, and it decides whether a headline means anything.
+  Comparing one sample against an N-sample system quietly counts two different
+  things as method:
+</p>
+
+<table>
+  <tr><td>a single sample</td><td class="num">45.3%</td><td></td></tr>
+  <tr><td><strong>random</strong> among the trajectories that answered</td>
+      <td class="num">46.3%</td><td class="num delta">+1.0</td></tr>
+  <tr><td><strong>majority vote</strong></td>
+      <td class="num strong">66.5%</td><td class="num delta strong">+20.2</td></tr>
+  <tr class="total"><td>total</td><td></td><td class="num">+21.2</td></tr>
+</table>
+
+<p>
+  With more trajectories, one of them usually did not abstain — and that alone
+  lifts a random pick, without any selection happening. Separating it shows
+  that <strong>20.2 of the 21.2 points, 95% of the gain, is genuine
+  selection</strong>. We publish the split because the size of that first term
+  is not knowable in advance: at a tighter token budget the same experiment
+  gave it five times as much of the credit.
+</p>
+
+<p>
+  Against random selection at the same N, exact McNemar clears
+  <strong>p&nbsp;≤&nbsp;6.6&nbsp;×&nbsp;10⁻⁵</strong> at every one of 200 random
+  seeds, with a median of 8.2&nbsp;×&nbsp;10⁻¹⁰. That is the worst of the 200,
+  not the best — a single seed would have let us print a far prettier number.
+</p>
+
+<!-- ------------------------------------------------------------------ -->
+<h2>Every selector, against the bar it has to clear</h2>
+
+<table class="sel">
+  <tr><th>at N=128</th><th class="num">accuracy</th><th>needs</th></tr>
+  <tr><td><code>random</code></td><td class="num">46.3%</td>
+      <td>nothing — <em>this is the baseline</em></td></tr>
+  <tr><td><code>majority</code></td><td class="num strong">66.5%</td>
+      <td>nothing</td></tr>
+  <tr><td><code>self_certainty</code></td><td class="num">66.5%</td>
+      <td>log-probabilities</td></tr>
+  <tr><td><code>oracle</code></td><td class="num">93.5%</td>
+      <td>the gold answer — a diagnostic ceiling, never deployable</td></tr>
+</table>
+
+<p class="caption">
+  <code>verifier</code> and <code>verifier_argmax</code> are missing from this
+  table for an honest reason: this release ships no reward model, so the
+  published trajectories carry no scores. Plug your own in and the same table
+  prints them.
+</p>
+
+<!-- ------------------------------------------------------------------ -->
+<h2>You do not have to believe any of this</h2>
+
+<pre><code>pip install "bestofn[math]"
+python scripts/analyse.py</code></pre>
+
+<p>
+  All 25,600 trajectories are published in full — the complete reasoning text
+  of every sample, with token counts, finish reasons and log-probabilities. Not
+  a summary. The analysis script re-extracts every answer from that raw text
+  rather than re-counting stored ones, so it catches a parsing bug instead of
+  inheriting one. Every number on this page comes back out in about two
+  minutes, on a laptop, with no GPU.
+</p>
+
+<div class="links">
+  <a href="https://github.com/voidlinestudios12-jpg/Interlace-AI">Code and data</a>
+  <a href="https://huggingface.co/InterlaceAI/best-of-n">Model card</a>
+  <a href="https://pypi.org/project/bestofn/">PyPI</a>
+</div>
+
+<footer>
+  <p>
+    <strong>A note on what this page used to say.</strong> An earlier version
+    reported results on AIME 2024 and credited a trained verifier with a
+    16.6-point gain over majority voting. Those measurements were produced by
+    version 1.0.0 of this software, which contained defects in answer
+    extraction and in the handling of truncated trajectories, and they are not
+    reproducible with the corrected implementation. The verifier was never
+    published, and in the one evidence file that was, it selected the same
+    answer as majority voting on every problem. Those claims are withdrawn and
+    should not be cited. Everything on this page is GSM8K, measured with
+    <code>bestofn</code> 1.1.5, and reproducible from the published dataset.
+  </p>
+  <p class="fine">
+    Apache License 2.0 · Alejandro Areces Rivera · Interlace AI ·
+    <code>interlaceIA@gmail.com</code>
+  </p>
+</footer>
+
+<script>
+const CURVE = [
+ {n:1,   maj:45.34, cov:45.34, rnd:45.34},
+ {n:2,   maj:46.50, cov:56.94, rnd:46.43},
+ {n:4,   maj:52.96, cov:66.44, rnd:46.13},
+ {n:8,   maj:58.29, cov:75.00, rnd:46.25},
+ {n:16,  maj:61.77, cov:81.65, rnd:46.07},
+ {n:32,  maj:64.03, cov:86.79, rnd:46.45},
+ {n:64,  maj:65.55, cov:90.56, rnd:46.15},
+ {n:128, maj:66.50, cov:93.50, rnd:46.32}
+];
+const SINGLE = 45.34;
+
+const el = id => document.getElementById(id);
+const slider = el("n");
+
+function pct(v){ return v.toFixed(1) + "%"; }
+
+function render(){
+  const r = CURVE[+slider.value];
+  el("nval").textContent = r.n;
+  el("g-n").textContent  = r.n;
+  el("g-gap").textContent = (r.cov - r.maj).toFixed(1);
+
+  const set = (bar, val, value) => {
+    el(bar).style.width = value + "%";
+    el(val).textContent = pct(value);
+  };
+  set("b-single", "v-single", SINGLE);
+  set("b-rnd", "v-rnd", r.rnd);
+  set("b-maj", "v-maj", r.maj);
+  set("b-cov", "v-cov", r.cov);
+}
+
+slider.addEventListener("input", render);
+render();
+</script>
+
+</body>
+</html>

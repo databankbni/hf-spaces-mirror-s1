@@ -1,0 +1,211 @@
+<!doctype html>
+<!-- OHAM still viewer — F-IMG. One sealed still; pan/zoom = windowed reads.
+     You never download the image: every view is an exact region read of the
+     inscription at the right rung, and the cost is the window's, not the
+     frame's. LAB TIER page. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>OHAM still — windowed reads</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #v { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none;
+       cursor: grab; image-rendering: pixelated; }
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 6px 10px;
+         font: 12px ui-monospace, monospace; color: #9fb0c0;
+         background: rgba(10,13,16,.82); white-space: nowrap; overflow-x: auto; }
+  #bar b { color: #d7e1ea; font-weight: 600; }
+  #zoom { position: fixed; right: 10px; bottom: 40px; display: flex;
+          flex-direction: column; gap: 8px; }
+  #zoom button { width: 40px; height: 40px; font-size: 20px; border: 0;
+                 border-radius: 8px; background: rgba(30,38,46,.9);
+                 color: #cfe0ee; }
+</style>
+</head>
+<body>
+<canvas id="v"></canvas>
+<div id="zoom"><button id="zi">+</button><button id="zo">−</button></div>
+<div id="bar">loading…</div>
+<script type="module">
+const Q = new URLSearchParams(location.search);
+const SRC = Q.get("src") || "still300.tsb";
+const TICK = +Q.get("tick") || 0;
+const bar = document.getElementById("bar");
+const cv = document.getElementById("v");
+const cx2d = cv.getContext("2d");
+
+const fail = m => { bar.textContent = "REFUSED: " + m; throw new Error(m); };
+
+// ---- load the receiver (same wasm the video pages run)
+const { instance } = await WebAssembly.instantiateStreaming(
+  fetch("oham.wasm"), {}).catch(() => fail("oham.wasm failed to load"));
+const E = instance.exports;
+const mem = () => new Uint8Array(E.memory.buffer);
+
+// ---- open the container: prelude, evh, ONE evi entry, ONE record — that is
+// the entire wire cost of an arbitrarily large still before the first view
+const get = async (a, b) => {
+  const r = await fetch(SRC, { headers: { Range: `bytes=${a}-${b}` } });
+  if (!(r.status === 206 || r.status === 200)) fail(`range fetch ${r.status}`);
+  const buf = new Uint8Array(await r.arrayBuffer());
+  return r.status === 206 ? buf : buf.subarray(a, b + 1);
+};
+/* The container law, stated rather than assumed: 88-byte prelude (flags==0,
+   four sections) or 104-byte (flags bit 0 = the evd integrity lane — one
+   8-byte corruption checksum per record). Any other flag bit refuses. This
+   page previously read the 88-byte shape only and opened lane containers by
+   accident; now it opens them by law and USES the lane. */
+const pre = await get(0, 103);
+const dv = new DataView(pre.buffer, pre.byteOffset, pre.length);
+if (String.fromCharCode(...pre.subarray(0, 4)) !== "TSB1") fail("not a .tsb");
+const ver = dv.getUint32(4, true);
+if (ver !== 1 && ver !== 2) fail("unknown .tsb version");
+const FLAGS = dv.getUint32(16, true);
+if (FLAGS & ~1) fail("unknown flag bits — refused");
+if (dv.getUint32(20, true)) fail("reserved field nonzero — refused");
+const NSEC = (FLAGS & 1) ? 5 : 4;
+const sec = i => ({ off: Number(dv.getBigUint64(24 + 16 * i, true)),
+                    len: Number(dv.getBigUint64(32 + 16 * i, true)) });
+const SECS = [...Array(NSEC).keys()].map(sec);
+let cursor = 24 + 16 * NSEC;
+for (const sc of SECS) {
+  if (sc.off !== cursor) fail("sections do not tile — refused");
+  cursor = sc.off + sc.len;
+}
+const [sevh, sevi, , sevs] = SECS, sevd = NSEC === 5 ? SECS[4] : null;
+const evh = await get(sevh.off, sevh.off + sevh.len - 1);
+const ie = await get(sevi.off + TICK * 12, sevi.off + TICK * 12 + 11);
+const idv = new DataView(ie.buffer, ie.byteOffset, 12);
+const roff = Number(idv.getBigUint64(0, true)), rlen = idv.getUint32(8, true);
+let rec = await get(sevs.off + roff, sevs.off + roff + rlen - 1);
+if (ver === 2) {
+  const ds = new DecompressionStream("deflate-raw");
+  rec = new Uint8Array(await new Response(
+    new Blob([rec]).stream().pipeThrough(ds)).arrayBuffer());
+}
+/* THE LANE, MADE VISIBLE. The digest covers the record's RAW (v1-form)
+   bytes — exactly what `rec` holds after the inflate above — so one
+   SubtleCrypto hash verifies this view's record against the container's own
+   checksum. Corruption detection, not cryptography: no keys, no
+   authentication claim. A mismatch REFUSES the render and names the record,
+   the same law `oham unseal` applies. */
+let integrity = "";
+if (sevd) {
+  const want = await get(sevd.off + TICK * 8, sevd.off + TICK * 8 + 7);
+  const got = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", rec)).subarray(0, 8);
+  const okDigest = want.every((b, i) => b === got[i]);
+  if (!okDigest) fail(`CORRUPT_RECORD: record ${TICK} fails its stored checksum`);
+  integrity = ` · <span title="corruption checksum, not cryptography">integrity evd ✓</span>`;
+}
+const hp = E.evs_reserve(evh.length); mem().set(evh, hp);
+if (!E.evs_open(hp, evh.length)) fail("receiver rejected the header");
+const rp = E.evs_reserve_frame(rec.length); mem().set(rec, rp);
+if (!E.evs_push_frame(TICK, rp, rec.length)) fail("receiver rejected the record");
+
+const W = E.evs_w(), H = E.evs_h(), BLOCK = E.evs_block(), LEVELS = E.evs_levels();
+const recBytes = rlen;
+
+/* THE LADDER LAW for a rung's true size: the grid never renumbers, so
+   L = ceil(W/BLOCK) x ceil(H/BLOCK) blocks of edge BLOCK>>L — 4096x2160 at
+   L1 is 2048x1088, never the plain-halved 1080. Labels and windows both
+   come from here so a hand-typed size cannot drift. */
+const GW = Math.ceil(W / BLOCK), GH = Math.ceil(H / BLOCK);
+const rungW = l => GW * Math.max(1, BLOCK >> l);
+const rungH = l => GH * Math.max(1, BLOCK >> l);
+
+/* THE RUNG FOLLOWS THE VIEWPORT (fit), never defaults to the deepest — the
+   recorded presentation defect was a 4096x2160 still opening as 128x67 in a
+   1440x1000 viewport. Fit = the deepest rung that still covers the viewport
+   in both axes (fewest addresses that fill the screen); a still smaller than
+   the viewport opens native and is scaled UP to fill. ?level= still pins. */
+function fitLevel() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const vw = innerWidth * dpr, vh = innerHeight * dpr;
+  let l = 0;
+  while (l + 1 < LEVELS && rungW(l + 1) >= vw && rungH(l + 1) >= vh) l++;
+  return l;
+}
+let level = Q.get("level") !== null
+  ? Math.max(0, Math.min(LEVELS - 1, +Q.get("level")))
+  : fitLevel();
+let cx = W / 2, cy = H / 2;
+let lastAddrs = 0, lastWin = "";
+
+function render() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+  const lw = rungW(level), lh = rungH(level);      // ladder size at this rung
+  const bs = Math.max(1, BLOCK >> level);
+  /* the view SCALES to fill: the window read covers the viewport's extent in
+     rung pixels (never more than the rung has), then draws scaled so the
+     picture fills the screen instead of sitting as a thumbnail */
+  const scale = Math.max(1, Math.min(cv.width / lw, cv.height / lh));
+  const vw = Math.min(Math.ceil(cv.width / scale), lw);
+  const vh = Math.min(Math.ceil(cv.height / scale), lh);
+  let x0 = Math.round((cx / W) * lw - vw / 2), y0 = Math.round((cy / H) * lh - vh / 2);
+  x0 = Math.max(0, Math.min(lw - vw, x0)); y0 = Math.max(0, Math.min(lh - vh, y0));
+  const x1 = Math.min(lw, x0 + vw), y1 = Math.min(lh, y0 + vh);
+  lastAddrs = E.evs_frame_region(TICK, level, x0, y0, x1, y1);
+  const bx0 = Math.floor(x0 / bs), by0 = Math.floor(y0 / bs);
+  const bx1 = Math.ceil(x1 / bs), by1 = Math.ceil(y1 / bs);
+  const p = E.evs_ref_window_rgba(bx0, by0, bx1, by1);
+  const ww = E.evs_win_w(), wh = E.evs_win_h();
+  const img = new ImageData(
+    new Uint8ClampedArray(E.memory.buffer, p, ww * wh * 4).slice(), ww, wh);
+  /* 1:1 and downscale draw exact pixels; an UPSCALE interpolates (smooth) —
+     nearest-neighbour above 1x reads as blockiness the data does not have.
+     ?pixels=1 keeps the hard-pixel look for inspection. */
+  cx2d.imageSmoothingEnabled = scale > 1 && Q.get("pixels") !== "1";
+  cx2d.imageSmoothingQuality = "high";
+  cx2d.fillStyle = "#000"; cx2d.fillRect(0, 0, cv.width, cv.height);
+  // place the block-aligned window so the requested x0,y0 sits at the origin
+  createImageBitmap(img).then(bm => {
+    cx2d.setTransform(scale, 0, 0, scale, 0, 0);
+    cx2d.drawImage(bm, bx0 * bs - x0, by0 * bs - y0);
+    cx2d.setTransform(1, 0, 0, 1, 0, 0);
+    lastWin = `${x1 - x0}x${y1 - y0}`;
+    bar.innerHTML =
+      `<b>OHAM still</b> · ${W}x${H} native sealed in ${recBytes.toLocaleString()} B` +
+      ` · rung L${level} (${lw}x${lh})` +
+      (scale > 1 ? ` · shown x${scale.toFixed(2)}` : "") +
+      ` · window ${lastWin} · <b id="addr">${lastAddrs}</b> addresses this view` +
+      integrity +
+      ` · you never downloaded the image` +
+      ` · <b>Paul Phillips</b> · OrthoHolonic Accessible Memory`;
+  });
+}
+
+// ---- input: drag pans (native-coord), wheel/buttons change the rung
+let drag = null;
+cv.addEventListener("pointerdown", e => {
+  drag = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const s = (W >> level) / W;                      // rung px per native px
+  cx -= (e.clientX - drag.x) * dpr / s; cy -= (e.clientY - drag.y) * dpr / s;
+  cx = Math.max(0, Math.min(W, cx)); cy = Math.max(0, Math.min(H, cy));
+  drag = { x: e.clientX, y: e.clientY }; render(); });
+cv.addEventListener("pointerup", () => { drag = null; });
+const setLevel = l => { level = Math.max(0, Math.min(LEVELS - 1, l)); render(); };
+cv.addEventListener("wheel", e => {
+  e.preventDefault(); setLevel(level + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
+document.getElementById("zi").onclick = () => setLevel(level - 1);
+document.getElementById("zo").onclick = () => setLevel(level + 1);
+// a resize re-fits the rung unless ?level= pinned it explicitly
+addEventListener("resize", () => {
+  if (Q.get("level") === null) level = fitLevel();
+  render();
+});
+render();
+window.__still = { get addrs() { return lastAddrs; }, get level() { return level; },
+                   W, H };
+// measurement hooks: set a rung programmatically, and the FULL frame's
+// address cost at the current rung — what the W3 gate compares a view against
+window.__still_set = l => { setLevel(l); };
+window.__still_full = (w, h) => E.evs_frame_region(TICK, level, 0, 0, w, h);
+</script>
+</body>
+</html>

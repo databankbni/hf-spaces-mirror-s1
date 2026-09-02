@@ -1,0 +1,104 @@
+<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<!-- WIRE PROBE — the on-device truth instrument for the demo's origins.
+     Fetches REAL records from every candidate origin, from THIS device,
+     and prints one table. Exists because a day was lost bouncing between
+     wire configurations on datacenter probes that could not see what the
+     owner's phone saw (ledger §15/§17). One screenshot of this table is
+     the whole answer. Touches nothing: no player, no clip, ~5.6 MB of
+     range reads per run. -->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OHAM wire probe</title>
+<style>
+ html,body{margin:0;background:#07070a;color:#cdd3df;
+   font:14px/1.5 ui-monospace,Menlo,Consolas,monospace;padding:12px}
+ h1{font-size:16px;color:#ffb454;margin:0 0 8px}
+ table{border-collapse:collapse;width:100%;margin:10px 0}
+ td,th{border:1px solid #333;padding:6px 8px;text-align:right;font-size:13px}
+ th{color:#ffb454;text-align:left} td:first-child{text-align:left}
+ .ok{color:#7fd77f} .bad{color:#ff6b6b} #st{color:#8899aa}
+</style></head><body>
+<h1>OHAM wire probe — measured from THIS device</h1>
+<div id="st">starting…</div>
+<table id="tb"><tr><th>origin</th><th>median ms</th><th>MB/s serial</th><th>MB/s ×10</th><th>fails</th></tr></table>
+<div id="dev"></div>
+<script>
+(async () => {
+  const st = t => document.getElementById("st").textContent = t;
+  const CLIP = "driving60q2z.tsb";
+  const ORIGINS = [
+    ["GCS path",  "https://storage.googleapis.com/framecore-etch-video/" + CLIP],
+    ["GCS vhost", "https://framecore-etch-video.storage.googleapis.com/" + CLIP],
+    ["HF space",  "https://gen-rl-millz-tsb-video-20260805.static.hf.space/" + CLIP],
+  ];
+  const TIMEOUT = 5000;                       // a hanging origin is a failing origin
+  const get = async (url, off, len) => {
+    const ac = new AbortController();
+    const tt = setTimeout(() => ac.abort(), TIMEOUT);
+    try {
+      const r = await fetch(url, { headers: { Range: `bytes=${off}-${off + len - 1}` },
+                                   signal: ac.signal, cache: "no-store" });
+      const b = await r.arrayBuffer();
+      clearTimeout(tt);
+      if (b.byteLength !== len && b.byteLength < len) throw new Error("short");
+      return true;
+    } catch (e) { clearTimeout(tt); return false; }
+  };
+
+  // the record index, from the primary — real records, not synthetic ranges
+  st("reading index…");
+  // 88-byte prelude (flags==0) or 104-byte (flags bit 0 = the evd integrity
+  // lane). This probe used to read only the 88 shape and open lane containers
+  // by accident; now it opens them by law and NAMES the lane in its report.
+  const pre = new DataView(await (await fetch(ORIGINS[0][1],
+    { headers: { Range: "bytes=0-103" }, cache: "no-store" })).arrayBuffer());
+  if (String.fromCharCode(pre.getUint8(0), pre.getUint8(1), pre.getUint8(2), pre.getUint8(3)) !== "TSB1")
+    { st("✕ bad container"); return; }
+  const FLAGS = pre.getUint32(16, true);
+  if (FLAGS & ~1) { st("✕ unknown flag bits"); return; }
+  const HAS_EVD = !!(FLAGS & 1);
+  const sec = i => ({ off: Number(pre.getBigUint64(24 + 16 * i, true)),
+                      len: Number(pre.getBigUint64(32 + 16 * i, true)) });
+  const sevi = sec(1), sevs = sec(3);
+  const frames = sevi.len / 12;
+  const idx = new DataView(await (await fetch(ORIGINS[0][1],
+    { headers: { Range: `bytes=${sevi.off}-${sevi.off + sevi.len - 1}` }, cache: "no-store" })).arrayBuffer());
+  const span = t => [sevs.off + Number(idx.getBigUint64(t * 12, true)), idx.getUint32(t * 12 + 8, true)];
+
+  const tb = document.getElementById("tb");
+  for (const [name, url] of ORIGINS) {
+    st(`probing ${name}…`);
+    const times = []; let fails = 0, bytes = 0;
+    // 20 sequential — per-record latency
+    const t0 = performance.now();
+    for (let k = 0; k < 20; k++) {
+      const [off, len] = span((100 + k * 37) % frames);
+      const s = performance.now();
+      if (await get(url, off, len)) { times.push(performance.now() - s); bytes += len; }
+      else fails++;
+    }
+    const serialS = (performance.now() - t0) / 1000;
+    // 10 parallel — what the striped lanes would extract
+    const t1 = performance.now();
+    let pbytes = 0;
+    await Promise.all(Array.from({ length: 10 }, (_, k) => (async () => {
+      const [off, len] = span((900 + k * 13) % frames);
+      if (await get(url, off, len)) pbytes += len; else fails++;
+    })()));
+    const parS = (performance.now() - t1) / 1000;
+    times.sort((a, b) => a - b);
+    const med = times.length ? times[times.length >> 1] : 0;
+    const row = tb.insertRow();
+    const c = row.insertCell(); c.textContent = name;
+    row.insertCell().textContent = med ? med.toFixed(0) : "—";
+    row.insertCell().textContent = serialS ? (bytes / 1048576 / serialS).toFixed(2) : "—";
+    row.insertCell().textContent = parS ? (pbytes / 1048576 / parS).toFixed(2) : "—";
+    const f = row.insertCell(); f.textContent = fails;
+    f.className = fails ? "bad" : "ok";
+  }
+  st(`done — screenshot this table${HAS_EVD ? " · container carries the evd integrity lane" : ""}`);
+  document.getElementById("dev").textContent =
+    `device: ${navigator.hardwareConcurrency || "?"} cores · dpr ${devicePixelRatio} · ${new Date().toISOString()} · ${navigator.userAgent.slice(0, 80)}`;
+})();
+</script></body></html>

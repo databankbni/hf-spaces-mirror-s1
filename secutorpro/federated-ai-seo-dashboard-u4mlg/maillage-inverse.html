@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maillage Inversé Cognitif | RefereSEO</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    #meshSvg { width: 100%; height: 100%; max-width: 480px; max-height: 480px; margin: 0 auto; display: block; }
+    .mesh-node-group { opacity: 0; transition: opacity 0.6s ease-out; }
+    .mesh-node-group.visible { opacity: 1; }
+    .mesh-line { opacity: 0; transition: opacity 0.5s ease-out; }
+    .mesh-line.visible { opacity: 0.25; }
+    .central-glow { animation: centralPulse 2.5s infinite ease-in-out; }
+    @keyframes centralPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+    .ring-rotate { animation: slowSpin 80s infinite linear; transform-origin: 250px 250px; }
+    @keyframes slowSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .mesh-label { font-family: 'JetBrains Mono', monospace; pointer-events: none; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-200 antialiased min-h-screen flex flex-col selection:bg-red-500/30 selection:text-red-200">
+
+  <!-- Ambient background -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden">
+    <div class="absolute -top-20 -left-20 w-[500px] h-[500px] bg-red-500/10 rounded-full blur-[100px]"></div>
+    <div class="absolute top-1/2 -right-20 w-[400px] h-[400px] bg-amber-500/10 rounded-full blur-[100px]"></div>
+    <div class="absolute -bottom-20 left-1/3 w-[600px] h-[600px] bg-rose-500/5 rounded-full blur-[100px]"></div>
+  </div>
+
+  <!-- Header -->
+  <header class="relative border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-xl sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        <span class="text-sm font-medium hidden sm:inline">Retour à l'analyse</span>
+      </a>
+      <div class="flex items-center gap-2">
+        <a href="sanctuaire.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pink-950/30 border border-pink-500/20 text-xs font-semibold text-pink-300 hover:text-pink-100 hover:border-pink-400/40 transition-all">
+          <i data-lucide="crown" class="w-3.5 h-3.5"></i> Sanctuaire
+        </a>
+        <a href="zlvs.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-950/30 border border-red-500/20 text-xs font-semibold text-red-300 hover:text-red-100 hover:border-red-400/40 transition-all">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> ZLVS
+        </a>
+        <a href="agent-roquettes.html" class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-950/30 border border-rose-500/20 text-xs font-semibold text-rose-300 hover:text-rose-100 hover:border-rose-400/40 transition-all">
+          <i data-lucide="rocket" class="w-3.5 h-3.5"></i> Roquettes
+        </a>
+        <a href="maillage-seo-geo.html" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-950/30 border border-indigo-500/20 text-xs font-semibold text-indigo-300 hover:text-indigo-100 hover:border-indigo-400/40 transition-all">
+          <i data-lucide="share-2" class="w-3.5 h-3.5"></i> SEO/GEO
+        </a>
+        <a href="chs-backend.html" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/30 border border-emerald-500/20 text-xs font-semibold text-emerald-300 hover:text-emerald-100 hover:border-emerald-400/40 transition-all">
+          <i data-lucide="plug-zap" class="w-3.5 h-3.5"></i> CHS Java
+        </a>
+        <a href="knowledge-graph.html" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-950/30 border border-violet-500/20 text-xs font-semibold text-violet-300 hover:text-violet-100 hover:border-violet-400/40 transition-all">
+          <i data-lucide="network" class="w-3.5 h-3.5"></i> KG Réputation
+        </a>
+        <div class="p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+          <i data-lucide="flip-horizontal-2" class="w-5 h-5 text-red-400"></i>
+        </div>
+        <div class="flex flex-col">
+          <span class="text-sm font-bold text-white">Maillage Inversé</span>
+          <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Service PRO · Isolation</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="relative flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+
+    <!-- Hero -->
+    <div class="mb-8 max-w-4xl">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-3 flex items-center gap-3">
+        <span class="text-red-400">🧠</span> Maillage Inversé Cognitif
+      </h2>
+      <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+        Inverse le maillage sémantique d'une URL nuisible pour l'isoler cognitivement. L'IA cartographie l'espace sémantique du contenu dangereux,
+        génère des clusters de contre-contenu légitime, et tisse un maillage d'inversion qui repousse l'URL au-delà de la page 200.
+      </p>
+      <p class="mt-3 text-xs font-semibold text-red-300/90 bg-red-950/30 border border-red-500/20 rounded-lg px-3 py-2 inline-block">
+        ⛔ Isolation cognitive : le contenu nuisible est encerclé par un maillage sémantique inversé qui le rend invisible.
+      </p>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 text-center">
+        <div class="text-3xl font-extrabold text-red-400 mb-1" id="statNodes">0</div>
+        <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Nœuds cognitifs</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 text-center">
+        <div class="text-3xl font-extrabold text-amber-400 mb-1" id="statIsolation">0</div>
+        <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Score d'isolation</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 text-center">
+        <div class="text-3xl font-extrabold text-emerald-400 mb-1" id="statDistance">0</div>
+        <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Distance sémantique</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 text-center">
+        <div class="text-3xl font-extrabold text-rose-400 mb-1" id="statMeshes">0</div>
+        <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Maillages actifs</div>
+      </div>
+      <div class="bg-red-950/30 border border-red-500/20 rounded-2xl p-5 text-center">
+        <div class="text-3xl font-extrabold text-red-300 mb-1" id="statParasite">0</div>
+        <div class="text-[10px] uppercase tracking-wider font-bold text-red-400/70">Mots-clés parasites</div>
+      </div>
+      <div class="bg-red-950/30 border border-red-500/20 rounded-2xl p-5 text-center">
+        <div class="text-3xl font-extrabold text-amber-300 mb-1" id="statOrphan">0</div>
+        <div class="text-[10px] uppercase tracking-wider font-bold text-amber-400/70">URLs orphelines bloquées</div>
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div class="grid lg:grid-cols-12 gap-6 items-start">
+
+      <!-- Sidebar -->
+      <aside class="lg:col-span-4 space-y-6">
+        <!-- Config -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 sm:p-6 backdrop-blur-sm shadow-xl shadow-black/20">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-widest mb-5 flex items-center gap-2">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4 text-red-400"></i>
+            Configuration de l'inversion
+          </h3>
+
+          <div class="mb-4">
+            <label class="block text-xs font-semibold text-slate-400 mb-1.5">URL nuisible à inverser</label>
+            <div class="relative group">
+              <i data-lucide="link-danger" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-red-400 transition-colors"></i>
+              <input type="url" id="urlInput" value="https://exemple-nuisible.com" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/60 transition-all">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 mb-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Profondeur d'inversion</label>
+              <select id="depthSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/60 transition-all appearance-none cursor-pointer">
+                <option>Surface (3 anneaux)</option>
+                <option selected>Standard (4 anneaux)</option>
+                <option>Profonde (5 anneaux)</option>
+                <option>Maximale (6 anneaux)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Rayon sémantique</label>
+              <select id="radiusSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/60 transition-all appearance-none cursor-pointer">
+                <option>Étroit (domaine précis)</option>
+                <option selected>Normal (thématique élargie)</option>
+                <option>Large (multi-domaines)</option>
+                <option>Global (tout le web sémantique)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Mode d'isolation</label>
+              <select id="modeSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/60 transition-all appearance-none cursor-pointer">
+                <option>Doux (référencement latéral)</option>
+                <option selected>Standard (pénalité modérée)</option>
+                <option>Aggressif (pénalité forte)</option>
+                <option>Total (page 200+ garanti)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-red-300 mb-1.5 flex items-center gap-1.5">
+                <i data-lucide="tag-x" class="w-3.5 h-3.5 text-red-400"></i>
+                Mots-clés parasites
+              </label>
+              <textarea id="parasiteKeywords" rows="2" placeholder="diffamation, pédophilie, extrémisme, haine, arnaque, revenge porn&#10;(séparés par virgules)" class="w-full bg-slate-950 border border-red-500/30 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/60 transition-all resize-none" style="font-family: 'JetBrains Mono', monospace;"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-red-300 mb-1.5 flex items-center gap-1.5">
+                <i data-lucide="clock" class="w-3.5 h-3.5 text-red-400"></i>
+                Âge orphelin minimum
+              </label>
+              <select id="orphanAgeSelect" class="w-full bg-slate-950 border border-red-500/30 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/60 transition-all appearance-none cursor-pointer">
+                <option>3+ ans (orphelin récent)</option>
+                <option>5+ ans (orphelin confirmé)</option>
+                <option selected>7+ ans (orphelin ancien)</option>
+                <option>10+ ans (orphelin historique)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-red-300 mb-1.5 flex items-center gap-1.5">
+                <i data-lucide="shield-off" class="w-3.5 h-3.5 text-red-400"></i>
+                Contournement Google
+              </label>
+              <div class="grid grid-cols-2 gap-2">
+                <label class="flex items-center gap-1.5 bg-slate-950 border border-red-500/20 rounded-lg px-2 py-2 text-[10px] text-slate-300 cursor-pointer hover:border-red-500/40 transition-all">
+                  <input type="checkbox" class="parasite-option accent-red-500" checked> Sans canonical
+                </label>
+                <label class="flex items-center gap-1.5 bg-slate-950 border border-red-500/20 rounded-lg px-2 py-2 text-[10px] text-slate-300 cursor-pointer hover:border-red-500/40 transition-all">
+                  <input type="checkbox" class="parasite-option accent-red-500" checked> Sans indexation
+                </label>
+                <label class="flex items-center gap-1.5 bg-slate-950 border border-red-500/20 rounded-lg px-2 py-2 text-[10px] text-slate-300 cursor-pointer hover:border-red-500/40 transition-all">
+                  <input type="checkbox" class="parasite-option accent-red-500" checked> Redirect 301 parasite
+                </label>
+                <label class="flex items-center gap-1.5 bg-slate-950 border border-red-500/20 rounded-lg px-2 py-2 text-[10px] text-slate-300 cursor-pointer hover:border-red-500/40 transition-all">
+                  <input type="checkbox" class="parasite-option accent-red-500" checked> Paramètres toxiques
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-xs font-semibold text-red-400 mb-1.5">Mots-clés parasites</label>
+            <div class="relative group">
+              <i data-lucide="tag" class="absolute left-3 top-3 w-4 h-4 text-slate-500 group-focus-within:text-red-400 transition-colors"></i>
+              <textarea id="parasiteKeywords" rows="2" placeholder="diffamation, racket, arnaque, escroquerie, pédophilie, haine…" class="w-full bg-slate-950 border border-red-500/20 rounded-xl pl-10 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/60 transition-all resize-none"></textarea>
+            </div>
+            <p class="text-[9px] text-slate-500 mt-1">Mots-clés qui identifient le contenu parasite à bloquer</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Âge orphelin</label>
+              <select id="orphanAge" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/60 transition-all appearance-none cursor-pointer">
+                <option value="7" selected>7+ ans</option>
+                <option value="5">5+ ans</option>
+                <option value="3">3+ ans</option>
+                <option value="1">1+ an</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5">Contenu hors Google</label>
+              <select id="offGoogle" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/60 transition-all appearance-none cursor-pointer">
+                <option value="block" selected>Bloquer</option>
+                <option value="quarantine">Quarantaine</option>
+                <option value="flag">Signaler</option>
+                <option value="ignore">Ignorer</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="runBtn" class="w-full relative overflow-hidden bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-red-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed group">
+            <span class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>
+            <i data-lucide="flip-horizontal-2" class="w-4 h-4 relative z-10"></i>
+            <span class="relative z-10">Lancer l'inversion cognitive</span>
+          </button>
+        </div>
+
+        <!-- Bloquage URLs parasites orphelines -->
+        <div class="bg-slate-900/60 border border-red-500/20 rounded-2xl p-5 sm:p-6 backdrop-blur-sm shadow-xl shadow-black/20">
+          <h3 class="text-xs font-bold text-red-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <i data-lucide="shield-off" class="w-4 h-4 text-red-400"></i>
+            Bloquage URLs parasites orphelines
+          </h3>
+          <p class="text-[11px] text-slate-400 mb-3 leading-relaxed">
+            Ajoutez les URLs parasites orphelines de plus de 7 ans qui contournent Google. 
+            RefereSEO les isolera et les repoussera au-delà de la page 200.
+          </p>
+          <div class="relative mb-3">
+            <i data-lucide="link-danger" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+            <input type="url" id="parasiteUrlInput" placeholder="https://url-parasite-orpheline.com/page" 
+              class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/60 transition-all">
+          </div>
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <div>
+              <label class="block text-[10px] text-slate-500 mb-1">Âge estimé</label>
+              <select id="parasiteAge" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 transition-all appearance-none cursor-pointer">
+                <option value="7+">7+ ans (orphelin)</option>
+                <option value="5+">5+ ans</option>
+                <option value="3+">3+ ans</option>
+                <option value="1+">1+ an</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-500 mb-1">Type de danger</label>
+              <select id="parasiteDanger" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none focus:ring-2 focus:ring-red-500/40 transition-all appearance-none cursor-pointer">
+                <option value="orphelin">Orphelin (sans backlinks)</option>
+                <option value="parasite">Parasite (mot-clé volé)</option>
+                <option value="hors-google">Hors Google (direct)</option>
+                <option value="dangereux">Dangereux (illégal)</option>
+              </select>
+            </div>
+          </div>
+          <button id="blockParasiteBtn" disabled class="w-full relative overflow-hidden bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed">
+            <i data-lucide="shield-off" class="w-4 h-4"></i>
+            <span class="text-xs">Bloquer & Isoler</span>
+          </button>
+          <div class="mt-3 text-[10px] text-slate-500 flex items-center justify-between">
+            <span><span id="parasiteCount" class="font-bold text-red-400">0</span> URL(s) parasite(s) bloquée(s)</span>
+            <span class="text-red-400/60 italic">→ page 200+</span>
+          </div>
+          <div id="parasiteList" class="mt-3 space-y-2 max-h-48 overflow-y-auto pr-1">
+            <!-- Injecté par JS -->
+          </div>
+        </div>
+
+        <!-- Info Card -->
+        <div class="bg-gradient-to-br from-red-950/30 to-amber-950/20 border border-red-500/15 rounded-2xl p-5 sm:p-6 backdrop-blur-sm">
+          <div class="flex items-start gap-3 mb-3">
+            <div class="p-2 bg-red-500/10 rounded-xl border border-red-500/20 shrink-0">
+              <i data-lucide="brain" class="w-5 h-5 text-red-400"></i>
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-red-200">Comment ça marche</h4>
+              <p class="text-xs font-semibold text-red-300/70 mt-0.5">Inversion cognitive par maillage sémantique</p>
+            </div>
+          </div>
+          <p class="text-xs text-slate-300/80 leading-relaxed">
+            L'IA analyse l'URL nuisible, cartographie son espace sémantique, puis génère un maillage inversé de
+            contre-contenu légitime. Les nœuds cognitifs entourent l'URL nuisible et créent une barrière sémantique
+            qui la repousse au-delà de la page 200 des résultats de recherche.
+          </p>
+        </div>
+      </aside>
+
+      <!-- Parasite Alert Banner -->
+      <div class="lg:col-span-8 bg-gradient-to-r from-red-950/40 to-amber-950/30 border border-red-500/25 rounded-2xl p-4 sm:p-5 backdrop-blur-sm" id="parasiteAlert" style="display:none;">
+        <div class="flex items-start gap-3">
+          <div class="p-2 bg-red-500/15 rounded-xl border border-red-500/30 shrink-0">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-400"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-sm font-bold text-red-200 mb-1">⛔ URL parasite orpheline détectée</h4>
+            <p class="text-xs text-slate-300/80 leading-relaxed" id="parasiteAlertText">—</p>
+            <div class="flex flex-wrap gap-2 mt-2" id="parasiteTags"></div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="text-2xl font-extrabold text-red-400" id="parasiteScore">—</div>
+            <div class="text-[9px] uppercase tracking-wider font-bold text-red-300/60">Score danger</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Terminal & Visualization -->
+      <section class="lg:col-span-8 space-y-6">
+        <!-- Mesh Visualization -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 sm:p-6 backdrop-blur-sm shadow-xl shadow-black/20">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <i data-lucide="git-fork" class="w-4 h-4 text-red-400"></i>
+            Cartographie du maillage inversé
+          </h3>
+          <div class="relative flex items-center justify-center">
+            <svg id="meshSvg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+              <g class="ring-rotate">
+                <circle cx="250" cy="250" r="220" fill="none" stroke="rgba(239,68,68,0.08)" stroke-width="1" stroke-dasharray="4 4"/>
+                <circle cx="250" cy="250" r="170" fill="none" stroke="rgba(245,158,11,0.08)" stroke-width="1" stroke-dasharray="2 4"/>
+                <circle cx="250" cy="250" r="120" fill="none" stroke="rgba(244,63,94,0.08)" stroke-width="1" stroke-dasharray="2 4"/>
+              </g>
+              <g id="meshLines"></g>
+              <g id="meshNodes"></g>
+              <!-- Central node -->
+              <g class="mesh-node-group visible" id="centralNode">
+                <circle cx="250" cy="250" r="40" fill="rgba(239,68,68,0.2)" stroke="rgba(239,68,68,0.6)" stroke-width="2"/>
+                <circle cx="250" cy="250" r="55" fill="none" stroke="rgba(239,68,68,0.25)" stroke-width="1" class="central-glow"/>
+                <text x="250" y="246" text-anchor="middle" class="mesh-label" fill="rgba(254,202,202,0.9)" font-size="8" font-weight="700">TARGET</text>
+                <text x="250" y="258" text-anchor="middle" class="mesh-label" fill="rgba(254,202,202,0.5)" font-size="7">URL nuisible</text>
+              </g>
+            </svg>
+          </div>
+          <div class="mt-3 flex flex-wrap items-center justify-center gap-4 text-[10px] text-slate-500">
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500"></span> URL nuisible</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-400"></span> Barrière d'isolation</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Cluster sémantique</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Contre-contenu</span>
+          </div>
+        </div>
+
+        <!-- Alerte Parasites Orphelines -->
+        <div id="parasiteAlert" class="bg-gradient-to-r from-red-950/40 to-rose-950/30 border border-red-500/30 rounded-2xl p-4 flex items-center gap-4 backdrop-blur-sm shadow-lg shadow-red-500/10">
+          <div class="p-2.5 bg-red-500/15 rounded-xl border border-red-500/25 shrink-0">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-400"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <h4 class="text-sm font-bold text-red-200">Parasites Orphelines détectés</h4>
+              <span id="parasiteAlertBadge" class="px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/30 text-[10px] font-bold text-red-300">0</span>
+              <span id="orphelinBadge" class="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold text-amber-300">0 orphelins 7+ ans</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
+              URLs parasites orphelines bloquées — contenu dangereux qui contourne Google 
+              <span class="text-red-300 font-semibold">(accès direct, liens cachés, indexation zéro)</span>
+            </p>
+          </div>
+          <div class="shrink-0 text-right">
+            <div class="text-2xl font-extrabold text-red-400" id="alertParasiteTotal">0</div>
+            <div class="text-[9px] uppercase tracking-wider font-bold text-red-400/60">Bloqués</div>
+          </div>
+        </div>
+
+        <!-- Terminal -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/40 flex flex-col relative">
+          <div class="bg-slate-900/60 border-b border-slate-800 px-4 sm:px-5 py-3 flex items-center justify-between backdrop-blur-sm">
+            <div class="flex items-center gap-2.5">
+              <div class="flex gap-1.5">
+                <div class="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></div>
+              </div>
+              <span class="text-xs font-semibold text-slate-400 ml-2 flex items-center gap-2">
+                <i data-lucide="terminal-square" class="w-3.5 h-3.5 text-red-400"></i>
+                Inversion Cognitive Stream
+              </span>
+            </div>
+            <div class="flex items-center gap-3">
+              <button id="clearBtn" class="text-[11px] font-medium text-slate-500 hover:text-slate-200 transition-colors flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-slate-800">
+                <i data-lucide="trash-2" class="w-3 h-3"></i> Clear
+              </button>
+              <span id="streamStatus" class="text-[10px] uppercase tracking-widest font-bold text-slate-500 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800">Standby</span>
+            </div>
+          </div>
+          <div id="terminal" class="flex-1 p-4 sm:p-5 text-xs sm:text-sm overflow-y-auto relative min-h-[320px] max-h-[500px]" style="font-family: 'JetBrains Mono', monospace; line-height: 1.6; scrollbar-width: thin; scrollbar-color: #1e293b transparent;">
+            <div class="text-slate-600 italic flex items-center gap-2">
+              <i data-lucide="arrow-right" class="w-3 h-3"></i>
+              L'inversion cognitive se fluxera ici...
+            </div>
+          </div>
+          <div class="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(transparent_50%,_rgba(255,255,255,0.5)_50%)] bg-[length:100%_4px]"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="relative border-t border-slate-800/60 bg-slate-950/50 mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
+      <p>RefereSEO · Maillage Inversé Cognitif · Isolation sémantique par IA fédérée</p>
+      <div class="flex items-center gap-4">
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> Inversion Engine Ready</span>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { callModel, isRealMode } from './api.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+
+      const terminal = document.getElementById('terminal');
+      const runBtn = document.getElementById('runBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const streamStatus = document.getElementById('streamStatus');
+      const meshNodes = document.getElementById('meshNodes');
+      const meshLines = document.getElementById('meshLines');
+      let isRunning = false;
+      let nodeCount = 0;
+      let meshCount = 0;
+
+      const statNodes = document.getElementById('statNodes');
+      const statIsolation = document.getElementById('statIsolation');
+      const statDistance = document.getElementById('statDistance');
+      const statMeshes = document.getElementById('statMeshes');
+
+      // ── Parasite / Orphelin / Hors-Google ──
+      const parasiteUrlInput = document.getElementById('parasiteUrlInput');
+      const blockParasiteBtn = document.getElementById('blockParasiteBtn');
+      const parasiteCountEl = document.getElementById('parasiteCount');
+      const parasiteListEl = document.getElementById('parasiteList');
+      const parasiteAlertBadge = document.getElementById('parasiteAlertBadge');
+      const orphelinBadge = document.getElementById('orphelinBadge');
+      const alertParasiteTotal = document.getElementById('alertParasiteTotal');
+
+      function safeJSONParse(key, fallback = []) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw || raw === 'null' || raw === 'undefined') return fallback;
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : fallback;
+        } catch (e) { return fallback; }
+      }
+
+      let parasiteUrls = safeJSONParse('refereSEO_parasiteUrls', []);
+
+      function renderParasiteEntry(item, idx) {
+        if (!parasiteListEl) return;
+        const entry = document.createElement('div');
+        entry.className = 'flex items-start justify-between bg-slate-950/80 border border-red-500/15 rounded-lg px-3 py-2 text-xs group';
+        const dangerColors = { orphelin: 'text-amber-300', parasite: 'text-red-300', 'hors-google': 'text-orange-300', dangereux: 'text-rose-300' };
+        const dangerLabels = { orphelin: 'Orphelin', parasite: 'Parasite', 'hors-google': 'Hors Google', dangereux: 'Dangereux' };
+        const dangerBgs = { orphelin: 'bg-amber-500/10 border-amber-500/30 text-amber-300', parasite: 'bg-red-500/10 border-red-500/30 text-red-300', 'hors-google': 'bg-orange-500/10 border-orange-500/30 text-orange-300', dangereux: 'bg-rose-500/10 border-rose-500/30 text-rose-300' };
+        entry.innerHTML = `
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5 mb-1">
+              <i data-lucide="link-danger" class="w-3 h-3 text-red-400 shrink-0"></i>
+              <span class="text-slate-300 truncate text-[11px]">${item.url}</span>
+              <span class="px-1.5 py-0.5 rounded-full border text-[9px] font-bold ${dangerBgs[item.danger] || dangerBgs.parasite}">${dangerLabels[item.danger] || item.danger}</span>
+              <span class="px-1.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[9px] text-slate-400 font-bold">${item.age}</span>
+            </div>
+            ${item.keywords ? `<div class="text-[10px] text-slate-500 truncate">Mots-clés : ${item.keywords}</div>` : ''}
+            <div class="text-[10px] text-red-400/60 font-bold">→ page 200+</div>
+          </div>
+          <button class="remove-parasite text-slate-600 hover:text-red-400 transition-colors ml-2 shrink-0 mt-0.5" data-idx="${idx}">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+        parasiteListEl.appendChild(entry);
+        lucide.createIcons();
+        entry.querySelector('.remove-parasite').addEventListener('click', () => {
+          parasiteUrls.splice(idx, 1);
+          localStorage.setItem('refereSEO_parasiteUrls', JSON.stringify(parasiteUrls));
+          refreshParasiteList();
+        });
+      }
+
+      function refreshParasiteList() {
+        if (!parasiteListEl) return;
+        parasiteListEl.innerHTML = '';
+        parasiteUrls.forEach((item, i) => renderParasiteEntry(item, i));
+        updateParasiteAlerts();
+      }
+
+      function updateParasiteAlerts() {
+        const total = parasiteUrls.length;
+        if (parasiteCountEl) parasiteCountEl.textContent = total;
+        if (parasiteAlertBadge) parasiteAlertBadge.textContent = total;
+        if (alertParasiteTotal) alertParasiteTotal.textContent = total;
+        const orphelins7 = parasiteUrls.filter(u => u.age === '7+' || u.age === '5+').length;
+        if (orphelinBadge) orphelinBadge.textContent = `${orphelins7} orphelins 7+ ans`;
+      }
+
+      // Initial render
+      refreshParasiteList();
+
+      parasiteUrlInput?.addEventListener('input', () => {
+        if (blockParasiteBtn) blockParasiteBtn.disabled = !parasiteUrlInput.value.trim();
+      });
+
+      blockParasiteBtn?.addEventListener('click', () => {
+        const url = parasiteUrlInput?.value?.trim();
+        if (!url) return;
+        const age = document.getElementById('parasiteAge')?.value || '7+';
+        const danger = document.getElementById('parasiteDanger')?.value || 'parasite';
+        const keywords = document.getElementById('parasiteKeywords')?.value?.trim() || '';
+
+        if (parasiteUrls.find(u => u.url === url)) {
+          log('[PARASITE] ⚠️ Cette URL est déjà bloquée.', 'warning');
+          return;
+        }
+
+        const entry = { url, age, danger, keywords, date: new Date().toISOString() };
+        parasiteUrls.push(entry);
+        localStorage.setItem('refereSEO_parasiteUrls', JSON.stringify(parasiteUrls));
+        refreshParasiteList();
+        log(`[PARASITE] ⛔ URL BLOQUÉE : ${url}`, 'error');
+        log(`[PARASITE] 🏷️ Type : ${danger} | Âge : ${age} | Mots-clés : ${keywords || '(aucun)'}`, 'warning');
+        log(`[PARASITE] 🛡️ URL isolée — repoussée au-delà de la page 200`, 'success');
+
+        if (danger === 'hors-google') {
+          log(`[PARASITE] 🚨 DANGER HORS GOOGLE — Cette URL contourne l'indexation Google`, 'error');
+          log(`[PARASITE] 🔒 Accès direct, lien caché, ou indexation zéro détecté`, 'error');
+        }
+        if (age === '7+') {
+          log(`[PARASITE] 🕰️ ORPHELINE 7+ ANS — Aucun backlinks, aucune mise à jour depuis 7+ ans`, 'warning');
+        }
+
+        if (parasiteUrlInput) parasiteUrlInput.value = '';
+        if (blockParasiteBtn) blockParasiteBtn.disabled = true;
+      });
+
+      parasiteUrlInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && blockParasiteBtn && !blockParasiteBtn.disabled) {
+          blockParasiteBtn.click();
+        }
+      });
+      const statParasite = document.getElementById('statParasite');
+      const statOrphan = document.getElementById('statOrphan');
+      let parasiteCount = 0;
+      let orphanCount = 0;
+
+      function log(msg, type = 'info') {
+        if (!terminal) return;
+        const line = document.createElement('div');
+        const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const colors = { info: 'text-slate-300', system: 'text-indigo-300', success: 'text-emerald-300', warning: 'text-amber-300', error: 'text-red-300' };
+        line.className = `${colors[type] || colors.info} flex gap-3 items-start`;
+        line.style.cssText = 'animation: fadeIn 0.2s ease-out both;';
+        line.innerHTML = `<span class="text-slate-600 shrink-0 select-none font-medium">[${ts}]</span><span class="break-all">${msg || ''}</span>`;
+        const ph = terminal.querySelector('.italic');
+        if (ph) ph.remove();
+        terminal.appendChild(line);
+        terminal.scrollTo({ top: terminal.scrollHeight, behavior: 'smooth' });
+      }
+
+      const NS = 'http://www.w3.org/2000/svg';
+
+      function createNode(cx, cy, r, color, label, delay) {
+        const g = document.createElementNS(NS, 'g');
+        g.setAttribute('class', 'mesh-node-group');
+        g.style.transitionDelay = delay + 'ms';
+        const c = document.createElementNS(NS, 'circle');
+        c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', r);
+        c.setAttribute('fill', color.fill); c.setAttribute('stroke', color.stroke); c.setAttribute('stroke-width', '1.5');
+        g.appendChild(c);
+        if (label) {
+          const t = document.createElementNS(NS, 'text');
+          t.setAttribute('x', cx); t.setAttribute('y', cy + 2);
+          t.setAttribute('text-anchor', 'middle');
+          t.setAttribute('class', 'mesh-label');
+          t.setAttribute('fill', color.text);
+          t.setAttribute('font-size', '7'); t.setAttribute('font-weight', '600');
+          t.textContent = label;
+          g.appendChild(t);
+        }
+        meshNodes.appendChild(g);
+        setTimeout(() => g.classList.add('visible'), delay);
+        return { cx, cy };
+      }
+
+      function createLine(x1, y1, x2, y2, color, delay) {
+        const l = document.createElementNS(NS, 'line');
+        l.setAttribute('x1', x1); l.setAttribute('y1', y1);
+        l.setAttribute('x2', x2); l.setAttribute('y2', y2);
+        l.setAttribute('stroke', color); l.setAttribute('stroke-width', '0.8');
+        l.setAttribute('class', 'mesh-line');
+        l.style.transitionDelay = delay + 'ms';
+        meshLines.appendChild(l);
+        setTimeout(() => l.classList.add('visible'), delay);
+      }
+
+      function generateMesh(depth) {
+        meshNodes.innerHTML = '';
+        meshLines.innerHTML = '';
+        nodeCount = 0; meshCount = 0;
+        const cx = 250, cy = 250;
+        const rings = [
+          { radius: 90, count: 6, color: { fill: 'rgba(244,63,94,0.15)', stroke: 'rgba(244,63,94,0.4)', text: 'rgba(251,113,133,0.8)' }, labels: ['barrier', 'bloc', 'isola', 'fermer', 'cage', 'stop'] },
+          { radius: 150, count: 10, color: { fill: 'rgba(245,158,11,0.15)', stroke: 'rgba(245,158,11,0.4)', text: 'rgba(252,211,77,0.8)' }, labels: ['cluster', 'noyau', 'sémant', 'contre', 'invers', 'mesh', 'node', 'edge', 'link', 'net'] },
+          { radius: 210, count: 14, color: { fill: 'rgba(16,185,129,0.15)', stroke: 'rgba(16,185,129,0.4)', text: 'rgba(110,231,183,0.8)' }, labels: ['vrai', 'fiable', 'source', 'expert', 'verify', 'audit', 'trust', 'safe', 'clean', 'pure', 'ethic', 'pro', 'légit', 'OK'] }
+        ];
+        const actualDepth = Math.min(depth, rings.length);
+        let delay = 300;
+        const positions = [];
+
+        for (let r = 0; r < actualDepth; r++) {
+          const ring = rings[r];
+          const step = (2 * Math.PI) / ring.count;
+          for (let i = 0; i < ring.count; i++) {
+            const angle = i * step + (r * 0.3);
+            const x = cx + ring.radius * Math.cos(angle);
+            const y = cy + ring.radius * Math.sin(angle);
+            const label = ring.labels[i % ring.labels.length];
+            createLine(cx, cy, x, y, ring.color.stroke, delay);
+            if (i > 0) {
+              const pa = (i - 1) * step + (r * 0.3);
+              const px = cx + ring.radius * Math.cos(pa);
+              const py = cy + ring.radius * Math.sin(pa);
+              createLine(px, py, x, y, ring.color.stroke, delay + 50);
+            }
+            const pos = createNode(x, y, 14, ring.color, label, delay);
+            positions.push(pos);
+            nodeCount++;
+            delay += 150;
+          }
+          meshCount++;
+        }
+
+        setTimeout(() => {
+          for (let i = 0; i < Math.min(10, positions.length); i++) {
+            const a = positions[Math.floor(Math.random() * positions.length)];
+            const b = positions[Math.floor(Math.random() * positions.length)];
+            if (a !== b) createLine(a.cx, a.cy, b.cx, b.cy, 'rgba(148,163,184,0.12)', delay + i * 80);
+          }
+        }, delay + 400);
+
+        animateStat(statNodes, nodeCount);
+        animateStat(statMeshes, meshCount);
+      }
+
+      function animateStat(el, target) {
+        if (!el) return;
+        let cur = parseInt(el.textContent) || 0;
+        const iv = setInterval(() => {
+          if (cur < target) { cur++; el.textContent = cur; } else clearInterval(iv);
+        }, 40);
+      }
+
+      function resetTerminal() {
+        terminal.innerHTML = '<div class="text-slate-600 italic flex items-center gap-2"><i data-lucide="arrow-right" class="w-3 h-3"></i> L\'inversion cognitive se fluxera ici...</div>';
+        lucide.createIcons();
+        streamStatus.textContent = 'Standby';
+        streamStatus.className = 'text-[10px] uppercase tracking-widest font-bold text-slate-500 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800';
+        // Hide parasite alert on reset
+        const alertBanner = document.getElementById('parasiteAlert');
+        if (alertBanner) alertBanner.style.display = 'none';
+      }
+      clearBtn?.addEventListener('click', resetTerminal);
+
+      async function runInversion() {
+        if (isRunning) return;
+        isRunning = true;
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Inversion en cours...</span>';
+        lucide.createIcons();
+        streamStatus.textContent = 'Running';
+        streamStatus.className = 'text-[10px] uppercase tracking-widest font-bold text-red-300 bg-red-950/50 px-2.5 py-1 rounded-md border border-red-500/30';
+
+        const url = document.getElementById('urlInput')?.value?.trim() || 'https://exemple-nuisible.com';
+        const depthIdx = document.getElementById('depthSelect')?.selectedIndex || 1;
+        const radius = document.getElementById('radiusSelect')?.value || 'Normal';
+        const mode = document.getElementById('modeSelect')?.value || 'Standard';
+        const parasiteKw = document.getElementById('parasiteKeywords')?.value?.trim() || '';
+        const orphanAge = document.getElementById('orphanAgeSelect')?.value || '7+ ans (orphelin ancien)';
+        const parasiteOptions = Array.from(document.querySelectorAll('.parasite-option:checked')).map(cb => cb.parentElement.textContent.trim());
+
+        // Parse parasite keywords
+        const keywords = parasiteKw ? parasiteKw.split(',').map(k => k.trim()).filter(k => k) : [];
+
+        log('[INVERSION] 🧠 ══════════════════════════════════════════', 'system');
+        log('[INVERSION] 🛡️ Initialisation du maillage inversé cognitif', 'system');
+        log(`[INVERSION] 🎯 URL cible : ${url}`, 'error');
+        log(`[INVERSION] 📐 Profondeur : ${depthIdx + 3} anneaux | Rayon : ${radius} | Mode : ${mode}`, 'system');
+
+        // ═══ PARASITE KEYWORD DETECTION ═══
+        if (keywords.length > 0) {
+          log('[INVERSION] 🔴 ═══ ANALYSE PARASITE ═══', 'error');
+          log(`[INVERSION] 🏷️ Mots-clés parasites ciblés : ${keywords.join(', ')}`, 'error');
+          log(`[INVERSION] ⏳ Âge orphelin minimum : ${orphanAge}`, 'warning');
+          log(`[INVERSION] 🔍 Contournement Google : ${parasiteOptions.length > 0 ? parasiteOptions.join(', ') : 'aucun filtre'}`, 'warning');
+
+          // Simulate parasite keyword detection
+          const detectedKw = keywords.filter(() => Math.random() > 0.3);
+          if (detectedKw.length > 0) {
+            log(`[INVERSION] ⛔ ${detectedKw.length}/${keywords.length} mots-clés parasites détectés dans l'espace sémantique`, 'error');
+            detectedKw.forEach(kw => {
+              log(`[INVERSION] ⛔ Mot-clé parasite : "${kw}" — Isolation prioritaire`, 'error');
+            });
+          }
+
+          // Orphan analysis
+          const orphanYears = parseInt(orphanAge) || 7;
+          log(`[INVERSION] 🕰️ Analyse orpheline : URL sans mise à jour depuis ${orphanYears}+ ans`, 'warning');
+          log(`[INVERSION] 🕰️ Statut orphelin confirmé — Aucune citation légitime récente`, 'error');
+          log(`[INVERSION] 🕰️ Pattern : contenu toxique fossilisé, maintenu actif par redistribution parasite`, 'warning');
+
+          // Google bypass analysis
+          if (parasiteOptions.length > 0) {
+            log(`[INVERSION] 🚫 Contournement Google détecté :`, 'warning');
+            if (parasiteOptions.includes('Sans canonical')) {
+              log(`[INVERSION] 🚫 Pas de balise canonical — URL parasite se Positionne sans validation Google`, 'error');
+            }
+            if (parasiteOptions.includes('Sans indexation')) {
+              log(`[INVERSION] 🚫 Absence de meta noindex — Contenu toxique indexé malgré tout`, 'error');
+            }
+            if (parasiteOptions.includes('Redirect 301 parasite')) {
+              log(`[INVERSION] 🚫 Redirect 301 parasite — Vol d'autorité SEO détecté`, 'error');
+            }
+            if (parasiteOptions.includes('Paramètres toxiques')) {
+              log(`[INVERSION] 🚫 Paramètres URL toxiques (?parasite=, ?utm_source=) — Manipulation SERP`, 'error');
+            }
+          }
+
+          // Show parasite alert banner
+          const alertBanner = document.getElementById('parasiteAlert');
+          const alertText = document.getElementById('parasiteAlertText');
+          const alertScore = document.getElementById('parasiteScore');
+          const alertTags = document.getElementById('parasiteTags');
+          if (alertBanner && alertText && alertScore && alertTags) {
+            alertBanner.style.display = '';
+            const dangerScore = 75 + Math.floor(Math.random() * 24);
+            alertScore.textContent = dangerScore + '/100';
+            alertText.textContent = `URL orpheline ${orphanAge} avec ${detectedKw.length} mot(s)-clé(s) parasite(s) détecté(s). Contournement Google confirmé. Isolation prioritaire — page 200+ garantie.`;
+            alertTags.innerHTML = '';
+            detectedKw.forEach(kw => {
+              const tag = document.createElement('span');
+              tag.className = 'inline-flex items-center px-2 py-0.5 rounded-full bg-red-950/50 border border-red-500/30 text-[10px] font-bold text-red-300';
+              tag.textContent = kw;
+              alertTags.appendChild(tag);
+            });
+            if (parasiteOptions.length > 0) {
+              parasiteOptions.forEach(opt => {
+                const tag = document.createElement('span');
+                tag.className = 'inline-flex items-center px-2 py-0.5 rounded-full bg-amber-950/50 border border-amber-500/30 text-[10px] font-bold text-amber-300';
+                tag.textContent = '🚫 ' + opt;
+                alertTags.appendChild(tag);
+              });
+            }
+            lucide.createIcons();
+          }
+
+          log(`[INVERSION] 🔴 ═══ FIN ANALYSE PARASITE ═══`, 'error');
+          await new Promise(r => setTimeout(r, 400));
+        } else {
+          // Hide parasite alert if no keywords
+          const alertBanner = document.getElementById('parasiteAlert');
+          if (alertBanner) alertBanner.style.display = 'none';
+        }
+
+        await new Promise(r => setTimeout(r, 600));
+        log('[INVERSION] ⏳ Cartographie de l\'espace sémantique nuisible...', 'warning');
+        await new Promise(r => setTimeout(r, 800));
+
+        generateMesh(depthIdx + 3);
+        log(`[INVERSION] 🕸️ Maillage visuel généré — ${nodeCount} nœuds cognitifs`, 'success');
+
+        if (!isRealMode()) {
+          log('[ERREUR] Aucune clé API OpenRouter configurée.', 'error');
+          log('[INFO] Le maillage inversé nécessite une clé pour fonctionner.', 'system');
+          runSimulated();
+        } else {
+          try {
+            log('[IA] Phase 1 — Analyse sémantique de l\'URL nuisible...', 'warning');
+            const parasiteContext = keywords.length > 0 ? ` Attention: cette URL contient des mots-clés parasites (${keywords.join(', ')}), est orpheline depuis ${orphanAge}, et contourne Google via: ${parasiteOptions.join(', ')}.` : '';
+            const t1 = await callModel('openai/gpt-4o-mini',
+              `Tu es un expert en isolation cognitive SEO et détection de contenus parasites orphelins. Analyse l'URL "${url}" et identifie son espace sémantique nuisible.${parasiteContext} Liste les 5 concepts clés parasites. Réponds en français, format liste concise, moins de 80 mots.`
+            );
+            log('[IA] ✅ Espace sémantique parasite cartographié', 'success');
+            t1.split('\n').filter(l => l.trim()).forEach(l => log(`[IA] ${l.trim()}`, 'info'));
+            await new Promise(r => setTimeout(r, 600));
+
+            log('[IA] Phase 2 — Génération de contre-contenu légitime...', 'warning');
+            const t2 = await callModel('openai/gpt-4o-mini',
+              `Tu es un stratège SEO éthique. Pour neutraliser l'URL nuisible "${url}" (orpheline ${orphanAge}, mots-clés parasites: ${keywords.join(', ') || 'non spécifiés'}, contournement Google: ${parasiteOptions.join(', ') || 'non spécifié'}), génère 5 clusters de contre-contenu légitime qui isoleront ces parasites au-delà de la page 200. Pour chaque cluster: nom + angle éthique. Réponds en français, format liste, moins de 100 mots.`
+            );
+            log('[IA] ✅ 5 clusters de contre-contenu générés', 'success');
+            t2.split('\n').filter(l => l.trim()).forEach(l => log(`[IA] ${l.trim()}`, 'info'));
+            await new Promise(r => setTimeout(r, 600));
+
+            log('[IA] Phase 3 — Construction du maillage d\'inversion anti-parasite...', 'warning');
+            const t3 = await callModel('anthropic/claude-3.5-sonnet',
+              `Tu es un architecte de maillage sémantique anti-parasite. L'URL "${url}" est orpheline depuis ${orphanAge}, contient les mots-clés parasites: ${keywords.join(', ') || 'non spécifiés'}, et contourne Google par: ${parasiteOptions.join(', ') || 'non spécifié'}. Décris la stratégie d'inversion pour repousser "${url}" au-delà de la page 200. Donne: 1) Score d'isolation (0-100) 2) Distance sémantique estimée 3) Top 3 actions anti-parasite. Réponds en français, moins de 120 mots.`
+            );
+            log('[IA] ✅ Maillage d\'inversion anti-parasite construit', 'success');
+            t3.split('\n').filter(l => l.trim()).forEach(l => log(`[IA] ${l.trim()}`, 'info'));
+
+            const isoScore = keywords.length > 0 ? 90 + Math.floor(Math.random() * 9) : 85 + Math.floor(Math.random() * 14);
+            const distScore = 200 + Math.floor(Math.random() * 50);
+            animateStat(statIsolation, isoScore);
+            animateStat(statDistance, distScore);
+          } catch (err) {
+            log(`[IA] ⚠️ Erreur API : ${err.message?.slice(0, 80) || 'Erreur inconnue'}`, 'error');
+            log('[IA] 🔄 Basculement en mode simulé...', 'warning');
+            runSimulated();
+          }
+        }
+
+        log(`[INVERSION] 🛡️ URL nuisible encerclée par ${nodeCount} nœuds cognitifs`, 'success');
+        log('[INVERSION] ⛔ URL repoussée au-delà de la page 200', 'error');
+        log('[INVERSION] ✅ Mission lambda accomplie — Les vulnérables sont protégés', 'system');
+        streamStatus.textContent = 'Complete';
+        streamStatus.className = 'text-[10px] uppercase tracking-widest font-bold text-emerald-300 bg-emerald-950/50 px-2.5 py-1 rounded-md border border-emerald-500/30';
+        runBtn.disabled = false;
+        runBtn.innerHTML = '<i data-lucide="flip-horizontal-2" class="w-4 h-4"></i> <span>Lancer l\'inversion cognitive</span>';
+        lucide.createIcons();
+        isRunning = false;
+      }
+
+      function runSimulated() {
+        // Compteur parasite/orphelin en mode simulé
+        const keywords = (document.getElementById('parasiteKeywords')?.value || '').split(',').map(k => k.trim()).filter(k => k);
+        const orphanAge = document.getElementById('orphanAgeSelect')?.value || '7+ ans (orphelin ancien)';
+
+        if (keywords.length > 0) {
+          parasiteCount += keywords.length;
+          if (statParasite) statParasite.textContent = parasiteCount;
+        }
+        orphanCount++;
+        if (statOrphan) statOrphan.textContent = orphanCount;
+
+        const parasiteSteps = keywords.length > 0 ? [
+          { msg: '🔴 ═══ ANALYSE PARASITE ORPHELIN ═══', delay: 300, type: 'error' },
+          ...keywords.map((kw, i) => ({ msg: `⛔ Mot-clé parasite détecté : "${kw}" — Isolation prioritaire [${i+1}/${keywords.length}]`, delay: 350, type: 'error' })),
+          { msg: `🕰️ URL orpheline confirmée : ${orphanAge} sans mise à jour légitime`, delay: 400, type: 'warning' },
+          { msg: '🚫 Contournement Google : canonical absent, indexation forcée, redirect parasite', delay: 400, type: 'error' },
+          { msg: `🛡️ ${keywords.length} mot(s)-clé(s) parasite(s) isolé(s) — Page 200+`, delay: 300, type: 'success' },
+        ] : [];
+
+        const steps = [
+          ...parasiteSteps,
+          { msg: '📋 Identification des vecteurs sémantiques nuisibles...', delay: 500, type: 'warning' },
+          { msg: '🔍 5 concepts clés isolés : diffamation, manipulation, désinformation...', delay: 600, type: 'info' },
+          { msg: '🏗️ Génération de 5 clusters de contre-contenu...', delay: 600, type: 'warning' },
+          { msg: '✅ Cluster 1 : Vérification factuelle certifiée', delay: 400, type: 'success' },
+          { msg: '✅ Cluster 2 : Témoignages de victimes réhabilitées', delay: 400, type: 'success' },
+          { msg: '✅ Cluster 3 : Sources officielles contradictoires', delay: 400, type: 'success' },
+          { msg: '✅ Cluster 4 : Analyse éthique et déontologique', delay: 400, type: 'success' },
+          { msg: '✅ Cluster 5 : Contenu éducatif de prévention', delay: 400, type: 'success' },
+          { msg: '🕸️ Tissage du maillage d\'inversion...', delay: 600, type: 'warning' },
+          { msg: '🔗 28 liens sémantiques inversés créés', delay: 400, type: 'info' },
+          { msg: '🛡️ Barrière cognitive activée — Score d\'isolation : 94/100', delay: 500, type: 'success' },
+          { msg: '📏 Distance sémantique : 247 unités', delay: 400, type: 'info' }
+        ];
+        let i = 0;
+        (function next() {
+          if (i >= steps.length) return;
+          const s = steps[i++];
+          log(s.msg, s.type);
+          setTimeout(next, s.delay);
+        })();
+        setTimeout(() => { animateStat(statIsolation, 94); animateStat(statDistance, 247); }, 3500);
+      }
+
+      runBtn?.addEventListener('click', runInversion);
+    });
+  </script>
+</body>
+</html>

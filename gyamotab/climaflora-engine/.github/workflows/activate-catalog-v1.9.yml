@@ -1,0 +1,65 @@
+name: Activate ClimaFlora catalog v1.9 runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/catalog-v1.9-promotion.json'
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: activate-catalog-v1.9
+  cancel-in-progress: true
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate promoted artifact and active runtime configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = json.loads(Path('.github/catalog-v1.9-promotion.json').read_text())
+          assert p['status'] == 'uploaded_verified', p
+          assert p['catalog_version'] == '1.9.0', p
+          assert p['validation']['blocking_failures'] == 0, p
+          assert p['build_repo'] == 'gyamotab/climaflora-edaphic-builds', p
+
+          sqlite_sha = p['sqlite_sha256']
+          zst_sha = p['zst_sha256']
+          version = Path('app/version.py').read_text()
+          config = Path('app/config.py').read_text()
+          docker = Path('Dockerfile').read_text()
+          deploy = Path('.github/workflows/deploy-huggingface.yml').read_text()
+
+          assert 'APP_VERSION = "0.9.39"' in version, version
+          assert 'CATALOG_SCHEMA_VERSION = "1.9.0"' in version, version
+          for text in (config, docker, deploy):
+              assert 'climaflora_global_plants_v1_9.sqlite' in text
+              assert sqlite_sha in text
+              assert zst_sha in text
+          assert '1.9.0' in config
+          assert '1.9.0' in docker
+          assert '1.9.0' in deploy
+          print('v1.9 runtime configuration already active and hash-locked')
+          PY
+
+      - name: Dispatch Hugging Face production deployment
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run deploy-huggingface.yml --ref main

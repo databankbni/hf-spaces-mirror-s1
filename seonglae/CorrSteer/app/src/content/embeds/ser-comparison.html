@@ -1,0 +1,485 @@
+<div class="ser-comparison"></div>
+<style>
+  .ser-comparison {
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .ser-comparison svg {
+    display: block;
+    width: 100%;
+  }
+
+  .ser-comparison .bar {
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+  }
+
+  .ser-comparison.legend-filtering .bar.ghost {
+    opacity: 0.1;
+  }
+
+  .ser-comparison .axes path {
+    display: none;
+  }
+
+  .ser-comparison .axes line {
+    stroke: var(--axis-color, #ccc);
+  }
+
+  .ser-comparison .axes text {
+    fill: var(--tick-color, var(--muted-color, #6b6f80));
+    font-size: 11px;
+  }
+
+  .ser-comparison .grid line {
+    stroke: var(--grid-color, rgba(0, 0, 0, 0.06));
+    stroke-width: 1;
+  }
+
+  .ser-comparison .grid path {
+    display: none;
+  }
+
+  .ser-comparison .ref-line {
+    stroke-dasharray: 6, 4;
+    stroke-width: 1.5;
+  }
+
+  .ser-comparison .ref-label {
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .ser-comparison .legend-bar {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .ser-comparison .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-color, #1a1a2e);
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    user-select: none;
+    padding: 3px 0;
+  }
+
+  .ser-comparison .legend-item.hidden {
+    opacity: 0.3;
+  }
+
+  .ser-comparison .legend-item.hidden .legend-swatch {
+    background: var(--muted-color, #999) !important;
+  }
+
+  .ser-comparison .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    transition: background 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .ser-comparison .legend-text {
+    white-space: nowrap;
+  }
+
+  .ser-comparison .d3-tooltip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(-9999px, -9999px);
+    pointer-events: none;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.45;
+    border: 1px solid var(--border-color, #e2e4ea);
+    background: var(--surface-bg, #fff);
+    color: var(--text-color, #1a1a2e);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    z-index: 10;
+    max-width: 220px;
+  }
+
+  .ser-comparison .d3-tooltip__inner {
+    text-align: left;
+  }
+
+  .ser-comparison .d3-tooltip .tt-method {
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .ser-comparison .d3-tooltip .tt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ser-comparison .d3-tooltip .tt-label {
+    color: var(--muted-color, #6b6f80);
+  }
+
+  .ser-comparison .d3-tooltip .tt-val {
+    font-weight: 600;
+  }
+
+  .ser-comparison .lower-label {
+    font-size: 11px;
+    font-style: italic;
+    fill: var(--muted-color, #6b6f80);
+  }
+
+  .ser-comparison .axis-title {
+    font-size: 12px;
+    font-weight: 700;
+    fill: var(--text-color, #1a1a2e);
+  }
+</style>
+<script>
+  (() => {
+    const DATA_PATHS = [
+      '/data/ser_results.json',
+      './assets/data/ser_results.json',
+      '../assets/data/ser_results.json',
+      '../../assets/data/ser_results.json',
+      '../../../assets/data/ser_results.json'
+    ];
+
+    const METHOD_COLORS = {
+      'CorrSteer-S': '#4EA5B7',
+      'CorrSteer-P': '#9B59B6',
+      'CorrSteer-A': '#6B5CE7',
+      'SPARE (MI)': '#E38A42',
+      'DSG (Fisher)': '#59A14F',
+      'CAA': '#CEC0FA',
+      'Fine-tuning': '#E15759'
+    };
+
+    const METHOD_ORDER = [
+      'CorrSteer-S', 'CorrSteer-P', 'CorrSteer-A',
+      'SPARE (MI)', 'DSG (Fisher)', 'CAA', 'Fine-tuning'
+    ];
+
+    const ensureD3 = (cb) => {
+      if (window.d3 && typeof window.d3.select === 'function') return cb();
+      let s = document.getElementById('d3-cdn-script');
+      if (!s) {
+        s = document.createElement('script');
+        s.id = 'd3-cdn-script';
+        s.src = 'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js';
+        document.head.appendChild(s);
+      }
+      const onReady = () => {
+        if (window.d3 && typeof window.d3.select === 'function') cb();
+      };
+      s.addEventListener('load', onReady, { once: true });
+      if (window.d3) onReady();
+    };
+
+    const fetchFirstAvailable = async (paths) => {
+      for (const p of paths) {
+        try {
+          const r = await fetch(p, { cache: 'no-cache' });
+          if (r.ok) return await r.json();
+        } catch (e) { }
+      }
+      throw new Error('Data not found');
+    };
+
+    const bootstrap = () => {
+      const scriptEl = document.currentScript;
+      let container = scriptEl ? scriptEl.previousElementSibling : null;
+      if (!(container && container.classList && container.classList.contains('ser-comparison'))) {
+        const candidates = Array.from(document.querySelectorAll('.ser-comparison'))
+          .filter(el => !(el.dataset && el.dataset.mounted === 'true'));
+        container = candidates[candidates.length - 1] || null;
+      }
+      if (!container) return;
+      if (container.dataset) {
+        if (container.dataset.mounted === 'true') return;
+        container.dataset.mounted = 'true';
+      }
+
+      container.style.position = container.style.position || 'relative';
+
+      // Tooltip
+      let tip = document.createElement('div');
+      tip.className = 'd3-tooltip';
+      let tipInner = document.createElement('div');
+      tipInner.className = 'd3-tooltip__inner';
+      tip.appendChild(tipInner);
+      container.appendChild(tip);
+
+      const showTooltip = (html, event) => {
+        tipInner.innerHTML = html;
+        tip.style.opacity = '1';
+        const rect = container.getBoundingClientRect();
+        const mx = event.clientX - rect.left;
+        const my = event.clientY - rect.top;
+        // Prevent overflow right
+        const tipWidth = tip.offsetWidth || 200;
+        const maxX = rect.width - tipWidth - 10;
+        const x = Math.min(mx + 14, maxX);
+        tip.style.transform = `translate(${x}px, ${my - 14}px)`;
+      };
+
+      const hideTooltip = () => {
+        tip.style.opacity = '0';
+        setTimeout(() => {
+          tip.style.transform = 'translate(-9999px, -9999px)';
+        }, 120);
+      };
+
+      // Legend
+      const legendBar = document.createElement('div');
+      legendBar.className = 'legend-bar';
+      container.appendChild(legendBar);
+
+      const hiddenMethods = new Set();
+
+      METHOD_ORDER.forEach(m => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.dataset.method = m;
+        item.innerHTML = `<div class="legend-swatch" style="background:${METHOD_COLORS[m] || '#888'}"></div><span class="legend-text">${m}</span>`;
+        item.addEventListener('click', () => {
+          if (hiddenMethods.has(m)) {
+            hiddenMethods.delete(m);
+            item.classList.remove('hidden');
+          } else {
+            hiddenMethods.add(m);
+            item.classList.add('hidden');
+          }
+          render();
+        });
+        legendBar.appendChild(item);
+      });
+
+      // SVG
+      const svg = d3.select(container).append('svg').style('display', 'block');
+      const gRoot = svg.append('g');
+
+      const margin = { top: 24, right: 16, bottom: 56, left: 52 };
+      let rawData = [];
+
+      const render = () => {
+        const width = container.clientWidth || 700;
+        const height = Math.max(340, Math.round(width * 0.5));
+        svg.attr('width', width).attr('height', height);
+
+        const innerW = width - margin.left - margin.right;
+        const innerH = height - margin.top - margin.bottom;
+
+        gRoot.attr('transform', `translate(${margin.left},${margin.top})`);
+        gRoot.selectAll('*').remove();
+
+        // Determine tasks and visible methods
+        const tasks = [...new Set(rawData.map(d => d.task))];
+        const allMethods = [...new Set(rawData.map(d => d.method))];
+        const orderedVisible = METHOD_ORDER.filter(m => allMethods.includes(m) && !hiddenMethods.has(m));
+        // Include any methods from data not in METHOD_ORDER
+        allMethods.forEach(m => {
+          if (!METHOD_ORDER.includes(m) && !hiddenMethods.has(m) && !orderedVisible.includes(m)) {
+            orderedVisible.push(m);
+          }
+        });
+
+        // Scales
+        const x0 = d3.scaleBand().domain(tasks).range([0, innerW]).paddingInner(0.2).paddingOuter(0.1);
+        const x1 = d3.scaleBand().domain(orderedVisible).range([0, x0.bandwidth()]).padding(0.08);
+        const y = d3.scaleLinear().domain([0, 1.0]).range([innerH, 0]);
+
+        // Grid lines
+        const grid = gRoot.append('g').attr('class', 'grid');
+        grid.selectAll('line')
+          .data(y.ticks(5))
+          .enter().append('line')
+          .attr('x1', 0).attr('x2', innerW)
+          .attr('y1', d => y(d)).attr('y2', d => y(d));
+
+        // Reference line at 0.5
+        gRoot.append('line')
+          .attr('class', 'ref-line')
+          .attr('x1', 0).attr('x2', innerW)
+          .attr('y1', y(0.5)).attr('y2', y(0.5))
+          .attr('stroke', 'var(--muted-color, #999)');
+
+        gRoot.append('text')
+          .attr('class', 'ref-label')
+          .attr('x', innerW + 4).attr('y', y(0.5) + 4)
+          .attr('fill', 'var(--muted-color, #999)')
+          .text('0.5');
+
+        // X axis
+        const xAxisG = gRoot.append('g').attr('class', 'axes')
+          .attr('transform', `translate(0, ${innerH})`);
+        xAxisG.call(d3.axisBottom(x0).tickSize(0).tickPadding(10));
+        xAxisG.selectAll('text')
+          .style('font-size', width < 500 ? '9px' : '11px');
+
+        // Y axis
+        const yAxisG = gRoot.append('g').attr('class', 'axes');
+        yAxisG.call(d3.axisLeft(y).ticks(5).tickFormat(d3.format('.1f')).tickSize(-innerW));
+        yAxisG.selectAll('.tick line')
+          .attr('stroke', 'var(--grid-color, rgba(0,0,0,0.06))');
+
+        // Y axis title
+        gRoot.append('text')
+          .attr('class', 'axis-title')
+          .attr('transform', 'rotate(-90)')
+          .attr('x', -innerH / 2).attr('y', -40)
+          .attr('text-anchor', 'middle')
+          .text('SER');
+
+        // "Lower is better" indicator
+        gRoot.append('text')
+          .attr('class', 'lower-label')
+          .attr('transform', 'rotate(-90)')
+          .attr('x', -innerH + 10).attr('y', -40)
+          .attr('text-anchor', 'start')
+          .attr('dominant-baseline', 'central')
+          .text('lower is better');
+
+        // Arrow for "lower is better"
+        gRoot.append('path')
+          .attr('d', `M${-28},${innerH - 16} L${-28},${innerH - 4}`)
+          .attr('stroke', 'var(--muted-color, #6b6f80)')
+          .attr('stroke-width', 1.5)
+          .attr('marker-end', 'none')
+          .attr('fill', 'none');
+
+        // Bars (grouped)
+        const roundedTopBar = (x, yTop, w, h, r) => {
+          if (h <= 0) return '';
+          const rr = Math.min(r, h / 2, w / 2);
+          return `M${x},${yTop + h} L${x},${yTop + rr} Q${x},${yTop} ${x + rr},${yTop} L${x + w - rr},${yTop} Q${x + w},${yTop} ${x + w},${yTop + rr} L${x + w},${yTop + h} Z`;
+        };
+
+        const taskGroups = gRoot.selectAll('.task-group')
+          .data(tasks).enter().append('g')
+          .attr('class', 'task-group')
+          .attr('transform', d => `translate(${x0(d)}, 0)`);
+
+        taskGroups.each(function(task) {
+          const group = d3.select(this);
+          const taskData = rawData.filter(d => d.task === task);
+
+          orderedVisible.forEach(method => {
+            const d = taskData.find(r => r.method === method);
+            if (!d) return;
+
+            const barX = x1(method);
+            const barW = x1.bandwidth();
+            const barH = innerH - y(d.ser);
+            const barY = y(d.ser);
+
+            group.append('path')
+              .attr('class', 'bar')
+              .attr('data-method', method)
+              .attr('d', roundedTopBar(barX, barY, barW, barH, 2))
+              .attr('fill', METHOD_COLORS[method] || '#888')
+              .on('mouseenter', function(event) {
+                container.classList.add('legend-filtering');
+                container.querySelectorAll('.bar').forEach(b => {
+                  if (b.getAttribute('data-method') !== method) b.classList.add('ghost');
+                });
+                const html = `
+                  <div class="tt-method" style="color:${METHOD_COLORS[method] || '#888'}">${method}</div>
+                  <div style="font-size:11px;color:var(--muted-color,#888);margin-bottom:4px">${task}</div>
+                  <div class="tt-row"><span class="tt-label">SER</span><span class="tt-val">${d.ser.toFixed(2)}</span></div>
+                  <div class="tt-row"><span class="tt-label">NEG</span><span class="tt-val">${d.neg}</span></div>
+                  <div class="tt-row"><span class="tt-label">POS</span><span class="tt-val">${d.pos}</span></div>
+                `;
+                showTooltip(html, event);
+              })
+              .on('mousemove', function(event) {
+                const rect = container.getBoundingClientRect();
+                const mx = event.clientX - rect.left;
+                const my = event.clientY - rect.top;
+                const tipWidth = tip.offsetWidth || 200;
+                const maxX = rect.width - tipWidth - 10;
+                const x = Math.min(mx + 14, maxX);
+                tip.style.transform = `translate(${x}px, ${my - 14}px)`;
+              })
+              .on('mouseleave', function() {
+                container.classList.remove('legend-filtering');
+                container.querySelectorAll('.bar').forEach(b => b.classList.remove('ghost'));
+                hideTooltip();
+              });
+          });
+        });
+      };
+
+      fetchFirstAvailable(DATA_PATHS).then(data => {
+        rawData = data;
+
+        // Ensure legend includes all methods from data
+        const allMethods = [...new Set(data.map(d => d.method))];
+        allMethods.forEach(m => {
+          if (!METHOD_ORDER.includes(m)) {
+            METHOD_ORDER.push(m);
+            if (!METHOD_COLORS[m]) METHOD_COLORS[m] = '#888';
+            // Add legend item
+            const item = document.createElement('div');
+            item.className = 'legend-item';
+            item.dataset.method = m;
+            item.innerHTML = `<div class="legend-swatch" style="background:${METHOD_COLORS[m]}"></div><span class="legend-text">${m}</span>`;
+            item.addEventListener('click', () => {
+              if (hiddenMethods.has(m)) {
+                hiddenMethods.delete(m);
+                item.classList.remove('hidden');
+              } else {
+                hiddenMethods.add(m);
+                item.classList.add('hidden');
+              }
+              render();
+            });
+            legendBar.appendChild(item);
+          }
+        });
+
+        render();
+
+        // Responsive
+        let resizeTimer;
+        const ro = new ResizeObserver(() => {
+          clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(render, 80);
+        });
+        ro.observe(container);
+      }).catch(err => {
+        container.innerHTML = `<div style="text-align:center;padding:40px;font-size:13px;color:var(--muted-color,#888)">Could not load SER data: ${err.message}</div>`;
+      });
+
+      // Dark mode: listen for data-theme changes on <html>
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+            if (rawData.length > 0) render();
+          }
+        });
+      });
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['data-theme']
+      });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => ensureD3(bootstrap), { once: true });
+    } else {
+      ensureD3(bootstrap);
+    }
+  })();
+</script>

@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Allen Borochin — Data Science</title>
+<meta name="description" content="Data science projects that turn high-volume, noisy data into decisions. Live demos, full case studies, and what didn't work.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400;12..96,75..100,600;12..96,75..100,800&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  /* Light direction. The dark navy/amber set is kept below - swap the
+     six values to flip the whole page back. */
+  --bg:      #E9EBE4;
+  --surface: #DFE2D9;
+  --line:    #C6CABE;
+  --haze:    #6B7166;
+  --fg:      #12150E;
+  --signal:  #2B3FD8;
+  --read:    #2C3026;   /* body copy — charcoal with the page's cool cast */
+
+  /* alt (dark):  bg #0B1420 · surface #131F30 · line #22354C
+                  haze #7E90A8 · fg #EAF0F7 · signal #E9A23B */
+
+  --display: "Bricolage Grotesque", system-ui, sans-serif;
+  --body:    "Newsreader", Georgia, serif;
+  --mono:    "JetBrains Mono", ui-monospace, monospace;
+
+  --gut: clamp(20px, 5vw, 88px);
+  --rule: 1px solid var(--line);
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; -webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:var(--body); font-weight:300;
+  font-size:clamp(16px,1.05vw,18.5px); line-height:1.62;
+  overflow-x:hidden;
+}
+::selection{background:var(--signal); color:#fff}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--signal); outline-offset:3px; border-radius:2px}
+
+/* ---------- shared type ---------- */
+.eyebrow{
+  font-family:var(--mono); font-size:11px; font-weight:500;
+  letter-spacing:.22em; text-transform:uppercase; color:var(--haze);
+}
+.rule{border:0; border-top:var(--rule); margin:0}
+
+/* ---------- nav ---------- */
+nav{
+  position:fixed; inset:0 0 auto 0; z-index:40;
+  display:flex; justify-content:space-between; align-items:center; gap:16px;
+  padding:16px var(--gut) 30px;
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.14em; text-transform:uppercase;
+  background:linear-gradient(to bottom,
+    var(--bg) 0%, rgba(233,235,228,.88) 52%, rgba(233,235,228,0) 100%);
+}
+nav .who{color:var(--fg); text-decoration:none; font-weight:700; letter-spacing:.1em}
+nav .links{display:flex; gap:clamp(12px,2vw,28px)}
+nav .links a{color:var(--haze); text-decoration:none; transition:color .25s}
+nav .links a:hover{color:var(--signal)}
+@media(max-width:560px){ nav .links a:nth-child(2){display:none} }
+
+/* ---------- hero ---------- */
+#stage{
+  position:fixed; inset:0; z-index:0;
+  opacity:0; transition:opacity 1.2s ease .2s;
+}
+#stage.on{opacity:1}
+#veil{
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(120% 80% at 50% 45%, rgba(233,235,228,0) 26%, rgba(233,235,228,.74) 74%, var(--bg) 100%);
+}
+
+header{
+  position:relative; z-index:3;
+  min-height:100svh; display:flex; flex-direction:column; justify-content:flex-end;
+  padding:clamp(96px,16vh,170px) var(--gut) clamp(44px,8vh,88px);
+}
+h1{
+  font-family:var(--display); font-weight:800;
+  font-variation-settings:"wdth" 88;
+  font-size:clamp(33px,5.6vw,88px); line-height:.96; letter-spacing:-.032em;
+  margin:0 0 .5em; max-width:19ch; text-wrap:balance;
+}
+h1 em{font-style:normal; color:var(--signal)}
+.lede{
+  font-size:clamp(17px,1.7vw,23px); line-height:1.5; color:var(--read);
+  max-width:48ch; margin:0 0 1.5em;
+}
+.heroMeta{
+  display:flex; flex-wrap:wrap; gap:10px 26px; align-items:baseline;
+  padding-top:18px; border-top:var(--rule);
+}
+.heroMeta span{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--haze)}
+.heroMeta span b{color:var(--fg); font-weight:500}
+
+/* ---------- page body ---------- */
+main{position:relative; z-index:3; background:var(--bg)}
+section{padding:clamp(72px,11vh,148px) var(--gut); border-top:var(--rule)}
+.secHead{display:flex; gap:24px; align-items:baseline; margin-bottom:clamp(28px,5vh,56px)}
+.secHead h2{
+  font-family:var(--display); font-weight:600; font-variation-settings:"wdth" 92;
+  font-size:clamp(22px,2.6vw,34px); letter-spacing:-.02em; margin:0;
+}
+
+/* about */
+.aboutGrid{display:grid; grid-template-columns:1fr; gap:clamp(28px,4vw,64px); max-width:1360px}
+@media(min-width:900px){ .aboutGrid{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)} }
+.aboutGrid p{margin:0 0 1.1em; font-size:clamp(17px,1.35vw,21px); line-height:1.58; max-width:56ch}
+.aboutGrid p:last-child{margin-bottom:0}
+.aboutGrid strong{font-weight:500; color:var(--signal)}
+
+.skills{display:grid; gap:0; align-self:start; border-top:var(--rule)}
+.skills div{padding:16px 0; border-bottom:var(--rule)}
+.skills dt{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--haze); margin-bottom:7px;
+}
+.skills dd{margin:0; font-family:var(--display); font-weight:400; font-size:15.5px; line-height:1.55; letter-spacing:.005em}
+
+/* ---------- projects ---------- */
+.proj{border-top:var(--rule); padding:clamp(56px,9vh,120px) var(--gut)}
+.proj:first-of-type{border-top:0}
+.projInner{max-width:1360px; margin:0 auto}
+.proj h3{
+  font-family:var(--display); font-weight:800; font-variation-settings:"wdth" 84;
+  font-size:clamp(28px,3.8vw,54px); line-height:1.02; letter-spacing:-.025em; margin:0 0 .42em;
+}
+.pitch{font-size:clamp(17px,1.5vw,22px); line-height:1.55; max-width:62ch; margin:0 0 2em; color:var(--read)}
+
+.hi{
+  display:grid; gap:1px; background:var(--line);
+  border:var(--rule); margin-bottom:28px;
+  grid-template-columns:1fr;
+}
+@media(min-width:760px){ .hi{grid-template-columns:repeat(3,1fr)} }
+.hi article{background:var(--bg); padding:22px 20px 24px}
+.hi h4{
+  font-family:var(--mono); font-size:10.5px; font-weight:500; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--signal); margin:0 0 9px;
+}
+.hi p{margin:0; font-size:15.5px; line-height:1.56; color:var(--read)}
+
+.tags{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:22px}
+.tags span{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; color:var(--haze);
+  border:var(--rule); border-radius:3px; padding:4px 9px;
+}
+
+.actions{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+.btn{
+  font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase;
+  text-decoration:none; padding:11px 18px; border:1px solid var(--line); border-radius:3px;
+  color:var(--fg); background:transparent; cursor:pointer;
+  transition:border-color .25s, color .25s, background .25s;
+}
+.btn:hover{border-color:var(--signal); color:var(--signal)}
+.btn.solid{background:var(--signal); border-color:var(--signal); color:#fff; font-weight:700}
+.btn.solid:hover{background:transparent; color:var(--signal)}
+
+/* expander */
+.more{display:grid; grid-template-rows:0fr; transition:grid-template-rows .55s cubic-bezier(.4,0,.2,1)}
+.more.open{grid-template-rows:1fr}
+.moreInner{overflow:hidden}
+.caseBody{padding-top:34px; margin-top:34px; border-top:var(--rule)}
+.caseBody h5{
+  font-family:var(--mono); font-size:10.5px; font-weight:500; letter-spacing:.2em;
+  text-transform:uppercase; color:var(--haze); margin:30px 0 10px;
+}
+.caseBody h5:first-child{margin-top:0}
+.caseBody p{margin:0 0 1em; max-width:70ch; font-size:16.5px; line-height:1.62; color:var(--read)}
+.caseBody ul{margin:0 0 1em; padding-left:1.1em; max-width:70ch}
+.caseBody li{margin-bottom:.5em; font-size:16.5px; line-height:1.6; color:var(--read)}
+.caseBody li b, .caseBody p b{font-weight:500; color:var(--fg)}
+.caseBody pre{
+  font-family:var(--mono); font-size:11.5px; line-height:1.5; color:var(--read);
+  background:var(--surface); border:var(--rule); border-radius:4px;
+  padding:18px; overflow-x:auto; margin:0 0 1.4em;
+}
+
+/* ---------- contact ---------- */
+#contact{text-align:left}
+#contact .big{
+  font-family:var(--display); font-weight:800; font-variation-settings:"wdth" 84;
+  font-size:clamp(27px,3.9vw,56px); line-height:1.06; letter-spacing:-.025em; margin:0 0 .7em; max-width:24ch;
+}
+.contactLinks{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:56px}
+footer{
+  display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px;
+  padding-top:22px; border-top:var(--rule);
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--haze);
+}
+
+/* ---------- motion ---------- */
+.rise{opacity:0; transform:translateY(26px)}
+.rise.in{opacity:1; transform:none; transition:opacity .8s ease, transform .8s cubic-bezier(.2,.7,.3,1)}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .rise{opacity:1; transform:none; transition:none}
+  .more{transition:none}
+  #stage{transition:none}
+}
+</style>
+</head>
+<body>
+
+<canvas id="stage" aria-hidden="true"></canvas>
+<div id="veil" aria-hidden="true"></div>
+
+<nav>
+  <a class="who" href="#top">Allen Borochin</a>
+  <div class="links">
+    <a href="#work">Work</a>
+    <a href="#about">About</a>
+    <a href="#contact">Contact</a>
+  </div>
+</nav>
+
+<header id="top">
+  <h1>Most of the data is <em>noise</em>. The work is finding what isn't.</h1>
+  <p class="lede">I build end-to-end data products — clustering, prediction, retrieval — that take high-volume, messy input and end in something a person can decide on.</p>
+  <div class="heroMeta">
+    <span>Reichman University · <b>Economics &amp; Entrepreneurship</b></span>
+    <span>Specialization · <b>Data Science</b></span>
+  </div>
+</header>
+
+<main>
+
+<!-- ================= ABOUT ================= -->
+<section id="about">
+  <div class="secHead"><span class="eyebrow">01</span><h2>About</h2></div>
+  <div class="aboutGrid">
+    <div class="rise">
+      <p>Hi, I'm Allen. Thanks for stopping by.</p>
+      <p>I'm a dual-major student at Reichman University — Economics and Entrepreneurship with a Data Science specialization, Class of 2028.</p>
+      <p>One habit I try to hold onto: <strong>an answer nobody understands isn't an answer.</strong> So I build end-to-end data products rather than notebooks that stop at a chart — collecting and cleaning the data honestly, engineering the features that carry the signal, choosing a model for a reason I can defend, and deploying it so someone can actually use it.</p>
+    </div>
+    <dl class="skills rise">
+      <div><dt>Technical &amp; Tools</dt><dd>Python, R, SQL (Joins, Aggregations, CTEs, Window Functions), Pandas, NumPy, Scikit-learn, Matplotlib, Seaborn, Advanced Excel</dd></div>
+      <div><dt>Infrastructure &amp; AI</dt><dd>GCP, GitHub Actions, Git, Streamlit, Prompt Engineering (LLMs)</dd></div>
+      <div><dt>Core Competencies</dt><dd>Data Analysis (EDA), Predictive Modeling, Feature Engineering, Statistical Inference</dd></div>
+      <div><dt>Languages</dt><dd>Hebrew (native), English (fluent), Russian (fluent), Spanish (basic)</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ================= WORK ================= -->
+<section id="work" style="padding-bottom:0">
+  <div class="secHead"><span class="eyebrow">02</span><h2>Selected work</h2></div>
+</section>
+
+<!-- ---------- 0sint ---------- -->
+<article class="proj">
+ <div class="projInner rise">
+  <h3>0sint</h3>
+  <p class="pitch">An OSINT triage system for an operational intelligence desk officer. It ingests a high-volume Telegram-style feed, clusters raw messages into distinct real-world events using a domain fine-tuned sentence embedder, scores each event on veracity, relevance and urgency, retrieves comparable past incidents, and generates a grounded situation card with a recommended action set.</p>
+
+  <div class="hi">
+    <article><h4>Fine-tuning as a response, not a default</h4><p>Off-the-shelf embeddings plateaued at ARI 0.574 — two incidents in the same city at the same hour merged into one cluster at 0.788 centroid similarity. Contrastive fine-tuning moved the same window to 0.883.</p></article>
+    <article><h4>Hard negatives mined from an audit</h4><p>~600k candidate pairs → 10,204 above 0.70 similarity → ~25 sharing time and place → the 5 most confusable held out of training entirely as the eval set.</p></article>
+    <article><h4>Guardrails moved into code</h4><p>The model kept inventing agencies that don't exist. Prompt instructions reduced it; a recipient whitelist generated in code eliminated it. Battery: 6 cards, 0 violations.</p></article>
+  </div>
+
+    <div class="tags">
+    <span>sentence-transformers</span><span>MiniLM-L6-v2</span><span>Contrastive fine-tuning</span><span>MultipleNegativesRankingLoss</span><span>Agglomerative clustering</span><span>Semantic search</span><span>Qwen2.5-7B</span><span>Prompt engineering</span><span>Gradio</span><span>PyTorch</span>
+  </div>
+
+  <div class="actions">
+    <a class="btn solid" href="https://huggingface.co/spaces/nadiCR7/OSINTTTTTT" target="_blank" rel="noopener">Open live demo</a>
+    <a class="btn" href="https://huggingface.co/allenborochin/0sint-event-embedder" target="_blank" rel="noopener">Fine-tuned model</a>
+    <a class="btn" href="https://huggingface.co/datasets/allenborochin/0sint" target="_blank" rel="noopener">Dataset</a>
+    <button class="btn" data-more="c-0sint" aria-expanded="false" aria-controls="c-0sint">Read the case study</button>
+  </div>
+
+  <div class="more" id="c-0sint"><div class="moreInner"><div class="caseBody">
+    <h5>The problem</h5>
+    <p>A desk officer monitoring open Telegram channels faces a specific failure mode: a thin trickle of genuinely relevant information buried inside overwhelming noise. Keyword filters fail in both directions — missing events described in unexpected wording, flooding on incidental matches.</p>
+    <p>Three harder problems sit underneath. The same event is reported by many accounts in wildly different registers, from official bulletins to panicked eyewitness posts. Two different events in the same city at the same hour look nearly identical to a general-purpose embedder. And an LLM asked to summarize raw intelligence will confidently invent agencies, units and protocols that do not exist — which in this domain is worse than no summary at all.</p>
+
+    <h5>Architecture</h5>
+    <pre>Telegram-style feed (11,774 messages / 1,102 events)
+        │
+        ▼
+0sint-event-embedder ....... MiniLM-L6-v2 fine-tuned
+(384-dim, 22.7M params)      MultipleNegativesRankingLoss
+        │                    15,293 mined triplets
+        ▼
+Agglomerative clustering ... average linkage @ 0.50
+        │
+        ▼
+Event scoring .............. veracity / relevance / urgency
+        │
+   ┌────┴────┐
+   ▼         ▼
+Similar    Constrained generation → grounded card
+past       what happened · does it matter ·
+events     action set · recipients
+        │
+        ▼
+Gradio Space ... 4/8/24h window · V-X triage marks
+                 world map · semantic search
+                 Telegram PDF export</pre>
+
+    <h5>The hardest part</h5>
+    <p><b>Two events, one city, one hour.</b> An airport hostage incident and a bus-station explosion, reported in the same window by overlapping accounts, sat at 0.788 centroid similarity — well above any threshold that would still merge genuine duplicates. No threshold tuning could resolve it, because the geometry itself was wrong: the base model encoded "something serious happening here" and discarded the distinction that mattered.</p>
+    <p>Fixing it required changing the embedding space, and the eval had to be built from held-out confusable pairs rather than a random split — a random split would have scored well while leaving the actual failure untouched.</p>
+    <p><b>The honest caveat:</b> 0.883 is same-window clustering performance for the production model on an 8-hour, 466-message window at average linkage 0.50, measured against the 0.574 baseline on that same window. The held-out confusable-pair evaluation is a separate exercise reporting centroid similarity and separability, not ARI. Keeping those two numbers distinct matters more than having one headline figure.</p>
+
+    <h5>Results</h5>
+    <ul>
+      <li><b>Fine-tuned embedder published</b> — 22.7M parameters, 384-dimensional, trained on 15,293 triplets in 7.5 minutes on a single GPU.</li>
+      <li><b>Corpus of 11,774 messages across 1,102 events</b>, category structure verified from the parquet rather than assumed: security events average 8.78 messages against 3.58 for irrelevant ones — a ~2.45× coverage ratio that empirically justifies the breadth term in the veracity score.</li>
+      <li><b>6 cards, 0 rule violations</b> under an automated six-rule battery — after a bug was found where an early return meant only the first rule had ever run.</li>
+      <li><b>Deployed</b> with windowed filtering, V/X triage marking, an interactive world map, semantic search, and Telegram PDF export of marked events.</li>
+    </ul>
+
+    <h5>What I took from it</h5>
+    <p>Measure the baseline's failure precisely before reaching for a bigger model, and let that failure define the eval set. Move constraints from prompts into code wherever the constraint can be expressed deterministically. And design for the user's flow rather than exposing the architecture — the technical layer is something to answer questions about, not something to put on screen.</p>
+  </div></div></div>
+ </div>
+</article>
+
+<!-- ---------- Cortex ---------- -->
+<article class="proj">
+ <div class="projInner rise">
+  <h3>Cortex</h3>
+  <p class="pitch">An autonomous financial-intelligence pipeline. It ingests market prices, macro indicators and multi-source news, runs LLM-driven sentiment scoring and narrative synthesis, and delivers bilingual market briefings to Telegram twice daily — with every signal persisted to Cloud SQL as a training corpus for downstream ML.</p>
+
+  <div class="hi">
+    <article><h4>Stateless compute, stateful logic</h4><p>Runs entirely on GitHub Actions cron — no server, no container, no persistent disk. All state lives in Cloud SQL, and every write is idempotent, so the pipeline is fully reproducible and re-runnable.</p></article>
+    <article><h4>Batched inference over per-item calls</h4><p>Sentiment scoring collapses N headlines per ticker into one structured-JSON call. A parse failure persists articles unscored rather than dropping ingestion.</p></article>
+    <article><h4>Deterministic guardrails on non-deterministic output</h4><p>Every prompt rule written as a positive constraint, backed by a regex post-filter that drops whole hallucinated sentences. Prompts branch on RSI band so the model can't emit "RSI 25 / neutral."</p></article>
+  </div>
+
+  <div class="tags">
+    <span>Python 3.12</span><span>Gemini 2.5 Flash</span><span>Google Cloud SQL</span><span>MySQL 8.4</span><span>GitHub Actions</span><span>Telegram Bot API</span><span>Streamlit</span><span>Plotly</span><span>yfinance</span><span>FRED API</span><span>ETL pipelines</span><span>CI/CD</span>
+  </div>
+
+  <div class="actions">
+    <button class="btn solid" data-more="c-cortex" aria-expanded="false" aria-controls="c-cortex">Read the case study</button>
+  </div>
+
+  <div class="more" id="c-cortex"><div class="moreInner"><div class="caseBody">
+    <h5>The problem</h5>
+    <p>Retail market research is fragmented and time-expensive. Price action lives in one tool, macro prints in another, news in a dozen feeds of varying quality — leaving the analyst to reconcile them manually every day. Generic LLM summarizers fail at this because they hallucinate price levels, contradict technical indicators, and re-report the same story every run.</p>
+
+    <h5>Architecture</h5>
+    <pre>GitHub Actions (cron 08:00 / 16:00 UTC)
+        │
+        ▼
+   scheduler.py ──┬── yfinance ...... prices, OHLCV, RSI-14
+                  ├── GNews+Finnhub .. dual-source news merge
+                  ├── FRED ........... CPI / PPI
+                  └── CNN Fear &amp; Greed
+        │
+        ▼
+   Gemini 2.5 Flash → batched sentiment JSON
+                      per-ticker narrative
+                      macro synthesis
+        │
+        ▼
+   regex post-filter
+        │
+   ┌────┴────┐
+   ▼         ▼
+Cloud SQL   Telegram Bot API
+4 tables    (markdown + article buttons)</pre>
+
+    <h5>The hardest part</h5>
+    <p><b>Maintaining alert state on a filesystem that gets wiped every run.</b> GitHub Actions provisions a clean runner per invocation, so a local dedup cache was unavailable and the same catastrophic headline would re-fire on every tick. State moved into Cloud SQL with two key tiers — a permanent URL hash, plus a daily-resetting ticker-keyword pair that catches the same event syndicated across outlets.</p>
+    <p>The deliberate trade-off: the filter <b>fails open</b> on a database error. An outage lets duplicates through rather than suppressing real alerts, because in market alerting a false positive is cheap and a false negative is not.</p>
+    <p><b>Suppressing hallucination without suppressing output.</b> Early versions invented support levels and restated the header price mid-paragraph — and negative instructions ("do not mention X") made the leaks <i>more</i> frequent. The fix was three layers: positive-only constraints, prompts branched on RSI band so indicator and narrative structurally cannot contradict, and a regex backstop that drops offending sentences entirely. When every sentence gets filtered, the function returns empty rather than padding with filler.</p>
+
+    <h5>Results</h5>
+    <ul>
+      <li><b>Autonomous in production</b> — two briefings per day on cron, across a five-month build.</li>
+      <li><b>Six live data sources</b> unified into one report; four normalized tables accumulating per-ticker sentiment and price history designed as ML training input, not just report backing.</li>
+      <li><b>Dual delivery surface</b> — the same Cloud SQL layer backs both the Telegram bot and a Streamlit dashboard with TTL-tiered caching.</li>
+    </ul>
+
+    <h5>What I took from it</h5>
+    <p>Treat the LLM as a formatter over verified numeric context rather than a source of facts. Design guardrails as deterministic post-processing rather than trusting prompt compliance. And let infrastructure constraints drive architecture toward reproducibility instead of fighting them.</p>
+  </div></div></div>
+ </div>
+</article>
+
+<!-- ---------- CLIP ---------- -->
+<article class="proj">
+ <div class="projInner rise">
+  <h3>Country Travel Recommender</h3>
+  <p class="pitch">A multimodal destination search engine. Describe the trip you want in words or upload a photo of it, and CLIP matches your query against 42,525 curated travel images to return destinations ranked by visual experience rather than geography — each result shown with the exact evidence image behind its score.</p>
+
+  <div class="hi">
+    <article><h4>The thesis, then the evidence</h4><p>CLIP groups images by experience type, not country — so a beach photo surfaces Thailand, Brazil and Croatia together. Confirmed three ways: 9 of 10 clusters semantically clean, t-SNE separation, and a world map where one cluster unites Sub-Saharan safari countries and another spans the Andes.</p></article>
+    <article><h4>The model cleans its own input</h4><p>~25-30% of source images were unusable — a laptop keyboard, a showroom Lamborghini. Instead of arbitrary rules, each image was scored against 131 positive and 30 negative travel prompts and the bottom quartile dropped.</p></article>
+    <article><h4>K chosen for interpretability, not silhouette</h4><p>K=8 scored marginally higher but left 17% of data in an incoherent catch-all. K=10 concentrated the noise into a single 9.6% cluster and left 9 readable themes.</p></article>
+  </div>
+
+    <div class="tags">
+    <span>CLIP ViT-B/32</span><span>HuggingFace Transformers</span><span>Multimodal embeddings</span><span>Zero-shot classification</span><span>PCA</span><span>KMeans</span><span>t-SNE</span><span>Cosine retrieval</span><span>Gradio</span><span>NumPy</span>
+  </div>
+
+  <div class="actions">
+    <a class="btn solid" href="https://huggingface.co/spaces/allenborochin/country-travel-recommender" target="_blank" rel="noopener">Open live demo</a>
+    <button class="btn" data-more="c-clip" aria-expanded="false" aria-controls="c-clip">Read the case study</button>
+  </div>
+
+  <div class="more" id="c-clip"><div class="moreInner"><div class="caseBody">
+    <h5>The problem</h5>
+    <p>Travel search is keyword-shaped and destination-shaped: you search a country and read about it. But people don't plan trips that way. They start from an experience — a saved photo, a phrase like "ancient temples in the jungle" — and the country is the answer, not the query.</p>
+    <p>Two obstacles. Matching an experience to a place needs a shared representation of images and text, which rules out a vision-only model. And a photograph carries no information about cost, season, or whether a place suits a family — so pure visual matching produces aesthetically satisfying, practically useless recommendations.</p>
+
+    <h5>How it works</h5>
+    <p><b>Visual layer.</b> The query is encoded with CLIP and compared against all 42,525 embeddings by cosine similarity, with each country ranked by its single best-matching image. A dynamic threshold at 70% of the top score drops weak matches. For image queries, the country is also predicted by top-K voting.</p>
+    <p><b>Metadata layer.</b> On top of the visual ranking sits a hand-curated attribute table covering what a photo can't show — budget, trip type, climate, vibe, best months. Hard filters must match exactly; soft filters allow one step of deviation, with the card disclosing exactly how it deviates. A per-vibe seasonality mapping means "skiing in March" correctly returns France, Switzerland and Bulgaria despite their general best months being warmer.</p>
+    <p>Ranking by a country's <i>single best</i> image is deliberate. The question is "does this country offer what I'm describing," not "is this country on average like my query" — averaging would penalize diverse countries.</p>
+
+    <h5>The hardest part</h5>
+    <p><b>Evaluating a recommender with no ground truth.</b> There is no correct destination for "tropical beach with palm trees," so there is no accuracy metric. Rather than inventing one, evaluation was built from three behavioural checks: the relevance score distribution splitting cleanly into an off-topic low band and a genuine-travel high band; cluster coherence inspected through PCA and t-SNE; and query behaviour verified against expectation. Qualitative evaluation stated as qualitative.</p>
+    <p>A silent bug cost real time too: a CLIP convenience method intermittently returned a wrapper object instead of a tensor, surfacing far downstream as confusing failures. The fix was to stop using the convenience method and call the model's forward pass directly — explicit and consistently typed.</p>
+
+    <h5>Known limitations</h5>
+    <p>The metadata for ~204 countries was assigned from a single author's judgement, so it carries subjective bias and goes stale. The 25th-percentile content filter, the 70% quality threshold and the single-best-image rule were all chosen by hand — a different cutoff would change results. These are documented as guesses that should be calibrated on a labelled sample, rather than presented as measured choices.</p>
+  </div></div></div>
+ </div>
+</article>
+
+<!-- ---------- FPL ---------- -->
+<article class="proj">
+ <div class="projInner rise">
+  <h3>FPL Player Predictor</h3>
+  <p class="pitch">An end-to-end ML pipeline over eight Premier League seasons that predicts a player's Fantasy Premier League points for the upcoming gameweek using only pre-match information — framed both as regression and as classification — with a deployed app that explains which features pushed any given prediction up or down.</p>
+
+  <div class="hi">
+    <article><h4>Features carried it; models didn't</h4><p>Baseline linear regression: R² 0.112. Same model with engineered features: 0.303. Every subsequent model change added a combined 0.014. All three engineered models converged at ~0.32 — the signature of a feature ceiling, not a model ceiling.</p></article>
+    <article><h4>The ceiling was tested, not asserted</h4><p>GridSearchCV across 27 hyperparameter combinations, 135 fits. The tuned model came in at R² 0.3176 against the default's 0.3178 — imperceptibly worse, which is the strongest possible evidence no signal remained.</p></article>
+    <article><h4>The metric came from the domain</h4><p>73% of rows are the "Blank" class, so accuracy is meaningless. Haul recall won instead: missing a haul means benching a player who explodes; a false alarm just means a disappointing captain.</p></article>
+  </div>
+
+    <div class="tags">
+    <span>Scikit-learn</span><span>HistGradientBoosting</span><span>Random Forest</span><span>Logistic Regression</span><span>KMeans</span><span>GridSearchCV</span><span>Feature engineering</span><span>Leakage prevention</span><span>Imbalanced classification</span><span>Streamlit</span><span>Docker</span>
+  </div>
+
+  <div class="actions">
+    <a class="btn solid" href="https://huggingface.co/spaces/allenborochin/fpl-predictor" target="_blank" rel="noopener">Open live demo</a>
+    <a class="btn" href="https://huggingface.co/allenborochin/fpl_player_predictive_modeling" target="_blank" rel="noopener">Models &amp; notebook</a>
+    <button class="btn" data-more="c-fpl" aria-expanded="false" aria-controls="c-fpl">Read the case study</button>
+  </div>
+
+  <div class="more" id="c-fpl"><div class="moreInner"><div class="caseBody">
+    <h5>The problem</h5>
+    <p>Fantasy football decisions are made on intuition dressed as analysis. Managers talk about form, fixtures and price without knowing which of those signals actually predicts next week's points, or how much of the outcome is predictable at all.</p>
+    <p>The data makes it harder than it looks. 58% of rows score zero points — but only about a fifth of those zeros are players who appeared and underperformed. The rest didn't play. The dataset is dominated by non-appearances, so any useful model has to resolve "will they play" before form and fixture features contribute anything. And the outcomes that decide a season — 10+ point hauls — are 1.9% of the data and depend on events no pre-match feature can encode.</p>
+
+    <h5>Approach</h5>
+    <p>184,646 player-gameweek records across eight seasons, cleaned and engineered into 178,808 rows and 65 columns. Three families of engineered features: rolling form (points, minutes and bonus-point averages over 3/5/10 gameweek windows, plus volatility and lags), fixture context (team and opponent strength), and player archetype (five KMeans clusters, one-hot encoded).</p>
+    <p>Every rolling feature is shifted by one gameweek before the window computes. Without that shift, each feature includes the gameweek being predicted, and the model reports excellent scores that would collapse in production. It's the single most consequential correctness decision in the project, and it was verified explicitly on a known player-season.</p>
+
+    <h5>The hardest part</h5>
+    <p><b>A player who was two players.</b> Andrew Robertson surfaced in EDA with two separate records — 121 games as a midfielder and 181 as a defender — which initially read as two players sharing a name. The actual cause was structural: player IDs are reassigned each season and his position had been reclassified, so the pipeline treated one player as two entities. The bug threw no error and produced no warning; it would have silently corrupted every per-player aggregate. It was found only because a real player's numbers were checked against what a football fan knows to be true.</p>
+    <p><b>Accepting a ceiling instead of throwing models at it.</b> When three models converge at R² 0.32, the instinct is to reach for XGBoost, stacking, ensembles. The project instead spent its remaining compute proving that would be wasted. Reporting a negative result as the finding, instead of quietly discarding it, is what makes the ceiling claim credible.</p>
+
+    <h5>Results</h5>
+    <ul>
+      <li><b>Regression fully attributed:</b> 0.112 → 0.303 (features) → 0.318 (models). Features contributed +0.19; every model change combined contributed +0.014.</li>
+      <li><b>Classification winner selected against the domain metric:</b> Logistic Regression at 0.489 haul recall, chosen over Random Forest despite RF scoring marginally better on both accuracy and macro-F1.</li>
+      <li><b>Three EDA findings that contradict FPL folklore</b> — hauls don't mean-revert, ceiling and consistency trade off near-linearly, and league position is a strong proxy for fixture difficulty with a few named outliers.</li>
+      <li><b>Deployed on Docker</b> with runtime model loading, a plain-English match preview, and a feature-contribution panel showing what drove each prediction.</li>
+    </ul>
+
+    <h5>What I took from it</h5>
+    <p>The metric has to come from the cost structure of the decision, not from convention. Feature engineering beats model selection often enough that model shopping should come last. A negative result from a rigorous test is a finding, not a failure. And the bugs that matter most are the ones that don't raise errors — which makes sanity-checking against known reality non-optional.</p>
+  </div></div></div>
+ </div>
+</article>
+
+<!-- ---------- Zomato ---------- -->
+<article class="proj">
+ <div class="projInner rise">
+  <h3>Delivery Operations EDA</h3>
+  <p class="pitch">An exploratory analysis of 38,964 real food-delivery records across Indian cities that tests a specific operational hypothesis — that weather and distance drive delays — and shows the data refuting it. The real bottlenecks are how many orders are stacked onto one trip, and who is delivering them.</p>
+
+  <div class="hi">
+    <article><h4>The finding lives in the interaction</h4><p>Weather and traffic separately understate both. Sunny weather buffers even a full jam (23.5 min, barely slower than cloudy with light traffic at 22.4). Fog plus jam is the real worst case at ~37 min.</p></article>
+    <article><h4>Cleaning as an iterative step</h4><p>The first pass looked complete. Then computing Haversine distances exposed 3,410 rows with GPS at (0,0) and 272 physically impossible distances — anomalies invisible in the raw columns.</p></article>
+    <article><h4>Outliers kept on purpose</h4><p>1,024 courier ratings below 3.9 flagged as statistical outliers were retained. They're real low-rated couriers and they're central to the question being asked — removing them by rule would have removed the answer.</p></article>
+  </div>
+
+  <div class="tags">
+    <span>Pandas</span><span>NumPy</span><span>Exploratory data analysis</span><span>Data cleaning &amp; validation</span><span>Haversine distance</span><span>Geospatial</span><span>Outlier detection</span><span>Correlation analysis</span><span>Seaborn</span>
+  </div>
+
+  <div class="actions">
+    <a class="btn solid" href="https://huggingface.co/datasets/allenborochin/zomato_delivery_EDA" target="_blank" rel="noopener">Dataset &amp; notebook</a>
+    <button class="btn" data-more="c-zom" aria-expanded="false" aria-controls="c-zom">Read the case study</button>
+  </div>
+
+  <div class="more" id="c-zom"><div class="moreInner"><div class="caseBody">
+    <h5>The problem</h5>
+    <p>Delivery lateness has an intuitive causal story: bad weather slows couriers, long distances take longer. If that story is right, the operational levers are geographic — restaurant density and delivery radius. If it's wrong, the levers are dispatch policy and courier management instead, which are cheaper to change and faster to act on.</p>
+    <p>The complication is that the raw data doesn't contain the variables the question needs in usable form. Distance has to be derived from GPS pairs, the target needs binning to be comparable across conditions, and the corruption in the data is invisible until those derivations are attempted.</p>
+
+    <h5>Findings</h5>
+    <ul>
+      <li><b>Stacked orders are the bottleneck.</b> A courier handling three deliveries per trip averages 47.8 minutes against 23.1 for a single-stop delivery — more than double, from a dispatch decision rather than a geographic constraint.</li>
+      <li><b>The correlation ranking inverts the intuition:</b> stacked deliveries +0.384, courier rating −0.360, distance +0.322.</li>
+      <li><b>Extreme weather isn't the worst weather.</b> Sunny is fastest at a 21-minute median, but fog and cloud (29 min) are slower than storms and sandstorms (26 min, level with plain wind).</li>
+      <li><b>Traffic is non-linear.</b> Low → Medium is a large jump (21.5 → 26.9 min); Medium → High is negligible (27.4); only a full jam adds meaningfully again (31.4).</li>
+    </ul>
+
+    <h5>The hardest part</h5>
+    <p><b>The cleaning only the analysis could reveal.</b> After the first pass the data looked clean by every check applied to the raw columns. The corruption became visible only once Haversine distances produced values no urban delivery could plausibly cover, tracing back to coordinates sitting at (0,0). That forced an unplanned second cleaning phase mid-analysis — and the lesson that data preparation isn't a linear stage you complete and leave behind.</p>
+    <p><b>Missing data as a per-question decision.</b> The default move is to drop every row with any null. Applied here, that would have discarded ~1,000 records entirely intact for the weather and distance questions and deficient only for the courier-rating one. Retaining them preserved statistical power for two of three research questions, at the cost of slightly different effective sample sizes — an explicit trade-off, documented rather than silently made.</p>
+    <p><b>The hypothesis was wrong.</b> The starting expectation was that distance and severe weather would dominate. Rather than reframing the questions around the findings after the fact, the write-up keeps the original hypotheses visible and reports them as refuted — which is what makes the operational conclusion trustworthy.</p>
+  </div></div></div>
+ </div>
+</article>
+
+<!-- ================= CONTACT ================= -->
+<section id="contact">
+  <div class="secHead"><span class="eyebrow">03</span><h2>Contact</h2></div>
+  <p class="big rise">If any of this is useful to you, I'd like to hear about it.</p>
+  <div class="contactLinks rise">
+    <a class="btn solid" href="https://linkedin.com/in/allen-borochin" target="_blank" rel="noopener">LinkedIn</a>
+    <a class="btn" href="https://github.com/allenb14" target="_blank" rel="noopener">GitHub</a>
+    <a class="btn" href="https://huggingface.co/allenborochin" target="_blank" rel="noopener">HuggingFace</a>
+  </div>
+  <footer>
+    <span>Allen Borochin</span>
+    <span>Reichman University · Economics &amp; Entrepreneurship, Data Science</span>
+  </footer>
+</section>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------------- expanders ---------------- */
+  document.querySelectorAll("[data-more]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var panel = document.getElementById(btn.getAttribute("data-more"));
+      var open  = panel.classList.toggle("open");
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      btn.textContent = open ? "Close case study" : "Read the case study";
+      if (window.ScrollTrigger) ScrollTrigger.refresh();
+    });
+  });
+
+  /* ---------------- scroll reveals ---------------- */
+  if (!reduced && "IntersectionObserver" in window){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); }
+      });
+    }, {rootMargin:"0px 0px -12% 0px", threshold:0.06});
+    document.querySelectorAll(".rise").forEach(function(el){ io.observe(el); });
+  } else {
+    document.querySelectorAll(".rise").forEach(function(el){ el.classList.add("in"); });
+  }
+
+  /* ---------------- hero: noise resolving into events ---------------- */
+  var canvas = document.getElementById("stage");
+  if (!window.THREE || !canvas) return;
+
+  var gl;
+  try { gl = new THREE.WebGLRenderer({canvas:canvas, antialias:true, alpha:true}); }
+  catch(err){ return; }
+
+  var W = window.innerWidth, H = window.innerHeight;
+  gl.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+  gl.setSize(W, H);
+
+  var scene  = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(56, W/H, 0.1, 1000);
+  camera.position.z = 46;
+
+  // Fewer points on small screens — the effect reads the same, the phone survives.
+  var COUNT    = W < 720 ? 1400 : 3000;
+  var CLUSTERS = 9;
+  var SIGNAL   = 3;              // clusters that resolve as "signal"
+
+  var centers = [];
+  for (var c = 0; c < CLUSTERS; c++){
+    var a = (c / CLUSTERS) * Math.PI * 2 + 0.4;
+    var r = 13 + (c % 3) * 6.5;
+    centers.push(new THREE.Vector3(
+      Math.cos(a) * r * 1.55,
+      Math.sin(a) * r * 0.82,
+      (Math.random() - 0.5) * 18
+    ));
+  }
+
+  var pos    = new Float32Array(COUNT * 3);   // live position
+  var noise  = new Float32Array(COUNT * 3);   // scattered start
+  var clust  = new Float32Array(COUNT * 3);   // resolved end
+  var col    = new Float32Array(COUNT * 3);
+  var siz    = new Float32Array(COUNT);
+  var drift  = new Float32Array(COUNT);
+
+  var cSignal = new THREE.Color("#2B3FD8");
+  var cNoise  = new THREE.Color("#A2A89A");
+
+  for (var i = 0; i < COUNT; i++){
+    var i3 = i * 3;
+
+    noise[i3]   = (Math.random() - 0.5) * 118;
+    noise[i3+1] = (Math.random() - 0.5) * 74;
+    noise[i3+2] = (Math.random() - 0.5) * 62;
+
+    var k  = i % CLUSTERS;
+    var ct = centers[k];
+    var spread = 3.4 + (k % 4) * 0.85;
+    clust[i3]   = ct.x + (Math.random() - 0.5) * spread * 2.1;
+    clust[i3+1] = ct.y + (Math.random() - 0.5) * spread * 2.1;
+    clust[i3+2] = ct.z + (Math.random() - 0.5) * spread * 1.5;
+
+    pos[i3] = noise[i3]; pos[i3+1] = noise[i3+1]; pos[i3+2] = noise[i3+2];
+
+    var isSignal = k < SIGNAL;
+    var base = isSignal ? cSignal : cNoise;
+    var jitter = 0.88 + Math.random() * 0.22;
+    col[i3]   = base.r * jitter;
+    col[i3+1] = base.g * jitter;
+    col[i3+2] = base.b * jitter;
+
+    siz[i]   = isSignal ? (1.5 + Math.random() * 0.7) : (0.85 + Math.random() * 0.45);
+    drift[i] = Math.random() * Math.PI * 2;
+  }
+
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("color",    new THREE.BufferAttribute(col, 3));
+  geo.setAttribute("aSize",    new THREE.BufferAttribute(siz, 1));
+
+  var mat = new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, blending:THREE.NormalBlending,
+    uniforms:{ uScale:{value: H * 0.30}, uFade:{value: 1.0} },
+    vertexShader: [
+      "attribute float aSize;",
+      "varying vec3 vColor;",
+      "uniform float uScale;",
+      "void main(){",
+      "  vColor = color;",
+      "  vec4 mv = modelViewMatrix * vec4(position, 1.0);",
+      "  gl_PointSize = clamp(aSize * (uScale / -mv.z), 1.0, 3.6);",
+      "  gl_Position = projectionMatrix * mv;",
+      "}"
+    ].join("\n"),
+    fragmentShader: [
+      "varying vec3 vColor;",
+      "uniform float uFade;",
+      "void main(){",
+      "  vec2 d = gl_PointCoord - vec2(0.5);",
+      "  float a = smoothstep(0.5, 0.34, length(d));",
+      "  if (a < 0.01) discard;",
+      "  gl_FragColor = vec4(vColor, a * uFade);",
+      "}"
+    ].join("\n"),
+    vertexColors:true
+  });
+
+  var points = new THREE.Points(geo, mat);
+  scene.add(points);
+
+  // progress 0 = pure noise, 1 = resolved clusters
+  var state = { p: 0 };
+
+  function applyPositions(t){
+    var e = t * t * (3 - 2 * t);                 // smoothstep
+    var attr = geo.attributes.position.array;
+    for (var i = 0; i < COUNT; i++){
+      var i3 = i * 3;
+      attr[i3]   = noise[i3]   + (clust[i3]   - noise[i3])   * e;
+      attr[i3+1] = noise[i3+1] + (clust[i3+1] - noise[i3+1]) * e;
+      attr[i3+2] = noise[i3+2] + (clust[i3+2] - noise[i3+2]) * e;
+    }
+    geo.attributes.position.needsUpdate = true;
+  }
+
+  var clock = new THREE.Clock();
+  function frame(){
+    var t = clock.getElapsedTime();
+    applyPositions(state.p);
+    points.rotation.y = Math.sin(t * 0.055) * 0.30 + t * 0.012;
+    points.rotation.x = Math.sin(t * 0.041) * 0.10;
+    gl.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  canvas.classList.add("on");
+
+  if (reduced){
+    state.p = 1;
+    applyPositions(1);
+    gl.render(scene, camera);
+  } else {
+    frame();
+    gsap.to(state, { p: 1, duration: 3.4, delay: 0.45, ease: "power2.inOut" });
+
+    if (window.ScrollTrigger){
+      gsap.registerPlugin(ScrollTrigger);
+      // The field recedes as the reader moves from the thesis to the evidence.
+      gsap.to(mat.uniforms.uFade, {
+        value: 0.14,
+        ease: "none",
+        scrollTrigger: { trigger: "#about", start: "top bottom", end: "top 20%", scrub: true }
+      });
+      gsap.to(camera.position, {
+        z: 74, ease: "none",
+        scrollTrigger: { trigger: "#about", start: "top bottom", end: "top top", scrub: true }
+      });
+    }
+  }
+
+  window.addEventListener("resize", function(){
+    W = window.innerWidth; H = window.innerHeight;
+    camera.aspect = W / H; camera.updateProjectionMatrix();
+    gl.setSize(W, H);
+    mat.uniforms.uScale.value = H * 0.30;
+  }, {passive:true});
+})();
+</script>
+</body>
+</html>

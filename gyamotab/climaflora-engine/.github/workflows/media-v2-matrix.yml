@@ -1,0 +1,155 @@
+name: Media v2 coverage matrix
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/tools/build_media_v2.py'
+      - '.github/tools/build_media_v2_validated.py'
+      - '.github/tools/collect_ala_apii_media.py'
+      - '.github/tools/collect_dryades_media.py'
+      - '.github/tools/extend_media_v2_regional.py'
+      - '.github/tools/extend_media_v2_dryades.py'
+      - '.github/workflows/media-v2-matrix.yml'
+      - 'app/services/media.py'
+      - 'tests/test_media_v2.py'
+      - 'frontend/static/media-v2.js'
+      - 'frontend/static/config.js'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: media-v2-matrix-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      BASE_MEDIA_RUN_ID: '32764535006'
+      BASE_MEDIA_ARTIFACT: 'climaflora-media-v2-matrix'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download canonical ClimaFlora catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 \
+            'https://shugoan.com/climaflora/data/climaflora_global_plants_v2_0.sqlite.zst' \
+            -o /tmp/catalog.sqlite.zst
+          echo '1683c43c6fb1e68f9b6c6c4cd7f291642feba6c37a3691c3452b319856335c32  /tmp/catalog.sqlite.zst' | sha256sum -c -
+          unzstd -f /tmp/catalog.sqlite.zst -o /tmp/catalog.sqlite
+          echo '3e80f432ebe2b4b59fed1b76549d2fc7df4e9330f1c315ae804746b616baee55  /tmp/catalog.sqlite' | sha256sum -c -
+
+      - name: Reuse validated Media v2.1 sidecar
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/v21
+          gh run download "$BASE_MEDIA_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$BASE_MEDIA_ARTIFACT" \
+            --dir /tmp/v21
+          python - <<'PY'
+          import json, sqlite3
+          from pathlib import Path
+          root=Path('/tmp/v21')
+          matrix=json.load(open(root/'climaflora_media_v2_matrix.json', encoding='utf-8'))
+          assert matrix['status']=='ready'
+          assert matrix['media_version']=='2.1.0', matrix.get('media_version')
+          assert matrix['catalog_taxa_total']==420532
+          assert matrix['scoring_effect'] is False
+          assert matrix['matrix']['baseline_unique_taxa']==18310, matrix['matrix']
+          assert matrix['matrix']['ala_apii_new_taxa']==2371, matrix['matrix']
+          assert matrix['matrix']['cumulative_unique_taxa']==20681, matrix['matrix']
+          db=sqlite3.connect(root/'climaflora_media_v2.sqlite')
+          assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+          meta=dict(db.execute('SELECT key,value FROM media_metadata'))
+          assert meta['media_version']=='2.1.0'
+          assert meta['image_scoring_effect']=='false'
+          primary=db.execute('SELECT COUNT(*) FROM plant_image_asset WHERE is_primary=1').fetchone()[0]
+          distinct=db.execute('SELECT COUNT(DISTINCT taxon_id) FROM plant_image_asset WHERE is_primary=1').fetchone()[0]
+          assert primary==distinct==20681, (primary,distinct)
+          invalid=db.execute("SELECT COUNT(*) FROM plant_image_asset WHERE upper(license) LIKE '%NC%' OR upper(license) LIKE '%ND%' OR upper(license) LIKE '%ALL RIGHTS%' OR trim(license)=''").fetchone()[0]
+          assert invalid==0, invalid
+          print('Validated Media v2.1 baseline:', primary, 'primary taxa')
+          PY
+          cp /tmp/v21/climaflora_media_v2.sqlite /tmp/climaflora_media_v2.sqlite
+          cp /tmp/v21/climaflora_media_v2_matrix.json /tmp/climaflora_media_v2_ala_matrix.json
+
+      - name: Collect Dryades Flora d'Italia gap-fill metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/collect_dryades_media.py \
+            --catalog /tmp/catalog.sqlite \
+            --baseline /tmp/climaflora_media_v2.sqlite \
+            --output /tmp/dryades_media.json \
+            --report /tmp/dryades_report.json
+
+      - name: Merge Dryades Flora d'Italia
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/extend_media_v2_dryades.py \
+            --sidecar /tmp/climaflora_media_v2.sqlite \
+            --base-report /tmp/climaflora_media_v2_ala_matrix.json \
+            --dryades /tmp/dryades_media.json \
+            --dryades-report /tmp/dryades_report.json \
+            --report /tmp/climaflora_media_v2_matrix.json
+
+      - name: Validate matrix and sidecar
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, sqlite3
+          r=json.load(open('/tmp/climaflora_media_v2_matrix.json', encoding='utf-8'))
+          assert r['status']=='ready'
+          assert r['catalog_taxa_total']==420532, r['catalog_taxa_total']
+          assert r['scoring_effect'] is False
+          assert r['media_version']=='2.2.0'
+          assert r['matrix']['baseline_unique_taxa']==18310, r['matrix']
+          assert r['matrix']['ala_apii_new_taxa']==2371, r['matrix']
+          assert r['matrix']['pre_dryades_unique_taxa']==20681, r['matrix']
+          assert r['matrix']['dryades_new_taxa'] > 0, r['matrix']
+          assert r['matrix']['cumulative_unique_taxa'] > 20681, r['matrix']
+          db=sqlite3.connect('/tmp/climaflora_media_v2.sqlite')
+          assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+          meta=dict(db.execute('SELECT key,value FROM media_metadata'))
+          assert meta['media_version']=='2.2.0'
+          assert meta['image_scoring_effect']=='false'
+          assert 'atlas_living_australia_apii' in meta['source']
+          assert 'dryades_flora_italia' in meta['source']
+          primary=db.execute('SELECT COUNT(*) FROM plant_image_asset WHERE is_primary=1').fetchone()[0]
+          distinct=db.execute('SELECT COUNT(DISTINCT taxon_id) FROM plant_image_asset WHERE is_primary=1').fetchone()[0]
+          assert primary==distinct==r['matrix']['cumulative_unique_taxa'], (primary,distinct,r['matrix'])
+          duplicates=db.execute('SELECT COUNT(*) FROM (SELECT taxon_id FROM plant_image_asset WHERE is_primary=1 GROUP BY taxon_id HAVING COUNT(*)>1)').fetchone()[0]
+          assert duplicates==0
+          invalid=db.execute("SELECT COUNT(*) FROM plant_image_asset WHERE (upper(license) LIKE '%NC%' OR upper(license) LIKE '%ND%' OR upper(license) LIKE '%ALL RIGHTS%' OR trim(license)='')").fetchone()[0]
+          assert invalid==0, invalid
+          sources={x[0] for x in db.execute('SELECT DISTINCT source FROM plant_image_asset')}
+          assert sources <= {'plantnet_gbif','world_flora_online','atlas_living_australia_apii','dryades_flora_italia'}
+          assert 'atlas_living_australia_apii' in sources and 'dryades_flora_italia' in sources
+          print(json.dumps(r, indent=2, ensure_ascii=False))
+          print('sidecar rows', db.execute('SELECT COUNT(*) FROM plant_image_asset').fetchone()[0])
+          print('sidecar primary', primary)
+          print('sidecar sources', sorted(sources))
+          PY
+          ls -lh /tmp/climaflora_media_v2.sqlite /tmp/climaflora_media_v2_matrix.json /tmp/dryades_media.json
+
+      - name: Upload matrix and sidecar
+        uses: actions/upload-artifact@v4
+        with:
+          name: climaflora-media-v2-matrix
+          path: |
+            /tmp/climaflora_media_v2_matrix.json
+            /tmp/climaflora_media_v2.sqlite
+            /tmp/dryades_report.json
+          retention-days: 7

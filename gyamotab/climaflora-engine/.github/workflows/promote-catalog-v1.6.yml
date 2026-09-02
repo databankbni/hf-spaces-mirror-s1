@@ -1,0 +1,149 @@
+name: Promote ClimaFlora catalog v1.6 to OVH staging-production
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/promote-catalog-v1.6.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: promote-catalog-v1.6
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+      OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+      OVH_SFTP_USER: ${{ secrets.OVH_SFTP_USER }}
+      OVH_SFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+      OVH_SFTP_REMOTE_DIR: ${{ secrets.OVH_SFTP_REMOTE_DIR }}
+      V16_RUN_ID: '32200157290'
+      V16_SQLITE_SHA256: 'aea9ce8577d93ff7e4350f0f8f7c36a067df3014d60a7e751ce23d046202ebdb'
+      V16_ZST_SHA256: '752ede1549132a0a2df9a531448737a238268e327507f716ebec0939be73bc96'
+      V16_REMOTE_PATH: 'data/climaflora_global_plants_v1_6.sqlite.zst'
+      V16_PUBLIC_URL: 'https://shugoan.com/climaflora/data/climaflora_global_plants_v1_6.sqlite.zst'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate promotion prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('.github/catalog-v1.6-status.json').read_text())
+          assert s['status']=='ready'
+          assert s['run_id']=='32200157290'
+          assert s['catalog_version']=='1.6.0'
+          assert s['sqlite_sha256']=='aea9ce8577d93ff7e4350f0f8f7c36a067df3014d60a7e751ce23d046202ebdb'
+          assert s['zst_sha256']=='752ede1549132a0a2df9a531448737a238268e327507f716ebec0939be73bc96'
+          assert s['soil_preference_taxa_total'] >= 30000
+          assert s['soil_geographic_prior_taxa'] >= 350000
+          assert s['regions_with_soil_summary'] >= 300
+          assert s['scoring_enabled'] is False
+          print('promotion prerequisites OK')
+          PY
+
+      - name: Download validated v1.6 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: climaflora-global-plants-v1.6-candidate
+          path: candidate
+          run-id: 32200157290
+          github-token: ${{ github.token }}
+
+      - name: Independently revalidate artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y zstd sqlite3 lftp
+          cd candidate
+          echo "$V16_ZST_SHA256  climaflora_global_plants_v1_6.sqlite.zst" | sha256sum -c -
+          zstd -t climaflora_global_plants_v1_6.sqlite.zst
+          zstd -d -f climaflora_global_plants_v1_6.sqlite.zst -o audit.sqlite
+          echo "$V16_SQLITE_SHA256  audit.sqlite" | sha256sum -c -
+          test "$(sqlite3 audit.sqlite 'PRAGMA integrity_check;')" = "ok"
+          test "$(sqlite3 audit.sqlite "SELECT value FROM climaflora_catalog_metadata WHERE key='catalog_version';")" = "1.6.0"
+          test "$(sqlite3 audit.sqlite "SELECT value FROM climaflora_catalog_metadata WHERE key='scientific_ready';")" = "true"
+          test "$(sqlite3 audit.sqlite 'SELECT COUNT(*) FROM soil_geographic_prior WHERE scoring_enabled != 0;')" = "0"
+          test "$(sqlite3 audit.sqlite "SELECT COUNT(*) FROM soil_geographic_prior WHERE confidence != 'PRIOR';")" = "0"
+          test "$(sqlite3 audit.sqlite 'SELECT COUNT(DISTINCT taxon_id) FROM soil_geographic_prior;')" -ge 350000
+          rm audit.sqlite
+
+      - name: Upload v1.6 alongside canonical v1.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in OVH_SFTP_HOST OVH_SFTP_USER OVH_SFTP_PASSWORD OVH_SFTP_REMOTE_DIR; do
+            test -n "${!name}"
+          done
+          PORT="${OVH_SFTP_PORT:-22}"
+          BASE="${OVH_SFTP_REMOTE_DIR%/}"
+          {
+            echo 'set sftp:auto-confirm yes'
+            echo 'set net:max-retries 3'
+            echo 'set net:timeout 60'
+            echo "cd \"$BASE\""
+            echo 'mkdir -p data'
+            echo "put \"candidate/climaflora_global_plants_v1_6.sqlite.zst\" -o \"$V16_REMOTE_PATH\""
+            echo 'bye'
+          } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+
+      - name: Verify public promoted object byte-for-byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --location --retry 3 --retry-all-errors "$V16_PUBLIC_URL" -o public-v1.6.zst; then
+              observed="$(sha256sum public-v1.6.zst | awk '{print $1}')"
+              if [ "$observed" = "$V16_ZST_SHA256" ]; then
+                echo "Public v1.6 object verified: $observed"
+                exit 0
+              fi
+            fi
+            sleep $((attempt * 5))
+          done
+          echo 'Public v1.6 object could not be verified byte-for-byte'
+          exit 1
+
+      - name: Record reversible promotion status
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/catalog-v1.6-promotion.json <<EOF
+          {
+            "status": "uploaded_verified",
+            "catalog_version": "1.6.0",
+            "source_run_id": "$V16_RUN_ID",
+            "sqlite_sha256": "$V16_SQLITE_SHA256",
+            "zst_sha256": "$V16_ZST_SHA256",
+            "public_url": "$V16_PUBLIC_URL",
+            "previous_canonical_retained": "climaflora_global_plants_v1_2.sqlite.zst",
+            "promoted_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/catalog-v1.6-promotion.json .github/catalog-v1.6-promotion.json
+            git add .github/catalog-v1.6-promotion.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record verified ClimaFlora v1.6 OVH promotion [skip ci]'
+            git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1

@@ -9,6 +9,7 @@ import type {
   DashboardStats, VelocityDataPoint, AssigneeDistribution, StatusDistribution,
   AuthUser, CreateUserInput,
   CalendarEvent, CreateCalendarEventInput, UpdateCalendarEventInput,
+  Team, CreateTeamInput,
 } from '../shared/types';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -61,13 +62,21 @@ export const deleteSprint = (id: number): Promise<void> =>
   request(`/api/sprints/${id}`, { method: 'DELETE' });
 
 // Reports
-export const fetchDashboardStats = (sprintId?: number): Promise<DashboardStats> =>
-  request(`/api/reports/stats${sprintId != null ? `?sprintId=${sprintId}` : ''}`);
-export const fetchVelocity = (): Promise<VelocityDataPoint[]> => request('/api/reports/velocity');
-export const fetchAssigneeDistribution = (sprintId?: number): Promise<AssigneeDistribution[]> =>
-  request(`/api/reports/assignee-distribution${sprintId != null ? `?sprintId=${sprintId}` : ''}`);
-export const fetchStatusDistribution = (sprintId?: number): Promise<StatusDistribution[]> =>
-  request(`/api/reports/status-distribution${sprintId != null ? `?sprintId=${sprintId}` : ''}`);
+const reportQuery = (sprintId?: number, teamId?: number): string => {
+  const params = new URLSearchParams();
+  if (sprintId != null) params.set('sprintId', String(sprintId));
+  if (teamId != null) params.set('teamId', String(teamId));
+  const query = params.toString();
+  return query ? `?${query}` : '';
+};
+export const fetchDashboardStats = (sprintId?: number, teamId?: number): Promise<DashboardStats> =>
+  request(`/api/reports/stats${reportQuery(sprintId, teamId)}`);
+export const fetchVelocity = (teamId?: number): Promise<VelocityDataPoint[]> =>
+  request(`/api/reports/velocity${reportQuery(undefined, teamId)}`);
+export const fetchAssigneeDistribution = (sprintId?: number, teamId?: number): Promise<AssigneeDistribution[]> =>
+  request(`/api/reports/assignee-distribution${reportQuery(sprintId, teamId)}`);
+export const fetchStatusDistribution = (sprintId?: number, teamId?: number): Promise<StatusDistribution[]> =>
+  request(`/api/reports/status-distribution${reportQuery(sprintId, teamId)}`);
 
 // Auth
 export const authMe = (): Promise<AuthUser> => request('/api/auth/me');
@@ -81,8 +90,19 @@ export const fetchAllUsers = (): Promise<Omit<AuthUser, never>[]> => request('/a
 export const fetchPendingUsers = (): Promise<AuthUser[]> => request('/api/auth/users/pending');
 export const updateUserRole = (id: number, role: string): Promise<AuthUser> =>
   request(`/api/auth/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) });
+export const updateUserTeam = (id: number, team_id: number | null): Promise<AuthUser> =>
+  request(`/api/auth/users/${id}/team`, { method: 'PATCH', body: JSON.stringify({ team_id }) });
 export const deleteUser = (id: number): Promise<void> =>
   request(`/api/auth/users/${id}`, { method: 'DELETE' });
+
+// Teams
+export const fetchTeams = (): Promise<Team[]> => request('/api/teams');
+export const createTeam = (input: CreateTeamInput): Promise<Team> =>
+  request('/api/teams', { method: 'POST', body: JSON.stringify(input) });
+export const updateTeam = (id: number, name: string): Promise<Team> =>
+  request(`/api/teams/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+export const deleteTeam = (id: number): Promise<void> =>
+  request(`/api/teams/${id}`, { method: 'DELETE' });
 
 // Admin cleanup
 export interface CleanupStats {

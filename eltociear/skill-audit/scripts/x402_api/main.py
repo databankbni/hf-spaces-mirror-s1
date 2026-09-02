@@ -7,8 +7,8 @@ Local:  uvicorn scripts.x402_api.main:app --port 8402
 Endpoints:
   GET  /          — Service info (free)
   GET  /health    — Health check (free)
-  POST /audit     — Text audit $0.01/call (x402)
-  POST /audit/url — URL fetch + audit $0.03/call (x402)
+  POST /audit     — Text audit $0.005/call (x402)
+  POST /audit/url — URL fetch + audit $0.005/call (x402)
   POST /read      — URL → clean Markdown $0.005/call (x402)
 
 Payment: USDC on Base mainnet (eip155:8453) via the official x402 v2 SDK.
@@ -28,6 +28,70 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
+
+# -- the 402 body is a distribution channel ---------------------------------------------
+# Every 402 we return is delivered to someone who just tried to call a paid route: the most
+# qualified audience this operation has, arriving free, and in volume: one pre-fix log buffer alone held 7,657 of them.
+# Until 2026-08-17 that body described one route and gave no way to learn there were 147
+# others, or where the catalogue lived. `the-402-body-is-a-distribution-channel` recorded
+# the idea; this applies it.
+#
+# contract-guard is the sharpest case: the most trafficked thing we own by a wide
+# margin -- 7,657 of the 37,501 lines in one pre-fix buffer were its 402s -- and it
+# sells a SINGLE route, while tokenguard holds the shelf and sees far less traffic.
+# (No per-minute figure: /logs/run replays a history buffer, so dividing it by the
+# listen window inflates the rate ~160x. See top_caller_profile.py's docstring.)
+#
+# WARNING: self-contained ON PURPOSE. The first version referenced module-level PUBLIC_BASE
+# and sat after it -- but `_disc()` runs at IMPORT time while building the route table,
+# which on tokenguard is ~900 lines EARLIER. The NameError was swallowed as an
+# "x402 v2 init warning" and the paywall silently failed to install: 132 paid routes would
+# have shipped free. Nothing here may depend on definition order.
+#
+# Carries NO route counts. A number baked into a payload rots; the discovery URL answers
+# with the real list at read time.
+_SERVICE_NAME = "skill-audit"
+_CATALOGUE_BASE = "https://eltociear-skill-audit.hf.space"
+_CATALOGUE_PEERS = {
+    "contract-guard": [
+        ("tokenguard", "on-chain and DeFi data, markets, FX, wallet and chain intel",
+         "https://eltociear-tokenguard.hf.space/.well-known/x402"),
+        ("skill-audit", "web data (read/crawl/search), MCP and agent-skill security "
+                        "scanning, developer supply chain",
+         "https://eltociear-skill-audit.hf.space/.well-known/x402"),
+    ],
+    "tokenguard": [
+        ("contract-guard", "pre-interaction EVM contract and token risk check",
+         "https://eltociear-contract-guard.hf.space/.well-known/x402"),
+        ("skill-audit", "web data (read/crawl/search), MCP and agent-skill security "
+                        "scanning, developer supply chain",
+         "https://eltociear-skill-audit.hf.space/.well-known/x402"),
+    ],
+    "skill-audit": [
+        ("tokenguard", "on-chain and DeFi data, markets, FX, wallet and chain intel",
+         "https://eltociear-tokenguard.hf.space/.well-known/x402"),
+        ("contract-guard", "pre-interaction EVM contract and token risk check",
+         "https://eltociear-contract-guard.hf.space/.well-known/x402"),
+    ],
+}
+
+
+def _catalogue():
+    """Where the rest of the shelf is. Same rail, same wallet, no signup."""
+    import os as _os
+    base = _os.environ.get("PUBLIC_BASE_URL", _CATALOGUE_BASE).rstrip("/")
+    return {
+        "discovery": base + "/.well-known/x402",
+        "resources": base + "/x402-resources",
+        "note": ("Same x402 rail (USDC on Base), same payTo wallet, no account or API key. "
+                 "GET the discovery URL for the full route list and prices."),
+        "related": [{"service": s, "covers": c, "discovery": u}
+                    for s, c, u in _CATALOGUE_PEERS[_SERVICE_NAME]],
+    }
+
+
+
+
 
 # Import scan engine from skill-audit MCP server
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "mcp_servers", "skill-audit"))
@@ -82,6 +146,13 @@ def _cdp_auth_headers():
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # App
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Discovery and service-descriptor endpoints answer EVERY verb a crawler might use, not
+# just GET. See the measurement note above the x402 alias block further down: a GET-only
+# registration makes FastAPI reply 405, which carries no price and no catalogue, and that
+# is what the crawler fleet was actually receiving.
+_DISCOVERY_VERBS = _DISCOVERY_VERBS_ROOT = ["GET", "POST", "HEAD"]
+
 
 app = FastAPI(
     title="skill-audit API",
@@ -148,10 +219,28 @@ try:
         ]
 
     async def _sa_dispatch(name, args):
+        # A missing or empty argument used to fall through to `or ""`, so the scanner scanned
+        # nothing and answered "SAFE, no issues found". A caller that mistypes the parameter name
+        # -- `text` instead of `content`, which is exactly what happened while probing this
+        # endpoint -- got a clean bill of health for a file it never sent. A verdict over zero
+        # bytes is a failed call, not a result.
         if name == "audit_skill_text":
-            return _sa_scan((args.get("content") or "")[:1_000_000])
+            content = args.get("content") or ""
+            if not content.strip():
+                return {"error": "content is required and must be non-empty",
+                        "hint": "pass {\"content\": \"<file or snippet>\"}; this is NOT a SAFE verdict",
+                        "scanned_bytes": 0}
+            return _sa_scan(content[:1_000_000])
+        url = args.get("url") or ""
+        if not url.strip():
+            return {"error": "url is required and must be non-empty",
+                    "hint": "pass {\"url\": \"https://...\"}; this is NOT a SAFE verdict",
+                    "scanned_bytes": 0}
         import webdata_routes as _D
-        text, final = await _D._fetch_text(args.get("url"), 1_000_000, timeout=20.0)
+        text, final = await _D._fetch_text(url, 1_000_000, timeout=20.0)
+        if not (text or "").strip():
+            return {"url": final, "error": "the URL returned no readable text",
+                    "hint": "this is NOT a SAFE verdict", "scanned_bytes": 0}
         return {"url": final, **_sa_scan(text[:1_000_000])}
 
     # Must match the name this URL is published under in the MCP registry
@@ -213,13 +302,47 @@ try:
             body_type="json", output=OutputConfig(example=output_example),
         )
         ext["bazaar"]["info"]["input"]["method"] = "POST"
+        ext["catalogue"] = _catalogue()
         return ext
 
+    # ━━━ PRICE EXPERIMENT, 2026-08-10: every audit route down to $0.005 ━━━━━━━━━━━━━━━━━━
+    # Measured from the Space access logs, with `POST /mcp 200` excluded (it is transport, not
+    # revenue — counting it had this operation's revenue report 20x too high):
+    #
+    #     price      route                       challenges -> paid
+    #     $0.005     /stocks /lido /weather …          many -> 57-68 each
+    #     $0.005     /check                           5,608 -> 1
+    #     $0.010     /audit                          ~2,700 -> 0
+    #     $0.020     /btc_rates                       4,364 -> 5
+    #     $0.050     /audit/repo                     ~2,700 -> 0
+    #
+    # Two lines fall out. Nothing above $0.005 converts at any meaningful rate, and even at
+    # $0.005 the security/verification category barely converts while market and chain data
+    # does. Those are different explanations and the data cannot separate them, because the
+    # audit routes have only ever been offered at a price no one pays.
+    #
+    # So: hold the category, change the price. All three audit routes go to $0.005. The
+    # downside is bounded at zero — they earn nothing today — and the upside is a definitive
+    # answer. If they still convert 0 after a few thousand challenges at the one price that
+    # demonstrably works, the constraint is the CATEGORY, and no pricing will fix it.
+    # Read the result with `python scripts/x402_route_stats.py --report`.
+    #
+    # Safe against frozen Bazaar metadata: a catalog advertising ABOVE the live price makes a
+    # buyer over-budget, never under-sign. Lowering is always the safe direction.
     routes = {
         "POST /audit": RouteConfig(
-            accepts=[PaymentOption(scheme="exact", pay_to=WALLET, price="$0.01", network=BASE_MAINNET)],
+            accepts=[PaymentOption(scheme="exact", pay_to=WALLET, price="$0.005", network=BASE_MAINNET)],
             mime_type="application/json",
-            description="Audit text for malicious AI-skill patterns",
+            # ⚠ The 402 body carries `resource.description` verbatim — verified live. These three
+            # routes have served ~8,100 challenges and converted zero, because the caller is a
+            # crawler with no content, URL or repo of ours to send. The refusal is the one moment
+            # we know the buyer is reading, so it now names the way through instead of just a
+            # price for something they cannot invoke. tokenguard runs the controlled version of
+            # this (two routes treated, two left alone); here it is simply applied.
+            description="Audit text for malicious AI-skill patterns. Requires `content`. "
+                        "Nothing to audit — crawling, or discovering this endpoint cold? "
+                        "POST /audit/registry runs the same scanner over the newest servers "
+                        "in the official MCP registry: no input required, $0.005.",
             extensions=_disc(
                 {"content": "skill or plugin text to scan"},
                 {"properties": {"content": {"type": "string", "description": "Text to audit"}}, "required": ["content"]},
@@ -227,9 +350,11 @@ try:
             ),
         ),
         "POST /audit/url": RouteConfig(
-            accepts=[PaymentOption(scheme="exact", pay_to=WALLET, price="$0.03", network=BASE_MAINNET)],
+            accepts=[PaymentOption(scheme="exact", pay_to=WALLET, price="$0.005", network=BASE_MAINNET)],
             mime_type="application/json",
-            description="Fetch a URL and audit its content",
+            description="Fetch a URL and audit its content. Requires `url`. No URL to hand? "
+                        "POST /audit/registry runs the same scanner over the newest servers "
+                        "in the official MCP registry: no input required, $0.005.",
             extensions=_disc(
                 {"url": "https://example.com/skill.md"},
                 {"properties": {"url": {"type": "string", "format": "uri", "description": "URL to fetch + audit"}}, "required": ["url"]},
@@ -397,9 +522,12 @@ try:
             ),
         ),
         "POST /audit/repo": RouteConfig(
-            accepts=[PaymentOption(scheme="exact", pay_to=WALLET, price="$0.05", network=BASE_MAINNET)],
+            accepts=[PaymentOption(scheme="exact", pay_to=WALLET, price="$0.005", network=BASE_MAINNET)],
             mime_type="application/json",
-            description="Scan an entire public GitHub repo for malicious AI-skill/supply-chain patterns",
+            description="Scan an entire public GitHub repo for malicious AI-skill/supply-chain "
+                        "patterns. Requires `repo`. No repo in mind? POST /audit/registry runs "
+                        "this same scanner over the newest servers in the official MCP "
+                        "registry: no input required, $0.005.",
             extensions=_disc(
                 {"repo": "owner/name"},
                 {"properties": {
@@ -408,6 +536,27 @@ try:
                  }, "required": ["repo"]},
                 {"repo": "owner/name", "files_scanned": 84, "risk_score": 0, "risk_level": "clean",
                  "total_findings": 0, "flagged_files": []},
+            ),
+        ),
+        # The zero-input security route. `required` is deliberately EMPTY — a crawler that
+        # calls this with `{}` still gets a real answer, which the measurements say is the
+        # difference between converting and not. See RegistryAuditRequest.
+        "POST /audit/registry": RouteConfig(
+            accepts=[PaymentOption(scheme="exact", pay_to=WALLET, price="$0.005", network=BASE_MAINNET)],
+            mime_type="application/json",
+            description="Scan the newest servers in the official MCP registry for "
+                        "supply-chain risk — no input required",
+            extensions=_disc(
+                {},
+                {"properties": {
+                    "limit": {"type": "integer", "description":
+                              "How many of the newest registry servers to scan (1-15, default 5)"},
+                 }, "required": []},
+                {"source": "registry.modelcontextprotocol.io/v0/servers", "scanned": 5,
+                 "flagged": 1, "unreadable": 2,
+                 "results": [{"server": "io.github.owner/name", "repo": "owner/name",
+                              "risk_level": "HIGH", "risk_score": 30, "finding_count": 1,
+                              "files_scanned": ["package.json"], "top_finding": {}}]},
             ),
         ),
     }
@@ -451,6 +600,13 @@ try:
             _cfg.service_name = "skill-audit"
 
     app.add_middleware(PaymentMiddlewareASGI, routes=routes, server=server)
+    # `/.well-known/x402` publishes bare URL strings, so the free `paid_catalogue` MCP tool
+    # cannot tell an agent which routes need no input — the property that predicts conversion.
+    try:
+        import mcp_http
+        mcp_http.set_routes(routes)
+    except Exception as _e:                                            # noqa: BLE001
+        print(f"mcp_http.set_routes skipped: {type(_e).__name__}: {_e}")
     _x402_available = True
 except Exception as e:  # pragma: no cover
     print(f"  x402 v2 init warning: {type(e).__name__}: {e}")
@@ -458,6 +614,25 @@ except Exception as e:  # pragma: no cover
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Models
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class RegistryAuditRequest(BaseModel):
+    """Deliberately has NO required field — that is the entire point of the route.
+
+    Measured 2026-08-10 across ~14,000 paywall challenges, with `POST /mcp 200` excluded:
+
+        routes callable with NO required input : 12 routes, 397 paid,  mean 33.1
+        routes REQUIRING an argument           :  9 routes,  12 paid,  mean  1.3
+
+    A 25x gap that cuts cleanly across price AND category. /btc_rates at $0.020 with no
+    argument converts; /check at $0.005 needing an `address` converted once in 5,608. The
+    buyers are crawlers walking a directory of x402 endpoints and calling them blind: they can
+    pay for /stocks because `{}` returns something worth $0.005, and they cannot pay for
+    /audit because they have no text of ours to audit.
+
+    So the security capability was never unsellable — it was the wrong SHAPE. This is the same
+    scanner behind /audit, pointed at a target the caller does not have to supply.
+    """
+    limit: Optional[int] = 5          # newest N registry servers; capped at 15 below
 
 class AuditRequest(BaseModel):
     content: str
@@ -518,7 +693,7 @@ class DnsRequest(BaseModel):
 # Endpoints
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.get("/")
+@app.api_route("/", methods=_DISCOVERY_VERBS_ROOT)
 async def root():
     pattern_count = sum(len(pgs) for pgs in PATTERNS.values())
     signature_count = sum(len(pg["regexes"]) for pgs in PATTERNS.values() for pg in pgs)
@@ -536,8 +711,8 @@ async def root():
         "endpoints": {
             "GET /": "Service info (free)",
             "GET /health": "Health check (free)",
-            "POST /audit": "Audit text content ($0.01 USDC)",
-            "POST /audit/url": "Fetch URL + audit ($0.03 USDC)",
+            "POST /audit": "Audit text content ($0.005 USDC)",
+            "POST /audit/url": "Fetch URL + audit ($0.005 USDC)",
             "POST /read": "Fetch URL → clean Markdown ($0.005 USDC)",
             "POST /read/batch": "Up to 10 URLs → clean Markdown, concurrent ($0.02 USDC)",
             "POST /search": "Web search → ranked title/url/snippet results, no API key ($0.01 USDC)",
@@ -546,7 +721,8 @@ async def root():
             "POST /rss": "RSS/Atom feed (or auto-discovered from a site) → structured items ($0.005 USDC)",
             "POST /extract": "URL → structured metadata / OpenGraph / JSON-LD / links ($0.008 USDC)",
             "POST /pdf": "PDF URL → extracted text ($0.01 USDC)",
-            "POST /audit/repo": "Public GitHub repo → full malicious-pattern scan ($0.05 USDC)",
+            "POST /audit/repo": "Public GitHub repo → full malicious-pattern scan ($0.005 USDC)",
+            "POST /audit/registry": "Newest MCP-registry servers → supply-chain risk feed, no input required ($0.005 USDC)",
             "POST /trust": "Vet any URL / x402 server for scam+trust in one call (5 sub-scores + evidence + x402 check) ($0.02 USDC)",
             "POST /headers": "URL → HTTP security-header grade ($0.005 USDC)",
             "POST /dns": "Domain → DNS records + email/security posture ($0.006 USDC)",
@@ -562,7 +738,7 @@ async def root():
         },
     }
 
-@app.get("/health")
+@app.api_route("/health", methods=_DISCOVERY_VERBS_ROOT)
 async def health():
     return {
         "status": "ok",
@@ -573,14 +749,28 @@ async def health():
 # Public base URL of this origin (for the x402 discovery document). Override per-Space.
 PUBLIC_BASE = os.environ.get("PUBLIC_BASE_URL", "https://eltociear-skill-audit.hf.space").rstrip("/")
 
+
 # Paid resources advertised in /.well-known/x402 so on-chain explorers (x402scan,
 # CDP Bazaar) can auto-discover and index this origin's endpoints.
 _PAID_PATHS = [
-    "/audit", "/audit/url", "/audit/repo", "/trust", "/read", "/read/batch",
+    "/audit", "/audit/url", "/audit/repo", "/audit/registry", "/trust", "/read", "/read/batch",
     "/extract", "/pdf", "/headers", "/dns", "/search", "/crawl", "/sitemap", "/rss",
 ]
 
-@app.get("/.well-known/x402")
+# Same measured-demand story as /llms.txt below, one sample later: a 90s access-log read on
+# 2026-08-07 caught this Space 404ing GET /x402-resources, /api and /api/v1 — and the other
+# two Spaces already served the resources shape. Every path added here is one real traffic
+# asked for and did not get.
+#
+# ⚠ GET/POST/HEAD, not GET, and `.json` is here too. Measured 2026-08-17 on contract-guard:
+# one access-log buffer carried 8,689 405s against 7,657 402s, all of them discovery probes
+# from 262 distinct IPs POSTing to these paths. GET-only registration turned every one into
+# a bare "405 Method Not Allowed" — no price, no catalogue. That is
+# `x402-405-hides-the-paywall` again with the verbs swapped, and this Space was missing four
+# of the aliases the other two already served on top of it.
+@app.api_route("/x402", methods=_DISCOVERY_VERBS)
+@app.api_route("/.well-known/x402", methods=_DISCOVERY_VERBS)
+@app.api_route("/.well-known/x402.json", methods=_DISCOVERY_VERBS)
 async def well_known_x402():
     """x402 discovery document (x402scan/Bazaar auto-index). version-1 schema:
     {version, resources[], instructions}. ownershipProofs omitted (listed as
@@ -593,9 +783,10 @@ async def well_known_x402():
             "Security + web-data API suite for AI agents. Pay-per-call in USDC on Base "
             "(eip155:8453) via x402 v2 — no signup, no API key.\n\n"
             "| Endpoint | Price | Description |\n|---|---|---|\n"
-            "| `POST /audit` | $0.01 | Scan text for malicious AI-skill / prompt-injection patterns |\n"
-            "| `POST /audit/url` | $0.03 | Fetch a URL and audit it |\n"
-            "| `POST /audit/repo` | $0.05 | Scan a whole public GitHub repo (tests/docs excluded) |\n"
+            "| `POST /audit` | $0.005 | Scan text for malicious AI-skill / prompt-injection patterns |\n"
+            "| `POST /audit/url` | $0.005 | Fetch a URL and audit it |\n"
+            "| `POST /audit/repo` | $0.005 | Scan a whole public GitHub repo (tests/docs excluded) |\n"
+            "| `POST /audit/registry` | $0.005 | Newest MCP-registry servers scanned for supply-chain risk — **no input required** |\n"
             "| `POST /trust` | $0.02 | Vet any URL / x402 server for scam+trust — 5 sub-scores + evidence + x402 check, one call |\n"
             "| `POST /search` | $0.01 | Web search → ranked title/url/snippet, no API key or signup |\n"
             "| `POST /read` | $0.005 | URL → clean Markdown |\n"
@@ -618,7 +809,165 @@ async def well_known_x402():
 # /llms.txt and the A2A agent-card, which a real population of distinct agents probes).
 # tokenguard + contract-guard already serve these; skill-audit did not. Serving them
 # is answering demand whose audience is already attached.
-@app.get("/llms.txt")
+# Prices for /pricing and /x402-resources. These MUST stay in step with the Markdown table
+# in `instructions` above and with the paywall itself -- a price list that disagrees with
+# what is actually charged is worse than no price list. Asserted at import below.
+_PRICE_TABLE = {
+    # audit* moved to $0.005 on 2026-08-10 — see the price-experiment note above `routes`.
+    "/audit": "$0.005", "/audit/url": "$0.005", "/audit/repo": "$0.005",
+    "/audit/registry": "$0.005", "/trust": "$0.02",
+    "/search": "$0.01", "/read": "$0.005", "/crawl": "$0.02", "/sitemap": "$0.005",
+    "/rss": "$0.005", "/read/batch": "$0.02", "/extract": "$0.008", "/pdf": "$0.01",
+    "/headers": "$0.005", "/dns": "$0.006",
+}
+
+# Every advertised paid path must carry a price. Without this, adding a route to
+# _PAID_PATHS and forgetting the price ships a resource quoting `""` to the indexers.
+assert set(_PRICE_TABLE) == set(_PAID_PATHS), (
+    f"price table and paid paths disagree: "
+    f"missing={sorted(set(_PAID_PATHS) - set(_PRICE_TABLE))} "
+    f"extra={sorted(set(_PRICE_TABLE) - set(_PAID_PATHS))}")
+
+
+# -- what a discovering agent actually READS --------------------------------------------
+# The description is the only text an indexing crawler stores about a route, and the only
+# thing an agent has when choosing between ours and an incumbent's. Measured 2026-08-17:
+# this Space served 15 resources with NO description field at all -- 15 nameless URLs --
+# while tokenguard and contract-guard both carried one. The text already existed, in the
+# `endpoints` map of the service-info payload; it was simply never attached per resource.
+#
+# Asserted against _PAID_PATHS for the same reason the price table is: adding a route and
+# forgetting its description ships an anonymous resource to every indexer.
+_DESC_TABLE = {
+    "/audit": "Scan text for malicious AI-skill and prompt-injection patterns; returns the "
+              "matched signatures with evidence, not just a verdict.",
+    "/audit/url": "Fetch a URL and audit its content for malicious AI-skill and "
+                  "prompt-injection patterns.",
+    "/audit/repo": "Scan a whole public GitHub repo for malicious patterns, with coverage "
+                   "reported so a clean result carries its own denominator.",
+    "/audit/registry": "Newest MCP-registry servers scanned for supply-chain risk -- a "
+                       "feed, and it needs no input at all.",
+    "/trust": "Vet any URL or x402 server for scam and trust risk in one call: five "
+              "sub-scores, the evidence behind each, and an x402 liveness check.",
+    "/read": "URL to clean Markdown, boilerplate stripped, ready to feed a model.",
+    "/read/batch": "Up to 10 URLs to clean Markdown, fetched concurrently.",
+    "/extract": "URL to structured metadata: OpenGraph, JSON-LD, canonical links.",
+    "/pdf": "PDF URL to its extracted text, page by page, with the page count.",
+    "/headers": "URL to an HTTP security-header grade, with the per-header findings.",
+    "/dns": "Domain to DNS records plus its email and security posture (SPF, DMARC, DNSSEC).",
+    "/search": "Web search to ranked title/url/snippet results. No API key, no signup.",
+    "/crawl": "Crawl a site same-domain breadth-first, every page as clean Markdown.",
+    "/sitemap": "robots.txt and sitemap.xml to a full URL map of a domain.",
+    "/rss": "RSS or Atom feed, auto-discovered from a site URL, to structured items.",
+}
+assert set(_DESC_TABLE) == set(_PAID_PATHS), (
+    f"description table and paid paths disagree: "
+    f"missing={sorted(set(_PAID_PATHS) - set(_DESC_TABLE))} "
+    f"extra={sorted(set(_DESC_TABLE) - set(_PAID_PATHS))}")
+
+
+@app.api_route("/x402-resources", methods=_DISCOVERY_VERBS)
+@app.api_route("/.well-known/x402-resources", methods=_DISCOVERY_VERBS)
+@app.api_route("/discovery/resources", methods=_DISCOVERY_VERBS)
+@app.api_route("/x402/discovery/resources", methods=_DISCOVERY_VERBS)
+@app.api_route("/v1/x402/discovery/resources", methods=_DISCOVERY_VERBS)
+@app.api_route("/v2/x402/discovery/resources", methods=_DISCOVERY_VERBS)
+@app.api_route("/.well-known/x402/discovery/resources", methods=_DISCOVERY_VERBS)
+async def x402_resources():
+    """Expanded resource list. Indexers ask for this shape (full `accepts` per resource)
+    rather than the bare URL array in /.well-known/x402, and this Space was the only one of
+    the three not serving it — its own access log shows the path being requested."""
+    items = [{
+        "resource": PUBLIC_BASE + p,
+        "url": PUBLIC_BASE + p,
+        "method": "POST",
+        "type": "http",
+        "x402Version": 2,
+        "mimeType": "application/json",
+        "description": _DESC_TABLE.get(p, ""),
+        "accepts": [{
+            "scheme": "exact",
+            "network": BASE_MAINNET,
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",  # USDC on Base
+            "payTo": WALLET,
+            "price": _PRICE_TABLE.get(p, ""),
+        }],
+    } for p in _PAID_PATHS]
+    return {"x402Version": 2, "count": len(items), "resources": items, "items": items}
+
+
+@app.api_route("/api", methods=_DISCOVERY_VERBS_ROOT)
+@app.api_route("/api/v1", methods=_DISCOVERY_VERBS_ROOT)
+@app.api_route("/v1", methods=_DISCOVERY_VERBS_ROOT)
+async def api_index():
+    return {
+        "service": "skill-audit",
+        "description": "Security + web-data API suite for AI agents.",
+        "paid_endpoint_count": len(_PAID_PATHS),
+        "payment": {"protocol": "x402", "asset": "USDC", "network": BASE_MAINNET,
+                    "payTo": WALLET},
+        "discovery": {
+            "x402": PUBLIC_BASE + "/.well-known/x402",
+            "resources": PUBLIC_BASE + "/x402-resources",
+            "pricing": PUBLIC_BASE + "/pricing",
+            "terms": PUBLIC_BASE + "/terms",
+            "agent_card": PUBLIC_BASE + "/.well-known/agent-card.json",
+            "openapi": PUBLIC_BASE + "/openapi.json",
+        },
+    }
+
+
+@app.api_route("/pricing", methods=_DISCOVERY_VERBS_ROOT)
+async def pricing():
+    return {
+        "currency": "USDC", "network": BASE_MAINNET, "payTo": WALLET,
+        "protocol": "x402", "unit": "per request", "count": len(_PAID_PATHS),
+        "paid": [{"method": "POST", "path": p, "price": _PRICE_TABLE.get(p, "")}
+                 for p in _PAID_PATHS],
+    }
+
+
+@app.api_route("/terms", methods=_DISCOVERY_VERBS_ROOT)
+@app.api_route("/tos", methods=_DISCOVERY_VERBS_ROOT)
+@app.api_route("/privacy", methods=_DISCOVERY_VERBS_ROOT)
+async def terms():
+    """Terms an autonomous buyer can read before spending."""
+    return {
+        "service": "skill-audit",
+        "operator": "eltociear",
+        "payment": {"protocol": "x402", "asset": "USDC", "network": BASE_MAINNET,
+                    "payTo": WALLET,
+                    "refunds": "none — each call is priced and settled per request"},
+        "data": {
+            "inputs_logged": "request path and parameters, for rate limiting only",
+            "personal_data_collected": "none — there is no account and no API key",
+            "retention": "access logs only, as retained by the hosting platform",
+        },
+        "warranty": "none. Audit output is a heuristic signal from static pattern "
+                    "matching, not a security guarantee.",
+        "acceptable_use": "scan only targets you are authorised to scan",
+    }
+
+
+@app.api_route("/sitemap.xml", methods=_DISCOVERY_VERBS_ROOT)
+async def sitemap():
+    paths = ["/", "/pricing", "/terms", "/llms.txt", "/openapi.json",
+             "/.well-known/x402", "/x402-resources", "/.well-known/agent-card.json"]
+    urls = "".join(f"<url><loc>{PUBLIC_BASE}{p}</loc></url>" for p in paths)
+    return Response(
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        f"{urls}</urlset>",
+        media_type="application/xml")
+
+
+@app.api_route("/m2m-openapi.json", methods=_DISCOVERY_VERBS_ROOT)
+async def m2m_openapi():
+    """Alias: something in the wild probes this name for a machine-readable spec."""
+    return app.openapi()
+
+
+@app.api_route("/llms.txt", methods=_DISCOVERY_VERBS_ROOT)
 async def llms_txt():
     """llms.txt — the machine-readable site summary crawlers/agents probe for."""
     lines = ["# skill-audit", "",
@@ -632,9 +981,9 @@ async def llms_txt():
     return Response("\n".join(lines) + "\n", media_type="text/plain; charset=utf-8")
 
 
-@app.get("/.well-known/agent.json")
-@app.get("/.well-known/agent-card.json")
-@app.get("/.well-known/agent-card")
+@app.api_route("/.well-known/agent.json", methods=_DISCOVERY_VERBS_ROOT)
+@app.api_route("/.well-known/agent-card.json", methods=_DISCOVERY_VERBS_ROOT)
+@app.api_route("/.well-known/agent-card", methods=_DISCOVERY_VERBS_ROOT)
 async def agent_card():
     """A2A agent card — how agent directories and peers introspect a service. Measured
     2026-08-02: distinct A2A agents probe these exact paths on this Space and got 404,
@@ -741,7 +1090,11 @@ def _okx_challenge(amount_usdt6: int, resource: str):
     return _b64.b64encode(_json.dumps(doc, separators=(",", ":")).encode()).decode()
 
 
-@app.get("/okx/status")
+# GET/POST/HEAD: this is a free diagnostic and the crawler fleet POSTs it. Registered
+# GET-only it answered 405, which tells a prober the path is not there at all. Its
+# full path is also in mcp_http.FREE_PATHS so tokenguard's blanket POST sweep cannot
+# turn a diagnostic into a paid route.
+@app.api_route("/okx/status", methods=["GET", "POST", "HEAD"])
 async def okx_status():
     """FREE diagnostic: is the OKX broker paywall live, or are we still on the fallback challenge?
     Reports whether credentials are present, never their values."""
@@ -1907,6 +2260,141 @@ def _is_noise(path: str) -> bool:
     if base.startswith("test_") or base.startswith("test.") or "_test." in base or ".spec." in base:
         return True
     return any(base.startswith(n) for n in _NOISE_NAMES)
+
+
+_LEVEL_ORDER = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "SAFE": 0, "UNKNOWN": 0}
+# The three entry points that actually exist on a live MCP-server repo. Probed concurrently
+# first, so a delisted repo costs three parallel requests rather than fourteen serial 404s.
+_REG_PROBE = ("package.json", "README.md", "src/index.ts")
+
+
+async def _reg_fetch(client, owner, name, path):
+    """One raw.githubusercontent read; returns the body or None. Never raises."""
+    try:
+        r = await client.get(f"https://raw.githubusercontent.com/{owner}/{name}/HEAD/{path}")
+    except Exception:  # noqa: BLE001
+        return None
+    return r.text if r.status_code == 200 and len(r.text) >= 40 else None
+
+
+_REG_CANDIDATES = ("package.json", "setup.py", "pyproject.toml", "install.sh",
+                   "postinstall.js", "src/index.ts", "index.ts", "src/index.js", "index.js",
+                   "server.py", "src/main.py", "main.py", "app.py", "README.md")
+
+
+@app.post("/audit/registry")
+async def audit_registry(req: RegistryAuditRequest):
+    """Scan the newest servers in the official MCP registry. No input required.
+
+    See RegistryAuditRequest for why this exists: every route that needs an argument from the
+    caller converts ~25x worse than one that can be called blind, because the buyers are
+    crawlers. This gives a blind caller a real answer — a fresh supply-chain risk feed over
+    servers somebody just published — using the same pattern engine as /audit.
+    """
+    import asyncio
+    from datetime import timedelta, timezone
+
+    import httpx
+    n = max(1, min(int(req.limit or 5), 15))
+    # ⚠ `sort=newest` is accepted and SILENTLY IGNORED — it returns the same alphabetical
+    # first page. `updated_since` genuinely filters, so recency comes from that. Without it
+    # the first page is dominated by long-dead entries: a plain limit=5 scan returned four
+    # UNKNOWNs out of five, which is not worth $0.005 to anybody.
+    since = (datetime.now(timezone.utc) - timedelta(days=45)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    async with httpx.AsyncClient(follow_redirects=True, timeout=25.0,
+                                 headers={"User-Agent": "x402-registry-audit"}) as client:
+        try:
+            r = await client.get("https://registry.modelcontextprotocol.io/v0/servers",
+                                 params={"limit": 100, "updated_since": since})
+            servers = (r.json() or {}).get("servers", [])
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(502, f"registry unreachable: {type(e).__name__}") from None
+
+        seen, targets = set(), []
+        for entry in servers:
+            srv = entry.get("server", entry)
+            official = (entry.get("_meta") or {}).get(
+                "io.modelcontextprotocol.registry/official") or {}
+            if official.get("status") not in (None, "active"):
+                continue
+            url = ((srv.get("repository") or {}).get("url") or "")
+            if "github.com/" not in url:
+                continue
+            parts = [p for p in url.split("github.com/", 1)[1].split("/") if p][:2]
+            if len(parts) != 2:
+                continue
+            key = (parts[0].lower(), parts[1].removesuffix(".git").lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            targets.append((parts[0], parts[1].removesuffix(".git"), srv.get("name", ""),
+                            official.get("publishedAt")))
+            # Over-fetch: roughly half the registry's repos are 404 (measured), and a buyer
+            # paying per call wants N READABLE rows, not N rows of "gone".
+            if len(targets) >= n * 4:
+                break
+
+        rows, delisted = [], 0
+        for owner, name, sname, published in targets:
+            if len(rows) >= n:
+                break
+            worst, score, findings, files = "SAFE", 0, [], []
+
+            def _absorb(path, text):
+                nonlocal worst, score
+                files.append(path)
+                res = scan(text[:200_000])
+                score = max(score, res.get("risk_score") or 0)
+                for f in res.get("findings", []):
+                    findings.append({**f, "file": path})
+                if _LEVEL_ORDER.get(res["risk_level"], 0) > _LEVEL_ORDER.get(worst, 0):
+                    worst = res["risk_level"]
+
+            # About half of these repos are 404. Walking all 14 candidates on a dead one costs
+            # 14 round trips and dominated the call — five results took 37s. Probe the three
+            # most common entry points CONCURRENTLY and abandon the repo if none answers:
+            # a dead repo now costs 3 parallel requests instead of 14 serial ones.
+            probed = await asyncio.gather(*[_reg_fetch(client, owner, name, p)
+                                            for p in _REG_PROBE])
+            alive = [(p, t) for p, t in zip(_REG_PROBE, probed) if t]
+            if not alive:
+                # "we could not read it" is never "it is safe" — but it is also not worth a
+                # paid row. Counted, named, and skipped so the buyer gets N real answers.
+                delisted += 1
+                continue
+            for path, text in alive:
+                _absorb(path, text)
+            for path in _REG_CANDIDATES:
+                if len(files) >= 4:      # budget: 4 files a repo keeps the call responsive
+                    break
+                if path in _REG_PROBE:
+                    continue
+                text = await _reg_fetch(client, owner, name, path)
+                if text:
+                    _absorb(path, text)
+            rows.append({
+                "server": sname, "repo": f"{owner}/{name}",
+                "repo_url": f"https://github.com/{owner}/{name}",
+                "published_at": published,
+                "risk_level": worst, "risk_score": score,
+                "finding_count": len(findings),
+                "files_scanned": files,
+                "top_finding": (max(findings, key=lambda f: _LEVEL_ORDER.get(f["severity"], 0))
+                                if findings else None),
+            })
+
+    rows.sort(key=lambda r: -_LEVEL_ORDER.get(r["risk_level"], 0))
+    return {
+        "source": "registry.modelcontextprotocol.io/v0/servers",
+        "window": f"servers updated since {since}",
+        "scanned": len(rows),
+        "flagged": sum(1 for r in rows if r["risk_level"] != "SAFE"),
+        # Not padding, and not hidden: about half the registry's repositories 404, and how many
+        # were skipped to reach N readable ones is itself a fact about the registry.
+        "delisted_skipped": delisted,
+        "results": rows,
+    }
 
 
 @app.post("/audit/repo")

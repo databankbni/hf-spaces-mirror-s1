@@ -1,0 +1,3958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GreenCarbon Analytics | Automated Carbon Footprint & LCA for Land-Based Ingredients</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --forest: #1a4d2e;
+            --forest-light: #2d6a4f;
+            --forest-dark: #0f3d2e;
+            --sage: #74c69d;
+            --sage-light: #d8f3dc;
+            --sage-soft: #b7e4c7;
+            --mint: #95d5b2;
+            --mint-bright: #52b788;
+            --cream: #fefae0;
+            --cream-soft: #fbf8f3;
+            --warm-white: #fdfcf8;
+            --earth: #bc6c25;
+            --earth-light: #dda15e;
+            --charcoal: #1b4332;
+            --text-primary: #1b4332;
+            --text-secondary: #52796f;
+            --text-muted: #84a98c;
+            --border: #d8f3dc;
+            --shadow-soft: 0 4px 24px rgba(26,77,46,0.08);
+            --shadow-medium: 0 8px 40px rgba(26,77,46,0.12);
+            --shadow-glow: 0 0 40px rgba(82,183,136,0.2);
+            --gradient-leaf: linear-gradient(135deg, #1a4d2e 0%, #2d6a4f 50%, #52b788 100%);
+            --gradient-sage: linear-gradient(135deg, #d8f3dc 0%, #b7e4c7 100%);
+            --gradient-mint: linear-gradient(135deg, #52b788 0%, #74c69d 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            font-size: 16px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--warm-white);
+            color: var(--text-primary);
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--sage-light);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--mint-bright);
+            border-radius: 4px;
+        }
+
+        /* ===== NAVIGATION ===== */
+        .navbar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 0.75rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            transition: all 0.4s ease;
+            background: rgba(253,252,248,0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid transparent;
+        }
+
+        .navbar.scrolled {
+            background: rgba(253,252,248,0.98);
+            border-bottom-color: var(--border);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 2.5rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--forest);
+            text-decoration: none;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--gradient-leaf);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.1rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+            position: relative;
+        }
+
+        .nav-links a:hover {
+            color: var(--forest);
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--mint-bright);
+            transition: width 0.3s;
+            border-radius: 2px;
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.65rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--forest);
+        }
+
+        .btn-ghost:hover {
+            background: var(--sage-light);
+        }
+
+        .btn-primary {
+            background: var(--gradient-leaf);
+            color: white;
+            box-shadow: 0 4px 16px rgba(26,77,46,0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(26,77,46,0.35);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--forest);
+            border: 1.5px solid var(--border);
+        }
+
+        .btn-outline:hover {
+            background: var(--sage-light);
+            border-color: var(--sage-soft);
+        }
+
+        .btn-white {
+            background: white;
+            color: var(--forest);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+
+        .btn-white:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+
+        .btn-large {
+            padding: 0.9rem 2rem;
+            font-size: 1rem;
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--forest);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* ===== HERO ===== */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 8rem 5% 5rem;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--warm-white) 0%, var(--sage-light) 50%, var(--cream-soft) 100%);
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            right: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(82,183,136,0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: float 8s ease-in-out infinite;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -10%;
+            left: -5%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(184,241,201,0.3) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: float 10s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(30px, -20px) scale(1.05); }
+        }
+
+        .hero-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(82,183,136,0.1);
+            border: 1px solid rgba(82,183,136,0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            color: var(--forest);
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+        }
+
+        .hero-badge i {
+            color: var(--mint-bright);
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            color: var(--forest);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .hero h1 span {
+            background: var(--gradient-leaf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 1.15rem;
+            color: var(--text-secondary);
+            margin-bottom: 2.5rem;
+            max-width: 520px;
+            line-height: 1.8;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 2.5rem;
+        }
+
+        .hero-trust {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .trust-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .trust-item i {
+            color: var(--mint-bright);
+            font-size: 1rem;
+        }
+
+        .hero-visual {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .report-card {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: var(--shadow-medium);
+            border: 1px solid var(--border);
+            max-width: 400px;
+            animation: slideInRight 1s ease 0.3s both;
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(50px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-badge {
+            background: var(--sage-light);
+            color: var(--forest);
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .report-grade {
+            width: 40px;
+            height: 40px;
+            background: var(--gradient-leaf);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 1.2rem;
+        }
+
+        .report-product {
+            margin-bottom: 1.5rem;
+        }
+
+        .report-product h3 {
+            font-size: 1.1rem;
+            color: var(--forest);
+            margin-bottom: 0.25rem;
+        }
+
+        .report-product p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .report-metric {
+            background: linear-gradient(135deg, var(--sage-light) 0%, white 100%);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.25rem;
+            border: 1px solid var(--border);
+        }
+
+        .report-metric-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+
+        .report-metric-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--forest);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .report-metric-unit {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .scope-breakdown {
+            margin-bottom: 1.25rem;
+        }
+
+        .scope-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .scope-bar {
+            flex: 1;
+            height: 8px;
+            background: var(--sage-light);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .scope-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1.5s ease;
+        }
+
+        .scope-fill.scope-1 { background: var(--mint-bright); width: 15%; }
+        .scope-fill.scope-2 { background: var(--sage); width: 35%; }
+        .scope-fill.scope-3 { background: var(--forest-light); width: 50%; }
+
+        .scope-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            min-width: 80px;
+        }
+
+        .scope-pct {
+            font-size: 0.8rem;
+            color: var(--forest);
+            font-weight: 600;
+            min-width: 30px;
+            text-align: right;
+        }
+
+        .report-footer {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .report-tag {
+            background: var(--sage-light);
+            color: var(--forest);
+            padding: 0.3rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        /* ===== EUDR BANNER ===== */
+        .eudr-banner {
+            background: linear-gradient(135deg, var(--forest) 0%, var(--forest-light) 100%);
+            padding: 1.5rem 5%;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .eudr-banner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .eudr-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 1;
+        }
+
+        .eudr-text {
+            font-size: 0.95rem;
+            opacity: 0.95;
+            max-width: 700px;
+        }
+
+        .eudr-text strong {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 1.1rem;
+        }
+
+        .eudr-countdown {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .countdown-box {
+            text-align: center;
+        }
+
+        .countdown-number {
+            font-size: 2rem;
+            font-weight: 800;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .countdown-label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .eudr-btn {
+            background: white;
+            color: var(--forest);
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .eudr-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        /* ===== SECTIONS GENERAL ===== */
+        section {
+            padding: 5rem 5%;
+            position: relative;
+        }
+
+        .section-header {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto 3.5rem;
+        }
+
+        .section-header h2 {
+            font-size: clamp(2rem, 4vw, 2.75rem);
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--forest);
+            font-family: 'Playfair Display', serif;
+            line-height: 1.2;
+        }
+
+        .section-header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            line-height: 1.7;
+        }
+
+        .section-label {
+            display: inline-block;
+            background: var(--sage-light);
+            color: var(--forest);
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+        }
+
+        /* ===== PRODUCT CARBON FOOTPRINT ===== */
+        .pcf-section {
+            background: var(--warm-white);
+        }
+
+        .pcf-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .pcf-features {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .pcf-feature {
+            display: flex;
+            gap: 1rem;
+            padding: 1.25rem;
+            border-radius: 12px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .pcf-feature:hover {
+            background: var(--sage-light);
+        }
+
+        .pcf-feature-icon {
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            background: var(--gradient-sage);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--forest);
+            font-size: 1rem;
+        }
+
+        .pcf-feature h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--forest);
+            margin-bottom: 0.25rem;
+        }
+
+        .pcf-feature p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .pcf-visual {
+            position: relative;
+        }
+
+        .pcf-card {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: var(--shadow-medium);
+            border: 1px solid var(--border);
+        }
+
+        .pcf-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+        }
+
+        .pcf-card-product {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .product-image {
+            width: 60px;
+            height: 60px;
+            background: var(--gradient-sage);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .product-info h4 {
+            font-size: 1.1rem;
+            color: var(--forest);
+        }
+
+        .product-info p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .score-badge {
+            width: 50px;
+            height: 50px;
+            background: var(--gradient-leaf);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 1.3rem;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .carbon-metric-large {
+            text-align: center;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, var(--sage-light) 0%, white 100%);
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .carbon-metric-large .value {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--forest);
+            font-family: 'Playfair Display', serif;
+            line-height: 1;
+        }
+
+        .carbon-metric-large .unit {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .carbon-metric-large .label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        /* ===== FULL LCA ===== */
+        .lca-section {
+            background: linear-gradient(180deg, var(--sage-light) 0%, var(--warm-white) 100%);
+        }
+
+        .lca-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .impact-categories {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .impact-card {
+            background: white;
+            border-radius: 14px;
+            padding: 1.25rem;
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .impact-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-medium);
+            border-color: var(--sage-soft);
+        }
+
+        .impact-card.highlighted {
+            border-color: var(--mint-bright);
+            background: linear-gradient(135deg, white 0%, var(--sage-light) 100%);
+        }
+
+        .impact-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .impact-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .impact-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--mint-bright);
+        }
+
+        .impact-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--forest);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .impact-unit {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .lca-info {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .lca-features-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .lca-features-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .lca-features-list li i {
+            color: var(--mint-bright);
+            margin-top: 0.2rem;
+        }
+
+        .beta-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--cream);
+            color: var(--earth);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid var(--earth-light);
+        }
+
+        /* ===== CALCULATORS ===== */
+        .calculators-section {
+            background: var(--warm-white);
+        }
+
+        .calc-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+        }
+
+        .calc-tab {
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            border: 1.5px solid var(--border);
+            background: white;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .calc-tab.active {
+            background: var(--gradient-leaf);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 16px rgba(26,77,46,0.25);
+        }
+
+        .calc-tab:hover:not(.active) {
+            background: var(--sage-light);
+            border-color: var(--sage-soft);
+        }
+
+        .calc-panel {
+            display: none;
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: var(--shadow-soft);
+            border: 1px solid var(--border);
+        }
+
+        .calc-panel.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .calc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .input-group input,
+        .input-group select {
+            padding: 0.9rem 1rem;
+            border-radius: 10px;
+            border: 1.5px solid var(--border);
+            background: var(--warm-white);
+            color: var(--forest);
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: var(--mint-bright);
+            box-shadow: 0 0 0 3px rgba(82,183,136,0.15);
+        }
+
+        .calc-results {
+            background: var(--gradient-leaf);
+            border-radius: 16px;
+            padding: 2rem;
+            color: white;
+            text-align: center;
+        }
+
+        .calc-results h3 {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .calc-big-number {
+            font-size: 3.5rem;
+            font-weight: 800;
+            font-family: 'Playfair Display', serif;
+            line-height: 1;
+        }
+
+        .calc-unit {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .calc-breakdown {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .breakdown-item {
+            text-align: center;
+        }
+
+        .breakdown-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .breakdown-label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .calc-disclaimer {
+            margin-top: 1.5rem;
+            font-size: 0.8rem;
+            opacity: 0.8;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        /* ===== HOW IT WORKS ===== */
+        .workflow-section {
+            background: linear-gradient(180deg, var(--warm-white) 0%, var(--sage-light) 100%);
+        }
+
+        .workflow-steps {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .workflow-steps::before {
+            content: '';
+            position: absolute;
+            top: 40px;
+            left: 12.5%;
+            width: 75%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--sage-soft) 0%, var(--mint-bright) 50%, var(--sage-soft) 100%);
+            z-index: 0;
+        }
+
+        .workflow-step {
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .step-number {
+            width: 80px;
+            height: 80px;
+            background: white;
+            border: 3px solid var(--mint-bright);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--forest);
+            font-family: 'Playfair Display', serif;
+            box-shadow: var(--shadow-soft);
+            transition: all 0.4s;
+        }
+
+        .workflow-step:hover .step-number {
+            transform: scale(1.1);
+            background: var(--gradient-leaf);
+            color: white;
+            border-color: var(--forest);
+        }
+
+        .workflow-step h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--forest);
+            margin-bottom: 0.75rem;
+        }
+
+        .workflow-step p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* ===== SOLUTIONS ===== */
+        .solutions-section {
+            background: var(--warm-white);
+        }
+
+        .solutions-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .solution-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1.5px solid var(--border);
+            transition: all 0.4s;
+            cursor: pointer;
+        }
+
+        .solution-card:hover {
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-medium);
+            border-color: var(--sage-soft);
+        }
+
+        .solution-card.featured {
+            background: linear-gradient(135deg, var(--sage-light) 0%, white 100%);
+            border-color: var(--sage-soft);
+        }
+
+        .solution-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .solution-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--gradient-sage);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--forest);
+            font-size: 1.25rem;
+        }
+
+        .solution-title h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--forest);
+        }
+
+        .solution-title span {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .solution-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .solution-features li {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .solution-features li i {
+            color: var(--mint-bright);
+            font-size: 0.85rem;
+        }
+
+        .solution-link {
+            color: var(--forest);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: gap 0.3s;
+        }
+
+        .solution-link:hover {
+            gap: 0.75rem;
+        }
+
+        .solutions-contact {
+            text-align: center;
+            margin-top: 2.5rem;
+            padding: 2rem;
+            background: var(--sage-light);
+            border-radius: 16px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .solutions-contact p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .phone-link {
+            color: var(--forest);
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-decoration: none;
+        }
+
+        /* ===== WHY CHOOSE US ===== */
+        .why-section {
+            background: linear-gradient(180deg, var(--sage-light) 0%, var(--warm-white) 100%);
+        }
+
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            max-width: 1100px;
+            margin: 0 auto 3rem;
+        }
+
+        .why-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            border: 1.5px solid var(--border);
+            transition: all 0.4s;
+        }
+
+        .why-card:hover {
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .why-icon {
+            width: 64px;
+            height: 64px;
+            background: var(--gradient-sage);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.25rem;
+            color: var(--forest);
+            font-size: 1.5rem;
+        }
+
+        .why-card h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--forest);
+            margin-bottom: 0.5rem;
+        }
+
+        .why-card p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        .report-preview {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: var(--shadow-medium);
+            border: 1.5px solid var(--border);
+            text-align: center;
+        }
+
+        .report-preview-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .report-preview-header h3 {
+            font-size: 1.25rem;
+            color: var(--forest);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-preview-header p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .report-preview-metric {
+            background: var(--sage-light);
+            border-radius: 14px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-preview-metric .value {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--forest);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .report-preview-metric .label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .report-preview-score {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--gradient-leaf);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        /* ===== TRUST & CREDIBILITY ===== */
+        .trust-section {
+            background: var(--warm-white);
+            padding: 4rem 5%;
+        }
+
+        .trust-badges {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            flex-wrap: wrap;
+            margin-bottom: 3rem;
+        }
+
+        .trust-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            text-align: center;
+        }
+
+        .trust-badge-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--sage-light);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--forest);
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .trust-badge h4 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--forest);
+        }
+
+        .trust-badge p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .standards-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .standards-col h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--forest);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .standards-col h4 i {
+            color: var(--mint-bright);
+        }
+
+        .standards-col ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .standards-col li {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .standards-col li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--mint-bright);
+            font-weight: 700;
+        }
+
+        .comparison-bar {
+            max-width: 700px;
+            margin: 3rem auto 0;
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--shadow-soft);
+            border: 1.5px solid var(--border);
+        }
+
+        .comparison-item {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comparison-item:last-child {
+            border-bottom: none;
+        }
+
+        .comparison-metric {
+            min-width: 120px;
+            text-align: right;
+        }
+
+        .comparison-metric .number {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--forest);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .comparison-metric .label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .comparison-bar-visual {
+            flex: 1;
+            height: 12px;
+            background: var(--sage-light);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .comparison-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 1.5s ease;
+        }
+
+        .comparison-fill.slow {
+            background: var(--earth-light);
+            width: 90%;
+        }
+
+        .comparison-fill.fast {
+            background: var(--mint-bright);
+            width: 5%;
+        }
+
+        .comparison-fill.expensive {
+            background: var(--earth-light);
+            width: 95%;
+        }
+
+        .comparison-fill.affordable {
+            background: var(--mint-bright);
+            width: 8%;
+        }
+
+        /* ===== PRICING ===== */
+        .pricing-section {
+            background: linear-gradient(180deg, var(--sage-light) 0%, var(--warm-white) 100%);
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .pricing-card {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            border: 1.5px solid var(--border);
+            transition: all 0.4s;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .pricing-card.featured {
+            border-color: var(--mint-bright);
+            transform: scale(1.03);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .pricing-card.featured::before {
+            content: 'MOST POPULAR';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--gradient-leaf);
+            color: white;
+            padding: 0.4rem 1.2rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .pricing-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--forest);
+            margin-bottom: 0.25rem;
+        }
+
+        .pricing-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 1.25rem;
+        }
+
+        .pricing-price {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--forest);
+            font-family: 'Playfair Display', serif;
+            line-height: 1;
+        }
+
+        .pricing-price span {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .pricing-period {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .pricing-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            flex: 1;
+        }
+
+        .pricing-features li {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .pricing-features li i {
+            color: var(--mint-bright);
+            font-size: 0.85rem;
+        }
+
+        .pricing-features li.muted {
+            color: var(--text-muted);
+        }
+
+        .pricing-features li.muted i {
+            color: var(--text-muted);
+            opacity: 0.5;
+        }
+
+        .pricing-note {
+            text-align: center;
+            margin-top: 2rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* ===== ABOUT / STORY ===== */
+        .story-section {
+            background: var(--warm-white);
+        }
+
+        .story-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .story-visual {
+            position: relative;
+        }
+
+        .story-image {
+            width: 100%;
+            height: 400px;
+            background: linear-gradient(135deg, var(--sage-soft) 0%, var(--mint) 50%, var(--sage) 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .story-image::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            animation: rotate 60s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .story-image i {
+            font-size: 8rem;
+            color: rgba(255,255,255,0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        .story-stats {
+            position: absolute;
+            bottom: -20px;
+            right: -20px;
+            background: white;
+            border-radius: 14px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow-medium);
+            border: 1.5px solid var(--border);
+        }
+
+        .story-stat {
+            text-align: center;
+        }
+
+        .story-stat .number {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--forest);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .story-stat .label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .story-content h2 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: var(--forest);
+            margin-bottom: 1rem;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .story-content > p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            line-height: 1.8;
+        }
+
+        .story-quote {
+            background: var(--sage-light);
+            border-radius: 14px;
+            padding: 1.5rem;
+            border-left: 4px solid var(--mint-bright);
+            margin-bottom: 1.5rem;
+        }
+
+        .story-quote p {
+            font-style: italic;
+            color: var(--forest);
+            font-size: 1rem;
+            line-height: 1.8;
+            margin-bottom: 0.75rem;
+        }
+
+        .story-quote .author {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .story-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        /* ===== RESOURCES ===== */
+        .resources-section {
+            background: linear-gradient(180deg, var(--sage-light) 0%, var(--warm-white) 100%);
+        }
+
+        .resources-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .resource-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1.5px solid var(--border);
+            transition: all 0.4s;
+        }
+
+        .resource-card:hover {
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .resource-image {
+            height: 160px;
+            background: var(--gradient-sage);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .resource-image i {
+            font-size: 3rem;
+            color: var(--forest);
+            opacity: 0.3;
+        }
+
+        .resource-type {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background: white;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--forest);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .resource-content {
+            padding: 1.5rem;
+        }
+
+        .resource-meta {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .resource-meta span {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .resource-content h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--forest);
+            margin-bottom: 0.75rem;
+            line-height: 1.4;
+        }
+
+        .resource-content p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 1rem;
+        }
+
+        .resource-link {
+            color: var(--forest);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .resource-link:hover {
+            gap: 0.75rem;
+        }
+
+        .resources-cta {
+            text-align: center;
+            margin-top: 2.5rem;
+        }
+
+        /* ===== FAQ ===== */
+        .faq-section {
+            background: var(--warm-white);
+        }
+
+        .faq-list {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .faq-item {
+            background: white;
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .faq-item.active {
+            border-color: var(--sage-soft);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .faq-question {
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--forest);
+            font-size: 0.95rem;
+        }
+
+        .faq-question i {
+            transition: transform 0.3s;
+            color: var(--mint-bright);
+        }
+
+        .faq-item.active .faq-question i {
+            transform: rotate(180deg);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease, padding 0.4s;
+        }
+
+        .faq-item.active .faq-answer {
+            max-height: 400px;
+            padding: 0 1.5rem 1.25rem;
+        }
+
+        .faq-answer p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.8;
+        }
+
+        /* ===== CONTACT ===== */
+        .contact-section {
+            background: linear-gradient(135deg, var(--forest) 0%, var(--forest-light) 100%);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .contact-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .contact-form h2 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .contact-form > p {
+            opacity: 0.9;
+            margin-bottom: 2rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .form-group.full {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 0.9rem 1rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            background: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.4);
+        }
+
+        .form-group select option {
+            background: var(--forest);
+            color: white;
+        }
+
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .contact-card {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 14px;
+            padding: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        .contact-card:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .contact-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .contact-card-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .contact-card h4 {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .contact-card p,
+        .contact-card a {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            color: white;
+            text-decoration: none;
+        }
+
+        .contact-card a:hover {
+            text-decoration: underline;
+        }
+
+        .contact-social {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .contact-social a {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .contact-social a:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-3px);
+        }
+
+        /* ===== CTA BANNER ===== */
+        .cta-banner {
+            background: var(--sage-light);
+            padding: 4rem 5%;
+            text-align: center;
+        }
+
+        .cta-banner h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--forest);
+            margin-bottom: 1rem;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .cta-banner p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        /* ===== FOOTER ===== */
+        footer {
+            background: var(--forest-dark);
+            color: white;
+            padding: 4rem 5% 2rem;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+            gap: 3rem;
+            margin-bottom: 3rem;
+        }
+
+        .footer-brand .logo {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .footer-brand .logo-icon {
+            background: var(--mint-bright);
+        }
+
+        .footer-brand p {
+            opacity: 0.8;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+        }
+
+        .footer-contact {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .footer-contact a {
+            color: white;
+            opacity: 0.8;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: opacity 0.3s;
+        }
+
+        .footer-contact a:hover {
+            opacity: 1;
+        }
+
+        .footer-links h4 {
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .footer-links ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .footer-links a {
+            color: white;
+            opacity: 0.7;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: opacity 0.3s;
+        }
+
+        .footer-links a:hover {
+            opacity: 1;
+        }
+
+        .footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .footer-bottom p {
+            opacity: 0.6;
+            font-size: 0.85rem;
+        }
+
+        .footer-bottom-links {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .footer-bottom-links a {
+            color: white;
+            opacity: 0.6;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: opacity 0.3s;
+        }
+
+        .footer-bottom-links a:hover {
+            opacity: 1;
+        }
+
+        .footer-tagline {
+            text-align: center;
+            margin-top: 1.5rem;
+            opacity: 0.5;
+            font-size: 0.85rem;
+        }
+
+        /* ===== ANIMATIONS ===== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s ease;
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ===== TOAST ===== */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--forest);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            z-index: 3000;
+            transform: translateX(400px);
+            transition: transform 0.4s ease;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast i {
+            color: var(--mint-bright);
+        }
+
+        /* ===== COOKIE BANNER ===== */
+        .cookie-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            border-top: 1px solid var(--border);
+            padding: 1rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            z-index: 2000;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            transform: translateY(100%);
+            transition: transform 0.4s ease;
+        }
+
+        .cookie-banner.show {
+            transform: translateY(0);
+        }
+
+        .cookie-banner p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            max-width: 800px;
+        }
+
+        .cookie-banner a {
+            color: var(--forest);
+            font-weight: 600;
+        }
+
+        /* ===== MOBILE MENU ===== */
+        .mobile-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.3);
+            z-index: 1998;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s;
+        }
+
+        .mobile-menu-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .mobile-menu {
+            position: fixed;
+            top: 0;
+            right: -100%;
+            width: 320px;
+            height: 100vh;
+            background: white;
+            z-index: 1999;
+            padding: 2rem;
+            transition: right 0.4s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            box-shadow: -10px 0 40px rgba(0,0,0,0.1);
+        }
+
+        .mobile-menu.open {
+            right: 0;
+        }
+
+        .mobile-menu-close {
+            align-self: flex-end;
+            background: none;
+            border: none;
+            color: var(--forest);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .mobile-nav-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .mobile-nav-links a {
+            color: var(--forest);
+            text-decoration: none;
+            font-size: 1.1rem;
+            font-weight: 600;
+            padding: 0.75rem;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .mobile-nav-links a:hover {
+            background: var(--sage-light);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1024px) {
+            .hero-container,
+            .pcf-grid,
+            .lca-grid,
+            .story-grid,
+            .contact-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .workflow-steps {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .workflow-steps::before {
+                display: none;
+            }
+
+            .why-grid,
+            .resources-grid,
+            .pricing-grid,
+            .solutions-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .footer-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .hero-visual {
+                order: -1;
+            }
+
+            .report-card {
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links,
+            .nav-right .btn-ghost {
+                display: none;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .hero {
+                padding-top: 6rem;
+            }
+
+            .hero-trust {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .why-grid,
+            .resources-grid,
+            .pricing-grid,
+            .solutions-grid,
+            .impact-categories {
+                grid-template-columns: 1fr;
+            }
+
+            .workflow-steps {
+                grid-template-columns: 1fr;
+            }
+
+            .step-number {
+                width: 60px;
+                height: 60px;
+                font-size: 1.25rem;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .eudr-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .eudr-countdown {
+                justify-content: center;
+            }
+
+            .calc-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .comparison-item {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.75rem;
+            }
+
+            .comparison-metric {
+                text-align: center;
+            }
+
+            .cookie-banner {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+        /* Particle canvas */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.4;
+        }
+
+        /* Smooth parallax helper */
+        .parallax-slow {
+            will-change: transform;
+        }
+    </style>
+</head>
+<body>
+    <!-- Particle Canvas -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-left">
+            <a href="#" class="logo">
+                <div class="logo-icon"><i class="fas fa-leaf"></i></div>
+                GreenCarbon
+            </a>
+            <ul class="nav-links">
+                <li><a href="#product">Product</a></li>
+                <li><a href="#solutions">Solutions</a></li>
+                <li><a href="#calculators">Calculators</a></li>
+                <li><a href="#resources">Resources</a></li>
+                <li><a href="#about">About</a></li>
+            </ul>
+        </div>
+        <div class="nav-right">
+            <a href="#contact" class="btn btn-ghost">Book Demo</a>
+            <a href="#pricing" class="btn btn-primary">Get Started</a>
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div class="mobile-menu-overlay" id="mobileOverlay"></div>
+    <div class="mobile-menu" id="mobileMenu">
+        <button class="mobile-menu-close" id="mobileMenuClose">
+            <i class="fas fa-times"></i>
+        </button>
+        <ul class="mobile-nav-links">
+            <li><a href="#product">Product</a></li>
+            <li><a href="#solutions">Solutions</a></li>
+            <li><a href="#calculators">Calculators</a></li>
+            <li><a href="#resources">Resources</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="#contact" class="btn btn-primary" style="margin-top: 1rem;">Book Demo</a></li>
+            <li><a href="#pricing" class="btn btn-outline" style="margin-top: 0.5rem;">Get Started</a></li>
+        </ul>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <i class="fas fa-certificate"></i>
+                    Analytics Mauritius
+                </div>
+                <h1>Welcome to <span>GreenCarbon</span> Analytics</h1>
+                <p class="hero-subtitle">Automated Carbon Footprint & Full LCA for Land-Based Ingredients. Measure, report, and reduce — all in one platform. ISO 14040/44-aligned carbon footprint and full LCA for land-based ingredients, powered by Ecoinvent 3.9.1.</p>
+                <div class="hero-buttons">
+                    <a href="#pricing" class="btn btn-primary btn-large">
+                        <i class="fas fa-rocket"></i>
+                        Get Started
+                    </a>
+                    <a href="#report" class="btn btn-outline btn-large">
+                        <i class="fas fa-file-alt"></i>
+                        See Sample Report
+                    </a>
+                </div>
+                <div class="hero-trust">
+                    <div class="trust-item">
+                        <i class="fas fa-check-circle"></i>
+                        ISO 14040/44 Compliant
+                    </div>
+                    <div class="trust-item">
+                        <i class="fas fa-shield-alt"></i>
+                        SGS Validation In Progress (Q4 2026)
+                    </div>
+                    <div class="trust-item">
+                        <i class="fas fa-database"></i>
+                        Powered by Ecoinvent 3.9.1
+                    </div>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="report-card">
+                    <div class="report-header">
+                        <span class="report-badge">Product</span>
+                        <div class="report-grade">A</div>
+                    </div>
+                    <div class="report-product">
+                        <h3>Palm Oil — Refined</h3>
+                        <p>Elaeis Guineensis Oil</p>
+                    </div>
+                    <div class="report-metric">
+                        <div class="report-metric-label">Carbon Footprint</div>
+                        <div class="report-metric-value">3.2 <span class="report-metric-unit">kg CO₂e/kg</span></div>
+                    </div>
+                    <div class="scope-breakdown">
+                        <div class="scope-item">
+                            <span class="scope-label">Scope 1</span>
+                            <div class="scope-bar"><div class="scope-fill scope-1"></div></div>
+                            <span class="scope-pct">15%</span>
+                        </div>
+                        <div class="scope-item">
+                            <span class="scope-label">Scope 2</span>
+                            <div class="scope-bar"><div class="scope-fill scope-2"></div></div>
+                            <span class="scope-pct">35%</span>
+                        </div>
+                        <div class="scope-item">
+                            <span class="scope-label">Scope 3</span>
+                            <div class="scope-bar"><div class="scope-fill scope-3"></div></div>
+                            <span class="scope-pct">50%</span>
+                        </div>
+                    </div>
+                    <div class="report-footer">
+                        <span class="report-tag">ISO 14040/44</span>
+                        <span class="report-tag">Ecoinvent 3.9.1</span>
+                        <span class="report-tag">SGS Validation</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- EUDR Banner -->
+    <div class="eudr-banner">
+        <div class="eudr-content">
+            <p class="eudr-text">
+                <strong>EUDR enforcement begins December 30, 2026.</strong>
+                If you trade palm oil, cocoa, soy, timber, cattle, coffee, or rubber into the EU, due diligence documentation is required.
+            </p>
+            <div class="eudr-countdown">
+                <div class="countdown-box">
+                    <div class="countdown-number" id="eudrDays">132</div>
+                    <div class="countdown-label">days left</div>
+                </div>
+                <a href="#contact" class="eudr-btn">Check Your Readiness</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Carbon Footprint -->
+    <section class="pcf-section" id="product">
+        <div class="section-header reveal">
+            <span class="section-label">Product Carbon Footprint</span>
+            <h2>The climate metric, in minutes</h2>
+            <p>Measure the carbon footprint of any land-based product — from timber and cotton to palm oil, soy, and cocoa. Our AI-powered platform extracts product data automatically and generates an ISO 14040/44-aligned report in minutes, not months.</p>
+        </div>
+        <div class="pcf-grid">
+            <div class="pcf-features reveal">
+                <div class="pcf-feature">
+                    <div class="pcf-feature-icon"><i class="fas fa-robot"></i></div>
+                    <div>
+                        <h4>AI-Powered Data Extraction</h4>
+                        <p>Paste a URL or upload a spec sheet. Our AI extracts materials, weight, origin, and packaging.</p>
+                    </div>
+                </div>
+                <div class="pcf-feature">
+                    <div class="pcf-feature-icon"><i class="fas fa-chart-pie"></i></div>
+                    <div>
+                        <h4>GHG Protocol Scope 1-3</h4>
+                        <p>Full supply chain attribution across direct, indirect, and value-chain emissions.</p>
+                    </div>
+                </div>
+                <div class="pcf-feature">
+                    <div class="pcf-feature-icon"><i class="fas fa-route"></i></div>
+                    <div>
+                        <h4>Cradle-to-Gate or Cradle-to-Grave</h4>
+                        <p>Choose your system boundary. We handle the methodology.</p>
+                    </div>
+                </div>
+                <div class="pcf-feature">
+                    <div class="pcf-feature-icon"><i class="fas fa-search"></i></div>
+                    <div>
+                        <h4>Audit-Grade Traceability</h4>
+                        <p>Every emission factor traceable to Ecoinvent 3.9.1, Agribalyse 3.1, or peer-reviewed sources.</p>
+                    </div>
+                </div>
+                <a href="#calculators" class="btn btn-primary" style="width: fit-content;">
+                    <i class="fas fa-calculator"></i>
+                    Calculate Your Footprint
+                </a>
+            </div>
+            <div class="pcf-visual reveal">
+                <div class="pcf-card">
+                    <div class="pcf-card-header">
+                        <div class="pcf-card-product">
+                            <div class="product-image"><i class="fas fa-oil-can"></i></div>
+                            <div class="product-info">
+                                <h4>Palm Oil — Refined</h4>
+                                <p>Elaeis Guineensis Oil</p>
+                            </div>
+                        </div>
+                        <div class="score-badge">A</div>
+                    </div>
+                    <div class="carbon-metric-large">
+                        <div class="label">Carbon Footprint</div>
+                        <div class="value">3.2</div>
+                        <div class="unit">kg CO₂e/kg</div>
+                    </div>
+                    <div class="scope-breakdown">
+                        <div class="scope-item">
+                            <span class="scope-label">Scope 1 — Direct</span>
+                            <div class="scope-bar"><div class="scope-fill scope-1"></div></div>
+                            <span class="scope-pct">15%</span>
+                        </div>
+                        <div class="scope-item">
+                            <span class="scope-label">Scope 2 — Energy</span>
+                            <div class="scope-bar"><div class="scope-fill scope-2"></div></div>
+                            <span class="scope-pct">35%</span>
+                        </div>
+                        <div class="scope-item">
+                            <span class="scope-label">Scope 3 — Value Chain</span>
+                            <div class="scope-bar"><div class="scope-fill scope-3"></div></div>
+                            <span class="scope-pct">50%</span>
+                        </div>
+                    </div>
+                    <div class="report-footer">
+                        <span class="report-tag">ISO 14040/44</span>
+                        <span class="report-tag">Ecoinvent 3.9.1</span>
+                        <span class="report-tag">SGS Validation</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Full LCA -->
+    <section class="lca-section">
+        <div class="section-header reveal">
+            <span class="section-label">Full Life Cycle Assessment</span>
+            <h2>The complete environmental picture, not just carbon</h2>
+            <p>A carbon footprint measures one thing: climate change. A full LCA measures 15 more. See how your product impacts water, land, biodiversity, and ecosystems — and avoid burden-shifting between categories.</p>
+        </div>
+        <div class="lca-grid">
+            <div class="impact-categories reveal">
+                <div class="impact-card highlighted">
+                    <div class="impact-card-header">
+                        <span class="impact-name">Climate Change</span>
+                        <span class="impact-status"></span>
+                    </div>
+                    <div class="impact-value">3.2</div>
+                    <div class="impact-unit">kg CO₂e</div>
+                </div>
+                <div class="impact-card">
+                    <div class="impact-card-header">
+                        <span class="impact-name">Water Use</span>
+                        <span class="impact-status"></span>
+                    </div>
+                    <div class="impact-value">142</div>
+                    <div class="impact-unit">L</div>
+                </div>
+                <div class="impact-card">
+                    <div class="impact-card-header">
+                        <span class="impact-name">Land Use</span>
+                        <span class="impact-status"></span>
+                    </div>
+                    <div class="impact-value">0.8</div>
+                    <div class="impact-unit">m²a</div>
+                </div>
+                <div class="impact-card">
+                    <div class="impact-card-header">
+                        <span class="impact-name">Eutrophication</span>
+                        <span class="impact-status"></span>
+                    </div>
+                    <div class="impact-value">0.012</div>
+                    <div class="impact-unit">kg P</div>
+                </div>
+                <div class="impact-card">
+                    <div class="impact-card-header">
+                        <span class="impact-name">Acidification</span>
+                        <span class="impact-status"></span>
+                    </div>
+                    <div class="impact-value">0.034</div>
+                    <div class="impact-unit">mol H⁺</div>
+                </div>
+                <div class="impact-card">
+                    <div class="impact-card-header">
+                        <span class="impact-name">Ecotoxicity</span>
+                        <span class="impact-status"></span>
+                    </div>
+                    <div class="impact-value">2.1</div>
+                    <div class="impact-unit">CTUe</div>
+                </div>
+                <div class="impact-card">
+                    <div class="impact-card-header">
+                        <span class="impact-name">Human Toxicity</span>
+                        <span class="impact-status"></span>
+                    </div>
+                    <div class="impact-value">0.8</div>
+                    <div class="impact-unit">CTUh</div>
+                </div>
+                <div class="impact-card">
+                    <div class="impact-card-header">
+                        <span class="impact-name">Ozone Depletion</span>
+                        <span class="impact-status"></span>
+                    </div>
+                    <div class="impact-value">0.0001</div>
+                    <div class="impact-unit">kg CFC</div>
+                </div>
+            </div>
+            <div class="lca-info reveal">
+                <ul class="lca-features-list">
+                    <li><i class="fas fa-check-circle"></i> <strong>16 EF v3.1 Impact Categories</strong> — Climate change, water use, land use, eutrophication, toxicity, and more.</li>
+                    <li><i class="fas fa-check-circle"></i> <strong>EF v3.1 (PEF) Method</strong> — The European Commission's Product Environmental Footprint methodology.</li>
+                    <li><i class="fas fa-check-circle"></i> <strong>Burden-Shifting Analysis</strong> — See if reducing carbon increases water use or toxicity.</li>
+                    <li><i class="fas fa-check-circle"></i> <strong>Scenario Comparison</strong> — Test materials, packaging, and transport alternatives instantly.</li>
+                    <li><i class="fas fa-check-circle"></i> <strong>Coverage Declaration</strong> — Transparent reporting of data quality per category.</li>
+                </ul>
+                <a href="#contact" class="btn btn-primary" style="width: fit-content;">
+                    <i class="fas fa-flask"></i>
+                    Explore Full LCA
+                </a>
+                <div class="beta-badge" style="margin-top: 1rem;">
+                    <i class="fas fa-info-circle"></i>
+                    Full LCA is in beta. Our SGS-validated Product Carbon Footprint is unaffected and available now.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Carbon Calculators -->
+    <section class="calculators-section" id="calculators">
+        <div class="section-header reveal">
+            <span class="section-label">Carbon Calculators</span>
+            <h2>Comprehensive land-based carbon calculators</h2>
+            <p>Calculate soil organic carbon, forest biomass stocks, and agricultural emissions using IPCC-compliant methodology.</p>
+        </div>
+        <div class="calc-tabs reveal">
+            <button class="calc-tab active" data-calc="soil">
+                <i class="fas fa-seedling"></i> Soil Carbon
+            </button>
+            <button class="calc-tab" data-calc="forest">
+                <i class="fas fa-tree"></i> Forest Carbon
+            </button>
+            <button class="calc-tab" data-calc="agri">
+                <i class="fas fa-tractor"></i> Agricultural Carbon
+            </button>
+        </div>
+        <div class="calc-panel active" id="soil-calc">
+            <div class="calc-grid">
+                <div class="input-group">
+                    <label>Area (hectares)</label>
+                    <input type="number" id="soilArea" value="100">
+                </div>
+                <div class="input-group">
+                    <label>Soil Texture</label>
+                    <select id="soilTexture">
+                        <option value="loam">Loam</option>
+                        <option value="clay">Clay</option>
+                        <option value="sand">Sand</option>
+                        <option value="silt">Silt</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Land Use Type</label>
+                    <select id="landUse">
+                        <option value="cropland">Cropland</option>
+                        <option value="grassland">Grassland</option>
+                        <option value="forest">Forest</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Sampling Depth</label>
+                    <select id="samplingDepth">
+                        <option value="30">0–30 cm (IPCC default)</option>
+                        <option value="100">0–100 cm</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Measured TOC % (optional)</label>
+                    <input type="number" id="tocPercent" placeholder="e.g. 1.5" step="0.1">
+                </div>
+                <div class="input-group">
+                    <label>Projection Period (years)</label>
+                    <input type="number" id="projectionYears" value="20">
+                </div>
+            </div>
+            <div class="calc-results">
+                <h3>Current SOC Stock</h3>
+                <div class="calc-big-number" id="socStock">5.2</div>
+                <div class="calc-unit">t C / ha</div>
+                <div class="calc-breakdown">
+                    <div class="breakdown-item">
+                        <div class="breakdown-value" id="totalStock">1.9k</div>
+                        <div class="breakdown-label">Total Stock (CO₂e)</div>
+                    </div>
+                    <div class="breakdown-item">
+                        <div class="breakdown-value" id="seqRate">1.10</div>
+                        <div class="breakdown-label">t CO₂e/ha/yr</div>
+                    </div>
+                    <div class="breakdown-item">
+                        <div class="breakdown-value" id="seqTotal">110</div>
+                        <div class="breakdown-label">t CO₂e/yr (total)</div>
+                    </div>
+                    <div class="breakdown-item">
+                        <div class="breakdown-value" id="seq20yr">2200</div>
+                        <div class="breakdown-label">t CO₂e over 20 yrs</div>
+                    </div>
+                </div>
+            </div>
+            <div class="calc-disclaimer">
+                Based on IPCC Tier 1 methodology for soil organic carbon stocks. Sequestration rates follow the IPCC 2019 Refinement. Carbon-to-CO₂e conversion uses the standard factor of 3.667. Results are estimates and should be validated with field sampling for carbon credit certification.
+            </div>
+            <div style="text-align: center; margin-top: 1.5rem;">
+                <button class="btn btn-primary" onclick="showToast('PDF report download started!')">
+                    <i class="fas fa-download"></i>
+                    Download Report (PDF)
+                </button>
+            </div>
+        </div>
+        <div class="calc-panel" id="forest-calc">
+            <div style="text-align: center; padding: 3rem;">
+                <i class="fas fa-tree" style="font-size: 4rem; color: var(--sage-soft); margin-bottom: 1rem;"></i>
+                <h3 style="color: var(--forest); margin-bottom: 0.5rem;">Forest Carbon Calculator</h3>
+                <p style="color: var(--text-secondary);">Calculate biomass, deadwood & soil carbon. Coming soon.</p>
+            </div>
+        </div>
+        <div class="calc-panel" id="agri-calc">
+            <div style="text-align: center; padding: 3rem;">
+                <i class="fas fa-tractor" style="font-size: 4rem; color: var(--sage-soft); margin-bottom: 1rem;"></i>
+                <h3 style="color: var(--forest); margin-bottom: 0.5rem;">Agricultural Carbon Calculator</h3>
+                <p style="color: var(--text-secondary);">Calculate crop, livestock & rice methane emissions. Coming soon.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="workflow-section">
+        <div class="section-header reveal">
+            <span class="section-label">How It Works</span>
+            <h2>From product URL to offset certificate in 4 steps</h2>
+        </div>
+        <div class="workflow-steps">
+            <div class="workflow-step reveal">
+                <div class="step-number">01</div>
+                <h3>Share your product</h3>
+                <p>Paste a product URL, upload a PDF spec sheet, or enter data manually. Our AI extracts materials, weight, origin, and packaging.</p>
+            </div>
+            <div class="workflow-step reveal">
+                <div class="step-number">02</div>
+                <h3>Get your carbon footprint</h3>
+                <p>In minutes, receive an ISO 14040/44-aligned report with full Scope 1-3 breakdown, uncertainty analysis, and comparison to alternatives.</p>
+            </div>
+            <div class="workflow-step reveal">
+                <div class="step-number">03</div>
+                <h3>Explore & optimize</h3>
+                <p>Run scenario simulations, identify hotspots across 16 impact categories, and find the lowest-carbon material and packaging options.</p>
+            </div>
+            <div class="workflow-step reveal">
+                <div class="step-number">04</div>
+                <h3>Offset with goodcarbon</h3>
+                <p>Match residual emissions to verified goodcarbon projects. One-click purchase, Swiss Re-insured retirement certificate with QR code.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solutions -->
+    <section class="solutions-section" id="solutions">
+        <div class="section-header reveal">
+            <span class="section-label">Our Solutions</span>
+            <h2>Built for Your Industry</h2>
+            <p>Tailored carbon intelligence for every stakeholder in the land-based supply chain.</p>
+        </div>
+        <div class="solutions-grid">
+            <div class="solution-card reveal">
+                <div class="solution-header">
+                    <div class="solution-icon"><i class="fas fa-tshirt"></i></div>
+                    <div class="solution-title">
+                        <h3>Brands</h3>
+                        <span>Fashion, Beauty & FMCG</span>
+                    </div>
+                </div>
+                <ul class="solution-features">
+                    <li><i class="fas fa-check"></i> CSRD & EU Green Claims compliance</li>
+                    <li><i class="fas fa-check"></i> Product-level carbon labeling</li>
+                    <li><i class="fas fa-check"></i> Portfolio emissions dashboard</li>
+                    <li><i class="fas fa-check"></i> Consumer-facing reports</li>
+                    <li><i class="fas fa-check"></i> SBTi FLAG target setting</li>
+                </ul>
+                <a href="#contact" class="solution-link">Learn more <i class="fas fa-arrow-right"></i></a>
+            </div>
+            <div class="solution-card reveal">
+                <div class="solution-header">
+                    <div class="solution-icon"><i class="fas fa-flask"></i></div>
+                    <div class="solution-title">
+                        <h3>Cosmetic Laboratories</h3>
+                        <span>Formulation & R&D</span>
+                    </div>
+                </div>
+                <ul class="solution-features">
+                    <li><i class="fas fa-check"></i> 500+ INCI land-based ingredients</li>
+                    <li><i class="fas fa-check"></i> Side-by-side ingredient comparison</li>
+                    <li><i class="fas fa-check"></i> LCA data into formulation tools</li>
+                    <li><i class="fas fa-check"></i> ISO 14040/44 reports</li>
+                    <li><i class="fas fa-check"></i> Eco-design scoring</li>
+                </ul>
+                <a href="#contact" class="solution-link">Learn more <i class="fas fa-arrow-right"></i></a>
+            </div>
+            <div class="solution-card reveal">
+                <div class="solution-header">
+                    <div class="solution-icon"><i class="fas fa-pills"></i></div>
+                    <div class="solution-title">
+                        <h3>Pharmaceutical Laboratories</h3>
+                        <span>APIs & Excipients</span>
+                    </div>
+                </div>
+                <ul class="solution-features">
+                    <li><i class="fas fa-check"></i> Regulatory-grade documentation</li>
+                    <li><i class="fas fa-check"></i> Plant-derived API database</li>
+                    <li><i class="fas fa-check"></i> CDP & GRI export</li>
+                    <li><i class="fas fa-check"></i> Scope 1-3 per active ingredient</li>
+                    <li><i class="fas fa-check"></i> Cradle-to-gate analysis</li>
+                </ul>
+                <a href="#contact" class="solution-link">Learn more <i class="fas fa-arrow-right"></i></a>
+            </div>
+            <div class="solution-card reveal">
+                <div class="solution-header">
+                    <div class="solution-icon"><i class="fas fa-truck"></i></div>
+                    <div class="solution-title">
+                        <h3>Ingredient Suppliers</h3>
+                        <span>Sourcing, Processing & Distribution</span>
+                    </div>
+                </div>
+                <ul class="solution-features">
+                    <li><i class="fas fa-check"></i> Supply chain emissions mapping</li>
+                    <li><i class="fas fa-check"></i> Wild vs. cultivated benchmarking</li>
+                    <li><i class="fas fa-check"></i> Verified carbon certificates</li>
+                    <li><i class="fas fa-check"></i> goodcarbon offset attribution</li>
+                    <li><i class="fas fa-check"></i> Year-on-year reduction tracking</li>
+                </ul>
+                <a href="#contact" class="solution-link">Learn more <i class="fas fa-arrow-right"></i></a>
+            </div>
+        </div>
+        <div class="solutions-contact reveal">
+            <p>Not sure which solution fits your needs?</p>
+            <a href="tel:+23057914955" class="phone-link">
+                <i class="fas fa-phone"></i>
+                Contact Sales +230 57914955
+            </a>
+        </div>
+    </section>
+
+    <!-- Why Choose Us -->
+    <section class="why-section">
+        <div class="section-header reveal">
+            <span class="section-label">Why Choose Us</span>
+            <h2>Accurate. Compliant. Connected.</h2>
+            <p>Built on peer-reviewed science, validated methodology, and direct integration with goodcarbon's project portfolio.</p>
+        </div>
+        <div class="why-grid">
+            <div class="why-card reveal">
+                <div class="why-icon"><i class="fas fa-bullseye"></i></div>
+                <h3>Accurate & Trusted</h3>
+                <p>Peer-reviewed emission factors from Ecoinvent 3.9.1, Agribalyse 3.1, and DEFRA 2024.</p>
+            </div>
+            <div class="why-card reveal">
+                <div class="why-icon"><i class="fas fa-certificate"></i></div>
+                <h3>ISO 14040/44 Compliant</h3>
+                <p>Methodology validated by SGS. Reports your auditors and regulators can rely on.</p>
+            </div>
+            <div class="why-card reveal">
+                <div class="why-icon"><i class="fas fa-database"></i></div>
+                <h3>500+ Land-Based Materials</h3>
+                <p>Curated database spanning palm oil, soy, cocoa, cotton, timber, sugar, and more.</p>
+            </div>
+            <div class="why-card reveal">
+                <div class="why-icon"><i class="fas fa-handshake"></i></div>
+                <h3>goodcarbon Offset Integration</h3>
+                <p>Direct API link to Panama, Ethiopia, and Germany nature-based projects.</p>
+            </div>
+            <div class="why-card reveal">
+                <div class="why-icon"><i class="fas fa-globe-africa"></i></div>
+                <h3>Backed by Science</h3>
+                <p>Built with marine and agricultural scientists in Mauritius, Indian Ocean.</p>
+            </div>
+            <div class="why-card reveal">
+                <div class="why-icon"><i class="fas fa-layer-group"></i></div>
+                <h3>16 Impact Categories</h3>
+                <p>EF v3.1 method covering climate, water, land, biodiversity, and toxicity.</p>
+            </div>
+        </div>
+        <div class="report-preview reveal" id="report">
+            <div class="report-preview-header">
+                <h3>GreenCarbon Analytics Mauritius</h3>
+                <p>Product Carbon Footprint Report</p>
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+                <strong style="color: var(--forest);">Palm Oil (Refined)</strong>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Elaeis Guineensis Oil</p>
+            </div>
+            <div class="report-preview-metric">
+                <div class="value">3.2</div>
+                <div class="label">kg CO₂e/kg</div>
+            </div>
+            <div class="report-preview-score">
+                <i class="fas fa-leaf"></i>
+                Bioeconomy Score A
+            </div>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
+                Every calculation generates a comprehensive, audit-ready report following ISO 14040/44 methodology. Track your full Scope 1-3 emissions, compare against alternatives, and export ready for CSRD, CDP, GRI, and SBTi disclosure.
+            </p>
+            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                <a href="#" class="btn btn-primary" onclick="showToast('Full sample report opening...'); return false;">
+                    <i class="fas fa-eye"></i>
+                    View Full Sample Report
+                </a>
+                <a href="#" class="btn btn-outline" onclick="showToast('PDF download started!'); return false;">
+                    <i class="fas fa-download"></i>
+                    Download PDF
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trust & Credibility -->
+    <section class="trust-section">
+        <div class="section-header reveal">
+            <span class="section-label">Trust & Credibility</span>
+            <h2>Built on rigorous science & global standards</h2>
+        </div>
+        <div class="trust-badges reveal">
+            <div class="trust-badge">
+                <div class="trust-badge-icon"><i class="fas fa-award"></i></div>
+                <h4>ISO 14040/44</h4>
+                <p>Compliant</p>
+            </div>
+            <div class="trust-badge">
+                <div class="trust-badge-icon"><i class="fas fa-shield-alt"></i></div>
+                <h4>SGS Validation</h4>
+                <p>In Progress</p>
+            </div>
+            <div class="trust-badge">
+                <div class="trust-badge-icon"><i class="fas fa-chart-bar"></i></div>
+                <h4>GHG Protocol</h4>
+                <p>Aligned</p>
+            </div>
+            <div class="trust-badge">
+                <div class="trust-badge-icon"><i class="fas fa-file-contract"></i></div>
+                <h4>ESRS E1 / CSRD</h4>
+                <p>Ready</p>
+            </div>
+            <div class="trust-badge">
+                <div class="trust-badge-icon"><i class="fas fa-leaf"></i></div>
+                <h4>CDP & GRI</h4>
+                <p>Compatible</p>
+            </div>
+            <div class="trust-badge">
+                <div class="trust-badge-icon"><i class="fas fa-database"></i></div>
+                <h4>Ecoinvent 3.9.1</h4>
+                <p>Powered</p>
+            </div>
+            <div class="trust-badge">
+                <div class="trust-badge-icon"><i class="fas fa-globe"></i></div>
+                <h4>EF v3.1 PEF</h4>
+                <p>Method</p>
+            </div>
+        </div>
+        <div class="standards-grid reveal">
+            <div class="standards-col">
+                <h4><i class="fas fa-clipboard-list"></i> Standards We Follow</h4>
+                <ul>
+                    <li>ISO 14040:2006 — Life Cycle Assessment Principles</li>
+                    <li>ISO 14044:2006 — Life Cycle Assessment Requirements</li>
+                    <li>GHG Protocol Corporate Standard</li>
+                    <li>GHG Protocol Scope 3 Standard</li>
+                    <li>ESRS E1 (CSRD) — Climate Change Disclosure</li>
+                    <li>SBTi FLAG Guidelines</li>
+                    <li>EU Green Claims Directive (pending)</li>
+                    <li>EF v3.1 (PEF) Method</li>
+                </ul>
+            </div>
+            <div class="standards-col">
+                <h4><i class="fas fa-database"></i> Data Quality & Verification</h4>
+                <ul>
+                    <li>Ecoinvent 3.9.1 database (18,000+ datasets)</li>
+                    <li>Agribalyse 3.1 (agricultural cross-validation)</li>
+                    <li>DEFRA 2024 conversion factors</li>
+                    <li>Peer-reviewed scientific literature (50+ sources)</li>
+                    <li>SGS-validated methodology (Q4 2026)</li>
+                    <li>Monte Carlo uncertainty quantification</li>
+                    <li>Regional emission factor variants</li>
+                    <li>Annual methodology review</li>
+                </ul>
+            </div>
+        </div>
+        <div class="comparison-bar reveal">
+            <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.95rem;">
+                A typical LCA report from a consultant takes 6–12 weeks and costs €15,000–40,000. GreenCarbon generates an ISO 14040/44-aligned report in minutes.
+            </p>
+            <div class="comparison-item">
+                <div class="comparison-metric">
+                    <div class="number">6–12</div>
+                    <div class="label">weeks</div>
+                </div>
+                <div class="comparison-bar-visual">
+                    <div class="comparison-fill slow"></div>
+                </div>
+                <span style="font-size: 0.9rem; color: var(--text-secondary);">Typical consultant LCA turnaround</span>
+            </div>
+            <div class="comparison-item">
+                <div class="comparison-metric">
+                    <div class="number">€15k–40k</div>
+                    <div class="label">cost</div>
+                </div>
+                <div class="comparison-bar-visual">
+                    <div class="comparison-fill expensive"></div>
+                </div>
+                <span style="font-size: 0.9rem; color: var(--text-secondary);">Typical consultant LCA cost</span>
+            </div>
+            <div class="comparison-item">
+                <div class="comparison-metric">
+                    <div class="number" style="color: var(--mint-bright);">Minutes</div>
+                    <div class="label">time</div>
+                </div>
+                <div class="comparison-bar-visual">
+                    <div class="comparison-fill fast"></div>
+                </div>
+                <span style="font-size: 0.9rem; color: var(--forest); font-weight: 600;">GreenCarbon report generation</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing -->
+    <section class="pricing-section" id="pricing">
+        <div class="section-header reveal">
+            <span class="section-label">Pricing</span>
+            <h2>Simple, transparent pricing</h2>
+            <p>Start free. Scale as you grow. Enterprise custom pricing available.</p>
+        </div>
+        <div class="pricing-grid">
+            <div class="pricing-card reveal">
+                <div class="pricing-name">Free</div>
+                <div class="pricing-desc">Try it out</div>
+                <div class="pricing-price">€0<span>/month</span></div>
+                <div class="pricing-period">Forever free</div>
+                <ul class="pricing-features">
+                    <li><i class="fas fa-check"></i> 1 product calculation</li>
+                    <li><i class="fas fa-check"></i> Product Carbon Footprint only</li>
+                    <li><i class="fas fa-check"></i> PDF export</li>
+                    <li><i class="fas fa-check"></i> Public share link</li>
+                    <li><i class="fas fa-check"></i> Community support</li>
+                    <li><i class="fas fa-check"></i> goodcarbon marketplace access</li>
+                </ul>
+                <button class="btn btn-outline" style="width: 100%;" onclick="showToast('Free plan signup coming soon!')">Get Started</button>
+            </div>
+            <div class="pricing-card featured reveal">
+                <div class="pricing-name">Pro</div>
+                <div class="pricing-desc">For growing brands</div>
+                <div class="pricing-price">€290<span>/month</span></div>
+                <div class="pricing-period">Billed monthly</div>
+                <ul class="pricing-features">
+                    <li><i class="fas fa-check"></i> 50 product calculations</li>
+                    <li><i class="fas fa-check"></i> PCF + Full LCA (16 categories)</li>
+                    <li><i class="fas fa-check"></i> All export formats</li>
+                    <li><i class="fas fa-check"></i> Scenario comparison</li>
+                    <li><i class="fas fa-check"></i> CSRD, CDP, GRI exports</li>
+                    <li><i class="fas fa-check"></i> Email support</li>
+                    <li><i class="fas fa-check"></i> goodcarbon offset (1% fee)</li>
+                </ul>
+                <button class="btn btn-primary" style="width: 100%;" onclick="showToast('Pro trial started! Check your email.')">Start Free Trial</button>
+            </div>
+            <div class="pricing-card reveal">
+                <div class="pricing-name">Business</div>
+                <div class="pricing-desc">For mid-market</div>
+                <div class="pricing-price">€890<span>/month</span></div>
+                <div class="pricing-period">Billed monthly</div>
+                <ul class="pricing-features">
+                    <li><i class="fas fa-check"></i> 250 product calculations</li>
+                    <li><i class="fas fa-check"></i> PCF + Full LCA + uncertainty</li>
+                    <li><i class="fas fa-check"></i> All compliance exports</li>
+                    <li><i class="fas fa-check"></i> API access (10K requests/month)</li>
+                    <li><i class="fas fa-check"></i> Bulk upload</li>
+                    <li><i class="fas fa-check"></i> Priority support</li>
+                    <li><i class="fas fa-check"></i> goodcarbon offset (0.5% fee)</li>
+                    <li><i class="fas fa-check"></i> White-label reports</li>
+                </ul>
+                <button class="btn btn-outline" style="width: 100%;" onclick="showToast('Business trial started! Check your email.')">Start Free Trial</button>
+            </div>
+            <div class="pricing-card reveal">
+                <div class="pricing-name">Enterprise</div>
+                <div class="pricing-desc">For Fortune 500</div>
+                <div class="pricing-price">Custom</div>
+                <div class="pricing-period">Tailored solution</div>
+                <ul class="pricing-features">
+                    <li><i class="fas fa-check"></i> Unlimited products</li>
+                    <li><i class="fas fa-check"></i> Full LCA + custom methods</li>
+                    <li><i class="fas fa-check"></i> Dedicated account manager</li>
+                    <li><i class="fas fa-check"></i> Custom API limits</li>
+                    <li><i class="fas fa-check"></i> SSO + SAML</li>
+                    <li><i class="fas fa-check"></i> On-premise option</li>
+                    <li><i class="fas fa-check"></i> goodcarbon volume pricing</li>
+                    <li><i class="fas fa-check"></i> Custom integrations</li>
+                    <li><i class="fas fa-check"></i> SLA + legal review</li>
+                </ul>
+                <a href="#contact" class="btn btn-outline" style="width: 100%;">Contact Sales</a>
+            </div>
+        </div>
+        <p class="pricing-note">All plans include ISO 14040/44 methodology, Ecoinvent 3.9.1 database access, and goodcarbon marketplace integration. Cancel anytime.</p>
+    </section>
+
+    <!-- About / Story -->
+    <section class="story-section" id="about">
+        <div class="section-header reveal">
+            <span class="section-label">Our Story</span>
+            <h2>Bringing rigor to land-based carbon accounting</h2>
+        </div>
+        <div class="story-grid">
+            <div class="story-visual reveal">
+                <div class="story-image">
+                    <i class="fas fa-globe-africa"></i>
+                </div>
+                <div class="story-stats">
+                    <div class="story-stat">
+                        <div class="number">2025</div>
+                        <div class="label">Founded in Mauritius</div>
+                    </div>
+                </div>
+            </div>
+            <div class="story-content reveal">
+                <p>GreenCarbon Analytics was founded in 2025 in the Republic of Mauritius. Our team combines expertise in life cycle assessment, agricultural science, and software engineering to solve a critical problem: the lack of credible, automated carbon data for land-based supply chains.</p>
+                <p>As CSRD, EUDR, and SBTi FLAG regulations tighten, companies face mounting pressure to measure and disclose the carbon impact of palm oil, soy, cocoa, cotton, timber, and other land-based ingredients. Yet purpose-built tools didn't exist.</p>
+                <p>We built that tool — and partnered with goodcarbon to offer a complete measure-reduce-offset workflow in a single platform.</p>
+                <div class="story-quote">
+                    <p>"Our mission is to make land-based carbon data as accessible, credible, and actionable as possible — enabling companies to build genuinely sustainable supply chains."</p>
+                    <div class="author">— GreenCarbon Team</div>
+                </div>
+                <div class="story-buttons">
+                    <a href="#contact" class="btn btn-primary">
+                        <i class="fas fa-users"></i>
+                        Meet Our Team
+                    </a>
+                    <a href="#contact" class="btn btn-outline">
+                        <i class="fas fa-envelope"></i>
+                        Contact Us
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Resources -->
+    <section class="resources-section" id="resources">
+        <div class="section-header reveal">
+            <span class="section-label">Resources</span>
+            <h2>Latest insights & research</h2>
+            <p>Deep dives into land-based carbon, supply chain emissions, and sustainability science</p>
+        </div>
+        <div class="resources-grid">
+            <div class="resource-card reveal">
+                <div class="resource-image">
+                    <i class="fas fa-file-alt"></i>
+                    <span class="resource-type">White Paper</span>
+                </div>
+                <div class="resource-content">
+                    <div class="resource-meta">
+                        <span><i class="far fa-calendar"></i> Jan 2026</span>
+                        <span><i class="far fa-clock"></i> 7 min read</span>
+                    </div>
+                    <h3>Understanding Land-Based Carbon Accounting: A Complete Guide</h3>
+                    <p>Everything you need to know about measuring, reporting, and reducing carbon emissions from agricultural and forestry supply chains.</p>
+                    <a href="#" class="resource-link" onclick="showToast('White paper download starting...'); return false;">Read more <i class="fas fa-arrow-right"></i></a>
+                </div>
+            </div>
+            <div class="resource-card reveal">
+                <div class="resource-image">
+                    <i class="fas fa-chart-line"></i>
+                    <span class="resource-type">Case Study</span>
+                </div>
+                <div class="resource-content">
+                    <div class="resource-meta">
+                        <span><i class="far fa-calendar"></i> Dec 2025</span>
+                        <span><i class="far fa-clock"></i> 10 min read</span>
+                    </div>
+                    <h3>How a Leading Brand Cut Their Palm Oil Scope 3 by 40%</h3>
+                    <p>A leading FMCG company used GreenCarbon to identify deforestation hotspots and reformulate with certified sustainable palm oil.</p>
+                    <a href="#" class="resource-link" onclick="showToast('Case study download starting...'); return false;">Read more <i class="fas fa-arrow-right"></i></a>
+                </div>
+            </div>
+            <div class="resource-card reveal">
+                <div class="resource-image">
+                    <i class="fas fa-book"></i>
+                    <span class="resource-type">Guide</span>
+                </div>
+                <div class="resource-content">
+                    <div class="resource-meta">
+                        <span><i class="far fa-calendar"></i> Nov 2025</span>
+                        <span><i class="far fa-clock"></i> 8 min read</span>
+                    </div>
+                    <h3>CSRD & EUDR: What Land-Based Brands Need to Know</h3>
+                    <p>A practical guide to the EU Corporate Sustainability Reporting Directive and EU Deforestation Regulation for agricultural supply chains.</p>
+                    <a href="#" class="resource-link" onclick="showToast('Guide download starting...'); return false;">Read more <i class="fas fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="resources-cta reveal">
+            <a href="#" class="btn btn-outline" onclick="showToast('Resources page coming soon!'); return false;">
+                View All Resources <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq-section" id="faq">
+        <div class="section-header reveal">
+            <span class="section-label">FAQ</span>
+            <h2>Frequently asked questions</h2>
+        </div>
+        <div class="faq-list">
+            <div class="faq-item reveal">
+                <div class="faq-question">
+                    What is a land-based carbon footprint?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>A land-based carbon footprint measures the total greenhouse gas emissions associated with agricultural, forestry, or other land-derived products — from cultivation and harvesting through processing, transport, and packaging. Our calculator follows ISO 14040/44 methodology and reports across all 16 EF v3.1 impact categories.</p>
+                </div>
+            </div>
+            <div class="faq-item reveal">
+                <div class="faq-question">
+                    How is this different from generic LCA tools?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Generic LCA tools require manual data entry and LCA expertise. GreenCarbon is purpose-built for land-based supply chains with pre-loaded emission factors for 500+ agricultural and forestry materials, AI-powered data extraction, and automated report generation aligned with ISO 14040/44.</p>
+                </div>
+            </div>
+            <div class="faq-item reveal">
+                <div class="faq-question">
+                    Is your methodology validated?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Yes. Our Product Carbon Footprint methodology follows ISO 14040/44 and is currently undergoing SGS validation (expected Q4 2026). All emission factors are sourced from peer-reviewed databases including Ecoinvent 3.9.1 and Agribalyse 3.1.</p>
+                </div>
+            </div>
+            <div class="faq-item reveal">
+                <div class="faq-question">
+                    How does the goodcarbon integration work?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>After calculating your product's carbon footprint, you can match residual emissions to verified nature-based projects through our direct API integration with goodcarbon. Purchase offsets with one click and receive Swiss Re-insured retirement certificates with QR codes for verification.</p>
+                </div>
+            </div>
+            <div class="faq-item reveal">
+                <div class="faq-question">
+                    Can I integrate this with my existing systems?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Yes. Our Business and Enterprise plans include API access for integration with ERP, PLM, and sustainability reporting systems. We also offer custom integrations for Enterprise clients including SSO/SAML and on-premise deployment options.</p>
+                </div>
+            </div>
+            <div class="faq-item reveal">
+                <div class="faq-question">
+                    What regulations does this help me comply with?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>GreenCarbon helps you comply with CSRD (Corporate Sustainability Reporting Directive), EUDR (EU Deforestation Regulation), EU Green Claims Directive, SBTi FLAG guidelines, CDP, and GRI standards. Our reports are export-ready for all major disclosure frameworks.</p>
+                </div>
+            </div>
+            <div class="faq-item reveal">
+                <div class="faq-question">
+                    How accurate are the calculations?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>We use Monte Carlo simulation for uncertainty quantification and provide data quality scores for each emission factor. Our methodology is aligned with ISO 14040/44 and uses the most current peer-reviewed databases. For carbon credit certification, we recommend field sampling validation.</p>
+                </div>
+            </div>
+            <div class="faq-item reveal">
+                <div class="faq-question">
+                    Do you offer a free trial?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Yes! Our Free plan includes 1 product calculation with full Product Carbon Footprint report and PDF export. Pro and Business plans include a 14-day free trial with no credit card required.</p>
+                </div>
+            </div>
+            <div class="faq-item reveal">
+                <div class="faq-question">
+                    Where is my data stored?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Data is stored on EU-based servers with GDPR compliance. Enterprise clients can opt for on-premise deployment. All data is encrypted in transit and at rest.</p>
+                </div>
+            </div>
+            <div class="faq-item reveal">
+                <div class="faq-question">
+                    Can you help with custom consulting?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Yes. Our Enterprise plan includes dedicated account management and custom consulting services. We also offer bespoke LCA studies, methodology development, and training programs for sustainability teams.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact -->
+    <section class="contact-section" id="contact">
+        <div class="contact-grid">
+            <div class="contact-form reveal">
+                <h2>Get in touch</h2>
+                <p>Book a personalized demo or ask our team anything.</p>
+                <form onsubmit="event.preventDefault(); showToast('Demo request submitted! We will contact you within 24 hours.');">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Full Name *</label>
+                            <input type="text" placeholder="Jane Doe" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Work Email *</label>
+                            <input type="email" placeholder="jane@company.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Company *</label>
+                            <input type="text" placeholder="Acme Inc." required>
+                        </div>
+                        <div class="form-group">
+                            <label>Industry</label>
+                            <select>
+                                <option>Select an industry</option>
+                                <option>Fashion & Apparel</option>
+                                <option>Beauty & Cosmetics</option>
+                                <option>FMCG & Food</option>
+                                <option>Pharmaceutical</option>
+                                <option>Ingredient Supplier</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group full">
+                            <label>Use Case (optional)</label>
+                            <textarea rows="3" placeholder="Tell us about your needs..."></textarea>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-white btn-large" style="width: 100%;">
+                        <i class="fas fa-paper-plane"></i>
+                        Request Demo
+                    </button>
+                </form>
+            </div>
+            <div class="contact-info reveal">
+                <div class="contact-card">
+                    <div class="contact-card-header">
+                        <div class="contact-card-icon"><i class="fas fa-envelope"></i></div>
+                        <h4>Email</h4>
+                    </div>
+                    <p>Response within 24 hours</p>
+                    <a href="mailto:hello@greencarbon.earth">hello@greencarbon.earth</a>
+                </div>
+                <div class="contact-card">
+                    <div class="contact-card-header">
+                        <div class="contact-card-icon"><i class="fab fa-whatsapp"></i></div>
+                        <h4>WhatsApp / Phone</h4>
+                    </div>
+                    <p>Mon-Fri, 9am-6pm MUT</p>
+                    <a href="tel:+23057914955">+230 57914955</a>
+                </div>
+                <div class="contact-card">
+                    <div class="contact-card-header">
+                        <div class="contact-card-icon"><i class="fas fa-map-marker-alt"></i></div>
+                        <h4>Headquarters</h4>
+                    </div>
+                    <p>GreenCarbon Analytics Mauritius</p>
+                    <p>Republic of Mauritius, Indian Ocean</p>
+                </div>
+                <div class="contact-card">
+                    <div class="contact-card-header">
+                        <div class="contact-card-icon"><i class="fas fa-share-alt"></i></div>
+                        <h4>Social</h4>
+                    </div>
+                    <div class="contact-social">
+                        <a href="#"><i class="fab fa-linkedin"></i></a>
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-github"></i></a>
+                    </div>
+                    <p style="margin-top: 0.75rem; font-size: 0.85rem;">Based in Mauritius (UTC+4). We work with clients across Europe, Africa, Asia-Pacific, and the Americas.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Banner -->
+    <section class="cta-banner">
+        <div class="reveal">
+            <h2>Ready to measure your land-based carbon footprint?</h2>
+            <p>Start with a free Product Carbon Footprint calculation. No credit card required.</p>
+            <div class="cta-buttons">
+                <a href="#pricing" class="btn btn-primary btn-large">
+                    <i class="fas fa-rocket"></i>
+                    Get Started Free
+                </a>
+                <a href="#contact" class="btn btn-outline btn-large">
+                    <i class="fas fa-calendar"></i>
+                    Book a Demo
+                </a>
+            </div>
+            <div style="margin-top: 1.5rem; display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-muted);">
+                <span><i class="fas fa-check" style="color: var(--mint-bright);"></i> Free 14-day trial</span>
+                <span><i class="fas fa-check" style="color: var(--mint-bright);"></i> No credit card required</span>
+                <span><i class="fas fa-check" style="color: var(--mint-bright);"></i> Setup in 5 minutes</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Newsletter -->
+    <section style="background: var(--warm-white); padding: 3rem 5%; text-align: center;">
+        <div class="reveal" style="max-width: 500px; margin: 0 auto;">
+            <h3 style="color: var(--forest); margin-bottom: 0.5rem; font-family: 'Playfair Display', serif;">Stay updated</h3>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.5rem;">Get the latest insights on land-based carbon and goodcarbon projects</p>
+            <form style="display: flex; gap: 0.75rem;" onsubmit="event.preventDefault(); showToast('Subscribed! Welcome to the GreenCarbon community.');">
+                <input type="email" placeholder="Your email" style="flex: 1; padding: 0.9rem 1rem; border-radius: 10px; border: 1.5px solid var(--border); font-family: inherit; font-size: 1rem;" required>
+                <button type="submit" class="btn btn-primary">Subscribe</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <a href="#" class="logo">
+                    <div class="logo-icon"><i class="fas fa-leaf"></i></div>
+                    GreenCarbon
+                </a>
+                <p>Automated carbon footprint & LCA for land-based ingredients.</p>
+                <div class="footer-contact">
+                    <a href="mailto:hello@greencarbon.earth">hello@greencarbon.earth</a>
+                    <a href="tel:+23057914955">+230 57914955</a>
+                </div>
+            </div>
+            <div class="footer-links">
+                <h4>Product</h4>
+                <ul>
+                    <li><a href="#product">Product Carbon Footprint</a></li>
+                    <li><a href="#">Full LCA</a></li>
+                    <li><a href="#">goodcarbon Integration</a></li>
+                    <li><a href="#">API Documentation</a></li>
+                    <li><a href="#pricing">Pricing</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Solutions</h4>
+                <ul>
+                    <li><a href="#solutions">Brands</a></li>
+                    <li><a href="#solutions">Cosmetic Labs</a></li>
+                    <li><a href="#solutions">Pharmaceutical Labs</a></li>
+                    <li><a href="#solutions">Ingredient Suppliers</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="#resources">Blog</a></li>
+                    <li><a href="#resources">Case Studies</a></li>
+                    <li><a href="#resources">White Papers</a></li>
+                    <li><a href="#">Webinars</a></li>
+                    <li><a href="#">Help Center</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="#about">About Us</a></li>
+                    <li><a href="#">Our Team</a></li>
+                    <li><a href="#">Methodology</a></li>
+                    <li><a href="#">Careers</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                    <li><a href="#">Press</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p> 2026 GreenCarbon Analytics Mauritius. All rights reserved.</p>
+            <div class="footer-bottom-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">Cookie Policy</a>
+                <a href="#">Sitemap</a>
+            </div>
+        </div>
+        <p class="footer-tagline">Built within the Indian Ocean</p>
+    </footer>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toastMessage">Message</span>
+    </div>
+
+    <!-- Cookie Banner -->
+    <div class="cookie-banner" id="cookieBanner">
+        <p>We use cookies to improve your experience. By continuing, you agree to our <a href="#">Cookie Policy</a>.</p>
+        <button class="btn btn-primary" onclick="acceptCookies()">Accept</button>
+    </div>
+
+    <script>
+        // ===== PARTICLE SYSTEM =====
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let mouseX = 0, mouseY = 0;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = (Math.random() - 0.5) * 0.3;
+                this.speedY = (Math.random() - 0.5) * 0.3;
+                this.opacity = Math.random() * 0.3 + 0.1;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.x < 0) this.x = canvas.width;
+                if (this.x > canvas.width) this.x = 0;
+                if (this.y < 0) this.y = canvas.height;
+                if (this.y > canvas.height) this.y = 0;
+
+                const dx = mouseX - this.x;
+                const dy = mouseY - this.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 150) {
+                    this.x -= dx * 0.008;
+                    this.y -= dy * 0.008;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(45, 106, 79, ${this.opacity})`;
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            const count = Math.min(window.innerWidth / 12, 80);
+            for (let i = 0; i < count; i++) particles.push(new Particle());
+        }
+        initParticles();
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => { p.update(); p.draw(); });
+
+            particles.forEach((p1, i) => {
+                particles.slice(i + 1).forEach(p2 => {
+                    const dx = p1.x - p2.x, dy = p1.y - p2.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 120) {
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.strokeStyle = `rgba(45, 106, 79, ${0.08 * (1 - dist/120)})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+                });
+            });
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+
+        document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+
+        // ===== NAVBAR SCROLL =====
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            navbar.classList.toggle('scrolled', window.scrollY > 50);
+        });
+
+        // ===== MOBILE MENU =====
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        const mobileOverlay = document.getElementById('mobileOverlay');
+        const mobileMenuClose = document.getElementById('mobileMenuClose');
+
+        function toggleMenu() {
+            mobileMenu.classList.toggle('open');
+            mobileOverlay.classList.toggle('open');
+        }
+
+        mobileMenuBtn.addEventListener('click', toggleMenu);
+        mobileMenuClose.addEventListener('click', toggleMenu);
+        mobileOverlay.addEventListener('click', toggleMenu);
+        document.querySelectorAll('.mobile-nav-links a').forEach(a => a.addEventListener('click', toggleMenu));
+
+        // ===== SCROLL REVEAL =====
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+        // ===== SCOPE BAR ANIMATION =====
+        const scopeObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.querySelectorAll('.scope-fill').forEach((fill, i) => {
+                        setTimeout(() => { fill.style.width = fill.classList.contains('scope-1') ? '15%' : fill.classList.contains('scope-2') ? '35%' : '50%'; }, i * 200);
+                    });
+                }
+            });
+        }, { threshold: 0.5 });
+
+        document.querySelectorAll('.scope-breakdown').forEach(el => scopeObserver.observe(el));
+
+        // ===== EUDR COUNTDOWN =====
+        function updateCountdown() {
+            const target = new Date('2026-12-30');
+            const now = new Date();
+            const diff = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+            document.getElementById('eudrDays').textContent = Math.max(0, diff);
+        }
+        updateCountdown();
+
+        // ===== CALCULATOR TABS =====
+        const calcTabs = document.querySelectorAll('.calc-tab');
+        const calcPanels = document.querySelectorAll('.calc-panel');
+
+        calcTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                calcTabs.forEach(t => t.classList.remove('active'));
+                calcPanels.forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.calc + '-calc').classList.add('active');
+            });
+        });
+
+        // ===== SOIL CALCULATOR =====
+        function calculateSoil() {
+            const area = parseFloat(document.getElementById('soilArea').value) || 100;
+            const years = parseFloat(document.getElementById('projectionYears').value) || 20;
+            const toc = parseFloat(document.getElementById('tocPercent').value) || 1.5;
+
+            const bulkDensity = 1.35;
+            const depth = 30;
+            const stock = (toc / 100) * bulkDensity * depth * 10;
+            const totalStock = stock * area;
+            const seqRate = stock * 0.06;
+            const seqTotal = seqRate * area;
+            const seq20yr = seqTotal * years;
+
+            document.getElementById('socStock').textContent = stock.toFixed(1);
+            document.getElementById('totalStock').textContent = (totalStock / 1000).toFixed(1) + 'k';
+            document.getElementById('seqRate').textContent = seqRate.toFixed(2);
+            document.getElementById('seqTotal').textContent = Math.round(seqTotal);
+            document.getElementById('seq20yr').textContent = Math.round(seq20yr);
+        }
+
+        ['soilArea', 'projectionYears', 'tocPercent'].forEach(id => {
+            document.getElementById(id).addEventListener('input', calculateSoil);
+        });
+        ['soilTexture', 'landUse', 'samplingDepth'].forEach(id => {
+            document.getElementById(id).addEventListener('change', calculateSoil);
+        });
+
+        // ===== FAQ ACCORDION =====
+        document.querySelectorAll('.faq-item').forEach(item => {
+            item.querySelector('.faq-question').addEventListener('click', () => {
+                const wasActive = item.classList.contains('active');
+                document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
+                if (!wasActive) item.classList.add('active');
+            });
+        });
+
+        // ===== TOAST =====
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // ===== COOKIE BANNER =====
+        let cookiesAccepted = false;
+
+        setTimeout(() => {
+            if (!cookiesAccepted) {
+                document.getElementById('cookieBanner').classList.add('show');
+            }
+        }, 2000);
+
+        function acceptCookies() {
+            cookiesAccepted = true;
+            document.getElementById('cookieBanner').classList.remove('show');
+        }
+
+        // ===== SMOOTH SCROLL =====
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+
+        // ===== PARALLAX =====
+        window.addEventListener('scroll', () => {
+            const scrolled = window.scrollY;
+            const heroContent = document.querySelector('.hero-content');
+            if (heroContent && scrolled < window.innerHeight) {
+                heroContent.style.transform = `translateY(${scrolled * 0.2}px)`;
+            }
+        });
+    </script>
+</body>
+</html>
+<script data-huggingchat-badge="script">
+(function () {
+	try {
+		if (document.querySelector("[data-huggingchat-badge]:not(script)")) return;
+		var host = document.createElement("div");
+		host.setAttribute("data-huggingchat-badge", "");
+		var styles = [["all","initial"],["position","fixed"],["right","12px"],["bottom","12px"],["z-index","2147483647"],["display","block"],["visibility","visible"],["opacity","1"],["pointer-events","auto"],["width","auto"],["height","auto"],["margin","0"],["padding","0"],["max-width","none"],["max-height","none"],["transform","none"],["filter","none"],["clip-path","none"],["color-scheme","light"]];
+		for (var i = 0; i < styles.length; i++) {
+			host.style.setProperty(styles[i][0], styles[i][1], "important");
+		}
+		host.attachShadow({ mode: "closed" }).innerHTML = "<style>\n:host { all: initial; }\na {\n  display: flex;\n  align-items: center;\n  gap: 5px;\n  box-sizing: border-box;\n  height: 26px;\n  padding: 0 9px 0 7px;\n  border-radius: 999px;\n  border: 1px solid rgba(0, 0, 0, 0.07);\n  background: rgba(255, 255, 255, 0.92);\n  -webkit-backdrop-filter: saturate(180%) blur(8px);\n  backdrop-filter: saturate(180%) blur(8px);\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);\n  color: #111827;\n  font: 500 11px/1 ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  letter-spacing: 0.01em;\n  text-decoration: none;\n  white-space: nowrap;\n  opacity: 0.72;\n  transition: opacity 0.15s ease, transform 0.15s ease;\n}\na:hover, a:focus-visible { opacity: 1; transform: translateY(-1px); }\nsvg { width: 14px; height: 14px; flex: none; }\n@media print { a { display: none; } }\n<\/style><a href=\"https://huggingface.co/chat\" target=\"_blank\" rel=\"noopener noreferrer nofollow\"><svg viewBox=\"0 0 32 32\" fill=\"none\" aria-hidden=\"true\"><path d=\"M16.0006 25.9992C13.8266 25.999 11.7118 25.2901 9.97686 23.9799C8.2419 22.6698 6.98127 20.8298 6.38599 18.7388C5.79071 16.6478 5.89323 14.4198 6.678 12.3923C7.46278 10.3648 8.88705 8.64837 10.735 7.50308C12.5829 6.35779 14.7538 5.84606 16.9187 6.04544C19.0837 6.24481 21.1246 7.14442 22.7323 8.60795C24.34 10.0715 25.4268 12.0192 25.8281 14.1559C26.2293 16.2926 25.9232 18.5019 24.9561 20.449C24.7703 20.8042 24.7223 21.2155 24.8211 21.604L25.4211 23.8316C25.4803 24.0518 25.4805 24.2837 25.4216 24.5039C25.3627 24.7242 25.2468 24.925 25.0856 25.0862C24.9244 25.2474 24.7235 25.3633 24.5033 25.4222C24.283 25.4811 24.0512 25.4809 23.831 25.4217L21.6034 24.8217C21.2172 24.7248 20.809 24.7729 20.4558 24.9567C19.0683 25.6467 17.5457 26.0068 16.0006 26.0068V25.9992Z\" fill=\"currentColor\"/><path d=\"M9.62598 16.0013C9.62598 15.3799 10.1294 14.8765 10.7508 14.8765C11.3721 14.8765 11.8756 15.3799 11.8756 16.0013C11.8756 17.0953 12.3102 18.1448 13.0838 18.9184C13.8574 19.692 14.9069 20.1266 16.001 20.1267C17.095 20.1267 18.1445 19.692 18.9181 18.9184C19.6918 18.1448 20.1264 17.0953 20.1264 16.0013C20.1264 15.3799 20.6299 14.8765 21.2512 14.8765C21.8725 14.8765 22.3759 15.3799 22.3759 16.0013C22.3759 17.6921 21.7046 19.3137 20.509 20.5093C19.3134 21.7049 17.6918 22.3762 16.001 22.3762C14.3102 22.3762 12.6885 21.7049 11.4929 20.5093C10.2974 19.3137 9.62598 17.6921 9.62598 16.0013Z\" fill=\"#fff\"/><\/svg><span>Made with HuggingChat<\/span><\/a>";
+		function attach() {
+			var parent = document.body || document.documentElement;
+			if (parent && host.parentNode !== parent) parent.appendChild(host);
+		}
+		attach();
+		// Artifacts that rewrite document.body wholesale would drop the badge.
+		if (document.body && typeof MutationObserver === "function") {
+			new MutationObserver(attach).observe(document.body, { childList: true });
+		} else {
+			document.addEventListener("DOMContentLoaded", attach);
+		}
+	} catch (e) {}
+})();
+</script>

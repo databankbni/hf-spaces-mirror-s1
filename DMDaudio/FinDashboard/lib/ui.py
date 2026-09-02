@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from html import escape as html_escape
 
 import pandas as pd
 import streamlit as st
@@ -1493,6 +1494,40 @@ def render_is_chart(sections: list[dict], years: list[int]) -> None:
 def reportal_company_url(idcode: str) -> str:
     """Public URL of a company's reports page on reportal.ge."""
     return f"https://reportal.ge/ka/Reports/Report?q={idcode}"
+
+
+#: Bookkeeping tags stored in ``companies.DescriptionSources`` so a pipeline can
+#: recognise its own writes. Provenance for the pipeline, noise for the reader.
+_INTERNAL_SOURCE_PREFIXES = ("writeup:",)
+
+
+def description_source_links(sources: list | None, max_links: int = 5) -> str:
+    """The " · src 1 · filing" trail under a curated company description.
+
+    ``DescriptionSources`` is a JSON list holding two different kinds of thing:
+    real URLs from the web-enrichment seed, and plain provenance strings from the
+    note passes ("activity note, FY2024 annual report (reportal.ge) [2026-08-05]").
+    Linkifying both — which is what the original inline version did — produced an
+    ``<a href>`` wrapped around a sentence of prose: a dead "src 1" on 761
+    tearsheets, pointing at nothing.
+
+    So: URLs become links (a reportal.ge one is labelled "filing", because that is
+    what it opens), non-URLs render as the escaped provenance text they are, and
+    internal tags are dropped. Returns "" when there is nothing worth showing, so
+    the caller can concatenate unconditionally.
+    """
+    items = [str(s) for s in (sources or []) if s]
+    urls = [s for s in items if s.startswith(("http://", "https://"))]
+    notes = [s for s in items
+             if not s.startswith(("http://", "https://"))
+             and not s.startswith(_INTERNAL_SOURCE_PREFIXES)]
+    parts = [
+        f'<a href="{html_escape(u)}" target="_blank" rel="noopener" '
+        f'style="color:#888;">{"filing" if "reportal.ge" in u else f"src {i + 1}"}</a>'
+        for i, u in enumerate(urls[:max_links])
+    ]
+    parts += [html_escape(s) for s in notes[:2]]
+    return " · " + " · ".join(parts) if parts else ""
 
 
 def _wrap_year_headers(

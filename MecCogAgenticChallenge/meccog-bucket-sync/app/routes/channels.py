@@ -34,6 +34,7 @@ from app.deps import (
     get_raw_message_limiter,
     get_read_model,
     get_settings_dep,
+    require_challenge_open,
 )
 from app.errors import (
     ChannelExists,
@@ -298,7 +299,12 @@ def _announcement_body(name: str, theme: str) -> str:
 # ───────────────────────── writes ─────────────────────────
 
 
-@router.post("/v1/channels", response_model=ChannelCreateResponse, status_code=201)
+@router.post(
+    "/v1/channels",
+    response_model=ChannelCreateResponse,
+    status_code=201,
+    dependencies=[Depends(require_challenge_open)],
+)
 def create_channel(
     req: ChannelCreateRequest,
     request: Request,
@@ -506,7 +512,11 @@ def _marker_for(
     return fm, serialise(fm, "")
 
 
-@router.post("/v1/channels/{name}/subscribe", response_model=ChannelSubscribeResponse)
+@router.post(
+    "/v1/channels/{name}/subscribe",
+    response_model=ChannelSubscribeResponse,
+    dependencies=[Depends(require_challenge_open)],
+)
 def subscribe_channel(
     name: str,
     req: ChannelSubscribeRequest,
@@ -572,7 +582,11 @@ def subscribe_channel(
     )
 
 
-@router.post("/v1/channels/{name}/unsubscribe", response_model=ChannelSubscribeResponse)
+@router.post(
+    "/v1/channels/{name}/unsubscribe",
+    response_model=ChannelSubscribeResponse,
+    dependencies=[Depends(require_challenge_open)],
+)
 def unsubscribe_channel(
     name: str,
     req: ChannelSubscribeRequest,

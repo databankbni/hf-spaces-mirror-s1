@@ -289,7 +289,11 @@ async def elevation(req: PointRequest):
             "elevation_m": vals[0], "fetched_at": datetime.utcnow().isoformat() + "Z"}
 
 
-@router.get("/selftest")
+# GET/POST/HEAD: this is a free diagnostic and the crawler fleet POSTs it. Registered
+# GET-only it answered 405, which tells a prober the path is not there at all. Its
+# full path is also in mcp_http.FREE_PATHS so tokenguard's blanket POST sweep cannot
+# turn a diagnostic into a paid route.
+@router.api_route("/selftest", methods=["GET", "POST", "HEAD"])
 async def world_selftest():
     """FREE. Per-upstream reachability for every backend behind these routes.
 

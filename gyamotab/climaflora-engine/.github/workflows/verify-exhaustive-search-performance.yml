@@ -1,0 +1,250 @@
+name: Verify exhaustive search performance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/services/funnel_metadata.py'
+      - 'app/services/exhaustive_search.py'
+      - 'app/services/search_genus_facets.py'
+      - 'app/services/search_vector_runtime.py'
+      - 'app/routers/search.py'
+      - 'app/main.py'
+      - 'app/version.py'
+      - 'pyproject.toml'
+      - '.github/workflows/verify-exhaustive-search-performance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: verify-exhaustive-search-performance
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve expected runtime version
+        run: echo "EXPECTED_VERSION=$(python -c 'from app.version import APP_VERSION; print(APP_VERSION)')" >> "$GITHUB_ENV"
+
+      - name: Wait for deployed runtime health
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, time, urllib.request
+          expected=os.environ['EXPECTED_VERSION']
+          url='https://gyamotab-climaflora-engine.hf.space/api/v1/health'
+          last=None
+          for attempt in range(150):
+              try:
+                  req=urllib.request.Request(url,headers={'Cache-Control':'no-cache'})
+                  with urllib.request.urlopen(req,timeout=20) as response:
+                      payload=json.load(response)
+                  last=payload
+                  print('health',attempt+1,payload,flush=True)
+                  if payload.get('status')=='ok' and payload.get('version')==expected:
+                      raise SystemExit(0)
+              except Exception as exc:
+                  last=f'{type(exc).__name__}: {exc}'
+                  print('wait',attempt+1,last,flush=True)
+              time.sleep(8)
+          raise SystemExit(f'Runtime {expected} not healthy: {last}')
+          PY
+
+      - name: Measure production exhaustive funnel and v10.10 genus facets
+        id: measure
+        shell: bash
+        run: |
+          set -uo pipefail
+          python - <<'PY'
+          from collections import Counter
+          from datetime import datetime, timezone
+          import json, os, re, time, urllib.error, urllib.parse, urllib.request
+          from pathlib import Path
+
+          API='https://gyamotab-climaflora-engine.hf.space/api/v1'
+          GENUS_PREFIX='__CF_GENUS_INITIAL_'
+          tree=page2=food=herb=alpha=None
+          tree_s=page2_s=food_s=herb_s=alpha_s=None
+          readiness_attempts=0
+          readiness_last_error=None
+          failure=None
+
+          def request_once(params, timeout=240):
+              url=API+'/recommendations/search?'+urllib.parse.urlencode(params,doseq=True)
+              start=time.perf_counter()
+              req=urllib.request.Request(url,headers={'Cache-Control':'no-cache','Accept':'application/json'})
+              try:
+                  with urllib.request.urlopen(req,timeout=timeout) as response:
+                      payload=json.load(response)
+                  return payload,time.perf_counter()-start
+              except urllib.error.HTTPError as exc:
+                  body=exc.read().decode('utf-8','replace')[:2000]
+                  raise RuntimeError(f'HTTP {exc.code}: {body}') from exc
+
+          def fetch(params, *, timeout=240, attempts=1, delay=10):
+              last=None
+              for attempt in range(1,attempts+1):
+                  try:
+                      return request_once(params,timeout=timeout),attempt
+                  except Exception as exc:
+                      last=exc
+                      print(f'search readiness {attempt}/{attempts}: {type(exc).__name__}: {exc}',flush=True)
+                      if attempt<attempts:
+                          time.sleep(delay)
+              raise last
+
+          def require(condition, label, detail=None):
+              if not condition:
+                  raise AssertionError(f'{label}: {detail!r}')
+
+          def genus_initial(name):
+              text=str(name or '').strip()
+              text=re.sub(r'^[×x]\s+','',text,flags=re.I)
+              if text.startswith('×'):
+                  text=text[1:].lstrip()
+              return text[:1].upper()
+
+          try:
+              base={
+                  'lat':'47.16','lon':'-1.27','horizon':'2050','scenario':'MEDIUM',
+                  'life_form':'TREE','offset':'0','limit':'50',
+              }
+
+              # /health can become green before CHELSA/catalog-backed search is
+              # actually usable. Probe the real endpoint without redeploying and
+              # tolerate the bounded warm-up/remote-provider window.
+              try:
+                  (_warm,_warm_s),readiness_attempts=fetch(base,attempts=24,delay=10)
+              except Exception as exc:
+                  readiness_last_error=f'{type(exc).__name__}: {exc}'
+                  raise
+
+              tree,tree_s=request_once(base)
+              page2_params=dict(base); page2_params['offset']='50'
+              page2,page2_s=request_once(page2_params)
+              food_params=dict(base); food_params['function']=['FOOD_HUMAN']; food_params['limit']='20'
+              food,food_s=request_once(food_params)
+              herb_params=dict(base); herb_params['life_form']='HERB'; herb_params['limit']='10'
+              herb,herb_s=request_once(herb_params)
+
+              tm=tree['metrics']; facets=tree['facets']
+              genus_facets=facets.get('genus_initial') or {}
+              names=[x['scientific_name'] for x in tree['recommendations']]
+              initials=Counter(genus_initial(name) for name in names if name)
+
+              require(tree.get('catalog_schema_version')=='2.0.0','catalog_schema_version',tree.get('catalog_schema_version'))
+              require(tree.get('function_code_space')=='canonical_public','function_code_space',tree.get('function_code_space'))
+              require(tree.get('life_form_mapping')=='wcvp_normalized_v2','life_form_mapping',tree.get('life_form_mapping'))
+              require(tree.get('alphabetical_prelimit') is False,'alphabetical_prelimit',tree.get('alphabetical_prelimit'))
+              require(((tree.get('search_runtime') or {}).get('engine'))=='vector-v0.10','vector engine',tree.get('search_runtime'))
+              require(tm['catalog_total']==420532,'catalog_total',tm)
+              require(tm['after_type']==42528,'TREE after_type',tm)
+              require(tm['evaluated_candidates']==42528,'TREE evaluated_candidates',tm)
+              require(int(facets['life_form'].get('HERB',0))==155841,'HERB facet',facets['life_form'])
+              require(int(facets['life_form'].get('PALM',0))==2846,'PALM facet',facets['life_form'])
+              require(int(facets['functions'].get('FOOD_HUMAN',0))==1907,'FOOD_HUMAN facet',facets['functions'])
+              require(not (initials and set(initials)=={'A'}),'alphabetical bias',dict(initials))
+              require(page2.get('cache_hit') is True,'page2 cache_hit',page2.get('cache_hit'))
+              require(page2['metrics']==tm,'page2 metrics',page2['metrics'])
+              require(food['metrics']['after_function']==1907,'TREE+FOOD after_function',food['metrics'])
+              require(herb['metrics']['after_type']==155841,'HERB after_type',herb['metrics'])
+
+              # v10.10 invariant: the alphabet is a global facet on the whole
+              # matching population, never a count of the currently loaded cards.
+              require(int(genus_facets.get('ALL',-1))==int(tm['total_results']),'genus ALL global count',genus_facets)
+              letter_total=sum(int(v) for k,v in genus_facets.items() if k!='ALL')
+              require(letter_total==int(genus_facets['ALL']),'genus letter sum',genus_facets)
+              require(int(genus_facets.get('A',0))>0,'genus A available',genus_facets)
+
+              alpha_params=dict(base)
+              alpha_params['function']=[GENUS_PREFIX+'A']
+              alpha,alpha_s=request_once(alpha_params)
+              alpha_facets=(alpha.get('facets') or {}).get('genus_initial') or {}
+              alpha_names=[x.get('scientific_name','') for x in alpha.get('recommendations',[])]
+              require(alpha['metrics']['after_function']==tm['after_function'],'genus filter not scientific function',alpha['metrics'])
+              require(alpha['metrics']['total_results']==int(genus_facets['A']),'genus A result count',alpha['metrics'])
+              require(alpha_facets==genus_facets,'genus facets stable after A selection',{'base':genus_facets,'A':alpha_facets})
+              require(all(genus_initial(name)=='A' for name in alpha_names),'genus A page purity',alpha_names[:10])
+
+              # Hard regression ceilings apply after the real endpoint is warm.
+              require(tree_s < 20.0,'TREE latency ceiling',tree_s)
+              require(food_s < 12.0,'TREE+FOOD latency ceiling',food_s)
+              require(herb_s < 20.0,'HERB latency ceiling',herb_s)
+              require(page2_s < 5.0,'page2 latency ceiling',page2_s)
+              require(alpha_s < 5.0,'genus A navigation ceiling',alpha_s)
+          except Exception as exc:
+              failure=f'{type(exc).__name__}: {exc}'
+              if readiness_last_error is None and tree is None:
+                  readiness_last_error=failure
+
+          tm=(tree or {}).get('metrics',{})
+          facets=(tree or {}).get('facets',{})
+          names=[x.get('scientific_name','') for x in (tree or {}).get('recommendations',[])]
+          initials=Counter(genus_initial(name) for name in names if name)
+          report={
+              'status':'ready' if failure is None else 'failed',
+              'failure':failure,
+              'verified_at':datetime.now(timezone.utc).isoformat(),
+              'runtime_version':os.environ['EXPECTED_VERSION'],
+              'catalog_schema_version':(tree or {}).get('catalog_schema_version'),
+              'method_version':(tree or {}).get('method_version'),
+              'engine':((tree or {}).get('search_runtime') or {}).get('engine'),
+              'search_readiness_attempts':readiness_attempts,
+              'search_readiness_last_error':readiness_last_error,
+              'performance_target_seconds':10.0,
+              'performance_target_met':(
+                  failure is None and tree_s is not None and food_s is not None and herb_s is not None
+                  and tree_s < 10.0 and food_s < 10.0 and herb_s < 10.0
+              ),
+              'tree_first_page_seconds':None if tree_s is None else round(tree_s,3),
+              'tree_cached_page_2_seconds':None if page2_s is None else round(page2_s,3),
+              'tree_food_first_page_seconds':None if food_s is None else round(food_s,3),
+              'herb_first_page_seconds':None if herb_s is None else round(herb_s,3),
+              'genus_A_seconds':None if alpha_s is None else round(alpha_s,3),
+              'tree_cache_hit_page_2':None if page2 is None else page2.get('cache_hit'),
+              'vector_cache_hits':None if tree is None else (((tree.get('search_runtime') or {}).get('vector') or {}).get('cache_hits')),
+              'metrics':tm,
+              'top50_initials':dict(sorted(initials.items())),
+              'life_form_facets':facets.get('life_form',{}),
+              'function_facets':facets.get('functions',{}),
+              'genus_initial_facets':facets.get('genus_initial',{}),
+              'genus_A_total_results':None if alpha is None else (alpha.get('metrics') or {}).get('total_results'),
+              'genus_A_facets_stable':None if alpha is None else ((alpha.get('facets') or {}).get('genus_initial')==facets.get('genus_initial')),
+          }
+          Path('/tmp/exhaustive-search-performance-status.json').write_text(
+              json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8'
+          )
+          print(json.dumps(report,ensure_ascii=False,indent=2),flush=True)
+          if failure is not None:
+              raise SystemExit(failure)
+          PY
+
+      - name: Persist production performance report
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f /tmp/exhaustive-search-performance-status.json ]; then
+            printf '{"status":"failed","failure":"measurement did not produce a report","runtime_version":"%s"}\n' "$EXPECTED_VERSION" > /tmp/exhaustive-search-performance-status.json
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/exhaustive-search-performance-status.json .github/exhaustive-search-performance-status.json
+            git add .github/exhaustive-search-performance-status.json
+            git diff --cached --quiet && exit 0
+            git commit -m "Record exhaustive search performance verification [skip ci]"
+            git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1

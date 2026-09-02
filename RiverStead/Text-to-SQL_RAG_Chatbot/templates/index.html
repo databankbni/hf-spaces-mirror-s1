@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="F1InsightAI — AI-powered Text-to-SQL RAG chatbot for Formula 1 race data (1950–2024)">
+    <title>F1InsightAI — Formula 1 Data Chatbot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body>
+    <!-- Particle Background -->
+    <div id="tsparticles"></div>
+    <!-- Mouse Spotlight -->
+    <div class="mouse-spotlight" id="mouseSpotlight"></div>
+    <!-- Telemetry Grid -->
+    <div class="telemetry-grid"></div>
+
+    <!-- History Drawer Trigger -->
+    <button class="history-trigger" id="historyTrigger" title="Chat History">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span>History</span>
+    </button>
+
+    <!-- Status Badge (floating top-right) -->
+    <div class="status-float" id="statusFloat">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">Connecting...</span>
+    </div>
+
+    <!-- History Drawer (slides from left) -->
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+    <aside class="history-drawer" id="historyDrawer">
+        <div class="drawer-header">
+            <h3>Chat History</h3>
+            <button class="drawer-close" id="drawerClose" title="Close">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="drawer-new-chat">
+            <button class="new-chat-btn" id="newChatBtn" title="New Chat">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                New Chat
+            </button>
+        </div>
+        <div class="drawer-content" id="chatList">
+            <div class="sidebar-empty">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                    opacity="0.3">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <p>No conversations yet</p>
+            </div>
+        </div>
+        <div class="drawer-footer">
+            <button class="clear-history-btn" id="clearAllChats">Clear All Chats</button>
+        </div>
+    </aside>
+
+    <!-- Main App Shell -->
+    <div class="app-shell" id="appShell">
+
+        <!-- Hero Search (centered initial state) -->
+        <div class="search-hero" id="searchHero">
+            <div class="hero-logo">
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none">
+                    <rect x="2" y="2" width="20" height="20" rx="4" stroke="url(#heroGrad)" stroke-width="1.5"/>
+                    <path d="M7 7h4v4H7zM13 7h4v4h-4zM7 13h4v4H7zM13 13h4v4h-4z" fill="url(#heroGrad)" opacity="0.3"/>
+                    <path d="M7 7h4v4H7zM13 13h4v4h-4z" fill="url(#heroGrad)" opacity="0.7"/>
+                    <defs>
+                        <linearGradient id="heroGrad" x1="0" y1="0" x2="24" y2="24">
+                            <stop offset="0%" stop-color="#E10600"/>
+                            <stop offset="100%" stop-color="#FF6B35"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1 class="hero-title">F1Insight<span class="accent">AI</span></h1>
+                <p class="hero-subtitle">Formula 1 Data Intelligence · 1950–2024</p>
+            </div>
+
+            <!-- Database Stats -->
+            <div class="hero-stats" id="dbStats">
+                <div class="hero-stat">
+                    <span class="hero-stat-value" id="statTables">—</span>
+                    <span class="hero-stat-label">Tables</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="hero-stat-value" id="statRows">—</span>
+                    <span class="hero-stat-label">Records</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="hero-stat-value" id="statColumns">—</span>
+                    <span class="hero-stat-label">Columns</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="hero-stat-value" id="statModel">—</span>
+                    <span class="hero-stat-label">AI Model</span>
+                </div>
+            </div>
+
+            <!-- Suggestion Chips -->
+            <div class="hero-suggestions">
+                <button class="hero-chip" onclick="askQuestion(this.dataset.q)" data-q="Who has the most race wins?">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 7 7 7 7"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 17 7 17 7"/><path d="M4 22h16"/><path d="M10 22V8a2 2 0 0 0-2-2H6"/><path d="M14 22V8a2 2 0 0 1 2-2h2"/><path d="M8 22h8"/><path d="M12 11v4"/></svg>
+                    Most race wins
+                </button>
+                <button class="hero-chip" onclick="askQuestion(this.dataset.q)" data-q="Compare Hamilton vs Verstappen">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    Hamilton vs Verstappen
+                </button>
+                <button class="hero-chip" onclick="askQuestion(this.dataset.q)" data-q="Show the 2023 race calendar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    2023 race calendar
+                </button>
+                <button class="hero-chip" onclick="askQuestion(this.dataset.q)" data-q="Average pit stop duration by team">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Pit stop times
+                </button>
+            </div>
+        </div>
+
+        <!-- Response Canvas (hidden initially, shown after first query) -->
+        <main class="response-canvas" id="responseCanvas"></main>
+
+        <!-- Search Input (starts inside hero, docks to bottom on submit) -->
+        <footer class="search-dock" id="searchDock">
+            <div class="search-border-glow">
+            <form class="search-input-wrap" id="chatForm">
+                <textarea id="userInput" placeholder="" rows="1"
+                    autofocus></textarea>
+                <button type="submit" class="search-send" id="sendBtn" title="Send">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                </button>
+            </form>
+            </div>
+            <div class="search-hint">
+                Press <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for new line
+            </div>
+        </footer>
+    </div>
+
+    <!-- Status Bar (bottom) -->
+    <div class="status-bar" id="statusBar">
+        <div class="status-bar-left">
+            <span class="sb-dot" id="sbDot"></span>
+            <span class="sb-label" id="sbConnection">Connecting...</span>
+            <span class="sb-divider">·</span>
+            <a href="/architecture" class="sb-arch-link" title="System Architecture">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                Architecture
+            </a>
+        </div>
+        <div class="status-bar-right">
+            <span class="sb-item" id="sbModel">—</span>
+            <span class="sb-divider">·</span>
+            <span class="sb-item" id="sbTables">—</span>
+            <span class="sb-divider">·</span>
+            <span class="sb-item" id="sbRows">—</span>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tsparticles-slim@2.12.0/tsparticles.slim.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+
+</html>

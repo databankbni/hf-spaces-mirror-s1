@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>PCB 短路偵測系統（純前端 YOLOv7 ONNX 版）</title>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 30px auto; text-align: center; background: #f0f2f5; padding: 0 10px; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        
+        /* 關鍵：限制容器最大寬度，並讓內容置中 */
+        .canvas-container { 
+            position: relative; 
+            display: inline-block; 
+            margin-top: 20px; 
+            max-width: 100%; /* 防止外層超出版面 */
+        }
+        
+        /* 關鍵：限制 Canvas 的顯示寬度，高度會依比例自適應 */
+        canvas { 
+            max-width: 100%; 
+            height: auto !important; 
+            display: block;
+        }
+        #outputCanvas { position: absolute; left: 0; top: 0; }
+        #imageLoader { margin: 20px 0; }
+        #status { color: #666; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🔍 PCB 短路偵測系統 純前端物件偵測系統 (YOLOv7)</h2>
+    <p id="status">正在下載並初始化 ONNX 模型，請稍候...</p>
+    
+    <input type="file" id="imageLoader" accept="image/*" disabled>
+    
+    <div class="canvas-container">
+        <canvas id="inputCanvas"></canvas>
+        <canvas id="outputCanvas"></canvas>
+    </div>
+</div>
+
+<script>
+    // 類別順序必須與訓練時的 data.yaml names 完全一致
+    const LABELS = ["missing_hole", "mouse_bite", "open_circuit", "short", "spur", "spurious_copper"]; 
+    const MODEL_SIZE = 640; 
+    let session = null;
+
+    async function init() {
+        try {
+            // 加上穩定版時間戳記，避免快取卡死
+            const url = window.location.href + "resolve/main/best.onnx?t=" + new Date().getTime();
+            session = await ort.InferenceSession.create(url, { 
+                executionProviders: ['wasm'],
+                numThreads: 1
+            });
+            document.getElementById('status').innerText = "模型載入成功！請上傳圖片。";
+            document.getElementById('imageLoader').disabled = false;
+        } catch (e) {
+            // 如果 resolve 失敗，退回本地嘗試
+            try {
+                session = await ort.InferenceSession.create('./best.onnx', { executionProviders: ['wasm'], numThreads: 1 });
+                document.getElementById('status').innerText = "模型載入成功！請上傳圖片。";
+                document.getElementById('imageLoader').disabled = false;
+            } catch(err) {
+                document.getElementById('status').innerText = "模型載入失敗，請確認 best.onnx 是否正確上傳。";
+                console.error(e);
+            }
+        }
+    }
+    init();
+
+    document.getElementById('imageLoader').addEventListener('change', handleImage);
+
+    function handleImage(e) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() { detect(img); }
+            img.src = event.target.result;
+        }
+        reader.readAsDataURL(e.target.files[0]);
+    }
+
+    async function detect(img) {
+        document.getElementById('status').innerText = "計算中...";
+        
+        const inputCanvas = document.getElementById('inputCanvas');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const ctx = inputCanvas.getContext('2d');
+        const outCtx = outputCanvas.getContext('2d');
+
+        // 畫布的繪圖解析度維持圖片原始尺寸（保證畫質不變形）
+        inputCanvas.width = img.width;
+        inputCanvas.height = img.height;
+        outputCanvas.width = img.width;
+        outputCanvas.height = img.height;
+        
+        ctx.drawImage(img, 0, 0);
+        outCtx.clearRect(0, 0, img.width, img.height);
+
+        // 1. 預處理：縮放與標準化
+        const resizeCanvas = document.createElement('canvas');
+        resizeCanvas.width = MODEL_SIZE;
+        resizeCanvas.height = MODEL_SIZE;
+        const resizeCtx = resizeCanvas.getContext('2d');
+        resizeCtx.drawImage(img, 0, 0, MODEL_SIZE, MODEL_SIZE);
+        const imgData = resizeCtx.getImageData(0, 0, MODEL_SIZE, MODEL_SIZE).data;
+
+        const float32Data = new Float32Array(3 * MODEL_SIZE * MODEL_SIZE);
+        for (let i = 0; i < MODEL_SIZE * MODEL_SIZE; i++) {
+            float32Data[i] = imgData[i * 4] / 255.0;
+            float32Data[i + MODEL_SIZE * MODEL_SIZE] = imgData[i * 4 + 1] / 255.0;
+            float32Data[i + 2 * MODEL_SIZE * MODEL_SIZE] = imgData[i * 4 + 2] / 255.0;
+        }
+
+        // 2. 執行 ONNX 推理
+        const inputTensor = new ort.Tensor('float32', float32Data, [1, 3, MODEL_SIZE, MODEL_SIZE]);
+        const feeds = {};
+        feeds[session.inputNames[0]] = inputTensor;
+        const outputMap = await session.run(feeds);
+        const rawOutput = outputMap[session.outputNames[0]].data;
+
+        // 3. 後處理
+        const numClasses = LABELS.length;
+        const numElements = 5 + numClasses;
+        const totalBoxes = rawOutput.length / numElements;
+
+        let boxes = [];
+        const confThreshold = 0.4;
+
+        for (let i = 0; i < totalBoxes; i++) {
+            const index = i * numElements;
+            const boxScore = rawOutput[index + 4];
+
+            if (boxScore > confThreshold) {
+                let maxClassScore = 0;
+                let classId = -1;
+                for (let c = 0; c < numClasses; c++) {
+                    const classScore = rawOutput[index + 5 + c];
+                    if (classScore > maxClassScore) {
+                        maxClassScore = classScore;
+                        classId = c;
+                    }
+                }
+
+                const confidence = boxScore * maxClassScore;
+
+                if (confidence > confThreshold) {
+                    const cx = rawOutput[index + 0];
+                    const cy = rawOutput[index + 1];
+                    const w = rawOutput[index + 2];
+                    const h = rawOutput[index + 3];
+
+                    const x1 = (cx - w / 2) * (img.width / MODEL_SIZE);
+                    const y1 = (cy - h / 2) * (img.height / MODEL_SIZE);
+                    const boxW = w * (img.width / MODEL_SIZE);
+                    const boxH = h * (img.height / MODEL_SIZE);
+
+                    boxes.push({ x1, y1, w: boxW, h: boxH, score: confidence, classId });
+                }
+            }
+        }
+
+        // 4. NMS 非極大值抑制
+        boxes.sort((a, b) => b.score - a.score);
+        let resultBoxes = [];
+        while (boxes.length > 0) {
+            let chosen = boxes.shift();
+            resultBoxes.push(chosen);
+            boxes = boxes.filter(b => {
+                const interX = Math.max(chosen.x1, b.x1);
+                const interY = Math.max(chosen.y1, b.y1);
+                const interW = Math.min(chosen.x1 + chosen.w, b.x1 + b.w) - interX;
+                const interH = Math.min(chosen.y1 + chosen.h, b.y1 + b.h) - interY;
+                if (interW <= 0 || interH <= 0) return true;
+                const interArea = interW * interH;
+                const iou = interArea / (chosen.w * chosen.h + b.w * b.h - interArea);
+                return iou < 0.45;
+            });
+        }
+
+        // 💡 調整畫框的粗細與字體大小，使其能隨圖片解析度動態放大，防止在大圖中方框變太細
+        const baseScale = Math.max(img.width / 800, 1); 
+        
+        // 5. 使用 Canvas 繪製結果
+        resultBoxes.forEach(box => {
+            outCtx.strokeStyle = "#FF3B30";
+            outCtx.lineWidth = 3 * baseScale; // 根據大圖等比例加粗線條
+            outCtx.strokeRect(box.x1, box.y1, box.w, box.h);
+
+            outCtx.fillStyle = "#FF3B30";
+            outCtx.font = `bold ${Math.round(16 * baseScale)}px Arial`; // 根據大圖等比例放大標籤文字
+            outCtx.fillText(`${LABELS[box.classId]} ${(box.score * 100).toFixed(0)}%`, box.x1, box.y1 - (7 * baseScale));
+        });
+
+        document.getElementById('status').innerText = `辨識完成！偵測到 ${resultBoxes.length} 個物件。`;
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,906 @@
+<div class="response-demo"></div>
+<style>
+  .html-embed__card:has(.response-demo) {
+    background-color: var(--page-bg, #fff) !important;
+  }
+  .response-demo {
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --rd-primary: #6B5CE7;
+    --rd-muted: #8b8fa3;
+    --rd-baseline-accent: #7a7e8f;
+    --rd-steered-accent: #6B5CE7;
+    --rd-card-bg: var(--surface-bg, #fff);
+    --rd-card-border: var(--border-color, #e2e4ea);
+    --rd-text: var(--text-color, #1a1a2e);
+    --rd-text-secondary: var(--muted-color, #6b6f80);
+    --rd-prompt-bg: var(--code-bg, #f5f6f8);
+    --rd-badge-bg: var(--surface-bg, #f0f1f5);
+    --rd-amplify: #e04f4f;
+    --rd-mitigate: #4E8FB7;
+  }
+
+  /* Tabs */
+  .response-demo .tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    border-bottom: 2px solid var(--rd-card-border);
+  }
+
+  .response-demo .tab-btn {
+    padding: 8px 20px;
+    border: none;
+    background: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--rd-text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s ease;
+  }
+
+  .response-demo .tab-btn:hover {
+    color: var(--rd-text);
+  }
+
+  .response-demo .tab-btn.active {
+    color: var(--rd-primary);
+    border-bottom-color: var(--rd-primary);
+  }
+
+  .response-demo .tab-panel {
+    display: none;
+  }
+
+  .response-demo .tab-panel.active {
+    display: block;
+  }
+
+  /* Shared controls */
+  .response-demo .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .response-demo .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .response-demo .control-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--rd-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .response-demo select {
+    min-width: 160px;
+    padding: 6px 28px 6px 10px;
+    border: 1px solid var(--rd-card-border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--rd-text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%236b6f80' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    transition: border-color 0.2s ease;
+  }
+
+  .response-demo select:hover {
+    border-color: var(--rd-primary);
+  }
+
+  .response-demo select:focus {
+    outline: none;
+    border-color: var(--rd-primary);
+    box-shadow: 0 0 0 2px rgba(78, 165, 183, 0.15);
+  }
+
+  .response-demo .btn-next {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid var(--rd-card-border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--rd-text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .response-demo .btn-next:hover {
+    border-color: var(--rd-primary);
+    color: var(--rd-primary);
+    background: rgba(107, 92, 231, 0.06);
+  }
+
+  .response-demo .btn-next svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.2s ease;
+  }
+
+  .response-demo .btn-next:hover svg {
+    transform: translateX(2px);
+  }
+
+  .response-demo .prompt-card {
+    background: transparent;
+    border: 1px solid var(--rd-card-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    transition: opacity 0.3s ease;
+  }
+
+  .response-demo .prompt-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--rd-text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .response-demo .prompt-text {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--rd-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  .response-demo .split-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+    transition: opacity 0.3s ease;
+  }
+
+  @media (max-width: 640px) {
+    .response-demo .split-panels {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .response-demo .panel {
+    background: transparent;
+    border: 1px solid var(--rd-card-border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+  }
+
+  .response-demo .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rd-card-border);
+  }
+
+  .response-demo .panel-header .accent-bar {
+    width: 3px;
+    height: 16px;
+    border-radius: 2px;
+  }
+
+  .response-demo .panel--baseline .accent-bar {
+    background: var(--rd-baseline-accent);
+  }
+
+  .response-demo .panel--steered .accent-bar {
+    background: var(--rd-steered-accent);
+  }
+
+  .response-demo .panel-header .panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--rd-text);
+    letter-spacing: 0.02em;
+  }
+
+  .response-demo .panel--baseline .panel-title {
+    color: var(--rd-baseline-accent);
+  }
+
+  .response-demo .panel--steered .panel-title {
+    color: var(--rd-steered-accent);
+  }
+
+  .response-demo .panel-body {
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--rd-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 80px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  .response-demo .feature-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid var(--rd-card-border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--rd-text-secondary);
+    flex-wrap: wrap;
+    transition: opacity 0.3s ease;
+  }
+
+  .response-demo .feature-badge .badge-label {
+    font-weight: 600;
+    color: var(--rd-text);
+  }
+
+  .response-demo .feature-badge .badge-corr {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    color: var(--rd-primary);
+  }
+
+  .response-demo .feature-badge .corr-bar {
+    width: 40px;
+    height: 5px;
+    background: var(--rd-card-border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .response-demo .feature-badge .corr-fill {
+    height: 100%;
+    background: var(--rd-primary);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  .response-demo .counter-text {
+    font-size: 11px;
+    color: var(--rd-text-secondary);
+    margin-left: 8px;
+  }
+
+  .response-demo .loading-msg {
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 13px;
+    color: var(--rd-text-secondary);
+  }
+
+  /* Live Demo styles */
+  .response-demo .live-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  @media (max-width: 640px) {
+    .response-demo .live-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .response-demo .live-panel {
+    background: transparent;
+    border: 1px solid var(--rd-card-border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .response-demo .live-panel.generating {
+    border-color: var(--rd-primary);
+  }
+
+  .response-demo .live-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--rd-card-border);
+  }
+
+  .response-demo .live-panel-header .panel-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .response-demo .live-panel-header .panel-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  .response-demo .live-panel-body {
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--rd-text);
+    min-height: 80px;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .response-demo .live-panel-body .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--rd-primary);
+    animation: blink 0.8s step-end infinite;
+    vertical-align: text-bottom;
+    margin-left: 1px;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  .response-demo .btn-generate {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 18px;
+    border: none;
+    border-radius: 8px;
+    background: var(--rd-primary);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .response-demo .btn-generate:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  .response-demo .btn-generate:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .response-demo .btn-generate svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .response-demo .api-unavailable {
+    text-align: center;
+    padding: 32px 20px;
+    color: var(--rd-text-secondary);
+    font-size: 13px;
+    line-height: 1.6;
+    background: transparent;
+    border: 1px dashed var(--rd-card-border);
+    border-radius: 10px;
+  }
+
+  .response-demo .api-unavailable .icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+
+  .response-demo .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+<script>
+  (() => {
+    const DATA_PATHS = [
+      '/data/response_examples.json',
+      './assets/data/response_examples.json',
+      '../assets/data/response_examples.json',
+      '../../assets/data/response_examples.json',
+      '../../../assets/data/response_examples.json'
+    ];
+
+    const TASK_LABELS = {
+      harmbench: 'HarmBench',
+      mmlu: 'MMLU',
+      bbq_ambig: 'BBQ-Ambig',
+      bbq_disambig: 'BBQ-Disambig'
+    };
+
+    const LIVE_CATEGORIES = {
+      'lgbtq+': { label: 'LGBT+', prompt: 'The gay people are' },
+      'nationality': { label: 'Nationality', prompt: 'The French people are' },
+      'race': { label: 'Race', prompt: 'The Black people are' }
+    };
+
+    const LIVE_TYPES = [
+      { key: 'original', label: 'Original Model', icon: '<svg viewBox="0 0 16 16" fill="none" width="14" height="14"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>', color: '#7a7e8f', desc: 'GPT-2 without steering' },
+      { key: 'origin+steer', label: 'Bias Amplified', icon: '<svg viewBox="0 0 16 16" fill="none" width="14" height="14"><path d="M8 2l6 12H2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><line x1="8" y1="6" x2="8" y2="10" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="12" r="0.8" fill="currentColor"/></svg>', color: '#e04f4f', desc: 'GPT-2 + CorrSteer amplify' },
+      { key: 'trained', label: 'Fine-tuned Model', icon: '<svg viewBox="0 0 16 16" fill="none" width="14" height="14"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 8h6M8 5v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>', color: '#9b7ed8', desc: 'GPT-2 EMGSD fine-tuned' },
+      { key: 'trained-steer', label: 'Bias Mitigated', icon: '<svg viewBox="0 0 16 16" fill="none" width="14" height="14"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>', color: '#4E8FB7', desc: 'GPT-2 + CorrSteer mitigate' }
+    ];
+
+    var fetchFirstAvailable = function(paths) {
+      var idx = 0;
+      return new Promise(function(resolve, reject) {
+        function tryNext() {
+          if (idx >= paths.length) { reject(new Error('Data not found')); return; }
+          fetch(paths[idx], { cache: 'no-cache' }).then(function(r) {
+            if (r.ok) return r.json();
+            throw new Error('not ok');
+          }).then(resolve).catch(function() { idx++; tryNext(); });
+        }
+        tryNext();
+      });
+    };
+
+    var shuffleArray = function(arr) {
+      var a = arr.slice();
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+      }
+      return a;
+    };
+
+    var truncatePrompt = function(text, maxLen) {
+      maxLen = maxLen || 400;
+      if (text.length <= maxLen) return text;
+      return text.slice(0, maxLen) + '...';
+    };
+
+    function bootstrap() {
+      var scriptEl = document.currentScript;
+      var container = scriptEl ? scriptEl.previousElementSibling : null;
+      if (!(container && container.classList && container.classList.contains('response-demo'))) {
+        var candidates = Array.from(document.querySelectorAll('.response-demo'))
+          .filter(function(el) { return !(el.dataset && el.dataset.mounted === 'true'); });
+        container = candidates[candidates.length - 1] || null;
+      }
+      if (!container) return;
+      if (container.dataset) {
+        if (container.dataset.mounted === 'true') return;
+        container.dataset.mounted = 'true';
+      }
+
+      container.innerHTML = '<div class="loading-msg">Loading examples...</div>';
+
+      var allData = [];
+      var taskMap = {};
+      var currentTask = 'harmbench';
+      var currentIdx = 0;
+      var apiAvailable = null;
+      var apiBase = '';
+
+      // Check API availability (validate JSON response to avoid false positives)
+      function tryApi(url) {
+        return fetch(url, { method: 'GET' }).then(function(r) {
+          if (!r.ok) throw new Error('not ok');
+          return r.json();
+        }).then(function(data) {
+          if (data && data.status === 'ok') return true;
+          throw new Error('invalid response');
+        });
+      }
+
+      function checkApi() {
+        return tryApi('/api/health').then(function() {
+          apiAvailable = true; apiBase = '';
+        }).catch(function() {
+          return tryApi('http://localhost:5001/api/health').then(function() {
+            apiAvailable = true; apiBase = 'http://localhost:5001';
+          });
+        }).catch(function() {
+          return tryApi('https://seonglae-corrsteer.hf.space/api/health').then(function() {
+            apiAvailable = true; apiBase = 'https://seonglae-corrsteer.hf.space';
+          });
+        }).catch(function() {
+          apiAvailable = false;
+        });
+      }
+
+      // ========================
+      // Examples tab (existing)
+      // ========================
+      function buildExamplesTab(panel) {
+        var controls = document.createElement('div');
+        controls.className = 'controls';
+
+        var controlGroup = document.createElement('div');
+        controlGroup.className = 'control-group';
+
+        var label = document.createElement('span');
+        label.className = 'control-label';
+        label.textContent = 'Task';
+
+        var select = document.createElement('select');
+        select.id = 'rd-task-select';
+        var orderedTasks = Object.keys(TASK_LABELS).filter(function(t) { return taskMap[t] && taskMap[t].length > 0; });
+        Object.keys(taskMap).forEach(function(t) {
+          if (orderedTasks.indexOf(t) === -1) orderedTasks.push(t);
+        });
+        orderedTasks.forEach(function(t) {
+          var opt = document.createElement('option');
+          opt.value = t;
+          opt.textContent = TASK_LABELS[t] || t;
+          if (t === currentTask) opt.selected = true;
+          select.appendChild(opt);
+        });
+
+        controlGroup.appendChild(label);
+        controlGroup.appendChild(select);
+        controls.appendChild(controlGroup);
+
+        var counterSpan = document.createElement('span');
+        counterSpan.className = 'counter-text';
+        counterSpan.id = 'rd-counter';
+        controls.appendChild(counterSpan);
+
+        var nextBtn = document.createElement('button');
+        nextBtn.className = 'btn-next';
+        nextBtn.innerHTML = 'Next Example <svg viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        controls.appendChild(nextBtn);
+
+        panel.appendChild(controls);
+
+        var promptCard = document.createElement('div');
+        promptCard.className = 'prompt-card';
+        promptCard.id = 'rd-prompt';
+        promptCard.innerHTML = '<div class="prompt-label">Prompt</div><div class="prompt-text" id="rd-prompt-text"></div>';
+        panel.appendChild(promptCard);
+
+        var splitPanels = document.createElement('div');
+        splitPanels.className = 'split-panels';
+        splitPanels.id = 'rd-panels';
+        splitPanels.innerHTML = '<div class="panel panel--baseline"><div class="panel-header"><div class="accent-bar"></div><div class="panel-title">Baseline</div></div><div class="panel-body" id="rd-baseline-text"></div></div><div class="panel panel--steered"><div class="panel-header"><div class="accent-bar"></div><div class="panel-title">CorrSteer</div></div><div class="panel-body" id="rd-steered-text"></div></div>';
+        panel.appendChild(splitPanels);
+
+        var badge = document.createElement('div');
+        badge.className = 'feature-badge';
+        badge.id = 'rd-badge';
+        badge.innerHTML = '<span class="badge-label" id="rd-badge-label"></span><span class="badge-corr" id="rd-badge-corr"><span id="rd-corr-val"></span><span class="corr-bar"><span class="corr-fill" id="rd-corr-fill"></span></span></span>';
+        panel.appendChild(badge);
+
+        select.addEventListener('change', function(e) {
+          currentTask = e.target.value;
+          currentIdx = 0;
+          showExample(true);
+        });
+
+        nextBtn.addEventListener('click', function() {
+          var examples = taskMap[currentTask] || [];
+          if (examples.length === 0) return;
+          currentIdx = (currentIdx + 1) % examples.length;
+          showExample(true);
+        });
+
+        showExample(false);
+      }
+
+      function showExample(animate) {
+        var examples = taskMap[currentTask] || [];
+        if (examples.length === 0) return;
+        var ex = examples[currentIdx];
+
+        var promptText = document.getElementById('rd-prompt-text');
+        var baselineText = document.getElementById('rd-baseline-text');
+        var steeredText = document.getElementById('rd-steered-text');
+        var badgeLabel = document.getElementById('rd-badge-label');
+        var corrVal = document.getElementById('rd-corr-val');
+        var corrFill = document.getElementById('rd-corr-fill');
+        var counter = document.getElementById('rd-counter');
+        if (!promptText) return;
+
+        var targets = [
+          document.getElementById('rd-prompt'),
+          document.getElementById('rd-panels'),
+          document.getElementById('rd-badge')
+        ];
+
+        function apply() {
+          promptText.textContent = truncatePrompt(ex.prompt);
+          baselineText.textContent = ex.baseline || '(no baseline response)';
+          steeredText.textContent = ex.steered || '(no steered response)';
+          var desc = ex.feature_description && ex.feature_description !== 'No description available'
+            ? ex.feature_description : 'SAE feature';
+          badgeLabel.textContent = 'Layer ' + ex.layer + ' / Feature ' + ex.feature_index + ': ' + desc;
+          var corrNum = typeof ex.correlation === 'number' ? ex.correlation : 0;
+          corrVal.textContent = 'r = ' + corrNum.toFixed(3);
+          corrFill.style.width = (Math.abs(corrNum) * 100) + '%';
+          counter.textContent = (currentIdx + 1) + ' / ' + examples.length;
+        }
+
+        if (animate) {
+          targets.forEach(function(el) {
+            if (el) { el.style.opacity = '0'; el.style.transform = 'translateY(4px)'; }
+          });
+          setTimeout(function() {
+            apply();
+            targets.forEach(function(el) {
+              if (el) {
+                el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                el.style.opacity = '1';
+                el.style.transform = 'translateY(0)';
+              }
+            });
+          }, 150);
+        } else {
+          apply();
+        }
+      }
+
+      // ========================
+      // Live Steering tab
+      // ========================
+      function buildLiveTab(panel) {
+        if (!apiAvailable) {
+          panel.innerHTML = '<div class="api-unavailable"><div class="icon">&#x1f50c;</div><div><strong>Live demo unavailable</strong></div><div style="margin-top:6px">The GPT-2 steering API is not running in this environment.<br>Deploy to HF Spaces to enable real-time generation.</div></div>';
+          return;
+        }
+
+        // Controls row: category + generate
+        var controls = document.createElement('div');
+        controls.className = 'controls';
+
+        var controlGroup = document.createElement('div');
+        controlGroup.className = 'control-group';
+        var label = document.createElement('span');
+        label.className = 'control-label';
+        label.textContent = 'Category';
+        var catSelect = document.createElement('select');
+        catSelect.id = 'live-cat-select';
+        Object.keys(LIVE_CATEGORIES).forEach(function(k) {
+          var opt = document.createElement('option');
+          opt.value = k;
+          opt.textContent = LIVE_CATEGORIES[k].label;
+          catSelect.appendChild(opt);
+        });
+        controlGroup.appendChild(label);
+        controlGroup.appendChild(catSelect);
+        controls.appendChild(controlGroup);
+
+        var genBtn = document.createElement('button');
+        genBtn.className = 'btn-generate';
+        genBtn.id = 'live-gen-btn';
+        genBtn.innerHTML = '<svg viewBox="0 0 16 16" fill="none"><polygon points="4,2 14,8 4,14" fill="currentColor"/></svg> Generate';
+        controls.appendChild(genBtn);
+        panel.appendChild(controls);
+
+        // Prompt card showing what will be sent
+        var promptCard = document.createElement('div');
+        promptCard.className = 'prompt-card';
+        promptCard.id = 'live-prompt';
+        var currentCat = Object.keys(LIVE_CATEGORIES)[0];
+        promptCard.innerHTML = '<div class="prompt-label">Given Context</div><div class="prompt-text" id="live-prompt-text">' + LIVE_CATEGORIES[currentCat].prompt + '</div>';
+        panel.appendChild(promptCard);
+
+        // Update prompt on category change
+        catSelect.addEventListener('change', function() {
+          var pt = document.getElementById('live-prompt-text');
+          if (pt) pt.textContent = LIVE_CATEGORIES[catSelect.value].prompt;
+          // Reset generated flags and show new prompt preview
+          LIVE_TYPES.forEach(function(t) {
+            var body = document.getElementById('live-body-' + t.key);
+            if (body) delete body.dataset.generated;
+          });
+          setPromptPreview();
+        });
+
+        // 4-panel grid with icons and descriptions
+        var grid = document.createElement('div');
+        grid.className = 'live-grid';
+        function setPromptPreview() {
+          var prompt = LIVE_CATEGORIES[catSelect.value].prompt;
+          LIVE_TYPES.forEach(function(t) {
+            var body = document.getElementById('live-body-' + t.key);
+            if (body && !body.dataset.generated) {
+              body.innerHTML = '<span style="color:' + t.color + ';font-weight:500">' + prompt + '</span><span style="color:var(--rd-text-secondary);font-style:italic"> ...</span>';
+            }
+          });
+        }
+
+        LIVE_TYPES.forEach(function(t) {
+          var p = document.createElement('div');
+          p.className = 'live-panel';
+          p.innerHTML = '<div class="live-panel-header">' +
+            '<span style="color:' + t.color + ';display:flex;align-items:center">' + t.icon + '</span>' +
+            '<div><div class="panel-title" style="color:' + t.color + '">' + t.label + '</div>' +
+            '<div style="font-size:10px;color:var(--rd-text-secondary);margin-top:1px">' + t.desc + '</div></div>' +
+            '</div>' +
+            '<div class="live-panel-body" id="live-body-' + t.key + '"></div>';
+          grid.appendChild(p);
+        });
+        panel.appendChild(grid);
+        setPromptPreview();
+
+        var generating = false;
+        var playIcon = '<svg viewBox="0 0 16 16" fill="none"><polygon points="4,2 14,8 4,14" fill="currentColor"/></svg>';
+
+        genBtn.addEventListener('click', function() {
+          if (generating) return;
+          generating = true;
+          genBtn.disabled = true;
+          genBtn.innerHTML = '<span class="spinner"></span> Generating...';
+
+          var category = catSelect.value;
+          var promptText = LIVE_CATEGORIES[category].prompt;
+          var completed = 0;
+
+          LIVE_TYPES.forEach(function(t) {
+            var bodyEl = document.getElementById('live-body-' + t.key);
+            bodyEl.dataset.generated = '1';
+            bodyEl.innerHTML = '<span style="color:' + t.color + ';font-weight:500">' + promptText + '</span><span class="cursor"></span>';
+
+            fetch(apiBase + '/api/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'gpt2',
+                dataset: 'emgsd',
+                category: category,
+                type: t.key
+              })
+            }).then(function(response) {
+              var reader = response.body.getReader();
+              var decoder = new TextDecoder();
+              var text = '';
+
+              function read() {
+                reader.read().then(function(result) {
+                  if (result.done) {
+                    bodyEl.innerHTML = '<span style="color:' + t.color + ';font-weight:500">' + promptText + '</span>' + text;
+                    completed++;
+                    if (completed >= LIVE_TYPES.length) {
+                      generating = false;
+                      genBtn.disabled = false;
+                      genBtn.innerHTML = playIcon + ' Generate';
+                    }
+                    return;
+                  }
+                  text += decoder.decode(result.value, { stream: true });
+                  bodyEl.innerHTML = '<span style="color:' + t.color + ';font-weight:500">' + promptText + '</span>' + text + '<span class="cursor"></span>';
+                  read();
+                });
+              }
+              read();
+            }).catch(function() {
+              bodyEl.innerHTML = '<span style="color:' + t.color + ';font-weight:500">' + promptText + '</span> <em>(generation failed)</em>';
+              completed++;
+              if (completed >= LIVE_TYPES.length) {
+                generating = false;
+                genBtn.disabled = false;
+                genBtn.innerHTML = playIcon + ' Generate';
+              }
+            });
+          });
+        });
+      }
+
+      // ========================
+      // Main build
+      // ========================
+      function buildUI() {
+        container.innerHTML = '';
+
+        // Tab bar
+        var tabs = document.createElement('div');
+        tabs.className = 'tabs';
+
+        var examplesBtn = document.createElement('button');
+        examplesBtn.className = 'tab-btn';
+        examplesBtn.textContent = 'Examples';
+        examplesBtn.dataset.tab = 'examples';
+        tabs.appendChild(examplesBtn);
+
+        var liveBtn = document.createElement('button');
+        liveBtn.className = 'tab-btn active';
+        liveBtn.textContent = 'Live Steering';
+        liveBtn.dataset.tab = 'live';
+        tabs.appendChild(liveBtn);
+
+        container.appendChild(tabs);
+
+        // Tab panels
+        var examplesPanel = document.createElement('div');
+        examplesPanel.className = 'tab-panel';
+        examplesPanel.id = 'tab-examples';
+        container.appendChild(examplesPanel);
+
+        var livePanel = document.createElement('div');
+        livePanel.className = 'tab-panel active';
+        livePanel.id = 'tab-live';
+        container.appendChild(livePanel);
+
+        // Build tab contents
+        buildExamplesTab(examplesPanel);
+        buildLiveTab(livePanel);
+
+        // Tab switching
+        var tabBtns = [examplesBtn, liveBtn];
+        var tabPanels = [examplesPanel, livePanel];
+        tabBtns.forEach(function(btn, i) {
+          btn.addEventListener('click', function() {
+            tabBtns.forEach(function(b) { b.classList.remove('active'); });
+            tabPanels.forEach(function(p) { p.classList.remove('active'); });
+            btn.classList.add('active');
+            tabPanels[i].classList.add('active');
+          });
+        });
+      }
+
+      // Load data + check API, then build
+      Promise.all([
+        fetchFirstAvailable(DATA_PATHS).then(function(data) {
+          allData = data;
+          var grouped = {};
+          data.forEach(function(ex) {
+            var t = ex.task;
+            if (!grouped[t]) grouped[t] = [];
+            grouped[t].push(ex);
+          });
+          Object.keys(grouped).forEach(function(t) {
+            grouped[t] = shuffleArray(grouped[t]);
+          });
+          taskMap = grouped;
+          var availableTasks = Object.keys(TASK_LABELS).filter(function(t) { return taskMap[t] && taskMap[t].length > 0; });
+          if (availableTasks.length > 0) currentTask = availableTasks[0];
+          currentIdx = 0;
+        }),
+        checkApi()
+      ]).then(function() {
+        buildUI();
+      }).catch(function(err) {
+        container.innerHTML = '<div class="loading-msg">Could not load data: ' + err.message + '</div>';
+      });
+
+      // Dark mode observer
+      var observer = new MutationObserver(function() {});
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['data-theme']
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
+    } else {
+      bootstrap();
+    }
+  })();
+</script>

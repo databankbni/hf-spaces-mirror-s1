@@ -1,0 +1,154 @@
+name: Migrate production Media v2.4 on Hugging Face
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/migrate-media-v24-huggingface.yml'
+      - '.github/tools/migrate_media_v24_production.py'
+      - '.github/tools/extend_media_v2_wikimedia.py'
+      - '.github/tools/collect_wikimedia_media_v2.py'
+      - '.github/tools/finalize_media_v2_catalog.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: media-v24-fast-migration
+  cancel-in-progress: true
+
+jobs:
+  migrate-media-v24:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      HF_SPACE_ID: gyamotab/climaflora-engine
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      MEDIA_REMOTE_PATH: data/climaflora_media_v2.sqlite
+      MATRIX_REMOTE_PATH: data/climaflora_media_v2_matrix.json
+      CATALOG_URL: https://shugoan.com/climaflora/data/climaflora_global_plants_v2_0.sqlite.zst
+      CATALOG_ZST_SHA256: 1683c43c6fb1e68f9b6c6c4cd7f291642feba6c37a3691c3452b319856335c32
+      CATALOG_SQLITE_SHA256: 3e80f432ebe2b4b59fed1b76549d2fc7df4e9330f1c315ae804746b616baee55
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deployment token
+        run: test -n "$HF_TOKEN" || (echo 'HF_TOKEN secret is missing' && exit 1)
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade 'huggingface_hub>=0.34,<1' 'httpx>=0.28,<1'
+          command -v zstd >/dev/null || (sudo apt-get update && sudo apt-get install -y zstd)
+
+      - name: Download and verify canonical catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 --retry-all-errors --retry-delay 3 "$CATALOG_URL" -o /tmp/catalog.sqlite.zst
+          echo "$CATALOG_ZST_SHA256  /tmp/catalog.sqlite.zst" | sha256sum -c -
+          unzstd -f /tmp/catalog.sqlite.zst -o /tmp/catalog.sqlite
+          echo "$CATALOG_SQLITE_SHA256  /tmp/catalog.sqlite" | sha256sum -c -
+
+      - name: Download current production media sidecar
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, shutil
+          from huggingface_hub import hf_hub_download
+          token=os.environ['HF_TOKEN']
+          repo=os.environ['HF_SPACE_ID']
+          for filename,target in [
+              (os.environ['MEDIA_REMOTE_PATH'],'/tmp/climaflora_media_v2.sqlite'),
+              (os.environ['MATRIX_REMOTE_PATH'],'/tmp/current_matrix.json'),
+          ]:
+              src=hf_hub_download(repo_id=repo, filename=filename, repo_type='space', token=token)
+              shutil.copy2(src,target)
+              print(filename,'->',target)
+          PY
+
+      - name: Migrate and validate normalized Media v2.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/tools/migrate_media_v24_production.py \
+            --catalog /tmp/catalog.sqlite \
+            --sidecar /tmp/climaflora_media_v2.sqlite \
+            --matrix /tmp/current_matrix.json \
+            --output-report /tmp/climaflora_media_v2_matrix.json \
+            --summary /tmp/climaflora_media_v24_summary.json
+          cat /tmp/climaflora_media_v24_summary.json
+
+      - name: Publish normalized Media v2.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          hf upload "$HF_SPACE_ID" /tmp/climaflora_media_v2.sqlite "$MEDIA_REMOTE_PATH" \
+            --repo-type space \
+            --commit-message "Migrate ClimaFlora production media to v2.4 from GitHub $GITHUB_SHA"
+          hf upload "$HF_SPACE_ID" /tmp/climaflora_media_v2_matrix.json "$MATRIX_REMOTE_PATH" \
+            --repo-type space \
+            --commit-message "Publish ClimaFlora Media v2.4 matrix from GitHub $GITHUB_SHA"
+
+      - name: Publish Media v2.4-compatible runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          hf upload "$HF_SPACE_ID" . . \
+            --repo-type space \
+            --exclude '.git*' \
+            --exclude '.github/**' \
+            --exclude 'data/**' \
+            --commit-message "Deploy Media v2.4-compatible ClimaFlora runtime from GitHub $GITHUB_SHA"
+
+      - name: Bind and restart production
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api=HfApi(token=os.environ['HF_TOKEN'])
+          api.add_space_variable(repo_id=os.environ['HF_SPACE_ID'],key='CLIMAFLORA_MEDIA_DB',value='data/climaflora_media_v2.sqlite')
+          api.restart_space(repo_id=os.environ['HF_SPACE_ID'])
+          print('Media v2.4 sidecar and compatible runtime published; Space restart requested.')
+          PY
+
+      - name: Verify production Media v2.4 API
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, time, urllib.parse, urllib.request
+          base='https://gyamotab-climaflora-engine.hf.space/api/v1'
+          status_url=base+'/media/status'
+          last=None
+          for attempt in range(90):
+              try:
+                  req=urllib.request.Request(status_url,headers={'Cache-Control':'no-cache'})
+                  with urllib.request.urlopen(req,timeout=30) as response:
+                      status=json.load(response)
+                  last=status
+                  print('media status',attempt+1,status,flush=True)
+                  if status.get('ready') and status.get('media_catalog_taxa_total')==420532:
+                      break
+              except Exception as exc:
+                  last=f'{type(exc).__name__}: {exc}'
+                  print('wait',attempt+1,last,flush=True)
+              time.sleep(10)
+          else:
+              raise SystemExit(f'Media v2.4 status did not become ready: {last}')
+
+          params=urllib.parse.urlencode([('taxon_id','2616060')])
+          req=urllib.request.Request(base+'/plants/enrichment?'+params,headers={'Cache-Control':'no-cache'})
+          with urllib.request.urlopen(req,timeout=60) as response:
+              payload=json.load(response)
+          image=payload['taxa']['2616060']['image']
+          assert image is not None, payload
+          assert image['source_name']=='wikimedia_commons', image
+          assert image.get('image_count',0)>=1, image
+          assert image['license'].upper().startswith('CC0'), image
+          print(json.dumps({'status':status,'acer_nigrum_image':image},indent=2,ensure_ascii=False))
+          PY

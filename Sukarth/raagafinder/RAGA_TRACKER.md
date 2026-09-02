@@ -3,36 +3,78 @@
 Living document, updated every expansion round. It records what the models can
 name, what was tried and cut, and what is queued next.
 
-Three models ship, all user-selectable in the app. Adding ragas is a genuine
-trade-off rather than a free win, so rather than pick one point on it, all
-three are offered:
+Four models ship, all user-selectable in the app, plus a cascade that
+routes between two of them. Adding ragas is a genuine trade-off rather
+than a free win, so rather than pick one point on it, every point is
+offered:
 
-| | Concert-tuned | Broad (default) | Widest |
-|---|---|---|---|
-| ensemble classes | 71 | 87 | 104 |
-| sequence-model classes | 71 | 90 | 104 |
-| corpus | 756 recordings | 855 | 986 |
-| melakartas among its classes | 14 / 72 | 14 / 72 | **22 / 72** |
-| out-of-fold top-1 / top-3, full pipeline | **84.0 / 93.4** | 81.4 / 91.4 | 79.4 / 90.5 |
-| real-world concerts (18 in-set YouTube) | **78 / 78** | 67 / **78** | 56 / 67 |
-| solo-voice holdout (18, never trained) | 83 / 89 | **89 / 89** | **89 / 89** |
-| artifact | `model_v2_3` | `model_v2_4` | `model_v2_7` |
+| | Concert-tuned | Broad | Widest | Complete (default) |
+|---|---|---|---|---|
+| ensemble classes | 71 | 87 | 104 | 154 |
+| sequence-model classes | 71 | 90 | 104 | 154 |
+| corpus | 756 recordings | 855 | 986 | 1275 |
+| melakartas among its classes | 14 / 72 | 14 / 72 | 22 / 72 | **72 / 72** |
+| out-of-fold top-1 / top-3, full pipeline | 83.7 / **93.2** | 82.8 / 92.0† | 80.7 / 90.8† | **84.4** / 92.2 |
+| real-world concerts (18 in-set YouTube) | **78 / 78** | 67 / **78** | 56 / 67 | 56 / 67 |
+| solo-voice holdout (18, never trained) | 83 / 89 | **89 / 89** | **89 / 89** | 83 / 89 |
+| fresh-YouTube probe (67, never trained) | — | 64 / 81 | — | **73 / 84** |
+| artifact | `model_v2_3` | `model_v2_4` | `model_v2_7` | `model_v3_1` |
 
-The widest model adds 17 classes, 13 of them names the others cannot produce
-at all. It ties the default on the solo-voice holdout and loses on every other
-axis, worst of all on the audio most like a real upload. It is offered as a
-third choice rather than promoted, and the app says so at the selector.
+† The full-pipeline row is corrected for duplicate performances: 26 pairs of
+recordings turned out to be the same performance under two identifiers, and
+49 of them sat on opposite sides of a fold boundary, so each was scored
+against a training set holding its own twin. All 49 were top-1 correct. The
+concert and complete columns are exactly recomputable and are shown
+corrected; the other two models' stored dumps do not reproduce their
+published figures, so their uncorrected numbers stand with this mark rather
+than an invented correction. See the README for the full account and
+`scripts/audit_duplicate_recordings.py` to reproduce it.
+
+The widest model adds 17 classes over the broad one. It used to be the only
+route to 13 of them; the complete model's 154 classes are a superset of its
+104, so since the complete model shipped there is no raga only the widest can
+answer, and it is kept selectable for continuity rather than recommended. It
+loses to the complete model on every axis measured, and the app says so at
+the selector.
+
+The complete model reached all 72 melakartas in August 2026 (batch 8, three
+title-verified recordings per new class) and gained its current sequence
+stage on 2026-08-24 from two rounds of noisy-student training on about 670
+hours of unlabeled concert audio -- the first accuracy change to clear the
+pre-registered adoption bar since seed selection.
+
+On 2026-08-25 it gained a class-prototype mixture: every raga is also
+represented by the average of its recordings' learned embeddings, and a
+match against those averages is mixed into the sequence stage. Worth +2.5
+points of out-of-fold top-1 across all ten folds (Wilcoxon p = 0.002),
+which is what moves this column to the best cross-validated top-1 of the
+four.
+
+That gain lives almost entirely in the tail, and the table above cannot
+show it. Split by how many recordings a raga has, the change is worth
++12.8 points for ragas with three or four, +5.0 for five or six, +1.0 for
+seven or eight, and +0.0 for thirteen or more. The three held-out rows are
+unchanged because none of those sets contains a single raga from the bands
+where the effect lives -- the fresh-YouTube probe, for instance, is 82%
+drawn from ragas with thirteen or more recordings and contains none below
+nine. The probe's top-3 moved by one recording of 67, which is noise.
+
+The practical reading for anyone choosing a model: if the raga is common,
+this changed nothing; if it is one of the rare melakartas, it changed a
+great deal. There is currently no held-out set that can demonstrate the
+second half of that sentence, which is a gap in the evaluation rather than
+a doubt about the measurement.
 
 ## Summary
 
 | | count |
 |---|---|
-| **Ragas nameable (widest model)** | **104** |
-| Ragas nameable (default model) | 87 ensemble + 4 sequence-only (91 in all) |
-| Melakarta (parent) ragas covered | **22 / 72** |
-| Active concert repertoire (est. 300–400 ragas¹) | ~26–35% covered |
-| Classes shipped with a measured 0-of-n top-3 | 3 (listed below, not hidden) |
-| Raga cards, all with a scale reference | 104 |
+| **Ragas nameable (complete model)** | **154** |
+| Ragas nameable (broad model) | 87 ensemble + 4 sequence-only (91 in all) |
+| Melakarta (parent) ragas covered | **72 / 72** |
+| Active concert repertoire (est. 300–400 ragas¹) | ~40–50% covered |
+| Classes shipped with a measured 0-of-n top-3 | 4 (listed below, not hidden) |
+| Raga cards, all with a scale reference | 154 |
 
 ¹ Roughly 300–400 ragas are commonly taught and performed today; the 72
 melakartas are the canonical parent scales, and janya ragas are theoretically
@@ -80,12 +122,12 @@ reachable only through the broad model's sequence stage; crossing the quota
 promoted it into an ensemble that cannot represent it. The sequence stage is
 not much better, putting it in the top-3 for 1 of 5 recordings.
 
-The default model's four sequence-only classes were measured the same way,
+The broad model's four sequence-only classes were measured the same way,
 having shipped since v4 on the assumption that the sequence model could name
 them. It can name one: **Māṇḍ**, top-1 correct in 3 of 6. **Naṭabhairavi**,
-**Sālaga bhairavi** and **Śuddha Sāvēri** are top-1 correct in 0 of 11 between
-them; one Śuddha Sāvēri recording reaches the top-3 and that is the whole of
-it. They stay listed with those numbers for the same reason.
+**Sālaga bhairavi** and **Śuddha Sāvēri** are top-1 correct in 1 of 11 between
+them, that one being a Śuddha Sāvēri recording; three reach the top-3, two of
+them Sālaga bhairavi. They stay listed with those numbers for the same reason.
 
 ## Expansion history
 

@@ -208,6 +208,13 @@ def score_game(
         "date": game_date.isoformat(),
         "home": home, "away": away,
         "n": int(getattr(result, "n", 0) or 0),
+        # Which grading this row came from. Rows without it were scored against
+        # a separate unseeded n=1500 run rather than the slate's own, so they
+        # are not strictly comparable with later ones. They are left as they
+        # were: a graded record is a log of what was claimed and when, and
+        # re-running them now would replay them against today's lineups and
+        # statlines rather than the ones in force when the game was played.
+        "method": GRADING_METHOD,
         "pregame": bool(pregame),
         "actual": {"home_runs": a_home, "away_runs": a_away,
                    "total": a_total, "spread": a_spread,
@@ -599,21 +606,10 @@ def build_report(games: list[dict], *, start: str, end: str) -> dict:
 
 # ── Fetching, scoring and storing ───────────────────────────────────────────
 
-def _base_game_id(game_id: str) -> str:
-    import re
-    return re.sub(r"-g\d+$", "", game_id)
+from .gameid import base_id as _base_game_id  # noqa: E402
 
 
-def parse_game_id(game_id: str) -> tuple[Optional[date], Optional[str], Optional[str]]:
-    """'<date>-<away>-<home>[-g{N}]' → (date, home, away)."""
-    parts = _base_game_id(game_id).rsplit("-", 2)
-    if len(parts) != 3:
-        return None, None, None
-    try:
-        d = datetime.strptime(parts[0], "%Y-%m-%d").date()
-    except ValueError:
-        return None, None, None
-    return d, parts[2], parts[1]
+from .gameid import parse as parse_game_id  # noqa: E402,F401
 
 
 def fetch_actual(repo, game_id: str) -> Optional[dict]:
@@ -648,15 +644,29 @@ def fetch_actual(repo, game_id: str) -> Optional[dict]:
             "status": row.status, "boxscore": box}
 
 
+# The record grades what the app actually showed, which means the slate's own
+# parameters. It used to run its own n=1500 unseeded simulation — a different
+# sample size and a different draw from the one on the card, so a game's grade
+# moved by up to half a point between scorings and no two runs agreed. A record
+# of predictions has to be reproducible before it can be honest.
+GRADING_METHOD = 2
+
+
 def score_and_store(repo, game_id: str, *, season: int, park_season: int,
-                    n: int = 1500, force: bool = False,
+                    n: Optional[int] = None, force: bool = False,
                     name_lookup=None) -> Optional[dict]:
     """Score one finished game and persist it. Returns None if not scoreable.
 
     Already-scored games are returned from storage unless `force`, which is
     what keeps a rolling rebuild cheap: only genuinely new finals are
     simulated.
+
+    The simulation is the slate's — same sample size, same seed, read from the
+    shared cache when it is already there. Grading a different run than the one
+    the cards displayed meant the accuracy page was scoring a prediction nobody
+    was ever shown, and scoring it differently each time it was asked.
     """
+    from .simcache import SLATE_N, SLATE_SEED
     if not force:
         cached = repo.get_accuracy_game(game_id)
         if cached is not None:
@@ -669,11 +679,13 @@ def score_and_store(repo, game_id: str, *, season: int, park_season: int,
     if actual is None:
         return None
 
-    from .pipeline import ensure_lineups, resolve_lineups, simulate_matchup
+    from .pipeline import ensure_lineups, resolve_lineups
+    from .simcache import simulate_cached
 
+    n = SLATE_N if n is None else n
     ensure_lineups(repo, game_id, home, away, season)
-    result, raw = simulate_matchup(
-        game_id, repo, home_team=home, away_team=away, n=n,
+    result, raw = simulate_cached(
+        game_id, repo, home_team=home, away_team=away, n=n, seed=SLATE_SEED,
         season=season, park_season=park_season)
     home_lineup, away_lineup = resolve_lineups(game_id, repo, home, away)
 
@@ -695,7 +707,7 @@ def score_and_store(repo, game_id: str, *, season: int, park_season: int,
 
 
 def refresh_window(repo, *, end: date, days: int, season: int, park_season: int,
-                   n: int = 1500, limit: Optional[int] = None,
+                   n: Optional[int] = None, limit: Optional[int] = None,
                    force: bool = False, name_lookup=None) -> dict:
     """Score every finished game in the window that isn't scored yet.
 

@@ -673,7 +673,7 @@ class TestBestBetsAreRead:
 
     def _bet(self, sel, edge, has_edge=True):
         return {"away": "STL", "home": "NYY", "selection": sel, "player": "A Judge",
-                "market": "home_runs", "line": 0.5, "price": -110, "book": "Sleeper",
+                "market": "home_runs", "line": 0.5, "price": -110, "book": "PrizePicks",
                 "model_probability": 0.6, "implied_probability": 0.52,
                 "edge": edge, "category": "batter_prop", "has_edge": has_edge,
                 "is_live": False}
@@ -683,7 +683,7 @@ class TestBestBetsAreRead:
         out = chat._tool_get_best_bets(SlateRepo(GAMES), 2026, {})
         assert out["plays"][0]["selection"] == "Over 0.5 HR"
         assert out["plays"][0]["clears_the_bar"] is True
-        assert "Sleeper" in out["source"]
+        assert "PrizePicks" in out["source"]
 
     def test_plays_below_the_bar_are_labelled_not_dressed_up(self, monkeypatch):
         """An empty panel says nothing about the slate, so near-misses are

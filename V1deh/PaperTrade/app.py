@@ -110,6 +110,13 @@ _STALE_PENDING_GIVEUP_DAYS = 3
 _INTRADAY_FINAL_CALL: dict = {}
 _INTRADAY_FINAL_CALL_LOCK = __import__("threading").Lock()
 
+# ── ML INTRADAY target memory ─────────────────────────────────────────────────
+# Last INTRADAY target served per ticker by /api/ml-predict, so a fresh forecast can badge
+# itself as a re-evaluation once the live price has run past that prior target (mirrors the
+# AI "target hit → re-evaluate" flow). In-memory; resets on restart.
+_ML_INTRADAY_TARGET: dict = {}
+_ML_INTRADAY_TARGET_LOCK = __import__("threading").Lock()
+
 
 def _intraday_pred_has_target(pred) -> bool:
     """True if `pred` is a real, actionable INTRADAY call carrying a target price band."""
@@ -175,6 +182,25 @@ def _intraday_closed_value(ticker: str, stub: dict):
     """When INTRADAY can't be predicted live (market closed / past 14:15 cutoff), return the
     cached final call for the last session if we have one, otherwise the given stub."""
     return _get_intraday_final_call(ticker) or stub
+
+
+def _intraday_target_reached(pred, live, today_high=None) -> bool:
+    """True if the live price / today's intraday high has reached a live INTRADAY call's
+    directional target. This is the trigger to re-evaluate the call for a fresh target off the
+    new price level, instead of serving a target the price has already run past."""
+    if not isinstance(pred, dict) or not live or live <= 0:
+        return False
+    d = (pred.get("direction") or "").upper()
+    if "BULL" in d:
+        tgt = pred.get("target_price_hi") or 0
+        if tgt <= 0:
+            return False
+        ref = max(live, today_high) if (today_high and today_high > 0) else live
+        return ref >= tgt
+    if "BEAR" in d:
+        tgt = pred.get("target_price_lo") or 0
+        return tgt > 0 and live <= tgt
+    return False
 
 # ── Watchlist AI concurrency cap (process-wide) ───────────────────────────────
 # Without this, the frontend fires N per-ticker requests in parallel × up to 3 TFs each =
@@ -1215,6 +1241,14 @@ def ml_predict(ticker):
         if not predictor.available:
             return jsonify({"ticker": t, "available": False,
                             "error": "ML model not trained/loaded — run ml_predictor/train.py"}), 503
+        # Market status is a cheap local (calendar) check — resolve it up front so we can skip
+        # the expensive intraday-bars download when the session is closed (INTRADAY gets stubbed
+        # to market_closed below regardless, so fetching today_high then is pure wasted latency).
+        try:
+            _mkt = nse_market_status()
+        except Exception:
+            _mkt = {}
+        _mkt_open = _mkt.get("status") == "OPEN"
         live_price = None
         if request.args.get("live", "1") != "0":
             try:
@@ -1224,8 +1258,11 @@ def ml_predict(ticker):
         # Fetch today's intraday HIGH so the ML "already_gone"/headroom guard works — this is
         # what stops INTRADAY from emitting a target the stock has ALREADY passed earlier in the
         # session. Without today_high the guard is blind and can print a target below the live price.
+        # Only needed while the market is OPEN — the 15m-bar download serializes every caller on a
+        # single global lock (intraday_live._YF_DOWNLOAD_LOCK), so skipping it off-hours removes the
+        # main reason ML rows lag behind the (concurrent) AI calls on watchlist/top-pick loads.
         today_high = None
-        if live_price and request.args.get("live", "1") != "0":
+        if live_price and _mkt_open and request.args.get("live", "1") != "0":
             try:
                 from intraday_live import get_intraday_bars
                 _bars = get_intraday_bars(t, interval="15m", period="1d")
@@ -1255,8 +1292,7 @@ def ml_predict(ticker):
         # live session left to predict, so the same-day ML forecast is meaningless. Mirrors
         # the AI path, which already stubs INTRADAY as market_closed when the market isn't OPEN.
         try:
-            _mkt = nse_market_status()
-            if _mkt.get("status") != "OPEN" and result.get("available") and result.get("tfs"):
+            if not _mkt_open and result.get("available") and result.get("tfs"):
                 result["tfs"]["INTRADAY"] = {
                     "market_closed": True,
                     "direction": "N/A",
@@ -1264,6 +1300,29 @@ def ml_predict(ticker):
                     "market_status": _mkt.get("status"),
                 }
                 result["intraday_market_closed"] = True
+        except Exception:
+            pass
+        # INTRADAY "target hit → re-evaluate": if the live price has run past the target we last
+        # served for this ticker, tag this fresh forecast so the UI badges the new (higher/lower)
+        # target as a re-evaluation. Mirrors the AI path. Then remember the new target.
+        try:
+            _itf = (result.get("tfs") or {}).get("INTRADAY") if result.get("available") else None
+            if (isinstance(_itf, dict) and not _itf.get("market_closed")
+                    and _mkt_open and live_price and live_price > 0):
+                _dir = (_itf.get("direction") or "").upper()
+                _new_tgt = _itf.get("expected_target_price")
+                with _ML_INTRADAY_TARGET_LOCK:
+                    _prev = _ML_INTRADAY_TARGET.get(t)
+                if (_prev and _prev.get("target")
+                        and ((_prev.get("dir") == "BULLISH" and live_price >= _prev["target"])
+                             or (_prev.get("dir") == "BEARISH" and live_price <= _prev["target"]))):
+                    _ist_ml = timezone(timedelta(hours=5, minutes=30))
+                    _itf["reevaluated"] = True
+                    _itf["reeval_time"] = datetime.now(timezone.utc).astimezone(_ist_ml).strftime("%H:%M")
+                    _itf["prev_target"] = _prev["target"]
+                if _dir in ("BULLISH", "BEARISH") and _new_tgt:
+                    with _ML_INTRADAY_TARGET_LOCK:
+                        _ML_INTRADAY_TARGET[t] = {"dir": _dir, "target": _new_tgt}
         except Exception:
             pass
         # Optional: persist ML predictions for the validation tab (ML vs AI vs Actual).
@@ -1910,6 +1969,9 @@ def _build_watchlist_pick(item: dict, preds: dict) -> tuple[dict, dict]:
                 "intraday_final_call": p.get("intraday_final_call"),
                 "final_call_time": p.get("final_call_time"),
                 "intraday_premarket": p.get("intraday_premarket"),
+                "intraday_reevaluated": p.get("intraday_reevaluated"),
+                "reeval_time": p.get("reeval_time"),
+                "prev_target": p.get("prev_target"),
                 "predicted_direction": p.get("predicted_direction"),
                 "predicted_return_lo": p.get("predicted_return_lo"),
                 "predicted_return_hi": p.get("predicted_return_hi"),
@@ -2090,7 +2152,17 @@ def watchlist_pick_single(ticker: str):
                 _fn(t, item.get("company", "") if item else "")
             except Exception:
                 pass
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as _warm_ex:
+        # NOTE: do NOT use `with ... as _warm_ex:` here — the context manager's
+        # __exit__ calls shutdown(wait=True), which blocks this request until BOTH
+        # warm-up fetches actually finish, even though the .result(timeout=...) calls
+        # below already degrade gracefully on a slow provider. That silently defeated
+        # the soft timeouts and could hang the whole watchlist request as long as
+        # news_sentiment's LLM call took (worst case ~90s on Ollama fallback) —
+        # surfacing as "news failing" on the first watchlist check for a ticker.
+        # Explicit executor + shutdown(wait=False): the straggler keeps warming
+        # caches in the background for the next check, without blocking this one.
+        _warm_ex = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        try:
             _f_ohlcv = _warm_ex.submit(warm_ohlcv_cache, t, "1y")
             _f_news  = _warm_ex.submit(_warm_news)
             try:
@@ -2101,6 +2173,8 @@ def watchlist_pick_single(ticker: str):
                 _f_news.result(timeout=65)
             except Exception:
                 pass
+        finally:
+            _warm_ex.shutdown(wait=False)
 
         # All TFs submitted concurrently. exit executor without waiting (wait=False)
         # so Flask returns once the deadline fires, not when threads finish.
@@ -2248,15 +2322,25 @@ def watchlist_pick_single_tf(ticker: str, tf: str):
             })
 
     # Cache check
+    _reeval_prev = None  # prior cached INTRADAY call whose target the live price just reached
     if not force_refresh:
         entry = _WATCHLIST_PICK_CACHE.get((t, tf))
         if entry and now - entry["ts"] < entry.get("ttl", _cache_ttl_for_tf(tf)):
-            return jsonify({
-                "tf": tf, "ticker": t,
-                "data": entry["pred"],
-                "generated_at": datetime.fromtimestamp(entry["ts"]).strftime("%Y-%m-%d %H:%M"),
-                "cached": True,
-            })
+            _cached_pred = entry["pred"]
+            # INTRADAY: if the live price has already reached the cached call's target, don't
+            # serve the passed target — fall through to a fresh recompute so a NEW target off
+            # the current level is produced (target hit → re-evaluate). Else serve the cache.
+            if (tf == "INTRADAY" and market_is_open
+                    and _intraday_pred_has_target(_cached_pred)
+                    and _intraday_target_reached(_cached_pred, _current_price(t, strict=False))):
+                _reeval_prev = _cached_pred
+            else:
+                return jsonify({
+                    "tf": tf, "ticker": t,
+                    "data": _cached_pred,
+                    "generated_at": datetime.fromtimestamp(entry["ts"]).strftime("%Y-%m-%d %H:%M"),
+                    "cached": True,
+                })
 
     start, end = timeframe_to_dates(tf)
     try:
@@ -2277,6 +2361,12 @@ def watchlist_pick_single_tf(ticker: str, tf: str):
         # Tag a pre-market INTRADAY preview so the frontend can label it.
         if tf == "INTRADAY" and _is_premarket:
             pred["intraday_premarket"] = True
+        # Tag a re-evaluation triggered because the prior target was hit, so the UI can badge it.
+        if _reeval_prev is not None and tf == "INTRADAY" and _intraday_pred_has_target(pred):
+            _ist_r = timezone(timedelta(hours=5, minutes=30))
+            pred["intraday_reevaluated"] = True
+            pred["reeval_time"] = datetime.now(timezone.utc).astimezone(_ist_r).strftime("%H:%M")
+            pred["prev_target"] = _reeval_prev.get("target_price_hi") or _reeval_prev.get("target_price_lo")
         # Never cache a transient 'timeout' (provider will reset shortly) so the background
         # refetch retries; keep 'ai_unavailable' on the short TTL for hard outages.
         if _reason != "timeout":
@@ -4234,6 +4324,18 @@ def _start_intraday_refresh_scheduler():
                                     _reason = pred.get("no_trade_reason")
                                     if _is_premarket:
                                         pred["intraday_premarket"] = True
+                                    # If the prior cached call's target was reached, this fresh
+                                    # call is a re-evaluation off the new level — badge it.
+                                    if not _is_premarket and _intraday_pred_has_target(pred):
+                                        _prev = _WATCHLIST_PICK_CACHE.get((tk, "INTRADAY"))
+                                        _prev_pred = _prev.get("pred") if _prev else None
+                                        if (_intraday_pred_has_target(_prev_pred)
+                                                and _intraday_target_reached(
+                                                    _prev_pred, pred.get("price") or pred.get("current_price"))):
+                                            pred["intraday_reevaluated"] = True
+                                            pred["reeval_time"] = ist.strftime("%H:%M")
+                                            pred["prev_target"] = (_prev_pred.get("target_price_hi")
+                                                                   or _prev_pred.get("target_price_lo"))
                                     # Don't cache transient timeouts (let the next refresh/fetch retry);
                                     # short TTL for hard ai_unavailable.
                                     if _reason != "timeout":

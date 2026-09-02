@@ -32,7 +32,36 @@ def _get_model():
     return _model
 
 
-def extract_pitch(audio_path: str) -> tuple[np.ndarray, float]:
+# Raw extraction is deterministic per file, so it may be memoized. The
+# smart cascade re-analyzes the same request under a second model when the
+# first is uncertain, and without this the forty-second melody extraction
+# would run twice; with it the second model pays only for its own
+# classification. Keyed by modification time as well as path because the
+# app writes each upload to a fresh temporary file, and capped so a long
+# session cannot hold every recording it ever saw.
+_MEMO: dict = {}
+_MEMO_MAX = 8
+
+
+def _memo_key(path):
+    import os
+
+    return (str(path), os.path.getmtime(path))
+
+
+def _memo_get(kind, path):
+    return _MEMO.get((kind,) + _memo_key(path))
+
+
+def _memo_put(kind, path, value):
+    if len(_MEMO) >= 2 * _MEMO_MAX:
+        for k in list(_MEMO)[:_MEMO_MAX]:
+            del _MEMO[k]
+    _MEMO[(kind,) + _memo_key(path)] = value
+    return value
+
+
+def _extract_pitch_uncached(audio_path: str) -> tuple[np.ndarray, float]:
     assert_available()
     audio, sr = sf.read(str(audio_path), always_2d=False)
     t, freq, conf, _ = _get_model().predict(audio, sr)
@@ -41,7 +70,7 @@ def extract_pitch(audio_path: str) -> tuple[np.ndarray, float]:
     return f0, hop
 
 
-def extract_tonic(audio_path: str) -> float:
+def _extract_tonic_uncached(audio_path: str) -> float:
     """Histogram tonic from the vocal F0 track (no drone assumption)."""
     from raagafinder.pitch.tonic_hist import tonic_candidates
 
@@ -50,3 +79,17 @@ def extract_tonic(audio_path: str) -> float:
     if not cands:
         raise ValueError("no voiced content for tonic estimation")
     return cands[0]
+
+
+def extract_pitch(audio_path: str) -> "tuple[np.ndarray, float]":
+    hit = _memo_get("pitch", audio_path)
+    if hit is not None:
+        return hit
+    return _memo_put("pitch", audio_path, _extract_pitch_uncached(audio_path))
+
+
+def extract_tonic(audio_path: str) -> float:
+    hit = _memo_get("tonic", audio_path)
+    if hit is not None:
+        return hit
+    return _memo_put("tonic", audio_path, _extract_tonic_uncached(audio_path))

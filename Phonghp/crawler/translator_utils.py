@@ -7,12 +7,17 @@ class VietPhraseTranslator:
     def __init__(self):
         self.automaton = ahocorasick.Automaton()
         self.dict_path = os.path.join(os.path.dirname(__file__), "dicts")
+        try:
+            import backend.logging_config as _lc
+        except Exception:
+            pass
         self.load_all_dicts()
 
     def load_all_dicts(self):
         """Nạp từ điển thông minh và giải phóng RAM"""
         if not os.path.exists(self.dict_path):
-            print(f"❌ Không tìm thấy thư mục: {self.dict_path}")
+            import logging
+            logging.getLogger(__name__).error(f"❌ Không tìm thấy thư mục: {self.dict_path}")
             return
 
         all_files = [f for f in os.listdir(self.dict_path) if f.endswith(".txt")]
@@ -21,7 +26,9 @@ class VietPhraseTranslator:
         common_files = [f for f in all_files if f not in priority_files]
         
         ordered_files = common_files + priority_files
-        print(f"--- Đang nạp {len(ordered_files)} file từ điển... ---")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"--- Đang nạp {len(ordered_files)} file từ điển... ---")
 
         raw_dict = {}
         for filename in ordered_files:
@@ -37,7 +44,7 @@ class VietPhraseTranslator:
                                 if key:
                                     raw_dict[key] = val
             except Exception as e:
-                print(f"⚠️ Lỗi nạp file {filename}: {e}")
+                logger.exception(f"⚠️ Lỗi nạp file {filename}: {e}")
 
         for key, value in raw_dict.items():
             try:
@@ -48,7 +55,7 @@ class VietPhraseTranslator:
         self.automaton.make_automaton()
         del raw_dict
         gc.collect()
-        print(f"✅ Đã nạp xong từ điển vào RAM.")
+        logger.info(f"✅ Đã nạp xong từ điển vào RAM.")
 
     def post_process(self, text):
         """Dọn dẹp văn bản: Fix lỗi maketrans lệch ký tự"""

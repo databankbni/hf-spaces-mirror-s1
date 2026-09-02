@@ -1,0 +1,460 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Async staleness bridging - Fontaine — Bijou research log</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-e96d0476.css">
+        <link rel="stylesheet" href="../css/chrome-d279d366.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-91504666.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-fce102de.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Fontaine — Bijou research log</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/mcobzarenco/flow-matching/tree/fontaine" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="22-async-staleness-bridging-for-rollout-rtc--a2c2--tt-rtc--parked-waits-on-16"><a class="header" href="#22-async-staleness-bridging-for-rollout-rtc--a2c2--tt-rtc--parked-waits-on-16">22. Async staleness bridging for rollout (RTC / A2C2 / TT-RTC) — <code>parked</code> (waits on #16)</a></h1>
+<p><em>Tag: <code>async-staleness</code> · idea #22 · <a href="../ideas.html">index</a></em></p>
+<ul>
+<li><strong>Hypothesis:</strong> at real deployment latencies, naive async chunk
+switching (our <code>--async-inference</code>) loses task quality to
+observation staleness — and the loss is <em>decode-dependent</em>:
+single-draw 1-NFE (~2 ticks @30 Hz) is in the survey’s “everything
+works” regime, mean-of-10 batched (576 ms ≈ 18 ticks, chunk 50) is
+deep in the regime where naive switching degrades and
+inference-time RTC has already collapsed
+(<a href="../papers/2026-08-07-async-chunk-execution.html">papers page</a>:
+RTC 2506.07339 + async-methods comparison 2605.08168).</li>
+<li><strong>Expected effect:</strong> rig/sim rollout quality at high-value decodes;
+invisible to the offline panel by construction (staleness is a
+closed-loop phenomenon).</li>
+<li><strong>Cost:</strong> screen = 0 training (measure naive-switch cost at both
+decodes on rig rollouts once #16 exists); first arm if real =
+A2C2-style residual correction head (frozen base, composes with
+batched draws), second = TT-RTC prefix-conditioning fine-tune
+(~25% of base training, weak at chunk 50).</li>
+<li><strong>Falsification:</strong> paired rollouts, same checkpoint, single-draw vs
+mean-of-10 under naive switching: if mean-of-10’s closed-loop win
+survives its 9× staleness, bridging buys nothing — park forever.</li>
+<li><strong>Gate:</strong> parked until the #16 rig-transfer bench exists; the
+survey’s regime table (delay-in-ticks × chunk length decides the
+winner) is the design input for any pre-reg here.</li>
+</ul>
+<h2 id="record"><a class="header" href="#record">Record</a></h2>
+<ul>
+<li>
+<p><strong>2026-08-07 ~20:3xZ — PAINT read, arm order re-banked</strong>
+(<a href="../papers/noise-space-steering-2.html">noise-space steering II</a>,
+2606.19774): training-free initial-noise selection solves the
+chunk-boundary problem without gradients — backward-Euler invert a
+target endpoint (executed prefix + draft tail) to noise, keep only
+the inverted <em>prefix</em> of ε, splice fresh suffix noise, integrate
+forward (~3N calls). Matches/beats RTC on real tasks (0.85 vs
+0.75 Toy-in-Drawer), most delay-robust method on Kinetix at d=4,
+composes with TT-RTC, demonstrated on a chunk-50 π₀ — our regime.
+<strong>Arm order now: PAINT (zero training) → A2C2 residual → TT-RTC.</strong>
+Design note banked (ours, needs its own oracle if ever built):
+shared inverted prefix + per-draw fresh suffixes should let PAINT
+compose with mean-of-10 batched draws. Caveats: locality
+assumption (prefix-of-ε ↔ prefix-of-chunk, OT-FM-encouraged, not
+enforced — probeable with our draws machinery, noted on #1);
+off-manifold executed prefixes invert poorly. Gate unchanged:
+parked until #16’s rig bench exists.</p>
+</li>
+<li>
+<p><strong>2026-08-09 ~12:0xZ — async family deep-read, arms re-banked
+again</strong> (<a href="../papers/async-execution-2.html">async execution II</a>:
+FASTER 2603.19199 + ABPolicy 2602.23901 + DEFLECT 2605.19294).
+Three findings move this idea: (1) <strong>FASTER</strong> shows the delay
+itself is partly a scheduling artifact — its horizon-aware
+schedule finalizes action 0 after one flow step of N (hit-times
+u_i per action index, mixed-schedule fine-tune, no architecture
+change) + streams actions as they finalize; TTFA 1.29–3.09× on
+π0.5/X-VLA. The schedule is per-action-index so it tiles across
+our draws-major batch — the 18-tick mean-of-10 staleness this
+idea’s hypothesis rests on could drop toward ~2–4 ticks <em>before
+any bridging is bought</em>. (2) <strong>DEFLECT</strong> hard-measures the survey’s
+regime prediction — RTC/BID ≤5% at d≥5 on chunked VLAs — and
+post-trains through it with stale-vs-fresh preference pairs from a
+frozen reference (FM-DPO + SFT anchor, both chunks scored under
+the <em>stale deployment input</em>); headline +6.4 pp at d=5–7 but the
+restart-corrected net is <strong>+1.6–2.3 pp</strong> (their own Appendix L) —
+carry that number. Delay generalizes (train d≤2 → +3.7 pp at
+d=7); flow heads only. (3) <strong>ABPolicy</strong>’s
+continuity-constrained refitting + jerk instruments (95th-pct
+accel, zero-crossings) banked as boundary-seam tooling for the
+eventual rig screen; its within-chunk win is predicted small for
+us (our ODE draws already uniformly smooth per the SDN read).
+<strong>Arm order now: measure naive-switch cost → HAS-on-decode
+(fine-tune) → PAINT → A2C2 residual → TT-RTC/DEFLECT-class
+post-training.</strong> Caveat carried loud: nobody tests d≈18; d=7 is
+the field’s ceiling. Gate unchanged: parked until #16’s rig bench
+exists.</p>
+</li>
+<li>
+<p><strong>2026-08-09 ~14:3xZ — SEAM read (the 12:3xZ hook cleared;
+<a href="../papers/seam-boundary-steering.html">page</a>, 2607.04609): the
+cheapest entry in the bridging family, and a free measurement for
+us.</strong> Training-free inference-time steering: after each Euler
+step, a closed-form nudge pulls the new chunk’s first M positions
+toward the previous chunk’s unexecuted tail (“aligned prior”),
+scaled λ(1−t) — no backprop, +1% denoise cost. π0.5/LIBERO-10:
+boundary jerk −28%, discontinuity −27%, success 94.8→95.7 (vs
+RTC −54% at 1.22×; vs ACT-TE −84% but success −12 pts —
+over-smoothing kills contact timing). <strong>Arm order update: SEAM
+slots ahead of PAINT as the cheapest smoothing arm</strong> (PAINT
+inverts 3N calls; SEAM is closed-form) — but PAINT stays the
+async-robust one (SEAM assumes the tail is available at sampling
+time; under async overlap the prior goes stale, unmeasured in the
+paper). λ ablation caution banked: 0.15–0.2 erodes success —
+guidance strength is not free. <strong>Banked free hook (feeds #1
+too): the boundary-incompatibility CPU read</strong> — our panel npz
+stacks hold predicted chunks on temporally ordered frames; tail
+-vs-head disagreement on the overlap of frames Δt apart is a pure
+function of banked data (the SDN-read pattern, zero GPU). A null
+(our chunks already agree at the seam) would close the whole
+bridging direction for our stack before any rig work. Gate
+unchanged: parked until #16; the CPU read needs no gate.</p>
+</li>
+<li>
+<p><strong>2026-08-09 ~15:2xZ — the boundary-incompatibility read EXECUTED:
+NOT a null</strong>
+(<a href="../posts/2026-08-09-boundary-incompat-results.html">results</a>,
+<code>boundary_incompat_results.py</code>, oracle-gated; 13,693 same-episode
+pairs across five banked full-panel stacks, truth overlaps
+byte-identical on every pair). Seam disagreement D ≈ 1.1–1.27× each
+model’s own error on the same overlap; boundary jump 11–14× typical
+per-step motion while chunks stay smooth inside (the SDN
+within-chunk null replicated — smooth within, jerky between). The
+dt→0 intercept decomposes the cause: fresh-noise flow 6.04 vs
+deterministic AR greedy ~2.7 vs <strong>one shared noise ticket 2.07</strong> —
+noise coupling deletes the entire noise-induced seam term (the
+ticket33 bank is an accidental ablation the GoldenTicket rung
+already paid for) and lands below greedy AR. <strong>The direction this
+read could have closed is instead confirmed with a measured
+target.</strong> Arm order unchanged; still parked on #16 (open-loop
+read prices the problem, must never validate a fix). Escalation
+(SEAM/PAINT arm or a cross-chunk noise-coupling deployment
+policy) needs its own pre-reg.</p>
+</li>
+</ul>
+<p><strong>2026-08-09 — lit <code>0812b</code>: the horizon itself can be an output
+(<a href="../papers/vla-corrector.html">VLA-Corrector page</a>, 2607.01804):</strong>
+event-triggered chunk truncation from a cheap (40M, ~ms) drift
+monitor — long chunks while the scene tracks the plan, short
+corrective replans when it drifts. The ablation that matters:
+truncation-only is +11.65 of the +15.65 pp total (MetaWorld π0.5) —
+<em>when to cut</em> dominates <em>how to steer</em>. Complementary to our
+boundary read (they cut on scene drift; our measured pathology is
+decode drift at the seam). Menu adjacency, not an arm — closed-loop
+by construction, parked on #16 like the rest of the ladder.</p>
+<p><strong>2026-08-09 — lit <code>0813</code>: two placements, both leaving the arm menu
+unchanged.</strong> (<a href="../papers/asyncvla.html">AsyncVLA page</a>, 2511.14148):
+despite the name, NOT an async-execution paper — all correction is
+pre-execution within one chunk (two-pass masked regeneration; no
+staleness, truncation, or horizon ablation anywhere); filed so the
+title doesn’t get re-banked as a hook. Its rater is a candidate
+when-to-cut signal nobody uses that way. (<a href="../papers/streamvla.html">StreamVLA
+page</a>, 2602.01100): the completion-state
+gate re-<em>reasons</em> but never cuts the chunk (K fixed, gate orthogonal
+to chunk boundaries) — complements VLA-Corrector’s truncation axis
+rather than competing; its economics datum (event-triggered refresh
+≈ always-refresh at half latency) transfers to any replan-policy
+pre-reg. Gate unchanged: parked on #16.</p>
+<p><strong>2026-08-09 — lit <code>0814</code>: our seam read, published as a detector
+(<a href="../papers/vla-fail.html">VLA-FAIL page</a>, 2606.21386):</strong> their ACC
+score is the boundary-disagreement quantity we measured — previous
+chunk’s unexecuted suffix vs new chunk’s prefix over the
+receding-horizon overlap — deployed as a runtime failure signal.
+Three borrowable deltas banked: velocity normalization (per-dim MAE
+÷ in-chunk motion range, clamped — scale-free across slow/fast
+phases), EMA α=0.9 before thresholding (our jump numbers are
+instantaneous), position-dims-only restriction; plus the
+conformal-band-on-20-successes thresholding recipe. The sharp
+cross-read: ACC compares <em>sampled</em> chunks, so our measured
+~3.3-unit fresh-noise mode term sits inside their signal as an
+undecomposed noise floor — they fix the noise for LLMD’s features
+but NOT for ACC’s actions, so our shared noise ticket would shrink
+their null distribution and make the detector strictly more
+sensitive. Population-level confirmation: detection degrades as
+overlap shrinks. Menu unchanged; still parked on #16.</p>
+<ul>
+<li>
+<p><strong>2026-08-09 lit <code>0816</code> — a real-SO-101 latency anchor, and the
+cache lever measured (<a href="../papers/actioncache.html">ActionCache page</a>,
+2607.06370):</strong> training-free retrieval cache over the flow
+decode — intermediate noisy chunks keyed by a sparse ternary
+random projection of trunk output embeddings, hit → warm-start
+the ODE (or execute directly). Banked anchor: <strong>a π0.5-class VLA
+on a real SO-101 runs ~102 ms/decision end-to-end, VLM ≈ 22 ms +
+embedding ≈ 24 ms</strong>, and because the cache key is computed FROM
+trunk outputs, the trunk forward is structurally unskippable —
+their end-to-end best is 1.66× despite 40× head-only headlines.
+Confirms the trunk-overlap thread (this idea), not decode
+acceleration, is the lever that addresses our bottleneck. Filed
+as reusable: the ~0.3 ms trunk-embedding fingerprint (offline
+dedup/retrieval primitive); cautionary: their Falcon baseline —
+naive warm-start from the previous timestep’s action — collapses
+to 7.6% SR vs 41.0%. Menu unchanged; still parked on #16.</p>
+</li>
+<li>
+<p><strong>2026-08-09 lit <code>0817</code> — the serving stack decomposes into
+named layers (<a href="../papers/reflex.html">Reflex</a> 2607.14695 +
+<a href="../papers/legato.html">Legato</a> 2602.12978, read as complements):</strong>
+Reflex (inference-only) formalizes what our architecture has by
+construction — the frozen trunk never sees the flow timestep, so
+trunk KV computed once per control step is <em>exactly</em> valid for
+every ODE step (their MSE-0 proof; naive expert-side caching
+collapses to 12.5% success). 2.58× headline is vs a
+full-recompute strawman (openpi-class impls already reuse prefix
+KV); the defensible gains are the async VLM-thread/expert-thread
+split (reaction latency −47–54%, stall rate 100%→0% — stall rate
+adopted as an instrument) and their 82–110 ms reaction band
+brackets our 102 ms ActionCache anchor. Legato (train-time)
+replaces RTC in the chunk-transition slot: guidance-aware FM
+objective + schedule conditioning, matched vs RTC from the same
+π0.5 checkpoint — completion time <strong>−19–23%</strong> on all 5 real
+dual-arm tasks, frame-level smoothness ~flat (hook’s “~10%
+smoother” corrected both directions). Menu updated: transition
+ladder = RTC (free) → Legato (fine-tune, gated on measured
+boundary artifacts at rig time; objective change = own arm,
+never a retrofit; bakes in N=5 solver steps). One infra check
+queued informally: verify our rollout path caches trunk features
+across ODE steps — if not, Reflex says the fix is free and
+exact. Still parked on #16.</p>
+</li>
+</ul>
+<p><strong>2026-08-09 — lit <code>0819</code> (<a href="../papers/squint.html">Squint</a>
+2602.21203):</strong> the “parked on #16, closed-loop by construction”
+blocker softens — Squint’s SO-101 twin gives deterministic-seed,
+1,024-parallel-env closed-loop rollouts at 10 Hz on trivial compute,
+and staleness/chunk-switch ablations are <em>relative</em> measurements
+where a far-OOD sim is still a fair judge (domain gap held constant
+across arms). The banked arm order (naive-switch → HAS-on-decode →
+SEAM → PAINT → A2C2 → TT-RTC/DEFLECT) becomes success-rate deltas
+instead of waiting on rig time. Any screen still needs its own
+pre-reg + a sim-adaptation sanity arm first (our policies are OOD in
+Squint’s default visual world).</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../ideas/21-agentic-loop-review.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../ideas/23-action-space.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../ideas/21-agentic-loop-review.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../ideas/23-action-space.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-09f2665d.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

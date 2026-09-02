@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { createLogger } from '@/src/lib/logger';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_DASH_BOARD_API_URL || '';
 const API_KEY = process.env.NEXT_PUBLIC_DASH_BOARD_API_KEY || '';
+
+const log = createLogger('/api/v1/definitions/[definitionId]/series');
 
 export async function GET(
   request: NextRequest,
@@ -17,7 +21,10 @@ export async function GET(
     );
   }
 
-  const url = `${API_BASE_URL}/api/v1/definitions/${definitionId}/series`;
+  const path = `/api/v1/definitions/${definitionId}/series`;
+  const url = `${API_BASE_URL}${path}`;
+
+  log.debug(`upstream GET ${path}`);
 
   try {
     const response = await fetch(url, {
@@ -36,7 +43,7 @@ export async function GET(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching series for definition:', error);
+    log.error('failed to fetch series for definition', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

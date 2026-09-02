@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stellar Magnitude Predictor & HR Diagram Analysis</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --purple-100: #EACFFC; --purple-200: #D59EFA; --purple-300: #C06EF7;
+            --purple-500: #960DF2; --purple-600: #780AC2; --bg-dark: #0a0512;
+            --card-bg: rgba(20, 10, 35, 0.75); 
+            --card-border: rgba(192, 110, 247, 0.3);
+            --text-main: #f3e8ff; --text-muted: #c4b5fd;
+            --bg-image: url('rabbits.jpg');
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        
+        body { 
+            background-image: linear-gradient(to bottom, rgba(208, 104, 205, 0.314), rgba(44, 32, 63, 0.232)), var(--bg-image);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            color: var(--text-main); 
+            min-height: 100vh; 
+            overflow-x: hidden; 
+        }
+        
+        /* Navigation */
+        nav { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 4rem; background: rgba(10, 5, 18, 0.75); backdrop-filter: blur(16px); border-bottom: 1px solid var(--card-border); position: sticky; top: 0; z-index: 100; }
+        .logo { font-weight: 700; font-size: 1.25rem; color: #fff; cursor: pointer; }
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+        .nav-links a { color: var(--text-muted); text-decoration: none; cursor: pointer; font-weight: 500; transition: color 0.2s; }
+        .nav-links a:hover, .nav-links a.active { color: var(--purple-100); }
+        .btn-primary { background: linear-gradient(135deg, var(--purple-500), var(--purple-600)); color: #fff; padding: 0.6rem 1.4rem; border-radius: 9999px; border: none; cursor: pointer; font-weight: 600; transition: opacity 0.2s; }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-secondary { background: rgba(192, 110, 247, 0.2); border: 1px solid var(--purple-300); color: var(--purple-100); padding: 0.6rem 1.4rem; border-radius: 9999px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+        .btn-secondary:hover { background: rgba(192, 110, 247, 0.4); }
+
+        /* Multi-Page System */
+        .page { display: none; max-width: 1700px; margin: 0 auto; padding: 2rem; }
+        .page.active-page { display: block; }
+
+        /* UI Components */
+        .card { background: var(--card-bg); border: 1px solid var(--card-border); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 20px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        
+        .analysis-layout { display: grid; grid-template-columns: 460px 1fr; gap: 1.5rem; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+        .input-group { display: flex; flex-direction: column; }
+        .input-group label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.15rem; }
+        .form-control { padding: 0.45rem 0.6rem; background: rgba(10, 5, 18, 0.7); border: 1px solid var(--card-border); border-radius: 8px; color: #fff; outline: none; font-size: 0.85rem; }
+        
+        .tab-buttons { display: flex; gap: 10px; margin-bottom: 1rem; }
+        .tab-btn { flex: 1; padding: 10px; background: rgba(10, 5, 18, 0.5); color: var(--text-muted); border: 1px solid var(--card-border); border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .tab-btn.active { background: var(--purple-600); color: #fff; }
+
+        /* Stats & Badges */
+        .stat-card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .stat-card { background: rgba(10, 5, 18, 0.7); border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; text-align: center; }
+        .stat-label { display: block; font-size: 0.7rem; color: var(--text-muted); }
+        .stat-value { font-size: 0.9rem; font-weight: bold; color: var(--purple-100); word-break: break-all; }
+        .badge { display: inline-block; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-align: center; }
+        .badge-bright { background: rgba(255, 215, 0, 0.2); color: #ffd700; border: 1px solid #ffd700; }
+        .badge-faint { background: rgba(160, 174, 192, 0.2); color: #cbd5e0; border: 1px solid #cbd5e0; }
+        .badge-warning { background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid #f43f5e; }
+
+        .spectral-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+        .spectral-item { background: rgba(0, 0, 0, 0.4); border: 1px solid var(--card-border); border-radius: 6px; padding: 4px 6px; text-align: center; font-size: 0.75rem; }
+
+        /* Charts Grid */
+        .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+        .chart-box { background: rgba(10, 5, 18, 0.7); border: 1px solid var(--card-border); border-radius: 12px; padding: 1.2rem; }
+        .chart-container { position: relative; height: 380px; width: 100%; }
+
+        /* Modal Fullscreen Styles */
+        .chart-modal {
+            display: none; position: fixed; inset: 0; z-index: 1000;
+            background: rgba(10, 5, 18, 0.9); backdrop-filter: blur(8px);
+            justify-content: center; align-items: center; padding: 2rem;
+        }
+        .chart-modal-content {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 20px; padding: 1.5rem; width: 90%; max-width: 1200px;
+            height: 85vh; display: flex; flex-direction: column; position: relative;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+        }
+        .chart-modal-body { flex: 1; position: relative; width: 100%; height: calc(100% - 40px); }
+        .close-modal-btn {
+            position: absolute; top: 1rem; right: 1.5rem; background: rgba(244, 63, 94, 0.2);
+            border: 1px solid #f43f5e; color: #fb7185; padding: 0.3rem 0.8rem;
+            border-radius: 8px; cursor: pointer; font-weight: bold; z-index: 10;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay { display: none; position: absolute; inset: 0; background: rgba(10, 5, 18, 0.85); backdrop-filter: blur(6px); z-index: 10; border-radius: 20px; justify-content: center; align-items: center; color: var(--purple-100); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="logo" onclick="navigateTo('home')">Stellar Magnitude Predictor</div>
+        <ul class="nav-links">
+            <li><a id="nav-home" class="active" onclick="navigateTo('home')">Home</a></li>
+            <li><a id="nav-app" onclick="navigateTo('app')">Analysis</a></li>
+            <li><a id="nav-docs" onclick="navigateTo('docs')">Manual</a></li>
+        </ul>
+        <button class="btn-primary" onclick="window.open('https://gea.esac.esa.int/archive/', '_blank')">Go to Gaia Archive</button>
+    </nav>
+
+    <!-- หน้าแรก (Home) -->
+    <section id="page-home" class="page active-page">
+        <div style="text-align: center; padding: 4rem 1rem;">
+            <h1 style="font-size: 3rem; color: #dff5ff; margin-bottom: 1rem;">Stellar Absolute Magnitude Prediction</h1>
+            <p style="font-size: 1.2rem; color: #fff; max-width: 800px; margin: 0 auto 2rem;">
+                ระบบทำนายโชติมาตรสัมบูรณ์ของดาวฤกษ์ที่มีค่าโชติมาตรปรากฏมากกว่า 6 และสร้างแผนภาพ Hertzsprung-Russell Diagram ด้วยแบบจำลอง Machine Learning จากชุดข้อมูล Gaia DR3
+            </p>
+            <button class="btn-primary" style="font-size: 1.1rem; padding: 0.8rem 2.5rem;" onclick="navigateTo('app')">Get Start!</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 2rem;">
+            <div class="card">
+                <h3 style="color: var(--purple-200); margin-bottom: 0.5rem;">Machine Learning</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">ประมวลผลความสัมพันธ์ระหว่างข้อมูลโฟโตเมตรีและคุณสมบัติของดาวฤกษ์ด้วย Gradient Boosting</p>
+            </div>
+            <div class="card">
+                <h3 style="color: var(--purple-200); margin-bottom: 0.5rem;">Interactive HR & Spectrum Visuals</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">พล็อต HR Diagram และแผนภูมิจำแนกประชากรสเปกตรัมดาว (O, B, A, F, G, K, M) พร้อมดัชนีสีตามค่า BP-RP</p>
+            </div>
+            <div class="card">
+                <h3 style="color: var(--purple-200); margin-bottom: 0.5rem;">Galactic Coordinate Mapping</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">พล็อตตำแหน่งเชิงมุมบนระนาบทางช้างเผือก (l, b) พร้อมจำแนกสีตามสเปกตรัมดาวฤกษ์</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- หน้าวิเคราะห์ข้อมูล (Analysis) -->
+    <section id="page-app" class="page">
+        <h2 style="color: var(--purple-100); margin-bottom: 1.5rem;">ระบบวิเคราะห์และทำนายข้อมูลดาวฤกษ์</h2>
+
+        <div class="analysis-layout">
+            
+            <div class="card" style="position: relative;">
+                <div id="loading" class="loading-overlay">กำลังประมวลผลข้อมูล...</div>
+
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="switchTab('single', event)">ดาวดวงเดียว</button>
+                    <button class="tab-btn" onclick="switchTab('batch', event)">อัปโหลด CSV</button>
+                </div>
+
+                <div id="single-tab">
+                    <div class="form-grid">
+                        <div class="input-group"><label>phot_g_mean_mag</label><input type="number" step="any" class="form-control" id="phot_g" value="12.45"></div>
+                        <div class="input-group"><label>phot_bp_mean_mag</label><input type="number" step="any" class="form-control" id="phot_bp" value="12.80"></div>
+                        <div class="input-group"><label>phot_rp_mean_mag</label><input type="number" step="any" class="form-control" id="phot_rp" value="11.95"></div>
+                        <div class="input-group"><label>ruwe</label><input type="number" step="any" class="form-control" id="ruwe" value="1.05"></div>
+                        <div class="input-group"><label>teff_gspphot (K)</label><input type="number" step="any" class="form-control" id="teff" value="5778"></div>
+                        <div class="input-group"><label>logg_gspphot</label><input type="number" step="any" class="form-control" id="logg" value="4.44"></div>
+                        
+                        <div class="input-group"><label>c_star [Optional Check]</label><input type="number" step="any" class="form-control" id="c_star" placeholder="เช่น 0.05"></div>
+                        <div class="input-group"><label>ra (deg) [Optional]</label><input type="number" step="any" class="form-control" id="ra" placeholder="เช่น 56.75"></div>
+                        <div class="input-group"><label>dec (deg) [Optional]</label><input type="number" step="any" class="form-control" id="dec" placeholder="เช่น 24.12"></div>
+                        <div class="input-group"><label>l (deg) [Optional]</label><input type="number" step="any" class="form-control" id="gal_l" placeholder="0 ถึง 360"></div>
+                        <div class="input-group" style="grid-column: span 2;"><label>b (deg) [Optional]</label><input type="number" step="any" class="form-control" id="gal_b" placeholder="-90 ถึง 90"></div>
+
+                        <button class="btn-primary" style="grid-column: span 2; margin-top: 0.5rem; width:100%;" onclick="predictSingle()">ประมวลผลดาวดวงนี้</button>
+                    </div>
+                </div>
+
+                <div id="batch-tab" style="display: none;">
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.8rem;">เลือกไฟล์ CSV เพื่อประมวลผลประชากรดาว (ไม่มีการ Drop Data ทิ้ง)</p>
+                    <input type="file" id="csv-file" accept=".csv" class="form-control" style="margin-bottom: 0.8rem;" onchange="predictFile(event)">
+                </div>
+
+                <div id="summary-card" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--card-border); padding-top: 1rem;">
+                    
+                    <div id="single-result-view" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                            <h4 style="color: var(--purple-100);">ผลการทำนายดาวดวงเดียว</h4>
+                            <div>
+                                <span id="single-bright-badge" class="badge">-</span>
+                                <span id="single-warning-badge" class="badge badge-warning" style="display:none; margin-left:4px;">Outlier Check</span>
+                            </div>
+                        </div>
+                        <div class="stat-card-grid" style="margin-bottom: 1rem;">
+                            <div class="stat-card"><span class="stat-label">Abs Mag (M_G)</span><span id="single-abs-mag" class="stat-value">-</span></div>
+                            <div class="stat-card"><span class="stat-label">Luminosity (L/L_⊙)</span><span id="single-lum" class="stat-value">-</span></div>
+                            <div class="stat-card"><span class="stat-label">Distance (pc)</span><span id="single-dist" class="stat-value">-</span></div>
+                            <div class="stat-card"><span class="stat-label">Parallax (mas)</span><span id="single-plx" class="stat-value">-</span></div>
+                            <div class="stat-card"><span class="stat-label">Spectral Class</span><span id="single-spec" class="stat-value" style="color: var(--purple-200);">-</span></div>
+                            <div class="stat-card"><span class="stat-label">Color (BP-RP)</span><span id="single-bprp" class="stat-value">-</span></div>
+                            <div class="stat-card" style="grid-column: span 2;"><span class="stat-label">Coordinates (RA, Dec / l, b)</span><span id="single-coords" class="stat-value" style="font-size: 0.8rem;">-</span></div>
+                        </div>
+
+                        <button class="btn-secondary" style="width: 100%;" onclick="downloadCurrentResultsCSV()">📥 ดาวน์โหลดผลลัพธ์ (CSV)</button>
+                    </div>
+
+                    <div id="batch-result-view" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                            <h4 style="color: var(--purple-100);">สรุปประชากรดาว (Batch Summary)</h4>
+                        </div>
+                        
+                        <div class="stat-card-grid" style="margin-bottom: 10px;">
+                            <div class="stat-card"><span class="stat-label">จำนวนดาวทั้งหมดที่ทำนาย</span><span id="batch-count" class="stat-value">-</span></div>
+                            <div class="stat-card"><span class="stat-label">ดาวสว่าง (G ≤ 6)</span><span id="batch-bright-count" class="stat-value" style="color: #ffd700;">-</span></div>
+                            <div class="stat-card"><span class="stat-label">ขอบเขต l (deg)</span><span id="l-range" class="stat-value" style="font-size: 0.75rem;">-</span></div>
+                            <div class="stat-card"><span class="stat-label">ขอบเขต b (deg)</span><span id="b-range" class="stat-value" style="font-size: 0.75rem;">-</span></div>
+                        </div>
+
+                        <div style="background: rgba(10, 5, 18, 0.7); border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; margin-bottom: 8px;">
+                            <span class="stat-label" style="color: var(--purple-200); font-weight: bold; margin-bottom: 4px;">สถิติความสว่างสัมบูรณ์ (M_G)</span>
+                            <div style="display: flex; justify-content: space-around; font-size: 0.8rem;">
+                                <div>Min: <strong id="mg-min" style="color:#a855f7;">-</strong></div>
+                                <div>Avg: <strong id="mg-avg" style="color:#e9d5ff;">-</strong></div>
+                                <div>Max: <strong id="mg-max" style="color:#c084fc;">-</strong></div>
+                            </div>
+                        </div>
+
+                        <div style="background: rgba(10, 5, 18, 0.7); border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; margin-bottom: 8px;">
+                            <span class="stat-label" style="color: var(--purple-200); font-weight: bold; margin-bottom: 4px;">สถิติกำลังส่องสว่าง (L/L_⊙)</span>
+                            <div style="display: flex; justify-content: space-around; font-size: 0.8rem;">
+                                <div>Min: <strong id="lum-min" style="color:#38bdf8;">-</strong></div>
+                                <div>Avg: <strong id="lum-avg" style="color:#e0f2fe;">-</strong></div>
+                                <div>Max: <strong id="lum-max" style="color:#818cf8;">-</strong></div>
+                            </div>
+                        </div>
+
+                        <div style="background: rgba(10, 5, 18, 0.7); border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; margin-bottom: 1rem;">
+                            <span class="stat-label" style="color: var(--purple-200); font-weight: bold;">การจำแนกชนิดสเปกตรัม (Spectral Breakdown)</span>
+                            <div id="spectral-grid-container" class="spectral-grid">
+                            </div>
+                        </div>
+
+                        <button class="btn-secondary" style="width: 100%;" onclick="downloadCurrentResultsCSV()">📥 ดาวน์โหลดผลลัพธ์ทั้งหมดเป็น CSV</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="color: var(--purple-100); margin-bottom: 1rem;">Visual Analytics & HR Diagrams</h3>
+                <div class="charts-grid">
+                    
+                    <!-- กราฟที่ 1: Observational HR -->
+                    <div class="chart-box">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <h4 style="color: var(--purple-200); font-size: 0.85rem;">Observational HR (BP-RP and M_G)</h4>
+                            <button class="btn-secondary" style="padding: 0.2rem 0.6rem; font-size: 0.7rem;" onclick="openFullscreenChart('chart1')">🔍 ขยายเต็มจอ</button>
+                        </div>
+                        <div class="chart-container"><canvas id="chart1"></canvas></div>
+                    </div>
+
+                    <!-- กราฟที่ 2: Theoretical HR -->
+                    <div class="chart-box">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <h4 style="color: var(--purple-200); font-size: 0.85rem;">Theoretical HR (Teff and M_G)</h4>
+                            <button class="btn-secondary" style="padding: 0.2rem 0.6rem; font-size: 0.7rem;" onclick="openFullscreenChart('chart2')">🔍 ขยายเต็มจอ</button>
+                        </div>
+                        <div class="chart-container"><canvas id="chart2"></canvas></div>
+                    </div>
+
+                    <!-- กราฟที่ 3: Spectral Distribution Bar Chart -->
+                    <div class="chart-box">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <h4 style="color: var(--purple-200); font-size: 0.85rem;">Spectral Distribution (Bar Chart)</h4>
+                            <button class="btn-secondary" style="padding: 0.2rem 0.6rem; font-size: 0.7rem;" onclick="openFullscreenChart('specBarChart')">🔍 ขยายเต็มจอ</button>
+                        </div>
+                        <div class="chart-container"><canvas id="specBarChart"></canvas></div>
+                    </div>
+
+                    <!-- กราฟที่ 4: Galactic Map Chart -->
+                    <div class="chart-box">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <h4 style="color: var(--purple-200); font-size: 0.85rem;">Galactic Distribution Map (l vs b)</h4>
+                            <button class="btn-secondary" style="padding: 0.2rem 0.6rem; font-size: 0.7rem;" onclick="openFullscreenChart('mapChart')">🔍 ขยายเต็มจอ</button>
+                        </div>
+                        <div class="chart-container"><canvas id="mapChart"></canvas></div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- หน้าคู่มือ -->
+    <section id="page-docs" class="page">
+        <div class="card">
+            <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--purple-100); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span>📖</span> ข้อมูลเชิงเทคนิคและคู่มือการใช้งานระบบ
+            </h2>
+
+            <!-- ส่วนที่ 1: โครงสร้างฟีเจอร์ของโมเดล -->
+            <div style="margin-bottom: 2rem;">
+                <h3 style="font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.75rem;">
+                    1. โครงสร้างฟีเจอร์ของโมเดล (10 Features Vector)
+                </h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.75rem; line-height: 1.5;">
+                    โมเดล Machine Learning (Gradient Boosting) ได้รับการฝึกสอนด้วยฟีเจอร์หลักทั้งหมด 10 ตัว ดังนี้:
+                </p>
+                <div class="stat-card" style="text-align: left; padding: 1rem; font-family: monospace; font-size: 0.85rem; color: var(--purple-100); overflow-x: auto;">
+                    ['ra', 'dec', 'b', 'l', 'phot_g_mean_mag', 'bp_rp', 'c_star', 'ruwe', 'teff_gspphot', 'logg_gspphot']
+                </div>
+            </div>
+
+            <!-- ส่วนที่ 2: การประมวลผลข้อมูลและ Outliers -->
+            <div style="margin-bottom: 2rem;">
+                <h3 style="font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.75rem;">
+                    2. การประมวลผลข้อมูลและ Photometric Excess Ratio (C*) Outliers
+                </h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">
+                    ระบบจะ <strong style="color: var(--text-main);">ไม่ทำการ Drop Row ข้อมูลออก</strong> แม้ดาวดวงนั้นจะมีค่า C* ผิดปกติหรือเป็นสัญญาณรบกวน เพื่อรักษาความสมบูรณ์ของข้อมูลประชากรดาว 100% โดยระบบจะทำการพยากรณ์ค่า $M_G$ และคำนวณสเปกตรัมให้โดยอัตโนมัติ พร้อมทั้งติด <span class="badge badge-warning">Flag</span> แจ้งเตือนในกรณีที่ดาวมีแนวโน้มเป็น Stellar Outliers
+                </p>
+            </div>
+
+            <!-- ส่วนที่ 3: วิธีการดึงข้อมูลจาก Gaia DR3 Archive -->
+            <div style="margin-bottom: 2rem;">
+                <h3 style="font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.75rem;">
+                    3. วิธีการดึงข้อมูลจาก Gaia DR3 Archive (ADQL Query)
+                </h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.75rem; line-height: 1.5;">
+                    สำหรับชุดข้อมูลที่ใช้ฝึกสอนและทดสอบระบบ จะทำการสืบค้นผ่านระบบ ESA Gaia Archive โดยใช้คำสั่ง ADQL ดังนี้
+                </p>
+                
+                <div class="stat-card" style="text-align: left; padding: 1rem; background: rgba(10, 5, 18, 0.95);">
+                    <pre style="font-family: monospace; font-size: 0.75rem; color: #cbd5e0; overflow-x: auto; line-height: 1.4;">
+                        <code>
+                                SELECT TOP 80000                           -- กำหนดจำนวนดาวฤกษ์ที่ต้องการศึกษา
+                                    source_id, ra, dec, b, l, 
+                                    phot_g_mean_mag, phot_bp_mean_mag, phot_rp_mean_mag,    
+                                    (phot_bp_mean_mag - phot_rp_mean_mag) AS bp_rp,
+                                    phot_bp_rp_excess_factor, parallax, parallax_error, ruwe,
+                                    visibility_periods_used, teff_gspphot, logg_gspphot
+                                FROM gaiadr3.gaia_source
+                                WHERE phot_g_mean_mag > 6                  -- กำหนดช่วงโชติมาตรปรากฏที่ต้องการศึกษา
+                                AND phot_g_mean_mag <= 18
+                                AND ABS(b) > 20                            -- กรองหลบฝุ่นระนาบดาราจักร (|b| > 20 deg)
+                                AND phot_bp_mean_mag IS NOT NULL
+                                AND phot_rp_mean_mag IS NOT NULL
+                                AND phot_bp_rp_excess_factor IS NOT NULL
+                                AND parallax_over_error > 5                -- ควบคุม Parallax (> 5)
+                                AND ruwe < 3                               -- ควบคุม Astrometric Quality
+                                AND visibility_periods_used > 8            -- เลือกข้อมูลที่ผ่านการสังเกตุซ้ำ
+                                AND logg_gspphot IS NOT NULL               -- กำหนดให้ระบุค่าความโน้มถ่วงที่ผิว
+                                AND teff_gspphot IS NOT NULL               -- กำหนดให้ระบุค่าอุณหภูมิพื้นผิว
+                        </code></pre>
+                </div>
+            </div>
+
+            <!-- ส่วนที่ 4: การ Export ผลลัพธ์ CSV -->
+            <div>
+                <h3 style="font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.75rem;">
+                    4. การ Export ผลลัพธ์ CSV
+                </h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.25rem;">
+                    ผู้ใช้สามารถดาวน์โหลดไฟล์สรุปผลทำนายทั้งหมดเป็นไฟล์ CSV เพื่อนำข้อมูลค่า M_G, Luminosity Ratio, Distance, Parallax และ Spectral Class ไปวิเคราะห์ต่อในระบบดาราศาสตร์ภายนอกได้ทันที
+                </p>
+                <button class="btn-primary" onclick="alert('ฟังก์ชันนี้พร้อมใช้งานในหน้าวิเคราะห์ข้อมูล')" style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+                    <span>📥</span> ดาวน์โหลดตัวอย่างไฟล์ CSV
+                </button>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Modal สำหรับแสดงกราฟแบบเต็มจอ -->
+    <div id="chartModal" class="chart-modal">
+        <div class="chart-modal-content">
+            <button class="close-modal-btn" onclick="closeChartModal()">✕ ปิดหน้าต่าง</button>
+            <h3 id="modalChartTitle" style="color: var(--purple-100); margin-bottom: 1rem;">กราฟแสดงผลแบบเต็มจอ</h3>
+            <div class="chart-modal-body">
+                <canvas id="modalChartCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = "https://pimmada31-stellar-prediction-api.hf.space";
+        let chart1Instance = null, chart2Instance = null, mapChartInstance = null, specBarChartInstance = null;
+        let modalChartInstance = null;
+        let currentPredictedStarsData = []; 
+
+        function getStarColorFromBPRP(bpRp) {
+            if (bpRp === null || bpRp === undefined || isNaN(bpRp)) return '#93c5fd';
+            if (bpRp < -0.3) return '#60a5fa';
+            if (bpRp < 0.0) return '#93c5fd'; 
+            if (bpRp < 0.4) return '#f8fafc'; 
+            if (bpRp < 0.8) return '#fef08a'; 
+            if (bpRp < 1.4) return '#fb923c'; 
+            return '#f87171';
+        }
+
+        function navigateTo(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+            document.getElementById(`page-${pageId}`).classList.add('active-page');
+            document.getElementById(`nav-${pageId}`).classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'flex' : 'none';
+        }
+
+        function switchTab(tab, evt) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('single-tab').style.display = tab === 'single' ? 'block' : 'none';
+            document.getElementById('batch-tab').style.display = tab === 'batch' ? 'block' : 'none';
+            evt.target.classList.add('active');
+        }
+
+        async function predictSingle() {
+            showLoading(true);
+            const payload = {
+                phot_g_mean_mag: parseFloat(document.getElementById('phot_g').value),
+                phot_bp_mean_mag: parseFloat(document.getElementById('phot_bp').value),
+                phot_rp_mean_mag: parseFloat(document.getElementById('phot_rp').value),
+                ruwe: parseFloat(document.getElementById('ruwe').value),
+                teff_gspphot: parseFloat(document.getElementById('teff').value),
+                logg_gspphot: parseFloat(document.getElementById('logg').value),
+                c_star: document.getElementById('c_star').value ? parseFloat(document.getElementById('c_star').value) : null,
+                ra: document.getElementById('ra').value ? parseFloat(document.getElementById('ra').value) : null,
+                dec: document.getElementById('dec').value ? parseFloat(document.getElementById('dec').value) : null,
+                l: document.getElementById('gal_l').value ? parseFloat(document.getElementById('gal_l').value) : null,
+                b: document.getElementById('gal_b').value ? parseFloat(document.getElementById('gal_b').value) : null
+            };
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/predict`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                showLoading(false);
+                if (data.success) {
+                    currentPredictedStarsData = [data.result];
+                    renderSingleResult(data.result);
+                }
+            } catch (err) {
+                showLoading(false);
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อ API: " + err.message);
+            }
+        }
+
+        async function predictFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showLoading(true);
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/predict-file`, { method: 'POST', body: formData });
+                const data = await res.json();
+                showLoading(false);
+                if (data.success) {
+                    currentPredictedStarsData = data.stars_data;
+                    renderBatchResult(data.stars_data, data.population_summary);
+                }
+            } catch (err) {
+                showLoading(false);
+                alert("เกิดข้อผิดพลาดในการประมวลผลไฟล์ CSV: " + err.message);
+            }
+        }
+
+        function renderSingleResult(star) {
+            document.getElementById('summary-card').style.display = 'block';
+            document.getElementById('single-result-view').style.display = 'block';
+            document.getElementById('batch-result-view').style.display = 'none';
+
+            document.getElementById('single-abs-mag').innerText = star.abs_mag_g;
+            document.getElementById('single-lum').innerText = `${star.luminosity_ratio} L_⊙`;
+            document.getElementById('single-dist').innerText = `${star.estimated_distance_pc} pc`;
+            document.getElementById('single-plx').innerText = `${star.estimated_parallax_mas} mas`;
+            document.getElementById('single-spec').innerText = `Class ${star.spectral_class}`;
+            document.getElementById('single-bprp').innerText = star.hr_diagram_1.x_bp_rp;
+
+            const badge = document.getElementById('single-bright-badge');
+            if (star.is_bright_star) {
+                badge.className = 'badge badge-bright';
+                badge.innerText = '★ Bright Star (Anchor)';
+            } else {
+                badge.className = 'badge badge-faint';
+                badge.innerText = 'Faint Star';
+            }
+
+            const warnBadge = document.getElementById('single-warning-badge');
+            if (star.ruwe > 1.4 || (star.c_star !== null && Math.abs(star.c_star) > 0.2)) {
+                warnBadge.style.display = 'inline-block';
+                warnBadge.innerText = '⚠ High C* / Outlier';
+            } else {
+                warnBadge.style.display = 'none';
+            }
+            
+            const raDecStr = star.ra !== null ? `RA:${star.ra}, DEC:${star.dec}` : 'RA/DEC: -';
+            const lbStr = star.l !== null ? `l:${star.l}°, b:${star.b}°` : 'l/b: -';
+            document.getElementById('single-coords').innerText = `${raDecStr} | ${lbStr}`;
+
+            const specDist = {};
+            specDist[star.spectral_class] = 1;
+            renderCharts([star], specDist);
+        }
+
+        function renderBatchResult(stars, summary) {
+            document.getElementById('summary-card').style.display = 'block';
+            document.getElementById('single-result-view').style.display = 'none';
+            document.getElementById('batch-result-view').style.display = 'block';
+
+            document.getElementById('batch-count').innerText = `${stars.length} ดวง`;
+            const brightCount = stars.filter(s => s.is_bright_star).length;
+            document.getElementById('batch-bright-count').innerText = `${brightCount} ดวง`;
+
+            const lVals = stars.map(s => s.l).filter(v => v !== null);
+            const bVals = stars.map(s => s.b).filter(v => v !== null);
+            
+            document.getElementById('l-range').innerText = lVals.length ? `${Math.min(...lVals).toFixed(1)}° ถึง ${Math.max(...lVals).toFixed(1)}°` : '-';
+            document.getElementById('b-range').innerText = bVals.length ? `${Math.min(...bVals).toFixed(1)}° ถึง ${Math.max(...bVals).toFixed(1)}°` : '-';
+
+            const mgVals = stars.map(s => s.abs_mag_g).filter(v => typeof v === 'number' && !isNaN(v));
+            if (mgVals.length > 0) {
+                document.getElementById('mg-min').innerText = Math.min(...mgVals).toFixed(2);
+                document.getElementById('mg-max').innerText = Math.max(...mgVals).toFixed(2);
+                const avgMg = mgVals.reduce((a, b) => a + b, 0) / mgVals.length;
+                document.getElementById('mg-avg').innerText = avgMg.toFixed(2);
+            }
+
+            const lumVals = stars.map(s => s.luminosity_ratio).filter(v => typeof v === 'number' && !isNaN(v));
+            if (lumVals.length > 0) {
+                document.getElementById('lum-min').innerText = Math.min(...lumVals).toFixed(2);
+                document.getElementById('lum-max').innerText = Math.max(...lumVals).toFixed(2);
+                const avgLum = lumVals.reduce((a, b) => a + b, 0) / lumVals.length;
+                document.getElementById('lum-avg').innerText = avgLum.toFixed(2);
+            }
+
+            const gridContainer = document.getElementById('spectral-grid-container');
+            gridContainer.innerHTML = '';
+            
+            const specDist = (summary && summary.spectral_distribution) ? summary.spectral_distribution : {};
+            const order = ['O', 'B', 'A', 'F', 'G', 'K', 'M'];
+            
+            order.forEach(cls => {
+                const count = specDist[cls] || 0;
+                const pct = stars.length ? ((count / stars.length) * 100).toFixed(1) : '0.0';
+                
+                const div = document.createElement('div');
+                div.className = 'spectral-item';
+                div.innerHTML = `<strong style="color:var(--purple-200);">${cls}</strong>: ${count} <span style="font-size:0.65rem; color:var(--text-muted);">(${pct}%)</span>`;
+                gridContainer.appendChild(div);
+            });
+
+            renderCharts(stars, specDist);
+        }
+
+        function downloadCurrentResultsCSV() {
+            if (!currentPredictedStarsData || currentPredictedStarsData.length === 0) {
+                alert("ไม่มีข้อมูลสำหรับส่งออก CSV");
+                return;
+            }
+
+            const headers = ["ra", "dec", "l", "b", "phot_g_mean_mag", "bp_rp", "c_star", "ruwe", "teff_gspphot", "logg_gspphot", "predicted_abs_mag_g", "luminosity_ratio", "estimated_distance_pc", "estimated_parallax_mas", "spectral_class", "is_bright_star"];
+            
+            const csvRows = [];
+            csvRows.push(headers.join(","));
+
+            currentPredictedStarsData.forEach(s => {
+                const row = [
+                    s.ra ?? "",
+                    s.dec ?? "",
+                    s.l ?? "",
+                    s.b ?? "",
+                    s.phot_g_mean_mag ?? "",
+                    s.hr_diagram_1?.x_bp_rp ?? "",
+                    s.c_star ?? "",
+                    s.ruwe ?? "",
+                    s.teff_gspphot ?? "",
+                    s.logg_gspphot ?? "",
+                    s.abs_mag_g ?? "",
+                    s.luminosity_ratio ?? "",
+                    s.estimated_distance_pc ?? "",
+                    s.estimated_parallax_mas ?? "",
+                    s.spectral_class ?? "",
+                    s.is_bright_star ? 1 : 0
+                ];
+                csvRows.push(row.join(","));
+            });
+
+            const csvString = csvRows.join("\n");
+            const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `stellar_predictions_${Date.now()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function openFullscreenChart(chartId) {
+            const modal = document.getElementById('chartModal');
+            modal.style.display = 'flex';
+            
+            const titleMap = {
+                'chart1': 'Observational HR Diagram (BP-RP vs M_G)',
+                'chart2': 'Theoretical HR Diagram (Teff vs M_G)',
+                'specBarChart': 'Spectral Distribution (Bar Chart)',
+                'mapChart': 'Galactic Distribution Map (l vs b)'
+            };
+            document.getElementById('modalChartTitle').innerText = titleMap[chartId] || 'กราฟแสดงผล';
+
+            const ctxModal = document.getElementById('modalChartCanvas').getContext('2d');
+            
+            let sourceChart = null;
+            if (chartId === 'chart1') sourceChart = chart1Instance;
+            else if (chartId === 'chart2') sourceChart = chart2Instance;
+            else if (chartId === 'specBarChart') sourceChart = specBarChartInstance;
+            else if (chartId === 'mapChart') sourceChart = mapChartInstance;
+
+            if (!sourceChart) return;
+
+            if (modalChartInstance) modalChartInstance.destroy();
+
+            modalChartInstance = new Chart(ctxModal, {
+                type: sourceChart.config.type,
+                data: JSON.parse(JSON.stringify(sourceChart.config.data)),
+                options: {
+                    ...sourceChart.config.options,
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    plugins: {
+                        ...sourceChart.config.options.plugins,
+                        legend: { display: true, position: 'top' }
+                    }
+                }
+            });
+        }
+
+        function closeChartModal() {
+            document.getElementById('chartModal').style.display = 'none';
+            if (modalChartInstance) {
+                modalChartInstance.destroy();
+                modalChartInstance = null;
+            }
+        }
+
+        function renderCharts(stars, specDist) {
+            const ctx1 = document.getElementById('chart1').getContext('2d');
+            const ctx2 = document.getElementById('chart2').getContext('2d');
+            const ctxBar = document.getElementById('specBarChart').getContext('2d');
+            const ctxMap = document.getElementById('mapChart').getContext('2d');
+
+            if (chart1Instance) chart1Instance.destroy();
+            if (chart2Instance) chart2Instance.destroy();
+            if (specBarChartInstance) specBarChartInstance.destroy();
+            if (mapChartInstance) mapChartInstance.destroy();
+
+            const pointColors = stars.map(s => getStarColorFromBPRP(s.hr_diagram_1.x_bp_rp));
+
+            chart1Instance = new Chart(ctx1, {
+                type: 'scatter',
+                data: { 
+                    datasets: [{ 
+                        label: 'Stars', 
+                        data: stars.map(s => ({ x: s.hr_diagram_1.x_bp_rp, y: s.hr_diagram_1.y_abs_mag })), 
+                        backgroundColor: pointColors,
+                        pointRadius: stars.length > 100 ? 2 : 4
+                    }] 
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { title: { display: true, text: 'BP-RP (Color Index)' } }, 
+                        y: { reverse: true, title: { display: true, text: 'M_G (Absolute Mag)' } } 
+                    } 
+                }
+            });
+
+            chart2Instance = new Chart(ctx2, {
+                type: 'scatter',
+                data: { 
+                    datasets: [{ 
+                        label: 'Stars', 
+                        data: stars.map(s => ({ x: s.hr_diagram_2.x_teff, y: s.hr_diagram_2.y_abs_mag })), 
+                        backgroundColor: pointColors,
+                        pointRadius: stars.length > 100 ? 2 : 4
+                    }] 
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { 
+                            type: 'logarithmic', 
+                            reverse: true, 
+                            title: { display: true, text: 'Teff (K)' } 
+                        }, 
+                        y: { 
+                            reverse: true, 
+                            title: { display: true, text: 'M_G (Absolute Mag)' } 
+                        } 
+                    } 
+                }
+            });
+
+            const specLabels = ['O', 'B', 'A', 'F', 'G', 'K', 'M'];
+            const specData = specLabels.map(lbl => specDist[lbl] || 0);
+            const specBarColors = ['#60a5fa', '#93c5fd', '#f8fafc', '#fef08a', '#facc15', '#fb923c', '#f87171'];
+
+            specBarChartInstance = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: specLabels,
+                    datasets: [{
+                        label: 'จำนวนดาว',
+                        data: specData,
+                        backgroundColor: specBarColors,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { title: { display: true, text: 'Spectral Class' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Count' } }
+                    }
+                }
+            });
+
+            const mapStars = stars.filter(s => s.l !== null && s.b !== null);
+            const mapColors = mapStars.map(s => getStarColorFromBPRP(s.hr_diagram_1.x_bp_rp));
+
+            mapChartInstance = new Chart(ctxMap, {
+                type: 'scatter',
+                data: { 
+                    datasets: [{ 
+                        label: 'Stellar Positions', 
+                        data: mapStars.map(s => ({ x: s.l, y: s.b })), 
+                        backgroundColor: mapColors, 
+                        pointRadius: stars.length > 100 ? 2 : 4 
+                    }] 
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { min: 0, max: 360, title: { display: true, text: 'Galactic Longitude (l°)' } },
+                        y: { min: -90, max: 90, title: { display: true, text: 'Galactic Latitude (b°)' } }
+                    }
+                }
+            });
+        }
+    </script>
+    <!-- Footer -->
+    <footer style="background: rgba(10, 5, 18, 0.9); border-top: 1px solid var(--card-border); padding: 2.5rem 2rem; margin-top: 4rem; backdrop-filter: blur(16px); color: var(--text-muted); font-size: 0.85rem;">
+        <div style="max-width: 1700px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
+            
+            <!-- คอลัมน์ที่ 1: ข้อมูลโปรเจกต์ -->
+            <div>
+                <h3 style="color: var(--purple-100); font-size: 1rem; margin-bottom: 0.75rem; font-weight: 600;">Stellar Magnitude Predictor</h3>
+                <p style="line-height: 1.6; margin-bottom: 1rem;">
+                    ระบบทำนายโชติมาตรสัมบูรณ์ของดาวฤกษ์ที่มีค่าโชติมาตรปรากฏมากกว่า 6 และสร้างแผนภาพ Hertzsprung-Russell Diagram ด้วยแบบจำลอง Machine Learning จากชุดข้อมูล Gaia DR3
+                </p>
+            </div>
+
+            <!-- คอลัมน์ที่ 2: ลิงก์ด่วน -->
+            <div>
+                <h4 style="color: var(--purple-200); font-size: 0.9rem; margin-bottom: 0.75rem; font-weight: 600;">Shortcut menu</h4>
+                <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <li><a onclick="navigateTo('home')" style="color: var(--text-muted); text-decoration: none; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='var(--purple-100)'" onmouseout="this.style.color='var(--text-muted)'">Home</a></li>
+                    <li><a onclick="navigateTo('app')" style="color: var(--text-muted); text-decoration: none; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='var(--purple-100)'" onmouseout="this.style.color='var(--text-muted)'">Analysis</a></li>
+                    <li><a onclick="navigateTo('docs')" style="color: var(--text-muted); text-decoration: none; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='var(--purple-100)'" onmouseout="this.style.color='var(--text-muted)'">Manual</a></li>
+                </ul>
+            </div>
+
+            <!-- คอลัมน์ที่ 3: แหล่งอ้างอิงข้อมูล -->
+            <div>
+                <h4 style="color: var(--purple-200); font-size: 0.9rem; margin-bottom: 0.75rem; font-weight: 600;">References</h4>
+                <p style="line-height: 1.6; margin-bottom: 0.5rem;">
+                    พัฒนาขึ้นโดยใช้ฐานข้อมูลดาราศาสตร์จาก <a href="https://gea.esac.esa.int/archive/" target="_blank" style="color: var(--purple-300); text-decoration: none;">ESA Gaia Archive (DR3)</a>
+                </p>
+            </div>
+
+        </div>
+
+        <!-- ส่วนลิขสิทธิ์ด้านล่างสุด -->
+        <div style="max-width: 1700px; margin: 0 auto; border-top: 1px solid rgba(192, 110, 247, 0.15); padding-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <p>&copy; 2026 Stellar Magnitude Predictor. All rights reserved.</p>
+            <p style="color: var(--purple-200);">email: pimmada310751@gmail.com</p>
+        </div>
+    </footer>
+</body>
+</html>

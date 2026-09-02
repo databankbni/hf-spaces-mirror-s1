@@ -5,6 +5,7 @@
  */
 import { Router, Request } from 'express';
 import { requireAuth } from '../middleware/auth';
+import * as TaskStore from '../storage/tasks';
 import { getDb } from '../storage/db';
 
 const router = Router({ mergeParams: true });
@@ -22,7 +23,10 @@ type TaskParams = { taskId: string };
 type TaskCommentParams = { taskId: string; id: string };
 
 // GET /api/tasks/:taskId/comments
-router.get('/', (req: Request<TaskParams>, res) => {
+router.get('/', requireAuth, (req: Request<TaskParams>, res) => {
+  if (!TaskStore.canAccessTask(Number(req.params.taskId), req.user!.id, req.user!.role)) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
   const db = getDb();
   const comments = db
     .prepare('SELECT * FROM task_comments WHERE task_id = ? ORDER BY created_at ASC')
@@ -32,6 +36,9 @@ router.get('/', (req: Request<TaskParams>, res) => {
 
 // POST /api/tasks/:taskId/comments
 router.post('/', requireAuth, (req: Request<TaskParams>, res) => {
+  if (!TaskStore.canAccessTask(Number(req.params.taskId), req.user!.id, req.user!.role)) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
   const { body } = req.body as { body: string };
   if (!body?.trim()) return res.status(400).json({ error: 'Comment body is required' });
   const db = getDb();
@@ -44,6 +51,9 @@ router.post('/', requireAuth, (req: Request<TaskParams>, res) => {
 
 // DELETE /api/tasks/:taskId/comments/:id
 router.delete('/:id', requireAuth, (req: Request<TaskCommentParams>, res) => {
+  if (!TaskStore.canAccessTask(Number(req.params.taskId), req.user!.id, req.user!.role)) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
   const db = getDb();
   const comment = db
     .prepare('SELECT * FROM task_comments WHERE id = ? AND task_id = ?')

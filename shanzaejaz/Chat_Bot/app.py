@@ -214,7 +214,7 @@ def chat_with_ai(message, history, persona_name, temperature, max_tokens):
 
     try:
         stream = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=messages,
             temperature=float(temperature),
             max_tokens=int(max_tokens),
@@ -241,7 +241,7 @@ with gr.Blocks(title="Groq AI Chatbot") as app:
     gr.HTML("""
     <div id="app-header">
       <h1>✦ Groq AI Chatbot</h1>
-      <p>Powered by LLaMA 3.3 70B &nbsp;·&nbsp; Streaming &nbsp;·&nbsp; Multi-turn Memory</p>
+      <p>By Shanza </p>
     </div>
     """)
 

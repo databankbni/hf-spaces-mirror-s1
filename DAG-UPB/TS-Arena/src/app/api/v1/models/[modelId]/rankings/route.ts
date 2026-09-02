@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { createLogger } from '@/src/lib/logger';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_DASH_BOARD_API_URL || '';
 const API_KEY = process.env.NEXT_PUBLIC_DASH_BOARD_API_KEY || '';
+
+const log = createLogger('/api/v1/models/[modelId]/rankings');
 
 export async function GET(
   request: NextRequest,
@@ -31,13 +35,13 @@ export async function GET(
     const data = await response.json();
     
     if (!response.ok) {
-      console.error('API returned error:', data);
+      log.error(`upstream ${response.status} while fetching model rankings`, data);
       return NextResponse.json(data, { status: response.status });
     }
     
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Fetch error:', error);
+    log.error('failed to fetch model rankings', error);
     return NextResponse.json({ error: 'Failed to fetch rankings' }, { status: 500 });
   }
 }

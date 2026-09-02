@@ -69,7 +69,6 @@ router.post('/login', (req, res) => {
   if (user.role === 'pending') {
     return res.status(403).json({ error: 'Your account is pending admin approval' });
   }
-
   const token = signToken({ id: user.id, username: user.username, role: user.role });
   res.cookie('tt_token', token, COOKIE_OPTS);
 
@@ -83,7 +82,7 @@ router.post('/login', (req, res) => {
     } catch { /* ignore duplicate */ }
   }
 
-  res.json({ user: { id: user.id, username: user.username, email: user.email, role: user.role }, token });
+  res.json({ user: { id: user.id, username: user.username, email: user.email, role: user.role, team_id: user.team_id }, token });
 });
 
 // POST /api/auth/logout
@@ -96,7 +95,7 @@ router.post('/logout', (_req, res) => {
 router.get('/me', requireAuth, (req, res) => {
   const user = UserStore.getUserById(req.user!.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json({ id: user.id, username: user.username, email: user.email, role: user.role });
+  res.json({ id: user.id, username: user.username, email: user.email, role: user.role, team_id: user.team_id });
 });
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
@@ -114,7 +113,7 @@ router.get('/users/pending', requireAdmin, (_req, res) => {
 // PATCH /api/auth/users/:id/role  (admin only)
 router.patch('/users/:id/role', requireAdmin, (req, res) => {
   const { role } = req.body as { role: string };
-  const validRoles = ['pending', 'editor', 'admin'];
+  const validRoles = ['pending', 'viewer', 'editor', 'admin'];
   if (!validRoles.includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
@@ -124,7 +123,16 @@ router.patch('/users/:id/role', requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'Cannot change your own admin role' });
   }
 
-  const user = UserStore.updateUserRole(Number(req.params.id), role as 'pending' | 'editor' | 'admin');
+  const user = UserStore.updateUserRole(Number(req.params.id), role as 'pending' | 'viewer' | 'editor' | 'admin');
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json(user);
+});
+
+// PATCH /api/auth/users/:id/team (admin only)
+router.patch('/users/:id/team', requireAdmin, (req, res) => {
+  const teamId = req.body?.team_id == null || req.body.team_id === '' ? null : Number(req.body.team_id);
+  if (teamId !== null && !Number.isInteger(teamId)) return res.status(400).json({ error: 'Invalid team' });
+  const user = UserStore.updateUserTeam(Number(req.params.id), teamId);
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json(user);
 });

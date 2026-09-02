@@ -39,9 +39,9 @@ The API serves both the JSON endpoints and the compiled SPA on one port.
 # 1. build the frontend bundle (needs Node)
 cd web && npm install && npm run build && cd ..
 
-# 2. point the API at a populated DB and serve
-THEBEAST_DB_PATH=local_data/thebeast.db \
-  uv run uvicorn thebeast.api.main:app --port 8080
+# 2. point the API at the bundled DB and serve
+THEBEAST_DB_PATH=data/thebeast.db \
+  uvicorn thebeast.api.main:app --port 8080
 # open http://localhost:8080
 ```
 
@@ -51,8 +51,7 @@ During frontend development, run the API on :8000 and `npm run dev` in `web/`
 ## Run with Docker (same image HF Spaces builds)
 
 ```bash
-cp local_data/thebeast.db data/thebeast.db   # bundle real data (optional)
-docker build -t thebeast .
+docker build -t thebeast .   # data/thebeast.db is bundled into the image
 docker run -p 8080:8080 thebeast
 # open http://localhost:8080
 ```
@@ -65,6 +64,35 @@ players, so the app still runs (every matchup ≈ 50/50).
 `data/thebeast.db` is a prebuilt SQLite DB of statlines + schedules. Rebuild it
 with `scripts/calibration_run.py` (ingests Statcast) or the `thebeast fetch`
 CLI.
+
+## Player props
+
+**PrizePicks is the only prop source.** The Best bets board prices every prop it
+serves against the per-player distributions the simulator produces. The NFL test
+page browses their NFL board, unmapped and unpriced, because there is no NFL
+simulator to compare anything against.
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `PRIZEPICKS_INCLUDE_SPECIALS` | unset | Include demons, goblins and promos on the MLB board. Dropped by default because they move the line without saying what the leg now pays — and a goblin priced at the standard break-even reads as free money. |
+
+**PrizePicks posts no odds.** It is DFS pick'em: a projection is a line and a
+side, and the payout lives on the slip rather than the pick. So the "needs"
+percentage on every card is the break-even a 2-pick power play requires —
+`(1/3)^(1/2)` = **57.7%** — applied to both sides, since they charge the same
+for MORE and LESS. That is an assumption, it is stated on the board and on every
+probe, and it is the single number on the page that isn't a measurement.
+
+It is not a documented API either — it is the endpoint their own app calls, so
+every field name the parser reads is defensive. Three probes report what
+actually arrived rather than what was hoped for:
+
+- `GET /api/props-probe` — MLB: reachability, the market vocabulary the feed
+  carries, and where every prop that didn't become a card was lost.
+- `GET /api/nfl/props/probe` — the same for NFL.
+- `GET /api/props-probe/leagues` — PrizePicks' league list. The parser asks for
+  ids by name and only falls back to a constant, because a stale league id looks
+  exactly like an empty slate.
 
 ## Deploy to Hugging Face Spaces
 

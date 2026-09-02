@@ -1,0 +1,41 @@
+name: Patch v2 range-only scoring semantics
+on:
+  push:
+    branches: [edaphic-v2.0-enrichment]
+    paths: ['.github/workflows/patch-v2-range-semantics.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Patch semantics and add tests
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/domain/scoring.py')
+          s=p.read_text()
+          old='''    else:\n        score = 100.0\n        why = f"Valeur {value:g} dans l’intervalle central documenté/estimé."\n'''
+          new='''    else:\n        score = 100.0\n        if lo_o is None and hi_o is None and (lo_h is not None or hi_h is not None):\n            why = (\n                f"Valeur {value:g} dans la plage de compatibilité documentée "\n                "(aucun optimum n’est inféré)."\n            )\n        else:\n            why = f"Valeur {value:g} dans l’intervalle central documenté/estimé."\n'''
+          if old not in s:
+              raise SystemExit('Expected scoring block not found')
+          p.write_text(s.replace(old,new,1))
+          Path('tests/test_edaphic_v2_range_semantics.py').write_text('''from app.domain.models import Confidence, EnvelopeLimit, Status\nfrom app.domain.scoring import score_soil_limit\n\n\ndef test_range_only_soil_limit_is_compatible_without_claiming_optimum():\n    limit = EnvelopeLimit(variable="ph", hard_low=4.8, hard_high=7.2, optimum_low=None, optimum_high=None, group="E", confidence=Confidence.B, source_ref="USDA")\n    result = score_soil_limit(6.4, limit)\n    assert result.score == 100.0\n    assert result.status == Status.GREEN\n    assert "plage de compatibilité" in result.explanation\n    assert "aucun optimum" in result.explanation\n\n\ndef test_range_only_soil_limit_rejects_value_outside_documented_bounds():\n    limit = EnvelopeLimit(variable="ph", hard_low=4.8, hard_high=7.2, optimum_low=None, optimum_high=None, group="E", confidence=Confidence.B, source_ref="USDA")\n    result = score_soil_limit(7.8, limit)\n    assert result.score == 0.0\n    assert result.status == Status.RED\n''')
+          PY
+          python -m pip install --quiet -e '.[dev]'
+          pytest -q tests/test_edaphic_v2_range_semantics.py
+      - name: Commit patch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/domain/scoring.py tests/test_edaphic_v2_range_semantics.py
+          git commit -m 'Clarify range-only edaphic scoring semantics'
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin edaphic-v2.0-enrichment
+            git push origin HEAD:edaphic-v2.0-enrichment && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

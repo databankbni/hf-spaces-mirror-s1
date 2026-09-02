@@ -1,0 +1,132 @@
+name: Build ClimaFlora catalog v1.3 candidate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-catalog-v1.3.yml'
+      - '.github/tools/build_ecocrop_v1_3.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-catalog-v1.3
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install zstd
+        run: sudo apt-get update && sudo apt-get install -y zstd
+
+      - name: Download canonical v1.2
+        run: |
+          curl --fail --location --retry 5 \
+            https://shugoan.com/climaflora/data/climaflora_global_plants_v1_2.sqlite.zst \
+            -o climaflora_global_plants_v1_2.sqlite.zst
+          zstd -d -f climaflora_global_plants_v1_2.sqlite.zst \
+            -o climaflora_global_plants_v1_2.sqlite
+          sha256sum climaflora_global_plants_v1_2.sqlite
+
+      - name: Verify canonical v1.2 SQLite hash
+        run: |
+          echo "478ebdb3e1868504478d6746c91ef28070c33288b035c5d9aafbcabbaaefbd86  climaflora_global_plants_v1_2.sqlite" | sha256sum -c -
+
+      - name: Download ECOCROP bulk export
+        run: |
+          curl --fail --location --retry 5 \
+            https://raw.githubusercontent.com/OpenCLIM/ecocrop/main/EcoCrop_DB.csv \
+            -o EcoCrop_DB.csv
+          wc -l EcoCrop_DB.csv
+          sha256sum EcoCrop_DB.csv | tee ecocrop_source.sha256
+
+      - name: Verify pinned ECOCROP source hash
+        run: |
+          echo "4187e8846336e185c4583165211c5981855e95adfbefd897bd2bd481de48d106  EcoCrop_DB.csv" | sha256sum -c -
+
+      - name: Build v1.3 candidate
+        run: |
+          python .github/tools/build_ecocrop_v1_3.py \
+            --base climaflora_global_plants_v1_2.sqlite \
+            --csv EcoCrop_DB.csv \
+            --output climaflora_global_plants_v1_3.sqlite \
+            --report climaflora_global_plants_v1_3.report.json
+
+      - name: Validate candidate
+        run: |
+          python - <<'PY'
+          import json, sqlite3
+          from pathlib import Path
+          p = Path('climaflora_global_plants_v1_3.sqlite')
+          with sqlite3.connect(f'file:{p.resolve()}?mode=ro', uri=True) as con:
+              assert con.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+              meta = dict(con.execute('SELECT key,value FROM climaflora_catalog_metadata'))
+              assert meta.get('catalog_version') == '1.3.0'
+              assert meta.get('scientific_ready') == 'true'
+              assert con.execute('SELECT COUNT(DISTINCT taxon_id) FROM soil_categorical_preference').fetchone()[0] >= 1900
+          report = json.loads(Path('climaflora_global_plants_v1_3.report.json').read_text())
+          assert report['matched_unique_taxa'] >= 2300
+          assert report['stats']['unmatched'] <= 170
+          assert report['stats']['normalized_matches'] >= 50
+          print(json.dumps(report, indent=2))
+          PY
+
+      - name: Compress candidate
+        run: |
+          zstd -T0 -19 -f climaflora_global_plants_v1_3.sqlite \
+            -o climaflora_global_plants_v1_3.sqlite.zst
+          sha256sum climaflora_global_plants_v1_3.sqlite | tee climaflora_global_plants_v1_3.sqlite.sha256
+          sha256sum climaflora_global_plants_v1_3.sqlite.zst | tee climaflora_global_plants_v1_3.sqlite.zst.sha256
+          ls -lh climaflora_global_plants_v1_3.sqlite*
+
+      - name: Upload v1.3 candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: climaflora-global-plants-v1.3-candidate
+          compression-level: 0
+          retention-days: 14
+          path: |
+            climaflora_global_plants_v1_3.sqlite.zst
+            climaflora_global_plants_v1_3.report.json
+            climaflora_global_plants_v1_3.sqlite.sha256
+            climaflora_global_plants_v1_3.sqlite.zst.sha256
+            ecocrop_source.sha256
+
+      - name: Persist compact build status
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          r = json.loads(Path('climaflora_global_plants_v1_3.report.json').read_text())
+          status = {
+              'status': 'ready',
+              'run_id': os.environ.get('GITHUB_RUN_ID'),
+              'commit': os.environ.get('GITHUB_SHA'),
+              'catalog_version': r['catalog_version'],
+              'matched_unique_taxa': r['matched_unique_taxa'],
+              'unmatched_rows': r['stats']['unmatched'],
+              'normalized_matches': r['stats']['normalized_matches'],
+              'match_strategies': r['stats']['match_strategies'],
+              'soil_taxa_total': r['soil_taxa_total'],
+              'soil_taxa_coverage': r['soil_taxa_coverage'],
+              'soil_envelope_rows': r['soil_envelope_rows'],
+              'soil_categorical_rows': r['soil_categorical_rows'],
+              'sqlite_bytes': r['sqlite_bytes'],
+              'sqlite_sha256': r['sqlite_sha256'],
+              'zst_sha256': Path('climaflora_global_plants_v1_3.sqlite.zst.sha256').read_text().split()[0],
+              'ecocrop_source_sha256': Path('ecocrop_source.sha256').read_text().split()[0],
+          }
+          Path('.github/catalog-v1.3-status.json').write_text(json.dumps(status, indent=2) + '\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/catalog-v1.3-status.json
+          git commit -m "Record ClimaFlora v1.3 candidate build" || exit 0
+          git push

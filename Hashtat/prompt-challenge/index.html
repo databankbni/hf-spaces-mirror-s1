@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Challenge — Learn to Prompt</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header class="topnav">
+  <div class="topnav-inner">
+    <button class="brand" data-nav="landing">
+      <span class="brand-badge">🎯</span>
+      <span data-i18n="brand">Prompt Challenge</span>
+    </button>
+    <nav class="topnav-links">
+      <button class="nav-link" data-nav="challenge" data-i18n="nav_challenges">Challenges</button>
+      <button class="nav-link" data-nav="progress" data-i18n="nav_progress">Progress</button>
+      <button class="nav-link" data-nav="about" data-i18n="nav_about">About</button>
+      <button class="nav-link lang-toggle" id="btn-lang-toggle">EN / عربي</button>
+    </nav>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- ================= LANDING ================= -->
+  <section id="view-landing" class="view">
+    <div class="hero">
+      <h1 data-i18n="hero_title">Learn to Prompt.<br>One Challenge at a Time.</h1>
+      <p class="hero-sub" data-i18n="hero_sub">Practice writing prompts, get instant feedback, and learn what makes AI understand you better.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary btn-lg" id="btn-start-challenge" data-i18n="btn_start_challenge">Start Challenge</button>
+        <button class="btn btn-secondary btn-lg" id="btn-random-challenge" data-i18n="btn_random_challenge">Try a Random Challenge</button>
+      </div>
+    </div>
+
+    <div class="benefits">
+      <div class="benefit-card">
+        <div class="benefit-icon">🧩</div>
+        <h3 data-i18n="benefit1_title">Practice with real tasks</h3>
+        <p data-i18n="benefit1_body">Every challenge is a task you'll actually use AI for — emails, images, plans, and more.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">⚡</div>
+        <h3 data-i18n="benefit2_title">Get instant AI feedback</h3>
+        <p data-i18n="benefit2_body">See exactly what your prompt is missing, in plain language — no jargon required.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">📈</div>
+        <h3 data-i18n="benefit3_title">Improve your prompting skills</h3>
+        <p data-i18n="benefit3_body">Try again, track your scores, and build a habit that makes every AI tool work better for you.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CHALLENGE ================= -->
+  <section id="view-challenge" class="view">
+    <div class="challenge-wrap">
+
+      <div id="challenge-empty" class="empty-state" hidden>
+        <p data-i18n="no_challenges">No challenges available right now.</p>
+      </div>
+
+      <div id="challenge-loading" class="loading-state" hidden>
+        <div class="spinner"></div>
+        <p data-i18n="loading_challenge">Loading a challenge…</p>
+      </div>
+
+      <div id="challenge-content" hidden>
+        <div class="challenge-card">
+          <div class="challenge-meta">
+            <span class="chip chip-number" id="challenge-number">CHALLENGE #01</span>
+            <span class="chip chip-category" id="challenge-category">CATEGORY</span>
+            <span class="chip chip-difficulty" id="challenge-difficulty">BEGINNER</span>
+          </div>
+          <h2 id="challenge-title">Challenge title</h2>
+          <p class="challenge-task" id="challenge-task">Task description goes here.</p>
+
+          <label class="prompt-label" for="prompt-input" data-i18n="prompt_label">Your prompt</label>
+          <textarea id="prompt-input" class="prompt-input" data-i18n-placeholder="prompt_placeholder" placeholder="Write your prompt here…" rows="6"></textarea>
+
+          <div class="challenge-actions">
+            <button class="btn btn-primary" id="btn-evaluate" data-i18n="btn_evaluate">Evaluate My Prompt</button>
+            <button class="btn btn-ghost" id="btn-hint" data-i18n="btn_hint">Give Me a Hint</button>
+            <button class="btn btn-ghost" id="btn-new-challenge" data-i18n="btn_new_challenge">New Challenge</button>
+          </div>
+
+          <div id="hint-box" class="hint-box" hidden>
+            <div class="hint-box-title">💡 <span data-i18n="hint_title">Hint</span></div>
+            <div id="hint-text"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Evaluating -->
+      <div id="evaluating-state" class="loading-state" hidden>
+        <div class="spinner"></div>
+        <p data-i18n="evaluating_text">Reading your prompt and preparing feedback…</p>
+      </div>
+
+      <!-- Error -->
+      <div id="evaluate-error" class="error-state" hidden>
+        <p id="evaluate-error-text">Something went wrong.</p>
+        <button class="btn btn-secondary" id="btn-retry-evaluate" data-i18n="btn_try_again">Try Again</button>
+      </div>
+
+      <!-- Results -->
+      <div id="results-panel" class="results-panel" hidden>
+        <div class="score-card">
+          <div class="score-number" id="result-score">0</div>
+          <div class="score-out-of" data-i18n="score_out_of">/ 100</div>
+          <div class="score-label" id="result-level">Good Start</div>
+        </div>
+
+        <p class="short-feedback" id="result-short-feedback"></p>
+
+        <div class="feedback-grid">
+          <div class="feedback-col feedback-good">
+            <h4 data-i18n="what_you_did_well">What you did well</h4>
+            <ul id="result-strengths"></ul>
+          </div>
+          <div class="feedback-col feedback-missing">
+            <h4 data-i18n="whats_missing">What's missing</h4>
+            <ul id="result-missing"></ul>
+          </div>
+        </div>
+
+        <div class="suggestions-box">
+          <h4 data-i18n="try_improving">Try improving</h4>
+          <ul id="result-suggestions"></ul>
+        </div>
+
+        <div class="results-actions">
+          <button class="btn btn-secondary" id="btn-show-example" data-i18n="btn_show_example">Show Me an Example</button>
+          <button class="btn btn-primary" id="btn-try-again" data-i18n="btn_try_again">Try Again</button>
+          <button class="btn btn-ghost" id="btn-next-challenge" data-i18n="btn_next_challenge">Next Challenge</button>
+        </div>
+
+        <div id="example-panel" class="example-panel" hidden>
+          <div class="example-col">
+            <h4 data-i18n="your_prompt">Your prompt</h4>
+            <p id="example-user-prompt"></p>
+          </div>
+          <div class="example-col example-col-strong">
+            <h4 data-i18n="stronger_example">Example of a stronger prompt</h4>
+            <p id="example-strong-prompt"></p>
+          </div>
+          <div class="example-why">
+            <h4 data-i18n="why_better">Why it's better</h4>
+            <p id="example-why"></p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= PROGRESS ================= -->
+  <section id="view-progress" class="view">
+    <div class="progress-wrap">
+      <h2 data-i18n="your_progress">Your Progress</h2>
+
+      <div id="progress-empty" class="empty-state" hidden>
+        <p data-i18n="no_attempts_yet">You haven't completed any challenges yet.</p>
+        <button class="btn btn-primary" id="btn-progress-start" data-i18n="btn_start_first">Start Your First Challenge</button>
+      </div>
+
+      <div id="progress-content" hidden>
+        <div class="progress-stats">
+          <div class="stat-card">
+            <div class="stat-number" id="stat-completed">0</div>
+            <div class="stat-label" data-i18n="stat_challenges">Challenges</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="stat-average">0</div>
+            <div class="stat-label" data-i18n="stat_average">Average Score</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="stat-best">0</div>
+            <div class="stat-label" data-i18n="stat_best">Best Score</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="stat-streak">0</div>
+            <div class="stat-label" data-i18n="stat_streak">Current Streak</div>
+          </div>
+        </div>
+
+        <h3 class="categories-title" data-i18n="categories_practiced">Categories Practiced</h3>
+        <div id="category-bars" class="category-bars"></div>
+
+        <h3 class="categories-title" data-i18n="recent_attempts">Recent Attempts</h3>
+        <div id="recent-attempts" class="recent-attempts"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ABOUT ================= -->
+  <section id="view-about" class="view">
+    <div class="about-wrap">
+      <h2 data-i18n="about_title">About Prompt Challenge</h2>
+      <p data-i18n="about_p1">Prompt Challenge is a beginner-friendly way to practice writing prompts for AI tools. You don't need any prior
+      knowledge of prompt engineering — just pick a challenge, write your best attempt, and get instant, friendly feedback.</p>
+      <p data-i18n="about_p2">Every challenge is based on something people actually use AI for: writing emails, generating images, planning a
+      trip, describing a product, and more. Instead of handing you a perfect prompt, we explain why certain
+      details make a prompt work better, so the skill sticks with you.</p>
+      <p class="about-loop" data-i18n="about_loop">Challenge → Write Prompt → Get Score → Understand What's Missing → Improve → Try Again → Master the Skill</p>
+      <p data-i18n="about_p3">Your progress is saved locally in your browser, so you can track your average score, best score, and streak over time.</p>
+    </div>
+  </section>
+
+</main>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/i18n.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     KOMBAZ CREDITS — Wallet Widget
+     Paste this block wherever you want the wallet to appear
+     (e.g. in the Vault header, or a new "הארנק שלי" nav item).
+     Requires: Supabase JS client already loaded (you already use this
+     for KOMBAZ SYNTH auth — reuse the same client instance if possible).
+═══════════════════════════════════════════════════════════════ -->
+
+<div id="kombazWallet" style="background:linear-gradient(135deg,rgba(201,168,76,0.08),rgba(157,123,255,0.04));border:1px solid rgba(201,168,76,0.3);padding:16px;margin-bottom:14px;font-family:var(--mono,monospace);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div style="font-size:9px;letter-spacing:0.2em;color:var(--gold,#c9a84c);">💳 KOMBAZ CREDITS</div>
+    <button onclick="toggleWalletHistory()" style="background:none;border:none;color:var(--silver,#999);font-size:9px;cursor:pointer;">היסטוריה ↓</button>
+  </div>
+  <div style="font-size:28px;font-weight:700;color:var(--cream,#fff);" id="walletBalance">—</div>
+  <div style="font-size:9px;color:var(--silver,#999);margin-top:2px;">יתרה זמינה — לשימוש בקומבז בלבד, לא ניתן למשיכה</div>
+  <div style="display:flex;gap:8px;margin-top:12px;">
+    <a href="https://gumroad.com/l/REPLACE-CREDITS-50"  target="_blank" rel="noopener" style="flex:1;text-align:center;padding:8px;background:rgba(201,168,76,0.15);border:1px solid var(--gold,#c9a84c);color:var(--gold,#c9a84c);font-size:10px;text-decoration:none;">+₪50</a>
+    <a href="https://gumroad.com/l/REPLACE-CREDITS-150" target="_blank" rel="noopener" style="flex:1;text-align:center;padding:8px;background:rgba(201,168,76,0.15);border:1px solid var(--gold,#c9a84c);color:var(--gold,#c9a84c);font-size:10px;text-decoration:none;">+₪150</a>
+    <a href="https://gumroad.com/l/REPLACE-CREDITS-500" target="_blank" rel="noopener" style="flex:1;text-align:center;padding:8px;background:rgba(201,168,76,0.15);border:1px solid var(--gold,#c9a84c);color:var(--gold,#c9a84c);font-size:10px;text-decoration:none;">+₪500</a>
+  </div>
+  <div id="walletHistory" style="display:none;margin-top:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;"></div>
+</div>
+
+<script>
+// Assumes a Supabase client is already initialized as `window.sb` elsewhere
+// on the page (the same one used for KOMBAZ SYNTH Pro-status auth).
+const WALLET_API = ''; // e.g. 'https://kombazai-kombaz-mall.hf.space' — leave '' if same-origin
+
+async function walletAuthHeader(){
+  const { data: { session } } = await window.sb.auth.getSession();
+  if(!session) return null;
+  return { 'Authorization': `Bearer ${session.access_token}` };
+}
+
+async function loadWalletBalance(){
+  const h = await walletAuthHeader();
+  const el = document.getElementById('walletBalance');
+  if(!h){ el.textContent = 'התחבר לצפייה'; return; }
+  try{
+    const r = await fetch(WALLET_API+'/api/wallet/balance', { headers: h });
+    const d = await r.json();
+    el.textContent = '₪' + d.balance_ils.toLocaleString('he-IL', {minimumFractionDigits:2});
+  }catch(e){ el.textContent = 'שגיאה בטעינה'; }
+}
+
+let historyLoaded = false;
+async function toggleWalletHistory(){
+  const box = document.getElementById('walletHistory');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if(box.style.display === 'block' && !historyLoaded){
+    const h = await walletAuthHeader();
+    if(!h) return;
+    const r = await fetch(WALLET_API+'/api/wallet/history', { headers: h });
+    const rows = await r.json();
+    box.innerHTML = rows.map(row => {
+      const sign = row.amount_cents > 0 ? '+' : '';
+      const color = row.amount_cents > 0 ? 'var(--green,#0f6)' : 'var(--red,#f36)';
+      const ils = (row.amount_cents/100).toLocaleString('he-IL', {minimumFractionDigits:2});
+      const date = new Date(row.created_at).toLocaleDateString('he-IL');
+      return `<div style="display:flex;justify-content:space-between;font-size:10px;padding:4px 0;color:var(--silver,#999);">
+        <span>${row.description||row.kind}</span>
+        <span style="color:${color}">${sign}₪${ils}</span>
+        <span style="opacity:.6">${date}</span>
+      </div>`;
+    }).join('') || '<div style="font-size:10px;color:var(--silver,#999);">אין תנועות עדיין</div>';
+    historyLoaded = true;
+  }
+}
+
+// Example: spend credits on an academy course
+async function spendWalletCredits(amountIls, source, referenceId, description){
+  const h = await walletAuthHeader();
+  if(!h){ alert('התחבר קודם'); return null; }
+  const r = await fetch(WALLET_API+'/api/wallet/spend', {
+    method:'POST',
+    headers:{...h, 'Content-Type':'application/json'},
+    body: JSON.stringify({amount_ils:amountIls, source, reference_id:referenceId, description})
+  });
+  if(r.status === 402){ alert('אין מספיק יתרה — טען קרדיט קודם'); return null; }
+  const d = await r.json();
+  loadWalletBalance();
+  return d;
+}
+
+loadWalletBalance();
+</script>

@@ -1,0 +1,42 @@
+name: Deploy to HuggingFace Spaces
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Prepend HuggingFace metadata to README
+        run: |
+          cat > /tmp/hf_header.md << 'EOF'
+          ---
+          title: Munich Intel
+          emoji: 🏙
+          colorFrom: blue
+          colorTo: indigo
+          sdk: docker
+          app_port: 8000
+          pinned: false
+          ---
+
+          EOF
+          cat /tmp/hf_header.md README.md > /tmp/hf_readme.md
+          cp /tmp/hf_readme.md README.md
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add README.md
+          git diff --cached --quiet || git commit -m "Add HuggingFace metadata [skip ci]"
+
+      - name: Push to HuggingFace Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git remote add space https://anushkasinghh:$HF_TOKEN@huggingface.co/spaces/anushkasinghh/munich-intel
+          git push space main --force

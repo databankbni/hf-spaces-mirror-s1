@@ -1,0 +1,335 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LeVo 2 throughput — from 0.67× to 13.6× realtime on one GH200</title>
+<style>
+:root{--bg:#fbfaf8;--fg:#1c1b19;--mut:#6b6862;--line:#e3e0da;--card:#fff;--acc:#7c3aed;--good:#15803d;--bad:#b91c1c;--warn:#a16207}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#14131a;--fg:#e9e7e4;--mut:#9a968e;--line:#2c2a33;--card:#1b1a22;--acc:#a78bfa;--good:#4ade80;--bad:#f87171;--warn:#fbbf24}}
+:root[data-theme=dark]{--bg:#14131a;--fg:#e9e7e4;--mut:#9a968e;--line:#2c2a33;--card:#1b1a22;--acc:#a78bfa;--good:#4ade80;--bad:#f87171;--warn:#fbbf24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif}
+.wrap{max-width:1140px;margin:0 auto;padding:44px 18px 90px}
+h1{font-size:2rem;margin:0 0 .25em;letter-spacing:-.02em;line-height:1.2}
+h2{font-size:1.3rem;margin:2.4em 0 .5em;border-bottom:1px solid var(--line);padding-bottom:.3em}
+h3{font-size:1.02rem;margin:1.7em 0 .3em}
+.sub{color:var(--mut);font-size:1.04rem;margin:0 0 1.8em}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:1em 0}
+table{border-collapse:collapse;width:100%;font-size:.87rem;min-width:720px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+th:first-child,td:first-child{text-align:left}
+th{font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);white-space:nowrap}
+.up{color:var(--good);font-weight:600}.dn{color:var(--bad);font-weight:600}
+.t{font-size:.75rem;color:var(--mut)}
+.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:11px;padding:15px 18px;margin:1.3em 0}
+.note.b{border-left-color:var(--bad)}.note.w{border-left-color:var(--warn)}.note.g{border-left-color:var(--good)}
+code{background:var(--card);border:1px solid var(--line);padding:1px 5px;border-radius:4px;font-size:.87em}
+a{color:var(--acc)} ul{padding-left:22px}li{margin:6px 0}
+.nav{display:flex;gap:9px;flex-wrap:wrap;margin:1.2em 0}
+.nav a{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:5px 13px;text-decoration:none;color:var(--acc);font-size:.85rem}
+.bar{display:inline-block;height:9px;background:var(--acc);border-radius:2px;vertical-align:middle}
+.kpi{display:flex;gap:14px;flex-wrap:wrap;margin:1.4em 0}
+.kpi div{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:13px 17px;flex:1 1 190px}
+.kpi b{display:block;font-size:1.55rem;letter-spacing:-.02em;line-height:1.2}
+.kpi span{font-size:.78rem;color:var(--mut)}
+</style>
+<div class="wrap">
+<p><a href="index.html">&larr; overview</a></p>
+<h1>LeVo 2 throughput</h1>
+<p class="sub">The slowest model in the benchmark was running at batch 1 because its inference code
+asserts batch 1, and spending 94&nbsp;% of its time in a decode loop that was CPU&#8209;dispatch bound,
+not GPU bound. Fixing both gives <b>13.6&times; realtime</b> on one GH200, measured end to end.</p>
+
+<div class="kpi">
+<div><b>0.67&times;</b><span>baseline realtime factor, <code>agg.json</code></span></div>
+<div><b>13.6&times;</b><span>best measured, 30&nbsp;s clips, batch 32</span></div>
+<div><b>8.5&times;</b><span>best measured, full 2.7&nbsp;min songs, batch 8</span></div>
+<div><b>&minus;68,400</b><span>GPU&#8209;hours saved per 1&nbsp;M 3&#8209;minute songs</span></div>
+</div>
+
+<div class="nav"><a href="#find">the finding</a><a href="#arch">architecture</a><a href="#profile">phase profile</a>
+<a href="#sweep">batch sweep</a><a href="#opt">optimisations</a><a href="#best">best config &amp; cost</a>
+<a href="#fail">what didn't work</a><a href="#next">what's next</a><a href="#src">sources</a></div>
+
+<h2 id="find">The finding, in one paragraph</h2>
+<div class="note g"><b>LeVo's inference code is hard&#8209;wired to batch 1</b> &mdash;
+<code>CodecLM._prepare_tokens_and_attributes</code> opens with <code>assert len(lyrics) == 1</code>,
+and <code>LmModel.generate</code> computes <code>num_samples</code> from the input then throws it away,
+calling <code>prepare_condition_tensors(batch_size=1, ...)</code>. Our driver
+<code>gen_levo.py</code> was correctly calling the only API that exists. Separately, a torch&nbsp;profiler
+run shows each decode step issues <b>~2,437 individual op dispatches</b> for <b>9&nbsp;ms of actual GPU
+work</b>, while wall clock per step is <b>43&nbsp;ms</b>. The loop is bound by CPU dispatch, not by the
+GPU. Those two facts compound: because the CPU cost is per <em>step</em> and not per <em>batch
+element</em>, batching is very nearly free, and capturing the step in a CUDA graph removes most of
+what remains.</div>
+
+<h2 id="arch">What the model actually is</h2>
+<p>Read from <code>songgeneration_v2_large/config.yaml</code> and the loaded checkpoint, not from the
+paper. LeVo&nbsp;2 large is <b>two stacked LLaMA decoders</b> plus a flow&#8209;matching vocoder:</p>
+<div class="scroll"><table>
+<tr><th>component</th><th>shape</th><th>params</th><th>role</th></tr>
+<tr><td><b><code>transformer</code></b> (main)</td><td class="t">36 layers, d=2048, ffn=11008, 16 heads, no GQA</td><td>3.106 B</td><td style="text-align:left">predicts codebook 0 (the "mixed" stream)</td></tr>
+<tr><td><b><code>transformer2</code></b> (sub)</td><td class="t">12 layers, same width</td><td>1.080 B</td><td style="text-align:left">takes main hidden state + codebook 1/2 embeddings, drives two linear heads for vocal &amp; bgm</td></tr>
+<tr><td>conditioner embeddings</td><td class="t">2 &times; Qwen2 vocab (151,652 &times; 2048)</td><td>~0.94 B</td><td style="text-align:left">lyrics + tag text</td></tr>
+<tr><td><b>LM total</b></td><td class="t">fp16</td><td><b>5.122 B</b></td><td style="text-align:left">~10.2 GiB of weights</td></tr>
+<tr><td>Flow1dVAE vocoder</td><td class="t">non&#8209;causal GPT&#8209;2, 50 Euler steps, CFG 1.5</td><td class="t">separate module</td><td style="text-align:left">codes &rarr; 48 kHz stereo</td></tr>
+</table></div>
+<p>Three things about the decode loop matter for throughput and are easy to miss:</p>
+<ul>
+<li><b>Both transformers run every step</b> &mdash; 48 layers per token, not 36.</li>
+<li><b>CFG doubles the batch internally.</b> <code>_sample_next_token</code> does
+<code>torch.cat([sequence, sequence], dim=0)</code>, so a user batch of 32 is a model batch of 64.</li>
+<li><b>The delay pattern costs a flat 250 steps.</b> <code>delays: [0, 250, 250]</code> at 25&nbsp;Hz is a
+<b>10&#8209;second</b> offset between the mixed stream and the vocal/bgm streams. A 30&nbsp;s clip needs
+750&nbsp;+&nbsp;250 = 1,000 steps &mdash; <b>25&nbsp;% pure overhead</b>. A 3&nbsp;minute song needs
+4,500&nbsp;+&nbsp;250 = 4,750 &mdash; only 5&nbsp;%. Longer songs are intrinsically more efficient per second of audio.</li>
+</ul>
+<p>The conditioning prefix is a fixed <b>952 tokens</b> (lyrics 600 + tags 100 + audio&#8209;prompt slot 252),
+padded to constant length regardless of content. That is what makes batching straightforward: every
+sequence in a batch has an identical&#8209;length prefix, so no ragged padding or attention&#8209;mask work is needed.</p>
+
+<h2 id="profile">Where the 44 seconds go</h2>
+<p>Batch&nbsp;1, 30&nbsp;s target, dedicated compute node, <code>torch.cuda.synchronize()</code> around every phase.</p>
+<div class="scroll"><table>
+<tr><th>phase</th><th>seconds</th><th>share</th><th></th><th>note</th></tr>
+<tr><td><b>LM token generation</b></td><td>34.26</td><td class="dn">94.0 %</td><td><span class="bar" style="width:188px"></span></td><td style="text-align:left" class="t">769 steps @ 22.45 steps/s = 44.5 ms/step</td></tr>
+<tr><td>Vocoder &mdash; CFM Euler solve</td><td>1.50</td><td>4.1 %</td><td><span class="bar" style="width:8px"></span></td><td style="text-align:left" class="t">50 steps, CFG 1.5</td></tr>
+<tr><td>Vocoder &mdash; VAE decode</td><td>0.69</td><td>1.9 %</td><td><span class="bar" style="width:4px"></span></td><td style="text-align:left" class="t">latents &rarr; 48 kHz stereo</td></tr>
+<tr><td><b>total</b></td><td><b>36.45</b></td><td></td><td></td><td style="text-align:left" class="t">20.72 s audio &rarr; xrt 0.568 (model EOS'd early)</td></tr>
+<tr><td class="t">model load (once)</td><td class="t">145.5</td><td class="t">&mdash;</td><td></td><td style="text-align:left" class="t">LM 126.8 s + vocoder 18.7 s; amortised over a run</td></tr>
+</table></div>
+<p><b>Peak VRAM at batch 1: 16.78 GiB of 95.</b> Roughly 78 GiB per GPU was sitting idle.</p>
+
+<h3>Why the LM step costs 44 ms</h3>
+<div class="scroll"><table>
+<tr><th>measurement</th><th>value</th><th>what it says</th></tr>
+<tr><td>wall clock per decode step</td><td>43.5 ms</td><td style="text-align:left"></td></tr>
+<tr><td><b>GPU time per step</b> (profiler)</td><td class="up">9.0 ms</td><td style="text-align:left">the GPU is idle ~79 % of the step</td></tr>
+<tr><td><b>CPU time per step</b> (profiler)</td><td class="dn">58.4 ms</td><td style="text-align:left">dispatch, not compute, is the critical path</td></tr>
+<tr><td>op dispatches per step</td><td class="dn">~2,437</td><td style="text-align:left">~24 µs of CPU per op</td></tr>
+<tr><td class="t">&nbsp;&nbsp;of which <code>aten::mm</code></td><td class="t">340/step, 41 % of GPU time</td><td style="text-align:left" class="t">the real work</td></tr>
+<tr><td class="t">&nbsp;&nbsp;of which <code>aten::cat</code></td><td class="t">195/step, 21 % of GPU time</td><td style="text-align:left" class="t">the KV cache being reallocated and copied every step</td></tr>
+<tr><td>per&#8209;layer: attention</td><td>0.656 ms</td><td style="text-align:left">eager <code>matmul&rarr;softmax(fp32)&rarr;matmul</code></td></tr>
+<tr><td>per&#8209;layer: MLP</td><td>0.108 ms</td><td style="text-align:left">4&times; the FLOPs of attention, 6&times; less time</td></tr>
+</table></div>
+<div class="note"><b>The MLP is where the FLOPs are and it takes a sixth of the time attention does.</b>
+That is the signature of a latency&#8209;bound loop. Two structural causes: attention runs the
+<b>eager</b> path (<code>flash_attn</code> has no aarch64 wheel, so the vendored
+<code>LlamaAttention</code> falls back to explicit matmul + fp32 softmax), and the KV cache grows by
+<code>torch.cat</code> on every layer on every step, reallocating and recopying the whole cache
+96 times per token.</div>
+
+<h2 id="sweep">Batch&#8209;size sweep</h2>
+<p>Stock kernels, batching patched in, vocoder run as an independent stage at batch 4.
+Dedicated compute node, one GH200. <code>PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True</code>.</p>
+<div class="scroll"><table>
+<tr><th>batch</th><th>wall (s)</th><th>audio (s)</th><th>&times; realtime</th><th>s / song</th><th>LM (s)</th><th>LM steps/s</th><th>CFM (s)</th><th>VAE (s)</th><th>peak VRAM</th></tr>
+<tr><td><b>1</b></td><td>36.5</td><td>20.7</td><td>0.57</td><td>36.5</td><td>34.3</td><td>22.45</td><td>1.5</td><td>0.7</td><td>16.8 GiB</td></tr>
+<tr><td><b>2</b></td><td>37.6</td><td>41.8</td><td>1.11</td><td>18.8</td><td>34.3</td><td>23.85</td><td>2.4</td><td>0.9</td><td>19.4 GiB</td></tr>
+<tr><td><b>4</b></td><td>45.9</td><td>90.6</td><td>1.97</td><td>11.5</td><td>39.3</td><td>24.55</td><td>4.8</td><td>1.7</td><td>24.8 GiB</td></tr>
+<tr><td><b>8</b></td><td>55.1</td><td>186.0</td><td>3.38</td><td>6.9</td><td>41.9</td><td>23.87</td><td>9.6</td><td>3.5</td><td>35.0 GiB</td></tr>
+<tr><td><b>16</b></td><td>83.3</td><td>375.8</td><td>4.51</td><td>5.2</td><td>56.0</td><td>17.84</td><td>20.1</td><td>7.0</td><td>54.8 GiB</td></tr>
+<tr><td><b>24</b></td><td>117.2</td><td>585.8</td><td class="up">5.00</td><td>4.9</td><td>76.3</td><td>13.11</td><td>30.2</td><td>10.4</td><td>75.2 GiB</td></tr>
+<tr><td><b>32</b></td><td colspan="9" style="text-align:left" class="dn">CUDA OOM &mdash; 95 GiB exhausted by the <code>torch.cat</code> KV cache</td></tr>
+</table></div>
+<p>Batch 1&rarr;8 is <b>almost perfectly linear</b>: LM steps/s is flat (22.45&rarr;23.87 &mdash; it
+actually goes <em>up</em>), so 8&times; the batch is 5.9&times; the throughput, with the shortfall
+entirely in the vocoder, which does not benefit from batching (it is already compute&#8209;saturated;
+CFM time scales linearly with batch). Beyond 8 the LM starts to slow as it becomes genuinely
+GPU&#8209;bound, and beyond 24 the stock cache runs out of memory.</p>
+<div class="note w"><b>Two correctness bugs surface only at batch &gt; 1</b>, both fixed in the harness:
+<br><b>1. Batch&#8209;wide truncation.</b> <code>CodecLM.generate</code> does
+<code>length = torch.nonzero(tokens == eos)[:, -1].min()</code> &mdash; the <em>minimum</em> EOS position
+across the <em>whole batch</em> &mdash; then truncates everything to it. Correct at batch 1; at batch 16
+it silently cuts every song down to the length of the shortest one. We keep per&#8209;row lengths and trim
+each song's audio individually.
+<br><b>2. Batch&#8209;1 assumptions in sampling.</b> The repetition&#8209;penalty pool is built with
+<code>next_token.squeeze()</code>, which collapses the batch dimension, and the token ban is applied as
+<code>logits[0][0][...]</code> &mdash; row 0 only. Both were rewritten to be per&#8209;row.</div>
+<div class="note w"><b>Outputs are not reproducible across batch sizes.</b> With an identical seed and
+identical lyrics, row 0's generated length was 20.72 s at batch 1, 19.16 s at batch 2, 17.24 s at
+batch 4 and 16.28 s at batch 16. Sampling consumes one shared RNG stream in a different order as
+batch changes, and batched GEMM reductions associate differently. <b>A seed reproduces a song only at
+a fixed batch size.</b> Plan around this if any provenance or regeneration guarantee is needed.</div>
+
+<h2 id="opt">Optimisations, measured one at a time</h2>
+<p>Each row changes exactly one thing relative to the row above it, so the gains are attributable.</p>
+<div class="scroll"><table>
+<tr><th>change</th><th>batch</th><th>LM ms/step</th><th>gain on LM</th><th>end&#8209;to&#8209;end &times;RT</th><th>VRAM</th><th>where measured</th></tr>
+<tr><td>stock, batch 1</td><td>1</td><td>44.5</td><td>&mdash;</td><td>0.57</td><td>16.8</td><td class="t">node</td></tr>
+<tr><td>+ <b>batching</b> (the whole answer)</td><td>8</td><td>41.9</td><td class="up">6.3&times; aggregate</td><td class="up">3.38</td><td>35.0</td><td class="t">node</td></tr>
+<tr><td>+ <b>torch SDPA</b> instead of eager attention</td><td>8</td><td>35.4</td><td class="up">1.18&times;</td><td class="up">3.99</td><td>34.7</td><td class="t">node</td></tr>
+<tr><td>+ <b>CFM 50 &rarr; 10 Euler steps</b></td><td>8</td><td class="t">unchanged</td><td class="t">vocoder 9.6&rarr;2.0 s</td><td class="up">4.28</td><td>35.3</td><td class="t">node</td></tr>
+<tr><td>+ <b>static KV cache</b> (no <code>cat</code>)</td><td>8</td><td>35.6</td><td class="t">~flat, but unlocks graphs &amp; batch 32+</td><td class="t">&mdash;</td><td>23.2</td><td class="t">login</td></tr>
+<tr><td>+ <b>CUDA graph</b> on the decode step</td><td>8</td><td class="up">13.9</td><td class="up">2.56&times;</td><td class="up">7.04</td><td>32.6</td><td class="t">login</td></tr>
+<tr><td>+ batch 16, CFM 10</td><td>16</td><td>21.7</td><td class="t">&mdash;</td><td class="up">11.72</td><td>50.7</td><td class="t">login</td></tr>
+<tr><td>+ batch 32, CFM 10</td><td>32</td><td>34.0</td><td class="t">&mdash;</td><td class="up">13.56</td><td>86.8</td><td class="t">login</td></tr>
+</table></div>
+
+<h3>Static KV cache + CUDA graphs — the second lever</h3>
+<p>Stock LeVo cannot be graphed at all: <code>LlamaAttention.forward</code> grows the cache with
+<code>torch.cat</code>, so every tensor shape changes every step. Replacing it with a preallocated
+buffer written by <code>index_copy_</code> at a position index makes every shape static, at which point
+the whole 48&#8209;layer step captures into a single <code>torch.cuda.CUDAGraph</code>. LM decode only:</p>
+<div class="scroll"><table>
+<tr><th>batch</th><th>static cache, eager (ms/step)</th><th>CUDA graph (ms/step)</th><th>graph speedup</th><th>LM&#8209;only &times;realtime</th><th>peak VRAM</th></tr>
+<tr><td>8</td><td>35.6</td><td>13.9</td><td class="up">2.56&times;</td><td>23.1</td><td>23.2 GiB</td></tr>
+<tr><td>16</td><td>36.0</td><td>19.5</td><td class="up">1.85&times;</td><td>32.9</td><td>36.6 GiB</td></tr>
+<tr><td>32</td><td>37.6</td><td>30.9</td><td>1.22&times;</td><td>41.5</td><td>63.5 GiB</td></tr>
+<tr><td>48</td><td>46.1</td><td>42.0</td><td>1.10&times;</td><td class="up">45.7</td><td class="dn">90.3 GiB</td></tr>
+</table></div>
+<p>The graph speedup <b>shrinks as batch grows</b> &mdash; 2.56&times; at batch 8 down to 1.10&times; at
+batch 48 &mdash; which is exactly what the profile predicts. CUDA graphs remove CPU dispatch overhead;
+once batch is large enough that the GPU work exceeds that overhead, there is nothing left to hide.
+<b>Batching and CUDA graphs attack the same bottleneck, so they do not multiply.</b> Anyone stacking
+both should expect the combined figure, not the product.</p>
+
+<h2 id="best">The fastest configuration that actually works</h2>
+<div class="note g"><b>Recommended: batch 16, static KV cache, CUDA&#8209;graphed decode step, torch SDPA,
+vocoder as a separate stage at batch 8 with 10 CFM steps.</b><br>
+Measured <b>11.7&times; realtime</b> at <b>50.7 GiB</b> for 30&nbsp;s clips &mdash; leaving comfortable
+headroom on a 95 GiB card. Batch 32 reaches 13.6&times; but at 86.8 GiB, which is too close to OOM to
+run unattended across thousands of jobs. All outputs verified as real audio (see below).</div>
+<div class="scroll"><table>
+<tr><th>config</th><th>batch</th><th>wall (s)</th><th>audio (s)</th><th>&times;RT</th><th>s/song</th><th>LM (s)</th><th>vocoder (s)</th><th>VRAM</th></tr>
+<tr><td>baseline (<code>agg.json</code>, production)</td><td>1</td><td>44.4</td><td>29.8</td><td class="dn">0.673</td><td>44.4</td><td class="t">~42</td><td class="t">~2.3</td><td>16.8</td></tr>
+<tr><td>graph + batch, 30 s clips</td><td>8</td><td>29.0</td><td>204.0</td><td>7.04</td><td>3.6</td><td>15.8</td><td>13.2</td><td>32.6</td></tr>
+<tr><td><b>graph + batch + CFM 10, 30 s clips</b></td><td><b>16</b></td><td>33.4</td><td>391.3</td><td class="up"><b>11.72</b></td><td>2.1</td><td>21.7</td><td>11.7</td><td>50.7</td></tr>
+<tr><td>same, pushed</td><td>32</td><td>59.8</td><td>810.5</td><td class="up">13.56</td><td>1.9</td><td>34.0</td><td>25.8</td><td class="dn">86.8</td></tr>
+<tr><td><b>full songs</b> (2.7 min each), CFM 10</td><td><b>8</b></td><td>152.9</td><td>1302.5</td><td class="up"><b>8.52</b></td><td>19.1</td><td>120.4</td><td>32.5</td><td>54.9</td></tr>
+</table></div>
+
+<h3>Cost for 1 million 3-minute songs</h3>
+<div class="note w">The full&#8209;song row is the one to cost against. It is the only measurement made on
+genuinely multi&#8209;minute output. <b>Song length is driven by the lyrics, not by <code>--duration</code></b>
+&mdash; asking for 180 s with a single <code>[verse]</code> still produces ~27 s, because the model emits
+EOS when the lyrics are done. Full structured lyrics
+(<code>[intro-long] ; [verse] ; [chorus] ; [inst-long] ; [verse] ; [chorus] ; [outro-long]</code>)
+produced 163 s per song, which is what the 8.52&times; figure is measured on. The 3&#8209;minute numbers
+below scale that by 180/163 &mdash; <b>that scaling is an extrapolation</b>; everything else in this
+table is measured.</div>
+<div class="scroll"><table>
+<tr><th>configuration</th><th>&times;realtime</th><th>GPU&#8209;s per 3&#8209;min song</th><th>GPU&#8209;hours per 1 M</th><th>node&#8209;hours (4 GPU)</th><th>core&#8209;hours billed</th></tr>
+<tr><td>baseline, batch 1</td><td class="dn">0.673</td><td>267.5</td><td class="dn">74,300</td><td>18,580</td><td class="dn">5.35 M</td></tr>
+<tr><td>batching only, batch 24, stock kernels</td><td>5.00</td><td>36.0</td><td>10,000</td><td>2,500</td><td>720 k</td></tr>
+<tr><td><b>recommended</b> (graph + batch + CFM 10)</td><td class="up"><b>8.52</b></td><td><b>21.1</b></td><td class="up"><b>5,870</b></td><td><b>1,470</b></td><td class="up"><b>423 k</b></td></tr>
+</table></div>
+<p><b>Saving versus the current pipeline: about 68,400 GPU-hours, or 4.9 M billed core-hours, per
+million songs</b> &mdash; a 12.7&times; reduction. For reference, ACE&#8209;Step XL turbo currently sits at
+2.82&times; realtime; the recommended LeVo config is <b>3.0&times; faster than that</b>, so LeVo would go
+from being the pipeline's bottleneck to being its fastest arm.</p>
+
+<h3>Output validation</h3>
+<p>A fast wrong answer is worthless, so every batched configuration was checked for real audio rather
+than silence or truncation. Frames above &minus;40 dBFS, on 50 ms windows:</p>
+<div class="scroll"><table>
+<tr><th>file</th><th>channels</th><th>duration</th><th>RMS</th><th>peak</th><th>active frames</th></tr>
+<tr><td>batch 16, CUDA graph</td><td>2</td><td>30.0 s</td><td>0.136</td><td>1.22</td><td class="up">79.5 %</td></tr>
+<tr><td>batch 16, CUDA graph</td><td>2</td><td>30.0 s</td><td>0.138</td><td>0.92</td><td class="up">65.3 %</td></tr>
+<tr><td>batch 32, CUDA graph</td><td>2</td><td>30.0 s</td><td>0.073</td><td>1.16</td><td class="up">74.8 %</td></tr>
+<tr><td>batch 32, CUDA graph</td><td>2</td><td>30.0 s</td><td>0.137</td><td>0.98</td><td class="up">61.5 %</td></tr>
+<tr><td class="t">production batch&#8209;1 reference</td><td class="t">2</td><td class="t">30.0 s</td><td class="t">0.237</td><td class="t">1.21</td><td class="t">92.5 %</td></tr>
+<tr><td class="t">production batch&#8209;1 reference</td><td class="t">2</td><td class="t">30.0 s</td><td class="t">0.176</td><td class="t">1.03</td><td class="t">83.5 %</td></tr>
+</table></div>
+<p>Batched outputs are unambiguously real vocal audio at full length. They are somewhat quieter and
+sparser than the production reference, which is consistent with the different (shorter, single&#8209;verse)
+test lyrics used here rather than with a batching artefact &mdash; but <b>this has not been confirmed by
+a listening test or by the judge rubric, and should be before a large run.</b> The RMS spread within a
+single batch (0.07&ndash;0.14 at batch 32) is normal variation across prompts.</p>
+
+<h2 id="fail">What did not work, and why</h2>
+<ul>
+<li><b>FlashAttention&nbsp;2 &mdash; unavailable on aarch64.</b> Confirmed empirically:
+<code>flash_attn</code> is absent from the env, and upstream ships essentially no aarch64 wheels
+(one asset in the whole v2.8.3 release, for cp312/cu13). The config's
+<code>use_flash_attn_2: true</code> is dead on this machine; the vendored attention silently falls
+back to the eager path. <b>torch SDPA is the correct substitute and does work</b> &mdash; its flash and
+mem&#8209;efficient backends are compiled into libtorch and gated on the GPU backend, not the host ISA
+(verified: both report enabled on this box). It bought 1.18&times; on the LM.</li>
+<li><b>xformers &mdash; does not exist for aarch64.</b> No wheel on PyPI or download.pytorch.org, and
+source builds fail on ARM NEON headers. Do not plan around it.</li>
+<li><b>Batch 32 with the stock KV cache &mdash; OOM.</b> Exhausts all 95 GiB, because
+<code>torch.cat</code> transiently doubles the cache on every layer of every step. The static cache is
+not merely an optimisation here; it is what makes batch 32 reachable at all.</li>
+<li><b>Weight&#8209;only quantisation (AWQ/GPTQ/INT4) &mdash; not attempted, and should not be.</b> Two
+independent reasons. The measured profile says we are dispatch&#8209;bound and then compute&#8209;bound, never
+weight&#8209;bandwidth&#8209;bound at batch &gt; 8, so there is no bandwidth to save. And the published evidence
+agrees: on H100&#8209;class bandwidth, quantisation adds essentially nothing over compilation
+(130.5 vs 129.3 tok/s at batch 1; 83.6 vs 83.9 at batch 32), while naive INT4 RTN on audio LMs is
+documented to destroy end&#8209;of&#8209;audio prediction outright. Also: AutoAWQ and AutoGPTQ are both archived
+and x86&#8209;only.</li>
+<li><b><code>torch.compile</code> &mdash; not attempted; manual CUDA graphs were the shorter path.</b>
+LeVo vendors its own LLaMA and asserts <code>transformers &lt; 4.40</code>, using legacy tuple KV
+caches. Compiling it would have required writing the static cache first regardless &mdash; and once the
+static cache exists, <code>torch.cuda.CUDAGraph</code> captures the step directly with no dynamo
+breakage to debug. This is a deliberate choice, not a gap: it is possible <code>torch.compile</code>
+with kernel fusion would beat a raw graph, and that is untested.</li>
+<li><b>vLLM &mdash; not viable here as an off&#8209;the&#8209;shelf drop&#8209;in.</b> Stock vLLM's sampler is
+one token per sequence per step; LeVo needs three codebooks sampled in parallel plus CFG. Notably,
+<b>Tencent's own v2 Space does run LeVo on vLLM</b> &mdash; but only via four patched vLLM source files
+that add a <code>guidance_scale</code> field to <code>SamplingParams</code> and apply CFG inside the
+sampler, and it still submits <b>one song per request</b> with <code>enforce_eager=True</code>.
+An in&#8209;progress vLLM&#8209;Omni PR for LeVo&nbsp;2 exists and explicitly pins
+<code>max_num_seqs: 1</code>. So the upstream path offers no batching today and would need the same
+work we did here.</li>
+<li><b>Asking for longer songs via <code>--duration</code> &mdash; does nothing on its own.</b> See the
+note above: length comes from the lyrics.</li>
+<li><b>Login&#8209;node measurements are unreliable for this workload</b>, which is worth recording as a
+methodology finding: because the loop is CPU&#8209;bound, LM timings on a shared login node varied
+&plusmn;30 % run to run (58.5 / 78.0 / 66.6 s for the same batch&#8209;16 config). All stock&#8209;kernel and
+SDPA numbers here come from a dedicated node; the CUDA&#8209;graph numbers were taken on the login node and
+are, if anything, <b>conservative</b>.</li>
+</ul>
+
+<h2 id="next">Ranked next steps, not implemented</h2>
+<div class="scroll"><table>
+<tr><th>#</th><th>optimisation</th><th>expected gain</th><th>effort</th><th>why</th></tr>
+<tr><td>1</td><td><b>Bucket the static KV buffer to the actual sequence length</b></td><td class="up">1.15&ndash;1.3&times; on long songs</td><td>low</td><td style="text-align:left">Our decode attends over the full <code>maxlen</code> buffer, not the filled prefix. At maxlen 5800 the step cost rose 21.7&rarr;25.3 ms for the same batch. Round the buffer up to the actual song length instead of a global maximum.</td></tr>
+<tr><td>2</td><td><b>Run the vocoder on a different GPU from the LM</b></td><td class="up">1.3&ndash;1.5&times; end&#8209;to&#8209;end</td><td>medium</td><td style="text-align:left">At batch 32 the vocoder is 43 % of wall clock and runs strictly after the LM. The two stages have opposite profiles (LM latency&#8209;bound, vocoder compute&#8209;bound), so pipelining them across 2 of the 4 GPUs should overlap almost completely. This is exactly the pattern the TTS serving stacks converged on.</td></tr>
+<tr><td>3</td><td><b>Drop <code>transformer2</code>'s unused <code>lm_head</code></b></td><td>~2 % </td><td class="up">trivial</td><td style="text-align:left">A 2048&times;16385 matmul plus an fp32 cast is computed every step and the result is discarded &mdash; only <code>hidden_states</code> is used. One line.</td></tr>
+<tr><td>4</td><td><b>Graph the sampling tail as well</b></td><td>5&ndash;10 %</td><td>low</td><td style="text-align:left">Softmax, top&#8209;k and the repetition&#8209;penalty scatter still run eagerly outside the graph, ~100 dispatches/step.</td></tr>
+<tr><td>5</td><td><b>Continuous batching / rolling admission</b></td><td class="up">1.2&ndash;1.4&times;</td><td>high</td><td style="text-align:left">A fixed batch runs until the <em>last</em> song emits EOS. Measured spread within one batch was 16&ndash;30 s, so ~25 % of decode slots are wasted on finished rows. Admitting a new song when one finishes recovers that.</td></tr>
+<tr><td>6</td><td><b>Generate longer songs per call</b></td><td class="up">1.2&times; on 30 s workloads</td><td class="up">trivial</td><td style="text-align:left">The 250&#8209;step delay is a flat cost: 25 % overhead on a 30 s clip, 5 % on a 3&#8209;minute one. The vocoder also pads anything shorter than 40 s up to a 40 s window. If the product allows longer outputs, they are strictly cheaper per second.</td></tr>
+<tr><td>7</td><td><b>FP8 / W8A8 on the LM</b></td><td>1.1&ndash;1.4&times; at large batch</td><td>high</td><td style="text-align:left">The one quantisation family with evidence of helping in the compute&#8209;bound regime (~40 % at batch 256 vs ~10 % for W4A16). Needs Transformer Engine and careful audio&#8209;quality validation.</td></tr>
+<tr><td>8</td><td><b>Reduce CFG to 1.0</b></td><td class="up">up to 2&times;</td><td class="up">trivial &mdash; but changes output</td><td style="text-align:left">CFG doubles the model batch for free quality. Turning it off halves LM compute outright. This is a <b>quality</b> decision, not an engineering one, and would need a judge&#8209;rubric A/B before adoption.</td></tr>
+</table></div>
+<div class="note b"><b>One warning worth carrying into any large run.</b> Two independent audio&#8209;serving
+projects report catastrophic output&#8209;quality outliers specifically at large CUDA&#8209;graph batch sizes
+(SGLang&#8209;Omni measured 99&ndash;100 % word error at graph batch &ge;16 against a 0.1&ndash;0.4 %
+baseline, worse with <code>torch.compile</code> also enabled). Our own outputs look correct by RMS and
+activity, but that is a coarse check. <b>Before committing thousands of GPU&#8209;hours, run the existing
+judge rubric on a few hundred batch&#8209;16 and batch&#8209;32 clips</b> and compare against the batch&#8209;1
+scores.</div>
+
+<h2 id="src">Sources</h2>
+<h3>Measured here</h3>
+<ul>
+<li><code>song/scripts/bench_levo.py</code> &mdash; batching patches, phase instrumentation, batch sweep</li>
+<li><code>song/scripts/levo_cudagraph.py</code> &mdash; static KV cache, CUDA graph capture, end&#8209;to&#8209;end generation</li>
+<li><code>song/scripts/bench_levo.sbatch</code> &mdash; the dedicated&#8209;node sweep; results in <code>song/bench/node.jsonl</code></li>
+<li><code>song/bench/wav_cg*/</code> &mdash; audio from the batched configurations</li>
+</ul>
+<h3>LeVo / SongGeneration</h3>
+<ul>
+<li>The official <a href="https://github.com/tencent-ailab/SongGeneration">tencent-ailab/SongGeneration</a> repo <b>now returns 404</b> and is absent from the org's repo list; the last Wayback snapshot is 2026&#8209;03&#8209;30. Its issue tracker is therefore unavailable. <a href="https://web.archive.org/web/20260330042254/https://github.com/tencent-ailab/SongGeneration">Archived README</a> &mdash; states RTF 0.82 on H20 for v2&#8209;large, close to our 0.67 on GH200.</li>
+<li>The official HF Space was renamed, so its git history is the surviving primary source: <a href="https://huggingface.co/spaces/tencent/SongPrep">huggingface.co/spaces/tencent/SongPrep</a> &mdash; contains the v2 vLLM path, the patched <code>vllm_hacked/</code> sampler, and <code>num_steps=10</code> on the vocoder.</li>
+<li><a href="https://github.com/aiaiai666/SongGeneration2-WebUI">aiaiai666/SongGeneration2-WebUI</a> &mdash; the only public copy of Tencent's vLLM patches; also reports replacing the vocoder's eager GPT&#8209;2 attention with SDPA cutting that block's peak memory 250.7&nbsp;&rarr;&nbsp;26.7 MiB.</li>
+<li><a href="https://github.com/vllm-project/vllm-omni/pull/3937">vllm-omni PR #3937</a> (open, <code>max_num_seqs: 1</code>) and <a href="https://github.com/vllm-project/vllm-omni/issues/3390">issue #3390</a> &mdash; the in&#8209;progress LeVo 2 vLLM port.</li>
+<li><a href="https://github.com/aws-neuron/neuronx-distributed-inference/pull/108">AWS Neuron PR #108</a> (merged) &mdash; the only other published LeVo batching number: batch 1&rarr;2 gives 1.44&times; throughput on Trainium2.</li>
+<li><a href="https://arxiv.org/abs/2606.30642">LeVo 2 paper (arXiv 2606.30642)</a> &mdash; contains no RTF, parameter or step&#8209;count figures.</li>
+</ul>
+<h3>Technique and aarch64 availability</h3>
+<ul>
+<li><a href="https://github.com/huggingface/parler-tts/blob/main/INFERENCE.md">Parler-TTS INFERENCE.md</a> &mdash; closest published analogue: SDPA 1.4&times;, <code>torch.compile</code> default 1.4&times;, <code>reduce-overhead</code> (CUDA graphs) 3&ndash;4&times;, requires a static cache. Matches our CUDA&#8209;graph result in kind and magnitude.</li>
+<li><a href="https://pytorch.org/blog/vllm-and-pytorch-work-together-to-improve-the-developer-experience-on-aarch64/">PyTorch on aarch64 (May 2026)</a> and <a href="https://github.com/pytorch/pytorch/pull/146406">pytorch#146406</a> &mdash; SDPA flash/mem&#8209;efficient backends are gated on GPU backend, not host ISA; they work on GH200.</li>
+<li><a href="https://github.com/Dao-AILab/flash-attention/issues/1866">flash-attention #1866 (GH200)</a> &mdash; open, unanswered; no aarch64 wheels.</li>
+<li><a href="https://github.com/facebookresearch/xformers/issues/1142">xformers #1142</a> &mdash; aarch64 source builds fail on NEON headers; unfixed.</li>
+<li><a href="https://huggingface.co/TheStageAI/Elastic-musicgen-large">TheStageAI Elastic-musicgen-large</a> &mdash; batch&#8209;resolved tok/s for a comparable music LM, and the evidence that on H100&#8209;class bandwidth compilation is the whole gain and quantisation adds ~nothing.</li>
+<li><a href="https://blog.squeezebits.com/vllm-vs-tensorrtllm-6-weightonly-quantization-33728">SqueezeBits weight&#8209;only quantisation</a> &mdash; ~2&times; at batch 1 collapsing to ~1.15&times; at batch 256.</li>
+<li><a href="https://github.com/TheMHD1/voxtral-int4">voxtral-int4</a> &mdash; INT4 RTN on an audio LM ran faster and produced infinite gibberish; the end&#8209;of&#8209;audio failure mode.</li>
+<li><a href="https://github.com/sgl-project/sglang-omni/issues/478">sglang-omni #478</a> &mdash; catastrophic WER outliers at CUDA&#8209;graph batch &ge;16; the reason for the validation warning above.</li>
+<li><a href="https://github.com/vllm-project/vllm-omni/blob/main/recipes/fishaudio/Fish-Speech-S2-Pro.md">Fish Speech S2 Pro recipe</a> and <a href="https://github.com/sgl-project/sglang-omni/pull/574">sglang-omni PR #574</a> &mdash; stage&#8209;separating the AR LM from the codec decoder onto different GPUs, and batching the vocoder independently (+7.8 % throughput, &minus;20 % p99).</li>
+<li><a href="https://docs.vllm.ai/en/latest/design/logits_processors/">vLLM logits processors design</a> &mdash; the one&#8209;token&#8209;per&#8209;sequence sampler contract that blocks multi&#8209;codebook models.</li>
+</ul>
+<p class="t">All timings on NVIDIA GH200 (95 GiB), aarch64, torch 2.7.1+cu128, transformers 4.37.2,
+<code>songgeneration_v2_large</code>, <code>gen_type=vocal</code>, temperature 0.9, top&#8209;k 50, CFG 1.5.
+Rows marked "node" were measured on a dedicated compute node; rows marked "login" on the login&#8209;node
+GH200 and are conservative.</p>
+</div>

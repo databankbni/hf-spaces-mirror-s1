@@ -4,7 +4,8 @@ from web.login import get_or_create_agent
 
 from langchain.tools import tool
 from langchain.agents import create_agent
-from langchain.agents.middleware import ToolRetryMiddleware
+from utils.middleware import ToolMonitoringMiddleware
+from langchain.agents.middleware import ToolRetryMiddleware, ToolCallLimitMiddleware
 from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 
 from tool.map import load_map_tools
@@ -38,8 +39,9 @@ async def init_navigate_agent(hf_token: str):
     # Using asyncio.to_thread to avoid blocking calls in async context
     llm = await asyncio.to_thread(
         HuggingFaceEndpoint,
-        repo_id="meta-llama/Llama-3.1-8B-Instruct",
+        repo_id="openai/gpt-oss-20b",
         huggingfacehub_api_token=hf_token,
+        max_new_tokens=2048,
     )
     
     model = ChatHuggingFace(llm=llm)
@@ -53,10 +55,16 @@ async def init_navigate_agent(hf_token: str):
         tools=map_tools,
         system_prompt=NAVIGATE_SYSTEM_PROMPT,
         middleware=[
+            ToolMonitoringMiddleware(),
             ToolRetryMiddleware(
                 max_retries=3,
                 backoff_factor=2.0,
                 initial_delay=1.0,
+            ),
+            # Hard cap on map tool calls per run to prevent tool-call loops.
+            ToolCallLimitMiddleware(
+                run_limit=6,
+                exit_behavior="end",
             ),
         ],
     )
@@ -80,8 +88,6 @@ async def init_navigate_agent(hf_token: str):
 async def call_navigate_agent(query: str):
     navigate_agent = await get_or_create_agent("navigate")
 
-    logger.info(f'[Navigate Agent] - Input: {query}')
     result = await navigate_agent.ainvoke({"messages": [{"role": "human", "content": query}]})
-    logger.info(f'[Navigate Agent] - Output: {result}')
 
     return result["messages"][-1].content

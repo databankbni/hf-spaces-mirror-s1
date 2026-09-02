@@ -10,7 +10,13 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from lib.cache import finder_universe, options_sorted_by_revenue_cached, universe_stats
+from lib.bia_brand import search_trade_names as _search_trade_names
+from lib.cache import (
+    finder_universe,
+    options_sorted_by_revenue_cached,
+    trade_name_index as _trade_name_index,
+    universe_stats,
+)
 from lib.finder import (
     SIZE_BUCKETS,
     SORT_OPTIONS,
@@ -172,10 +178,25 @@ def render(ctx: ViewContext) -> None:
     with _fc[4]:
         _f_sort = st.selectbox("Sort by", list(SORT_OPTIONS), key="home_finder_sort")
 
+    # A typed query also reaches bia.ge trade names PHONETICALLY, so
+    # "Carrefour" finds the company whose brand bia stores in Georgian
+    # letters. The frame already carries the names for a plain substring
+    # match; this adds the cross-script hits no substring could produce.
+    #
+    # `limit` caps how far a brand query may widen the browse. The weak tail of
+    # a fuzzy match is tolerable HERE, unlike in a top-5 palette, because this
+    # table is revenue-sorted by default: the company that actually runs the
+    # chain sits above the incidental matches rather than competing with them.
+    # Raising the bar instead (min_score=0.9) was tried and rejected — it drops
+    # real brands that only reach the fuzzy tier, e.g. Adjarabet at 0.82.
+    _f_brand_codes = [
+        idc for idc, _name, _score in _search_trade_names(
+            _trade_name_index(ctx.db_path), _f_q, limit=25)
+    ] if (_f_q or "").strip() else []
     _flt = sort_universe(
         filter_universe(
             _uni, query=_f_q, sectors=_f_secs, subsectors=_f_subs,
-            size_bucket=_f_size,
+            size_bucket=_f_size, extra_idcodes=_f_brand_codes,
         ),
         _f_sort,
     )

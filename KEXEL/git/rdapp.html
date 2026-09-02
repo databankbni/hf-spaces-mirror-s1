@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Radio Player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+        
+        .radio-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        .station-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .station-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .station-card.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+        
+        .progress-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+        }
+        
+        .now-playing-artwork {
+            animation: rotate 20s linear infinite;
+            animation-play-state: paused;
+        }
+        
+        .now-playing-artwork.playing {
+            animation-play-state: running;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .equalizer {
+            display: flex;
+            align-items: flex-end;
+            height: 30px;
+            gap: 3px;
+        }
+        
+        .equalizer-bar {
+            width: 4px;
+            background: #3b82f6;
+            border-radius: 2px;
+            animation: equalize 1.5s infinite ease-in-out;
+        }
+        
+        .equalizer-bar:nth-child(1) { animation-delay: 0.1s; height: 60%; }
+        .equalizer-bar:nth-child(2) { animation-delay: 0.3s; height: 30%; }
+        .equalizer-bar:nth-child(3) { animation-delay: 0.5s; height: 75%; }
+        .equalizer-bar:nth-child(4) { animation-delay: 0.2s; height: 40%; }
+        .equalizer-bar:nth-child(5) { animation-delay: 0.4s; height: 65%; }
+        
+        @keyframes equalize {
+            0%, 100% { transform: scaleY(1); }
+            50% { transform: scaleY(1.5); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    <div class="radio-container w-full max-w-4xl">
+        <!-- Header -->
+        <div class="p-6 bg-gradient-to-r from-blue-600 to-purple-600 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">Web Radio Player</h1>
+                <p class="text-sm opacity-80">Escolha sua estação favorita</p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <div class="equalizer hidden" id="equalizer">
+                    <div class="equalizer-bar"></div>
+                    <div class="equalizer-bar"></div>
+                    <div class="equalizer-bar"></div>
+                    <div class="equalizer-bar"></div>
+                    <div class="equalizer-bar"></div>
+                </div>
+                <span class="text-sm" id="current-time">00:00</span>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-0">
+            <!-- Station List -->
+            <div class="p-4 md:col-span-1 bg-gray-900 bg-opacity-50 overflow-y-auto max-h-[500px]">
+                <div class="mb-4 relative">
+                    <input type="text" placeholder="Buscar rádio..." class="w-full bg-gray-800 bg-opacity-50 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <i class="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+                </div>
+                
+                <h3 class="font-medium text-gray-300 mb-3">Categorias</h3>
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <span class="px-3 py-1 bg-blue-600 bg-opacity-30 rounded-full text-xs cursor-pointer hover:bg-opacity-50">Todas</span>
+                    <span class="px-3 py-1 bg-gray-700 rounded-full text-xs cursor-pointer hover:bg-gray-600">Pop</span>
+                    <span class="px-3 py-1 bg-gray-700 rounded-full text-xs cursor-pointer hover:bg-gray-600">Rock</span>
+                    <span class="px-3 py-1 bg-gray-700 rounded-full text-xs cursor-pointer hover:bg-gray-600">Eletrônica</span>
+                    <span class="px-3 py-1 bg-gray-700 rounded-full text-xs cursor-pointer hover:bg-gray-600">Jazz</span>
+                </div>
+                
+                <h3 class="font-medium text-gray-300 mb-3">Estações</h3>
+                <div class="space-y-2" id="station-list">
+                    <!-- Stations will be added here by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Now Playing -->
+            <div class="p-6 md:col-span-2 flex flex-col bg-gray-900 bg-opacity-30">
+                <div class="flex flex-col md:flex-row items-center mb-6">
+                    <div class="relative mb-4 md:mb-0 md:mr-6">
+                        <div class="now-playing-artwork w-40 h-40 rounded-full overflow-hidden border-4 border-white border-opacity-10">
+                            <img src="https://source.unsplash.com/random/400x400/?music" alt="Album Art" class="w-full h-full object-cover" id="station-artwork">
+                        </div>
+                        <div class="absolute -bottom-2 -right-2 bg-blue-600 rounded-full p-2 shadow-lg">
+                            <i class="fas fa-music text-white"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center md:text-left">
+                        <h2 class="text-xl font-bold" id="station-name">Selecione uma estação</h2>
+                        <p class="text-gray-300 mb-2" id="station-genre">Gênero</p>
+                        <p class="text-sm text-gray-400" id="current-song">Nenhuma música tocando</p>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="progress-bar mb-4 rounded-full">
+                    <div class="progress rounded-full" id="progress-bar"></div>
+                </div>
+                
+                <!-- Controls -->
+                <div class="flex justify-between items-center mb-6">
+                    <button class="text-gray-400 hover:text-white" id="btn-shuffle">
+                        <i class="fas fa-random"></i>
+                    </button>
+                    
+                    <button class="text-gray-400 hover:text-white" id="btn-prev">
+                        <i class="fas fa-step-backward text-2xl"></i>
+                    </button>
+                    
+                    <button class="bg-blue-600 hover:bg-blue-700 rounded-full w-12 h-12 flex items-center justify-center text-white" id="btn-play">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    
+                    <button class="text-gray-400 hover:text-white" id="btn-next">
+                        <i class="fas fa-step-forward text-2xl"></i>
+                    </button>
+                    
+                    <button class="text-gray-400 hover:text-white" id="btn-repeat">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                </div>
+                
+                <!-- Volume Control -->
+                <div class="flex items-center">
+                    <i class="fas fa-volume-down text-gray-400 mr-2"></i>
+                    <input type="range" min="0" max="100" value="70" class="volume-slider w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer" id="volume-control">
+                    <i class="fas fa-volume-up text-gray-400 ml-2"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="p-4 bg-gray-900 bg-opacity-50 text-center text-sm text-gray-400">
+            Web Radio Player © 2025 - Todos os direitos reservados
+        </div>
+    </div>
+
+    <script>
+        // Sample radio stations data
+        const stations = [
+            {
+                id: 1,
+                name: "Radio Pop Hits",
+                genre: "Pop",
+                url: "https://stream.laut.fm/pophits",
+                image: "https://source.unsplash.com/random/300x300/?pop,music",
+                currentSong: "Dua Lipa - Don't Start Now"
+            },
+            {
+                id: 2,
+                name: "Rock FM",
+                genre: "Rock",
+                url: "https://stream.laut.fm/rockfm",
+                image: "https://source.unsplash.com/random/300x300/?rock,music",
+                currentSong: "Foo Fighters - Everlong"
+            },
+            {
+                id: 3,
+                name: "Jazz Lounge",
+                genre: "Jazz",
+                url: "https://stream.laut.fm/jazzlounge",
+                image: "https://source.unsplash.com/random/300x300/?jazz,music",
+                currentSong: "Miles Davis - So What"
+            },
+            {
+                id: 4,
+                name: "EDM Festival",
+                genre: "Eletrônica",
+                url: "https://stream.laut.fm/edmfestival",
+                image: "https://source.unsplash.com/random/300x300/?electronic,music",
+                currentSong: "Swedish House Mafia - Don't You Worry Child"
+            },
+            {
+                id: 5,
+                name: "Classical Radio",
+                genre: "Clássica",
+                url: "https://stream.laut.fm/classicalradio",
+                image: "https://source.unsplash.com/random/300x300/?classical,music",
+                currentSong: "Beethoven - Symphony No. 5"
+            },
+            {
+                id: 6,
+                name: "Hip Hop Nation",
+                genre: "Hip Hop",
+                url: "https://stream.laut.fm/hiphopnation",
+                image: "https://source.unsplash.com/random/300x300/?hiphop,music",
+                currentSong: "Kendrick Lamar - HUMBLE."
+            }
+        ];
+
+        // DOM Elements
+        const stationList = document.getElementById('station-list');
+        const stationName = document.getElementById('station-name');
+        const stationGenre = document.getElementById('station-genre');
+        const currentSong = document.getElementById('current-song');
+        const stationArtwork = document.getElementById('station-artwork');
+        const btnPlay = document.getElementById('btn-play');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+        const btnShuffle = document.getElementById('btn-shuffle');
+        const btnRepeat = document.getElementById('btn-repeat');
+        const volumeControl = document.getElementById('volume-control');
+        const progressBar = document.getElementById('progress-bar');
+        const equalizer = document.getElementById('equalizer');
+        const currentTime = document.getElementById('current-time');
+
+        // Audio context
+        const audio = new Audio();
+        let isPlaying = false;
+        let currentStationIndex = 0;
+        let progressInterval;
+        let updateTimeInterval;
+
+        // Initialize the app
+        function init() {
+            renderStations();
+            setupEventListeners();
+        }
+
+        // Render stations list
+        function renderStations() {
+            stationList.innerHTML = '';
+            stations.forEach((station, index) => {
+                const stationElement = document.createElement('div');
+                stationElement.className = 'station-card p-3 rounded-lg';
+                stationElement.innerHTML = `
+                    <div class="flex items-center">
+                        <img src="${station.image}" alt="${station.name}" class="w-12 h-12 rounded-lg object-cover mr-3">
+                        <div>
+                            <h4 class="font-medium">${station.name}</h4>
+                            <p class="text-xs text-gray-400">${station.genre}</p>
+                        </div>
+                    </div>
+                `;
+                stationElement.addEventListener('click', () => selectStation(index));
+                stationList.appendChild(stationElement);
+            });
+        }
+
+        // Select a station
+        function selectStation(index) {
+            // Update UI
+            const stationCards = document.querySelectorAll('.station-card');
+            stationCards.forEach(card => card.classList.remove('active'));
+            stationCards[index].classList.add('active');
+            
+            // Update current station
+            currentStationIndex = index;
+            const station = stations[index];
+            
+            // Update now playing info
+            stationName.textContent = station.name;
+            stationGenre.textContent = station.genre;
+            currentSong.textContent = station.currentSong;
+            stationArtwork.src = station.image;
+            
+            // Load and play the station
+            audio.src = station.url;
+            playStation();
+        }
+
+        // Play the selected station
+        function playStation() {
+            audio.play()
+                .then(() => {
+                    isPlaying = true;
+                    btnPlay.innerHTML = '<i class="fas fa-pause"></i>';
+                    document.querySelector('.now-playing-artwork').classList.add('playing');
+                    equalizer.classList.remove('hidden');
+                    
+                    // Start progress bar and time updates
+                    startProgressUpdate();
+                    startTimeUpdate();
+                })
+                .catch(error => {
+                    console.error('Error playing audio:', error);
+                    alert('Erro ao reproduzir a estação. Verifique sua conexão ou tente outra estação.');
+                });
+        }
+
+        // Pause the current station
+        function pauseStation() {
+            audio.pause();
+            isPlaying = false;
+            btnPlay.innerHTML = '<i class="fas fa-play"></i>';
+            document.querySelector('.now-playing-artwork').classList.remove('playing');
+            equalizer.classList.add('hidden');
+            
+            // Stop progress updates
+            stopProgressUpdate();
+            stopTimeUpdate();
+        }
+
+        // Toggle play/pause
+        function togglePlayPause() {
+            if (isPlaying) {
+                pauseStation();
+            } else {
+                if (audio.src) {
+                    playStation();
+                } else {
+                    // If no station is selected, select the first one
+                    selectStation(0);
+                }
+            }
+        }
+
+        // Play next station
+        function playNext() {
+            const nextIndex = (currentStationIndex + 1) % stations.length;
+            selectStation(nextIndex);
+        }
+
+        // Play previous station
+        function playPrev() {
+            const prevIndex = (currentStationIndex - 1 + stations.length) % stations.length;
+            selectStation(prevIndex);
+        }
+
+        // Update progress bar
+        function startProgressUpdate() {
+            // For live streams, we'll simulate progress
+            let progress = 0;
+            progressInterval = setInterval(() => {
+                progress = (progress + 0.5) % 100;
+                progressBar.style.width = `${progress}%`;
+            }, 1000);
+        }
+
+        function stopProgressUpdate() {
+            clearInterval(progressInterval);
+        }
+
+        // Update current time
+        function startTimeUpdate() {
+            let seconds = 0;
+            updateTimeInterval = setInterval(() => {
+                seconds++;
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                currentTime.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function stopTimeUpdate() {
+            clearInterval(updateTimeInterval);
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            btnPlay.addEventListener('click', togglePlayPause);
+            btnNext.addEventListener('click', playNext);
+            btnPrev.addEventListener('click', playPrev);
+            
+            // Volume control
+            volumeControl.addEventListener('input', () => {
+                audio.volume = volumeControl.value / 100;
+            });
+            
+            // Shuffle and repeat buttons
+            btnShuffle.addEventListener('click', () => {
+                btnShuffle.classList.toggle('text-blue-400');
+            });
+            
+            btnRepeat.addEventListener('click', () => {
+                btnRepeat.classList.toggle('text-blue-400');
+            });
+            
+            // Select first station by default
+            selectStation(0);
+        }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

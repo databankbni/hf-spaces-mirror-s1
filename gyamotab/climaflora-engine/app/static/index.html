@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="ClimaFlora identifie les plantes compatibles avec votre climat actuel et futur à partir de données scientifiques explicables." />
+  <meta name="theme-color" content="#fbfcfa" />
+  <title>ClimaFlora — Plantes adaptées au climat futur</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="static/ui-v4.css?rev=20260820-1118" />
+  <link rel="stylesheet" href="static/media-v1.css?rev=20260821-2" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand-lockup" href="#top" aria-label="ClimaFlora, accueil">
+      <img class="brand-logo" src="https://shugoan.com/climaflora/data/logo_seul.png" alt="" width="44" height="44" />
+      <span class="brand"><span class="brand-clima">Clima</span><span class="brand-flora">Flora</span></span>
+    </a>
+    <nav class="side-nav" aria-label="Navigation ClimaFlora">
+      <a class="active" href="#explorer"><span>⌕</span>Nouvelle recherche</a>
+      <button type="button" disabled><span>▧</span>Mes projets <small>Bientôt</small></button>
+      <button type="button" disabled><span>♡</span>Ma palette <small>Bientôt</small></button>
+      <button type="button" disabled><span>⇄</span>Comparateur <small>Bientôt</small></button>
+    </nav>
+    <div class="plus-card">
+      <div class="plus-label">ClimaFlora+</div>
+      <strong>Plus de fonctionnalités pour aller plus loin</strong>
+      <p>Projets sauvegardés, palette végétale, comparateur et exports, sans modifier le classement scientifique.</p>
+      <button type="button" disabled>Découvrir bientôt</button>
+    </div>
+  </aside>
+
+  <main class="main-area" id="top">
+    <header class="topbar">
+      <div>
+        <h1>Trouvez les plantes adaptées à votre environnement futur</h1>
+        <div class="method-pill" id="method-pill">Moteur explicable</div>
+      </div>
+      <nav class="top-nav" aria-label="Navigation secondaire">
+        <a href="#explorer">Explorer</a><a href="#method">Méthodologie</a><a href="#about">À propos</a>
+        <button type="button" disabled>Connexion</button><button class="plus-button" type="button" disabled>ClimaFlora+</button>
+      </nav>
+    </header>
+
+    <section class="search-workspace" id="explorer">
+      <div class="progress-row" aria-hidden="true">
+        <div class="progress-step"><span>1</span>Localisation</div><i></i>
+        <div class="progress-step"><span>2</span>Période</div><i></i>
+        <div class="progress-step"><span>3</span>Type de végétaux</div>
+      </div>
+      <div class="mode-tabs" role="tablist" aria-label="Mode de recherche">
+        <button class="active" data-mode="explore">Explorer un lieu</button><button data-mode="plant">Tester une plante</button>
+      </div>
+
+      <div id="explore-controls">
+        <div class="search-grid">
+          <section class="search-card map-search-card">
+            <div class="card-title-row"><strong>Localisation</strong><span>1</span></div>
+            <div class="map-control-bar">
+              <button id="geolocate" class="location-search" type="button">⌖ Utiliser ma position</button>
+              <div class="field two-cols compact-coords">
+                <label>Latitude<input id="lat" type="number" min="-90" max="90" step="0.0001" value="47.1600" /></label>
+                <label>Longitude<input id="lon" type="number" min="-180" max="180" step="0.0001" value="-1.2700" /></label>
+              </div>
+            </div>
+            <div class="map-wrap"><div id="map"></div><div class="map-overlay"><strong>Position sélectionnée</strong><span>Cliquez sur la carte pour déplacer le point.</span></div></div>
+          </section>
+
+          <section class="search-card climate-card">
+            <div class="card-title-row"><strong>Période climatique</strong><span>2</span></div>
+            <div class="segmented" id="horizons">
+              <button data-value="NOW">Aujourd’hui</button><button data-value="2035">2035</button><button class="active" data-value="2050">2050</button><button data-value="2070">2070</button><button data-value="2100">2100</button>
+            </div>
+            <div class="field scenario-field"><label>Scénario<select id="scenario"><option value="MEDIUM">Intermédiaire CHELSA · SSP3-7.0</option></select></label></div>
+            <div class="science-note"><span>❧</span><p>Données climatiques jusqu’en 2100 issues de projections scientifiques. L’incertitude reste visible dans les résultats.</p></div>
+          </section>
+
+          <section class="search-card type-card">
+            <div class="card-title-row"><strong>Type de végétaux</strong><span>3</span></div>
+            <p class="field-help">Les formes biologiques v1.8 servent au filtrage descriptif et n’altèrent jamais le score.</p>
+            <div class="chips tile-chips" id="functions"><button class="active" data-value="">Toutes les fonctions</button></div>
+            <details class="advanced-controls"><summary>＋ Affiner avec votre sol</summary><div class="advanced-inner">
+              <p class="field-help">ClimaFlora estime le sol à 5–15 cm via SoilGrids. Cette estimation globale ne remplace pas une analyse de parcelle.</p>
+              <label class="check-line"><input id="soil-manual" type="checkbox" checked /> Utiliser mes valeurs lorsqu’elles sont renseignées</label>
+              <div id="soil-manual-fields" class="soil-grid soil-grid-enabled" aria-disabled="false">
+                <label>pH<input id="soil-ph" type="number" min="0" max="14" step="0.1" placeholder="ex. 6.5" /></label>
+                <label>Argile %<input id="soil-clay" type="number" min="0" max="100" step="1" /></label>
+                <label>Sable %<input id="soil-sand" type="number" min="0" max="100" step="1" /></label>
+                <label>Limon %<input id="soil-silt" type="number" min="0" max="100" step="1" /></label>
+                <label>CEC<input id="soil-cec" type="number" min="0" max="200" step="0.1" /></label>
+                <label>Fragments %<input id="soil-coarse" type="number" min="0" max="100" step="1" /></label>
+                <label>Carbone org.<input id="soil-soc" type="number" min="0" max="1000" step="0.1" /></label>
+                <label>Azote<input id="soil-nitrogen" type="number" min="0" max="100" step="0.01" /></label>
+                <label>Drainage<select id="soil-drainage"><option value="">Inconnu</option><option value="well_drained">Bien drainé</option><option value="moderate">Intermédiaire</option><option value="poor">Mal drainé</option><option value="excessive">Très drainant</option></select></label>
+              </div>
+              <p id="soil-manual-help" class="field-help soil-manual-help">Seules les propriétés renseignées remplaceront SoilGrids au prochain calcul.</p>
+            </div></details>
+          </section>
+        </div>
+        <button id="search" class="primary search-cta">Lancer la recherche <span>→</span></button>
+      </div>
+
+      <div id="plant-controls" class="hidden plant-search-panel"><div class="search-card">
+        <div class="card-title-row"><strong>Tester une plante</strong><span>⌕</span></div>
+        <div class="field"><label>Nom scientifique ou vernaculaire<input id="plant-query" type="search" autocomplete="off" placeholder="Ex. Olea europaea, olivier…" /></label></div>
+        <button id="plant-search" class="primary">Rechercher la plante</button><div id="plant-hits" class="plant-hits"></div>
+        <p class="field-help">La trajectoire sera calculée pour le point choisi sur la carte, de la période actuelle à 2100.</p>
+      </div></div>
+      <div id="warning" class="warning hidden"></div>
+    </section>
+
+    <section class="trust-strip">
+      <article><span>❧</span><div><strong>Science & indépendance</strong><p>Classement fondé uniquement sur les données scientifiques.</p></div></article>
+      <article><span>◌</span><div><strong>Climat futur</strong><p>Projections climatiques jusqu’en 2100.</p></div></article>
+      <article><span>♙</span><div><strong>Sol & environnement</strong><p>Compatibilité avec le sol et ses contraintes.</p></div></article>
+      <article><span>♧</span><div><strong>Usages multiples</strong><p>Usages documentés séparés du score scientifique.</p></div></article>
+    </section>
+
+    <section class="results-section" id="results">
+      <aside class="filters-panel"><div class="filters-head"><strong>Affiner les résultats</strong><button type="button">Réinitialiser</button></div><div class="filter-block"><strong>Niveau d’adaptation</strong></div></aside>
+      <div class="results-main">
+        <div class="results-header"><div><div class="eyebrow">Sélection végétale</div><h2 id="result-title">Prêt à calculer</h2><div id="result-subtitle" class="result-subtitle"></div></div><div class="results-header-tools"><div id="climate-source" class="source-badge">—</div><div class="view-switch"><button class="active" disabled>▦ Grille</button><button disabled>☷ Liste</button></div></div></div>
+        <div class="site-summary-grid">
+          <div class="site-summary-block"><div class="summary-title-row"><span>Climat</span><span id="climate-source-mini"></span></div><div id="climate-summary" class="climate-summary"></div><div id="uncertainty-note" class="uncertainty-note hidden"></div></div>
+          <div class="site-summary-block"><div class="summary-title-row"><span>Sol estimé / renseigné</span><span id="soil-source">—</span></div><div id="soil-summary" class="climate-summary soil-summary"><div class="empty small-empty">Le profil de sol sera chargé avec l’analyse.</div></div></div>
+        </div>
+        <div id="trajectory" class="trajectory hidden"></div>
+        <div id="results-list" class="plant-list"><div class="empty">Choisissez un lieu puis lancez une analyse.</div></div>
+      </div>
+    </section>
+
+    <section class="method-section" id="method"><div><div class="eyebrow">Transparence</div><h2>Ce qui influence le résultat — et ce qui ne l’influence pas.</h2></div><div class="method-grid"><article><strong>Dans le score</strong><p>Compatibilité climatique et préférences de sol directement comparables lorsqu’elles existent.</p></article><article><strong>Contexte descriptif</strong><p>Forme biologique, usages, aire native, images et noms vernaculaires restent séparés du score.</p></article><article><strong>Jamais dans le score</strong><p>Photo, intérêt commercial, partenariat ou disponibilité chez un vendeur.</p></article></div></section>
+    <footer class="footer" id="about"><div><strong>ClimaFlora</strong> · aide à la décision végétale fondée sur des données sourcées.</div><div>Catalogue scientifique 2.0 · moteur explicable.</div></footer>
+  </main>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="static/config.js?rev=20260822-3"></script>
+<script src="static/app.js?rev=20260820-1118"></script>
+<script src="static/ui-v4.js?rev=20260820-1118"></script>
+<script src="static/media-v1.js?rev=20260821-2"></script>
+<script src="static/map-guard.js?rev=20260820-1118"></script>
+</body>
+</html>

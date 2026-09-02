@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<meta content="ClimaFlora identifie les plantes compatibles avec votre climat actuel et futur à partir de données scientifiques explicables." name="description"/>
+<meta content="#fbfcfa" name="theme-color"/>
+<title>ClimaFlora BETA — Plantes adaptées au climat futur</title>
+<link crossorigin="" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" rel="stylesheet"/>
+<link href="static/climaflora.css?v=frontend-v12-4-0-20260824-1" rel="stylesheet"/>
+<link href="static/ui-v101-refinements.css?v=frontend-v12-4-0-20260824-1" rel="stylesheet"/>
+<link href="static/auth.css?v=auth-v4-access-20260824-1" rel="stylesheet"/>
+<link href="static/legal.css?v=legal-v1" rel="stylesheet"/>
+<script src="static/consent.js?v=legal-v1"></script>
+</head>
+<body>
+<div class="app-shell">
+<aside class="sidebar">
+<a aria-label="ClimaFlora, accueil" class="brand-lockup" href="#top">
+<img alt="" class="brand-logo" height="44" src="data/logo_seul.png" width="44"/>
+<span class="brand"><span class="brand-clima">Clima</span><span class="brand-flora">Flora</span></span><span aria-label="Version bêta" class="beta-badge">BETA</span>
+</a>
+<nav aria-label="Navigation ClimaFlora" class="side-nav">
+<a class="active" href="#explorer" id="new-search"><span>⌕</span>Nouvelle recherche</a>
+<button data-workspace-nav="projects" type="button"><span>▧</span>Mes projets <small>Connexion</small></button>
+<button data-workspace-nav="palette" title="Ma palette : votre sélection personnelle de plantes à conserver pour un projet." type="button"><span>♡</span>Ma palette <small>Plus</small></button>
+<button data-workspace-nav="compare" title="Comparateur : comparer côte à côte plusieurs plantes et leurs critères d’adaptation." type="button"><span>⇄</span>Comparateur <small>Plus</small></button>
+</nav>
+<div class="plus-card">
+<div class="plus-label">ClimaFlora+</div>
+<strong>Plus de fonctionnalités pour aller plus loin</strong>
+
+<a class="button-link" href="tarifs.html">Découvrir les offres</a>
+</div>
+</aside>
+<main class="main-area" id="top">
+<header class="topbar">
+<div>
+<h1>Planter aujourd’hui pour le climat de demain</h1>
+<div class="method-pill" id="method-pill">Moteur explicable</div>
+</div>
+<nav aria-label="Navigation secondaire" class="top-nav">
+<a href="#explorer">Explorer</a><a href="tarifs.html">Tarifs</a><a href="methodologie.html">Méthodologie</a><a href="a-propos.html">À propos</a>
+<button data-auth-open type="button">Connexion</button>
+</nav>
+</header>
+<section class="search-workspace" id="explorer">
+<div aria-hidden="true" class="progress-row">
+<div class="progress-step"><span>1</span>Localisation</div><i></i>
+<div class="progress-step"><span>2</span>Période</div><i></i>
+<div class="progress-step"><span>3</span>Type de végétaux</div>
+</div>
+<div aria-label="Mode de recherche" class="mode-tabs" role="tablist">
+<button class="active" data-mode="explore">Explorer un lieu</button><button data-mode="plant">Tester une plante</button>
+</div>
+<div id="explore-controls">
+<div class="search-grid">
+<section class="search-card map-search-card">
+<div class="card-title-row"><strong>Localisation</strong><span>1</span></div>
+<div class="map-control-bar">
+<div class="city-search-wrap">
+<label class="city-search-label" for="city-search">Rechercher mon adresse</label>
+<div class="city-search-box">
+<input aria-autocomplete="list" aria-controls="city-suggestions" aria-expanded="false" autocomplete="off" id="city-search" placeholder="Ex. 12 rue du Rhône, Genève…" role="combobox" type="search"/>
+<span aria-hidden="true" class="city-search-icon">⌕</span>
+</div>
+<div aria-label="Suggestions de villes" class="city-suggestions hidden" id="city-suggestions" role="listbox"></div>
+</div>
+<button class="location-search" id="geolocate" type="button">⌖ Utiliser ma position</button>
+<div class="field two-cols compact-coords">
+<label>Latitude<input id="lat" max="90" min="-90" step="0.0001" type="number" value="46.2044"/></label>
+<label>Longitude<input id="lon" max="180" min="-180" step="0.0001" type="number" value="6.1432"/></label>
+</div>
+</div>
+<div class="map-wrap"><div id="map"></div><div class="map-overlay"><strong>Position sélectionnée</strong><span>Cliquez sur la carte pour déplacer le point.</span></div></div>
+</section>
+<section class="search-card climate-card">
+<div class="card-title-row"><strong>Période climatique</strong><span>2</span></div>
+<div class="segmented" id="horizons">
+<button data-value="NOW">Aujourd’hui</button><button data-value="2035">2035</button><button class="active" data-value="2050">2050</button><button data-value="2070">2070</button><button data-value="2100">2100</button>
+</div>
+<div class="field scenario-field"><label>Scénario<select id="scenario"><option value="MEDIUM">Intermédiaire CHELSA · SSP3-7.0</option></select></label></div>
+<div aria-label="Trajectoires illustratives des trois scénarios climatiques" class="scenario-chart" id="scenario-chart">
+<div class="scenario-chart-head"><strong>Trajectoires des scénarios</strong></div>
+<svg aria-label="Forme relative des trajectoires SSP1-2.6, SSP3-7.0 et SSP5-8.5" class="scenario-chart-svg" role="img" viewBox="0 0 260 112">
+<line class="chart-grid" x1="8" x2="252" y1="25" y2="25"></line>
+<line class="chart-grid" x1="8" x2="252" y1="55" y2="55"></line>
+<line class="chart-zero" x1="8" x2="252" y1="88" y2="88"></line>
+<path class="scenario-line low" d="M8,61 C33,58 54,58 73,64 C96,73 117,82 142,89 C172,97 205,103 252,106" data-scenario-line="LOW"></path>
+<path class="scenario-line medium" d="M8,61 C33,57 58,52 84,47 C113,43 146,39 181,35 C210,32 232,29 252,26" data-scenario-line="MEDIUM"></path>
+<path class="scenario-line high" d="M8,61 C32,57 55,49 80,38 C108,25 135,13 164,7 C190,3 216,4 234,7 C242,8 248,10 252,11" data-scenario-line="HIGH"></path>
+<text class="chart-year" x="8" y="110">2026</text><text class="chart-year" x="122" y="110">2050</text><text class="chart-year" x="226" y="110">2100</text>
+</svg>
+<div class="scenario-chart-legend">
+<button data-scenario-choice="LOW" type="button"><i></i><span>SSP1-2.6</span></button>
+<button data-scenario-choice="MEDIUM" type="button"><i></i><span>SSP3-7.0</span></button>
+<button data-scenario-choice="HIGH" type="button"><i></i><span>SSP5-8.5</span></button>
+</div>
+<div class="scenario-comparison-note"><p>SSP1-2.6 suppose des réductions très rapides et durables des émissions. Sans accélération forte de l’action climatique, cette trajectoire devient de moins en moins compatible avec l’évolution observée.</p></div>
+</div>
+</section>
+<section class="search-card type-card">
+<div class="card-title-row"><strong>Type de végétaux</strong><span>3</span></div>
+<p class="field-help">Les formes biologiques v2.0 servent au filtrage descriptif et n’altèrent jamais le score.</p>
+<div class="chips tile-chips" id="functions"><button class="active" data-value="">Toutes les fonctions</button></div>
+<details class="advanced-controls"><summary>＋ Affiner avec votre sol</summary><div class="advanced-inner">
+<p class="field-help">ClimaFlora estime le sol à 5–15 cm via SoilGrids. Cette estimation globale ne remplace pas une analyse de parcelle.</p>
+<label class="check-line"><input checked="" id="soil-manual" type="checkbox"/> Utiliser mes valeurs lorsqu’elles sont renseignées</label>
+<div aria-disabled="false" class="soil-grid soil-grid-enabled" id="soil-manual-fields">
+<label>pH<input id="soil-ph" max="14" min="0" placeholder="ex. 6.5" step="0.1" type="number"/></label>
+<label>Argile %<input id="soil-clay" max="100" min="0" step="1" type="number"/></label>
+<label>Sable %<input id="soil-sand" max="100" min="0" step="1" type="number"/></label>
+<label>Limon %<input id="soil-silt" max="100" min="0" step="1" type="number"/></label>
+<label>CEC<input id="soil-cec" max="200" min="0" step="0.1" type="number"/></label>
+<label>Fragments %<input id="soil-coarse" max="100" min="0" step="1" type="number"/></label>
+<label>Carbone org.<input id="soil-soc" max="1000" min="0" step="0.1" type="number"/></label>
+<label>Azote<input id="soil-nitrogen" max="100" min="0" step="0.01" type="number"/></label>
+<label>Drainage<select id="soil-drainage"><option value="">Inconnu</option><option value="well_drained">Bien drainé</option><option value="moderate">Intermédiaire</option><option value="poor">Mal drainé</option><option value="excessive">Très drainant</option></select></label>
+</div>
+<p class="field-help soil-manual-help" id="soil-manual-help">Seules les propriétés renseignées remplaceront SoilGrids au prochain calcul.</p>
+</div></details>
+</section>
+<button class="primary search-cta" disabled="" id="search">Connexion au moteur scientifique…</button>
+</div>
+</div>
+<div class="hidden plant-search-panel" id="plant-controls"><div class="search-card">
+<div class="card-title-row"><strong>Tester une plante</strong><span>⌕</span></div>
+<div class="field plant-autocomplete"><label>Nom scientifique ou vernaculaire<input autocomplete="off" id="plant-query" placeholder="Commencez à saisir : Olea, olivier…" type="search" role="combobox" aria-autocomplete="list" aria-controls="plant-hits"/></label></div>
+<button class="primary" disabled id="plant-search">Analyser la sélection</button><div class="plant-hits" id="plant-hits" role="listbox" aria-label="Suggestions de plantes"></div>
+<p class="field-help">La trajectoire sera calculée pour le point choisi sur la carte, de la période actuelle à 2100.</p>
+</div></div>
+<div class="warning hidden" id="warning"></div>
+<section class="hidden" id="trajectory"></section>
+</section>
+
+<section class="results-section hidden" id="results">
+<aside class="filters-panel"><div class="filters-head"><strong>Affiner les résultats</strong><button type="button">Réinitialiser</button></div><div class="filter-block"><strong>Niveau d’adaptation</strong></div></aside>
+<div class="results-main">
+<div class="results-header"><div><div class="eyebrow">Sélection végétale</div><h2 class="hidden" id="result-title"></h2></div><div class="results-header-tools"><label class="sort-control">Trier par<select id="result-sort"><option value="scientific">Classement scientifique</option><option value="combined">Score global</option><option value="climate">Score climat</option><option value="soil">Score sol</option><option value="name">Nom scientifique</option></select></label><div class="view-switch" role="group" aria-label="Mode d’affichage"><button class="active" id="view-grid" type="button" aria-pressed="true">▦ Grille</button><button id="view-list" type="button" aria-pressed="false">☷ Liste</button></div></div></div>
+<div class="site-summary-grid">
+<div class="site-summary-block"><div class="summary-title-row"><span>Climat</span><span id="climate-source-mini"></span></div><div class="climate-summary" id="climate-summary"></div><div class="uncertainty-note hidden" id="uncertainty-note"></div></div>
+<div class="site-summary-block"><div class="summary-title-row"><span>Sol estimé / renseigné</span><span id="soil-source">—</span></div><div class="climate-summary soil-summary" id="soil-summary"><div class="empty small-empty">Le profil de sol sera chargé avec l’analyse.</div></div></div>
+</div>
+
+<div class="genus-list" id="results-list"></div>
+</div>
+</section>
+
+<footer class="footer"><div>© 2026 Shugo-An · ClimaFlora</div><div class="legal-footer-links"><a href="https://shugoan.com/mentions-legales/">Mentions légales</a><a href="https://shugoan.com/privacy-policy/">Confidentialité</a><a href="cgv.html">CGV</a><a href="cookies.html">Cookies</a><a href="retractation.html">Rétractation</a><a href="tarifs.html#resilier">Résilier mon contrat</a><button data-consent-manage type="button">Gérer mes cookies</button><span>Version BETA</span></div></footer>
+</main>
+</div><div aria-hidden="true" class="drawer-backdrop hidden" id="drawer-backdrop"></div><aside aria-hidden="true" aria-label="Fiche plante" class="plant-drawer hidden" id="plant-drawer"><div class="drawer-head"><strong>Fiche plante</strong><button aria-label="Fermer la fiche" id="drawer-close" type="button">×</button></div><div class="drawer-content" id="plant-drawer-content"></div></aside>
+<script crossorigin="" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="static/config.js?v=auth-v2-sostagora"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+<script src="static/auth.js?v=auth-v4-access-20260824-1"></script>
+<script src="static/app.js?v=frontend-v12-4-2-20260824-1"></script>
+
+
+<script src="static/search-v2.js?v=frontend-v12-4-2-20260824-1"></script>
+<script src="static/search-ui-v101.js?v=frontend-v12-4-2-20260824-1"></script>
+<script>
+(() => {
+  const button = document.getElementById('search');
+  if (!button) return;
+  button.onclick = event => {
+    if (!window.CLIMAFLORA_SEARCH_V2?.runSearch) return;
+    event.preventDefault();
+    event.stopPropagation();
+    return window.CLIMAFLORA_SEARCH_V2.runSearch(0);
+  };
+  button.dataset.searchOwner = 'v2';
+})();
+</script>
+
+
+<script src="static/search-progress.js?v=frontend-v12-4-2-20260824-1"></script>
+<script src="static/workspace.js?v=access-v2-20260824-1"></script>
+</body>
+</html>

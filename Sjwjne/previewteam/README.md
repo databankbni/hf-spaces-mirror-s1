@@ -1,11 +1,12 @@
 ---
-title: Previewteam
-emoji: 🏆
-colorFrom: gray
-colorTo: purple
+title: AI Remote Cloud Computer Engine
+emoji: 🖥️
+colorFrom: indigo
+colorTo: blue
 sdk: docker
+app_port: 7860
 pinned: false
-license: mit
 ---
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+# AI Cloud Remote Computer Engine
+Unified Tool Execution & Remote Linux Sandbox for AI Agents.

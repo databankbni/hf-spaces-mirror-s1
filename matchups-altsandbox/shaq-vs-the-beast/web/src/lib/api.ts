@@ -38,6 +38,10 @@ export interface GameSituation {
 	on_third: boolean;
 	batter: string | null;
 	pitcher: string | null;
+	/** Who's coming, not just who's up. The pitch forecast is about the at-bat
+	 *  that hasn't started, so the on-deck hitter is the one it's for. */
+	on_deck?: string | null;
+	in_hole?: string | null;
 }
 
 export interface GameLinescore {
@@ -98,6 +102,13 @@ export interface PlayerLine {
 	// lineup or the roster fallback — the authoritative order, unlike PA
 	// which only correlates with it.
 	lineup_slot?: number;
+	// Where he plays — "SS", "CF", "DH". Absent rather than guessed.
+	position?: string;
+	// 'lineup' — tonight's card, the only place a DH exists, since DH is an
+	// assignment rather than a property of the player. 'roster' — his usual
+	// position, used until the card is posted. Different claims, so the column
+	// distinguishes them rather than blurring the two.
+	position_source?: 'lineup' | 'roster';
 	pa: number;
 	ab: number;
 	hits: number;
@@ -447,6 +458,322 @@ export interface CalibrationBucket {
 	n: number;
 	predicted: number;
 	actual: number;
+}
+
+/** One side of a prop: what we say, what the price says, and the gap. */
+export interface PropSide {
+	price: number;
+	/** The payout multiple, e.g. 1.53x — null when the source posts no odds.
+	 *  A PrizePicks pick has no price of its own, so there is no multiple to
+	 *  show and inventing one would put a payout on the card that nobody
+	 *  offers. */
+	multiplier: number | null;
+	/** Our simulation's probability this side hits. */
+	model_pct: number;
+	/** The bar this side has to clear. On a book that's the vig-inclusive
+	 *  implied probability of a quoted price; on a pick'em board it's the
+	 *  break-even a slip needs, which is an assumption — see
+	 *  `PropBoard.pricing_note`. */
+	implied_pct: number;
+	edge_pct: number;
+	has_edge: boolean;
+	kelly_pct: number | null;
+}
+
+/** One prop, both sides, as a card. */
+export interface PropCard {
+	game_id: string;
+	away: string;
+	home: string;
+	matchup: string;
+	first_pitch: string | null;
+	is_live: boolean;
+	player: string;
+	team: string | null;
+	stat: string;
+	side: 'batter' | 'pitcher';
+	line: number;
+	n_sims: number;
+	over: PropSide | null;
+	under: PropSide | null;
+	/** Which side our model prefers *at the posted price*, or null. Edge, not
+	 *  probability — a 70% shot priced at 75% is not a bet. */
+	best: 'over' | 'under' | null;
+	top_edge: number;
+}
+
+export interface PropGroup {
+	side: 'batter' | 'pitcher';
+	stat: string;
+	label: string;
+	cards: PropCard[];
+	count: number;
+	with_edge: number;
+	/** How many the source quoted for this stat, and how many were on players
+	 *  no lineup we simulated contains. One card out of sixteen offered is a
+	 *  different fact from a stat the book only posted once. */
+	offered?: number;
+	unmatched?: number;
+}
+
+/** One game on the filter strip. Built from the cards, so a game listed
+ *  here always has props behind it. */
+export interface PropBoardGame {
+	game_id: string;
+	away: string;
+	home: string;
+	matchup: string;
+	first_pitch: string | null;
+	is_live: boolean;
+	cards: number;
+	with_edge: number;
+}
+
+export interface PropBoard {
+	date: string;
+	generated_at: string;
+	ready: boolean;
+	/** Which feed built this board. PrizePicks is the only prop source, so this
+	 *  is always "PrizePicks" — carried anyway so a page never has to assume. */
+	book?: string;
+	/** Set only when the source posts no odds. Says where the "needs"
+	 *  percentages came from instead, so a break-even we chose can't be read as
+	 *  a price somebody quoted. */
+	pricing_note?: string;
+	games: PropBoardGame[];
+	/** {"<game_id>|<side>/<stat>": how many the source's public feed quoted}.
+	 *  Per game, because board-wide coverage is misleading the moment the game
+	 *  filter is on — and that filter is how you compare against the app. */
+	coverage?: Record<string, number>;
+	groups: PropGroup[];
+	totals: { cards: number; players: number; with_edge: number };
+	games_considered?: number;
+	games_priced?: number;
+	props_available?: boolean;
+	live_games?: number;
+	unmapped_stats?: string[];
+	/** Where props went that never became a card. Three causes with identical
+	 *  symptoms: the feed never sent it, we couldn't map the market, or the
+	 *  player isn't in a lineup we simulated. */
+	source?: {
+		/** What the feed quoted, before any of our filtering. */
+		quoted: number;
+		/** What survived the market mapping. */
+		offered: number;
+		priced: number;
+		unmatched_player: number;
+		dropped: Record<string, number>;
+		/** What their public feed carries per market, slate-wide. */
+		by_stat?: Record<string, number>;
+	};
+	notes?: string[];
+	slate?: SlateStatus;
+}
+
+/** How long a plate appearance runs, and what it ends in. */
+export interface AtBatForecast {
+	batter: string;
+	pitcher: string;
+	batter_hand: string;
+	pitcher_hand: string;
+
+	/** The headline: the mean, and the whole number a reader carries away. */
+	expected_pitches: number;
+	likely_pitches: number;
+	/** The scale around it — three numbers summing to 100. An at-bat that
+	 *  averages four pitches is very rarely four pitches, and an expectation
+	 *  with no spread is the kind of number that looks authoritative and says
+	 *  nothing. */
+	more_pct: number;
+	same_pct: number;
+	fewer_pct: number;
+	/** P(the at-bat ends on exactly n more pitches). `plus` marks the last
+	 *  bucket when the long tail has been folded into it. */
+	distribution: { n: number; pct: number; plus?: boolean }[];
+
+	/** Fitted to the Log5 matchup distribution, not modelled separately — so
+	 *  these are the same numbers the matchup card shows, by construction. */
+	strikeout_pct: number;
+	walk_pct: number;
+	in_play_pct: number;
+	hit_by_pitch_pct: number;
+	/** The count this forecast starts from — the live one when somebody is
+	 *  batting, "0-0" between innings. */
+	start_count: string;
+	/** What the same matchup looked like at 0-0, present only once the at-bat
+	 *  is under way. The contrast is the point: showing only the current
+	 *  number hides how much the count has already done. */
+	started_expected_pitches: number | null;
+	started_strikeout_pct: number | null;
+	started_walk_pct: number | null;
+	started_in_play_pct: number | null;
+	fit_capped: boolean;
+	fit_error: number;
+	notes: string[];
+}
+
+/** One pitching staff's countdown to the last out. */
+export interface TeamPitches {
+	team: string;
+	side: 'home' | 'away';
+	/** The staff currently on the mound — the one whose number is ticking. */
+	is_pitching: boolean;
+	outs_remaining: number;
+	expected_remaining: number;
+	/** A nine-inning staff's whole-game figure (~146), so the countdown has a
+	 *  scale to be read against rather than being a bare number. */
+	expected_total: number;
+	pct_remaining: number;
+	/** Actual pitches thrown, from the box score. Null when it couldn't be
+	 *  read — the countdown is estimated off the innings, so a missing box
+	 *  score costs the over-run and nothing else. */
+	thrown: number | null;
+	/** Outs this staff has already recorded — the denominator behind `pace`. */
+	outs_recorded: number;
+	/** Their own pitches per out tonight, shrunk towards the league's 5.41. A
+	 *  staff reading 6.8 is having a long night, and the projection follows it
+	 *  rather than insisting on the average. */
+	pace: number;
+	/** Thrown plus expected remaining: where this staff's night actually lands,
+	 *  as opposed to where a league-average one would. */
+	projected_total: number | null;
+	/** How far past the whole-game estimate they already are. A staff that
+	 *  walks the park blows through 146 well before the ninth, and counting
+	 *  down towards zero there describes a game that isn't happening. */
+	over_estimate: number;
+	/** No outs left to record. Distinct from an over-run: a home staff is
+	 *  legitimately finished the moment the top of the ninth ends. */
+	complete: boolean;
+}
+
+export interface NextAtBat {
+	game_id: string;
+	available: boolean;
+	/** "at_plate" — the hitter in the box, forecast from the count he's in.
+	 *  "on_deck" — between innings, so the next hitter up from 0-0. */
+	subject: string;
+	batter: string;
+	pitcher: string;
+	batter_team: string | null;
+	inning: number | null;
+	is_top_inning: boolean | null;
+	outs: number | null;
+	/** The count the forecast starts from. */
+	balls: number;
+	strikes: number;
+	on_deck: string | null;
+	in_hole: string | null;
+	current_batter: string | null;
+	/** "season" when the forecast is built on that player's own line, "league"
+	 *  when we hold none and a baseline is standing in. About a fifth of lineup
+	 *  slots on a night are the latter, so the page marks the number itself
+	 *  rather than relying on the note beneath it being read. */
+	batter_profile: string;
+	pitcher_profile: string;
+	forecast: AtBatForecast | null;
+	/** Both staffs' countdowns. Present whenever the game is under way, even
+	 *  when no forecast could be built — the countdown needs only the inning,
+	 *  so an unknown reliever shouldn't cost you it. */
+	team_pitches: TeamPitches[];
+	/** True past the ninth, where the remaining length is unknowable and the
+	 *  countdown covers only the halves that must still be played. */
+	extra_innings: boolean;
+	/** Why there's nothing to show. "The game hasn't started", "the feed is
+	 *  unreachable" and "we don't have this reliever" are three different facts
+	 *  that an empty panel would render identically. */
+	reason: string;
+	notes: string[];
+}
+
+/** One NFL prop, exactly as PrizePicks posted it.
+ *
+ *  Deliberately unmapped: there's no NFL simulator to translate these onto, so
+ *  `market` is PrizePicks' own stat_type and `market_label` is the same string
+ *  as they wrote it. Nothing is dropped for failing to match a vocabulary.
+ *
+ *  No prices, and that's not an omission — PrizePicks posts none, because the
+ *  payout is on the slip rather than the pick. */
+export interface NFLProp {
+	player_name: string;
+	player_key: string;
+	market: string;
+	market_label: string;
+	line: number;
+	team: string | null;
+	position: string | null;
+	opponent: string | null;
+	/** "standard" | "demon" | "goblin". Demons take a harder line for a bigger
+	 *  share of the slip, goblins an easier one for less. Shown rather than
+	 *  dropped: this page is a browser, not a bet. */
+	odds_type: string;
+	is_promo: boolean;
+	game_status: string;
+	is_live: boolean;
+}
+
+export interface NFLPropSearch {
+	query: string;
+	count: number;
+	players: number;
+	props: NFLProp[];
+	/** True when the empty result is PrizePicks being unreachable rather than
+	 *  the player genuinely having no line. Opposite meanings, same empty list. */
+	unreachable?: boolean;
+	note?: string | null;
+}
+
+/** One window of graded games, measured against itself. */
+export interface OutlookWindow {
+	start: string;
+	end: string;
+	days: number;
+	games: number;
+	winner_pct: number | null;
+	winner_n: number;
+	/** Signed average miss on the game total: positive means real games
+	 *  outscored us. Signed, because the *direction* is the only part that
+	 *  points at a bet — the size just says how noisy we are. */
+	total_bias: number | null;
+	total_mae: number | null;
+	total_n: number;
+	/** How often the real total landed inside p10–p90. Targets 80%. */
+	coverage_pct: number | null;
+	coverage_n: number;
+	/** Share of games priced 45–55% — how often we have no real opinion. */
+	flat_pct: number | null;
+	flat_n: number;
+	calibration_gap: number | null;
+}
+
+/** A measured finding, with both of its tests reported rather than hidden.
+ *
+ *  `usable` is the only one that produces an outlook line: it needs the gap to
+ *  survive the whole record (`persistent`) *and* to be bigger than the noise of
+ *  a sample that size (`significant`). The failures are kept because having
+ *  looked and found nothing is itself worth showing. */
+export interface OutlookSignal {
+	key: string;
+	headline: string;
+	detail: string;
+	lifetime: number | null;
+	recent: number | null;
+	expected: number;
+	gap: number | null;
+	n: number;
+	direction: string;
+	significant: boolean;
+	persistent: boolean;
+	usable: boolean;
+}
+
+export interface Outlook {
+	generated_at: string;
+	windows: { latest: OutlookWindow; recent: OutlookWindow; lifetime: OutlookWindow };
+	signals: OutlookSignal[];
+	outlook: { where: string; detail: string; confidence: 'firm' | 'tentative' }[];
+	verdict: string;
+	caveats: string[];
+	method: string;
 }
 
 export interface AccuracyReport {
@@ -945,6 +1272,11 @@ export const api = {
 	linescore: (gameId: string) =>
 		live<GameLinescore>(`/api/game/${encodeURIComponent(gameId)}/linescore`),
 
+	// Pitch-by-pitch forecast for the at-bat that hasn't started yet. Never
+	// cached: the on-deck hitter changes every time somebody makes an out.
+	nextAtBat: (gameId: string) =>
+		live<NextAtBat>(`/api/game/${encodeURIComponent(gameId)}/next-at-bat`),
+
 	boxscore: (gameId: string) => live<GameBoxscore>(`/api/game/${encodeURIComponent(gameId)}/boxscore`),
 
 	// Rolling accuracy over a window of finished games. Served from stored
@@ -963,6 +1295,22 @@ export const api = {
 			opts.refresh ? 300_000 : 30_000
 		);
 	},
+
+	// The forward-looking read: where our own record says our numbers have
+	// been unreliable. Aggregated from stored scorecards, so it's cheap.
+	outlook: () => jsonFetch<Outlook>('/api/outlook', undefined, 300_000),
+
+	// Every priced MLB prop, both sides, grouped by stat. Same pricing as the
+	// ranked panel — this one just doesn't filter.
+	propBoard: (opts: { date?: string } = {}) => {
+		const q = opts.date ? `?date=${encodeURIComponent(opts.date)}` : '';
+		return jsonFetch<PropBoard>(`/api/props/board${q}`, undefined, 60_000);
+	},
+
+	// PrizePicks' NFL props by player name. Cached briefly server-side, so
+	// typing doesn't turn into one upstream call per keystroke.
+	nflProps: (q: string) =>
+		jsonFetch<NFLPropSearch>(`/api/nfl/props?q=${encodeURIComponent(q)}`, undefined, 30_000),
 
 	// One game's full scorecard: every player, projected against actual.
 	accuracyGame: (gameId: string) =>

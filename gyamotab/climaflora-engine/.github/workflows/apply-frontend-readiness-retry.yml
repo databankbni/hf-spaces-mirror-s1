@@ -1,0 +1,67 @@
+name: Apply frontend readiness retry fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/tools/apply_frontend_readiness_retry.py'
+      - '.github/workflows/apply-frontend-readiness-retry.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-frontend-readiness-retry
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Apply guarded frontend patch
+        run: python .github/tools/apply_frontend_readiness_retry.py
+
+      - name: Validate JavaScript and canonical frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check frontend/static/app.js
+          node --check frontend/static/search-v2.js
+          node --check frontend/static/search-progress.js
+          test "$(find frontend -type f -name '*.css' | wc -l)" -eq 1
+          grep -q 'Connexion au moteur scientifique' frontend/index.html
+          grep -q 'CLIMAFLORA_READINESS_RETRY_ACTIVE' frontend/static/search-progress.js
+
+      - name: Package corrected frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd frontend
+          zip -r ../ClimaFlora_Frontend_v10_readiness_fix.zip .
+
+      - name: Upload corrected frontend package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClimaFlora_Frontend_v10_readiness_fix
+          path: ClimaFlora_Frontend_v10_readiness_fix.zip
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Commit corrected frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/index.html frontend/static/app.js frontend/static/search-progress.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix frontend readiness recovery after HF cold start [skip ci]"
+          git push origin HEAD:main

@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a689b4f6.js";
+            window.path_to_searchindex_js = "searchindex-91504666.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c1b19a61.js"></script>
+        <script src="toc-fce102de.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,6 +181,80 @@
 <h1 id="journal"><a class="header" href="#journal">Journal</a></h1>
 <p>Rolling dated notes that don’t merit a post. Anomalies land here too
 (the surprise log, charter §3).</p>
+<h2 id="2026-08-06--snapflow-10k-1-nfe-probe-distill-beats-the-teachers-30-step-read-at-one-third-training-104xz"><a class="header" href="#2026-08-06--snapflow-10k-1-nfe-probe-distill-beats-the-teachers-30-step-read-at-one-third-training-104xz">2026-08-06 — SnapFlow @10k 1-NFE probe: distill BEATS the teacher’s 30-step read at one-third training (~10:4xZ)</a></h2>
+<p>The pre-registered record-only probe
+(<a href="posts/2026-08-06-prereg-snapflow-distill.html">pre-reg</a>) ran on box
+GPU 1 at the step_010000 boundary (checkpoint pushed: teacher
+backbone already on-box byte-identical, sha256-verified, so the push
+was only the 1.8G expert; box code bcbf101 has the 1-NFE switch, no
+code sync under the live arm C). Read, stride-7 subset (2,458
+frames), semantics recorded in-report (steps=1, euler,
+target_time=zero, noise_key=index, draws=1):</p>
+<ul>
+<li><strong>distill @10k, 1-NFE: chunk_mae 5.9222 / first_mae 1.8193</strong></li>
+<li>teacher @80k, Heun-30, same frames: 6.676 / 1.928</li>
+<li>kill line (teacher probe + 3.0): 9.6755 — <strong>passed by 3.75</strong></li>
+<li>pairing certified: state-copy / state-copy-norm rows reproduce the
+step-0 drift-gate log to 4 dp (11.812/2.571, 11.766/2.409)</li>
+</ul>
+<p>Two reads worth logging. (1) The one-step model at 10k of 30k
+already beats its own teacher’s 30-step read by −0.75 chunk / −0.11
+first — directionally the SnapFlow paper’s own LIBERO result (1-NFE
+98.75% vs teacher 97.75%), and consistent with our fairness-probe
+mechanism: chunk MAE rewards mean-committed predictions, and a
+consistency-distilled endpoint decode is closer to the conditional
+mean than any single teacher draw (teacher mean-of-10 on this subset
+is 5.4113 — the 1-NFE single pass lands between single-draw and
+mean-of-10 at ~1/60th the solver cost of one Heun-30 draw). (2) The
+in-run s=t divergence (8.03 @10000, flat band 7.8–8.4 since 5000) is
+hereby DECONFIRMED as a 1-NFE quality proxy — the pre-reg’s caution
+(“mid-run drift is in-model for consistency training; the 10k probe
+is the informative read”) was right in the strongest direction: s=t
+sits 2.1 WORSE than the actual one-step read. The surprise-log
+entry: the s=t eval measures the velocity-estimation mode, not the
+one-step mode the run exists to produce.</p>
+<p>Endpoint outlook unchanged in structure, upgraded in prior: the
+adopt-signal (full-panel 1-NFE ≤ 6.7732) now looks likely rather
+than hoped-for; the deployment headline read (mean-of-10 @1-NFE vs
+5.8026) is the one to watch. Probe artifacts:
+<code>reports/eval__snapdistill__step_010000__probe_s7_1nfe_euler1.json</code>
+(+ box log pulled local); box staging
+(<code>outputs/train/fontaine_flow_snapdistill_h1024_30k_1xh100/step_010000</code>,
+11G, GPU 1 freed) can be cleaned at the arm-C boundary.</p>
+<h2 id="2026-08-06--rig-rollout-safety-gate-landed-185-closed-095xz"><a class="header" href="#2026-08-06--rig-rollout-safety-gate-landed-185-closed-095xz">2026-08-06 — rig-rollout safety gate landed (#18.5 closed) (~09:5xZ)</a></h2>
+<p>The first-physical-run blocker (deep-dive findings 8+9), closed as
+CPU work while SnapFlow + arm C hold the GPUs — the gate now exists
+<em>before</em> the north-star surface ever needs it. New lerobot-free
+<code>bijou/rollout_safety.py</code> (testable without a robot) wired into
+<code>bijou.rollout</code>; three gates, all before the arm moves:</p>
+<ol>
+<li><strong>Clamp is mandatory.</strong> <code>--max-relative-target</code> (positive, finite)
+or the arm does not move — the vendored lerobot degrees branch
+un-normalizes with no min/max against calibration, so this flag is
+the only limiter between one bad chunk (or wrong stats) and
+full-speed arbitrary servo ticks. <code>--unclamped</code> is the explicit
+opt-out; clamp+opt-out together die as contradictory. The gate
+runs before the slow policy load and in <code>--check</code> mode, so
+checking the exact command catches a missing clamp early.</li>
+<li><strong>First-observation envelope.</strong> After connect, before any action:
+each joint must lie in [q01, q99] widened by half the band per
+side (15° absolute floor; mean±3σ fallback for quantile-less
+stats tables). Wrong <code>--stats-repo-id</code>, raw-ticks-vs-degrees
+(~10³ flags every joint), and uncalibrated arms all die loud with
+a per-joint table; stats dim ≠ 6 dies as wrong-embodiment;
+<code>--skip-envelope-check</code> covers deliberately unusual start poses.</li>
+<li><strong>Camera kinds mirror training, not operator names.</strong> With
+<code>--stats-dataset</code>, kinds resolve through training’s own path
+(<code>annotation_stamp</code> + <code>camera_kinds_of</code>) — a rig whose
+“front”-named cam was judged kind <code>top</code> now rolls out tagged
+<code>top</code>, and an unstamped/hash-mismatched dataset renders <code>unknown</code>
+exactly as training did (the old name heuristic silently skewed
+both cases; it survives only when no dataset directory exists).
+<code>--camera-kind NAME=KIND</code> is the validated explicit override.</li>
+</ol>
+<p>22 new CPU tests; <code>--check</code> exercised end-to-end on the real
+flow-80k checkpoint (CPU, real stats table — envelope prints sane
+degree-scale bounds); <code>check.py</code> 274 green.</p>
 <h2 id="2026-08-05--chunked-backward-landed-the-pre-regs-chunk-mean-sketch-was-wrong-230xz"><a class="header" href="#2026-08-05--chunked-backward-landed-the-pre-regs-chunk-mean-sketch-was-wrong-230xz">2026-08-05 — chunked backward landed; the pre-reg’s chunk-mean sketch was wrong (~23:0xZ)</a></h2>
 <p>The E4B launch de-risk item
 (<a href="posts/2026-08-05-prereg-e4b-screen.html">Amendment 1</a> on the screen
@@ -441,11 +515,11 @@ created by the access-check run.</p>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="ideas.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="ideas/23-action-space.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="posts/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="reports.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -455,11 +529,11 @@ created by the access-check run.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="ideas.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="ideas/23-action-space.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="posts/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="reports.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

@@ -1,0 +1,89 @@
+name: Probe USDA PLANTS for ClimaFlora v2
+
+on:
+  push:
+    branches: [edaphic-v2.0-enrichment]
+    paths: ['.github/workflows/probe-usda-v2.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Probe public USDA PLANTS interfaces
+        run: |
+          python - <<'PY'
+          import json, re, urllib.parse, urllib.request, urllib.error
+          from pathlib import Path
+          UA={'User-Agent':'ClimaFlora scientific source audit/2.0','Accept':'application/json,text/plain,*/*'}
+          def get(url, timeout=45):
+              req=urllib.request.Request(url,headers=UA)
+              try:
+                  with urllib.request.urlopen(req,timeout=timeout) as r:
+                      b=r.read()
+                      return {'status':r.status,'url':r.geturl(),'content_type':r.headers.get('content-type'),'bytes':len(b),'text':b.decode('utf-8','replace')}
+              except urllib.error.HTTPError as e:
+                  return {'status':e.code,'url':url,'content_type':e.headers.get('content-type'),'bytes':0,'text':e.read().decode('utf-8','replace')[:4000]}
+              except Exception as e:
+                  return {'status':None,'url':url,'error':repr(e),'bytes':0,'text':''}
+          out={}
+          lst=get('https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/plantlst.txt')
+          lines=[x for x in lst.get('text','').splitlines() if x.strip()]
+          out['plant_list']={k:v for k,v in lst.items() if k!='text'}
+          out['plant_list'].update({'line_count':len(lines),'head':lines[:12],'tail':lines[-5:]})
+          profile=get('https://plantsservices.sc.egov.usda.gov/api/PlantProfile?symbol=ACPL')
+          out['profile_ACPL']={k:v for k,v in profile.items() if k!='text'}
+          try: p=json.loads(profile.get('text','')); out['profile_ACPL']['json']=p
+          except Exception: out['profile_ACPL']['body']=profile.get('text','')[:4000]
+          pid=(out['profile_ACPL'].get('json') or {}).get('Id')
+          if pid:
+              chars=get(f'https://plantsservices.sc.egov.usda.gov/api/PlantCharacteristics/{pid}')
+              out['characteristics_ACPL']={k:v for k,v in chars.items() if k!='text'}
+              try:
+                  cj=json.loads(chars.get('text',''))
+                  out['characteristics_ACPL']['count']=len(cj) if isinstance(cj,list) else None
+                  out['characteristics_ACPL']['growth_requirements']=[x for x in cj if isinstance(x,dict) and x.get('PlantCharacteristicCategory')=='Growth Requirements']
+              except Exception: out['characteristics_ACPL']['body']=chars.get('text','')[:4000]
+          page=get('https://plants.sc.egov.usda.gov/characteristics-search')
+          html=page.get('text','')
+          out['characteristics_page']={k:v for k,v in page.items() if k!='text'}
+          scripts=re.findall(r'<script[^>]+src=["\']([^"\']+)',html,re.I)
+          out['characteristics_page']['scripts']=scripts
+          hits=[]
+          for src in scripts[-12:]:
+              u=urllib.parse.urljoin(page.get('url') or 'https://plants.sc.egov.usda.gov/characteristics-search',src)
+              js=get(u)
+              text=js.get('text','')
+              for pat in ('PlantCharacteristics','CharacteristicSearch','CharacteristicsSearch','/api/'):
+                  if pat in text:
+                      snippets=[]
+                      for m in list(re.finditer(re.escape(pat),text))[:8]:
+                          snippets.append(text[max(0,m.start()-180):m.start()+320])
+                      hits.append({'script':u,'pattern':pat,'snippets':snippets})
+          out['js_api_hits']=hits[:30]
+          candidates=[
+              'https://plantsservices.sc.egov.usda.gov/api/PlantCharacteristics',
+              'https://plantsservices.sc.egov.usda.gov/api/PlantCharacteristicsSearch',
+              'https://plantsservices.sc.egov.usda.gov/api/CharacteristicsSearch',
+              'https://plantsservices.sc.egov.usda.gov/api/CharacteristicSearch',
+              'https://plantsservices.sc.egov.usda.gov/api/PlantCharacteristic',
+          ]
+          out['route_candidates']={}
+          for u in candidates:
+              r=get(u); out['route_candidates'][u]={k:v for k,v in r.items() if k!='text'}|{'body':r.get('text','')[:1000]}
+          Path('/tmp/usda-probe.json').write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          PY
+      - name: Record probe
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin edaphic-v2.0-enrichment
+          git reset --hard origin/edaphic-v2.0-enrichment
+          cp /tmp/usda-probe.json .github/usda-v2-probe.json
+          git add .github/usda-v2-probe.json
+          git commit -m 'Record USDA PLANTS v2 source probe [skip ci]'
+          git push origin HEAD:edaphic-v2.0-enrichment

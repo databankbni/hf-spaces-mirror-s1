@@ -1,0 +1,203 @@
+name: OVH SFTP maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Operation to perform inside the ClimaFlora OVH directory"
+        required: true
+        type: choice
+        options:
+          - list
+          - download
+          - upload
+          - rename
+          - delete
+          - mkdir
+      remote_path:
+        description: "Relative OVH path (use . for the ClimaFlora root)"
+        required: false
+        default: "."
+        type: string
+      target_path:
+        description: "Relative destination path (rename only)"
+        required: false
+        default: ""
+        type: string
+      repo_path:
+        description: "Repository file to upload (upload only)"
+        required: false
+        default: ""
+        type: string
+      confirm_delete:
+        description: "Required confirmation for delete"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ovh-sftp-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    env:
+      OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+      OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+      OVH_SFTP_USER: ${{ secrets.OVH_SFTP_USER }}
+      OVH_SFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+      OVH_SFTP_REMOTE_DIR: ${{ secrets.OVH_SFTP_REMOTE_DIR }}
+      OPERATION: ${{ inputs.operation }}
+      REMOTE_PATH: ${{ inputs.remote_path }}
+      TARGET_PATH: ${{ inputs.target_path }}
+      REPO_PATH: ${{ inputs.repo_path }}
+      CONFIRM_DELETE: ${{ inputs.confirm_delete }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate secrets and inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for name in OVH_SFTP_HOST OVH_SFTP_USER OVH_SFTP_PASSWORD OVH_SFTP_REMOTE_DIR; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name secret is missing"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+
+          validate_relative_path() {
+            local value="$1"
+            local label="$2"
+            [ -n "$value" ] || { echo "::error::$label is empty"; exit 1; }
+            [[ "$value" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "::error::$label contains unsupported characters"; exit 1; }
+            [[ "$value" != /* ]] || { echo "::error::$label must be relative to the ClimaFlora root"; exit 1; }
+            [[ "/$value/" != *"/../"* ]] || { echo "::error::$label cannot contain .."; exit 1; }
+          }
+
+          case "$OPERATION" in
+            list)
+              validate_relative_path "$REMOTE_PATH" remote_path
+              ;;
+            download)
+              validate_relative_path "$REMOTE_PATH" remote_path
+              [ "$REMOTE_PATH" != "." ] || { echo "::error::download requires a file path"; exit 1; }
+              ;;
+            upload)
+              validate_relative_path "$REMOTE_PATH" remote_path
+              validate_relative_path "$REPO_PATH" repo_path
+              [ -f "$REPO_PATH" ] || { echo "::error::Repository file not found: $REPO_PATH"; exit 1; }
+              ;;
+            rename)
+              validate_relative_path "$REMOTE_PATH" remote_path
+              validate_relative_path "$TARGET_PATH" target_path
+              [ "$REMOTE_PATH" != "." ] || { echo "::error::Cannot rename the ClimaFlora root"; exit 1; }
+              ;;
+            delete)
+              validate_relative_path "$REMOTE_PATH" remote_path
+              [ "$REMOTE_PATH" != "." ] || { echo "::error::Cannot delete the ClimaFlora root"; exit 1; }
+              [ "$CONFIRM_DELETE" = "true" ] || { echo "::error::confirm_delete must be checked"; exit 1; }
+              ;;
+            mkdir)
+              validate_relative_path "$REMOTE_PATH" remote_path
+              [ "$REMOTE_PATH" != "." ] || { echo "::error::mkdir requires a directory path"; exit 1; }
+              ;;
+            *)
+              echo "::error::Unsupported operation: $OPERATION"
+              exit 1
+              ;;
+          esac
+
+      - name: Install SFTP client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Run SFTP operation
+        id: sftp
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${OVH_SFTP_PORT:-22}"
+          BASE="${OVH_SFTP_REMOTE_DIR%/}"
+
+          common_header() {
+            cat <<EOF
+          set sftp:auto-confirm yes
+          set net:max-retries 2
+          set net:timeout 30
+          set net:reconnect-interval-base 5
+          cd "$BASE"
+          EOF
+          }
+
+          case "$OPERATION" in
+            list)
+              {
+                common_header
+                echo "cls -la \"$REMOTE_PATH\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+              ;;
+
+            download)
+              mkdir -p ovh-download
+              FILE_NAME="$(basename "$REMOTE_PATH")"
+              {
+                common_header
+                echo "get \"$REMOTE_PATH\" -o \"ovh-download/$FILE_NAME\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+              echo "download_name=$FILE_NAME" >> "$GITHUB_OUTPUT"
+              ;;
+
+            upload)
+              {
+                common_header
+                echo "put \"$REPO_PATH\" -o \"$REMOTE_PATH\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+              ;;
+
+            rename)
+              {
+                common_header
+                echo "mv \"$REMOTE_PATH\" \"$TARGET_PATH\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+              ;;
+
+            delete)
+              {
+                common_header
+                echo "rm \"$REMOTE_PATH\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+              ;;
+
+            mkdir)
+              {
+                common_header
+                echo "mkdir -p \"$REMOTE_PATH\""
+                echo "bye"
+              } | lftp -u "$OVH_SFTP_USER","$OVH_SFTP_PASSWORD" "sftp://$OVH_SFTP_HOST:$PORT"
+              ;;
+          esac
+
+      - name: Publish downloaded file as artifact
+        if: ${{ inputs.operation == 'download' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ovh-download-${{ steps.sftp.outputs.download_name }}
+          path: ovh-download/
+          if-no-files-found: error
+          retention-days: 1

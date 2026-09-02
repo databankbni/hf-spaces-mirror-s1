@@ -11,6 +11,7 @@ from app.deps import (
     get_read_model,
     get_registration_limiter,
     get_settings_dep,
+    require_challenge_open,
 )
 from app.errors import (
     AgentIdTaken,
@@ -49,7 +50,12 @@ from app.validation import (
 router = APIRouter()
 
 
-@router.post("/v1/agents/register", response_model=AgentRegisterResponse, status_code=201)
+@router.post(
+    "/v1/agents/register",
+    response_model=AgentRegisterResponse,
+    status_code=201,
+    dependencies=[Depends(require_challenge_open)],
+)
 def register(
     req: AgentRegisterRequest,
     request: Request,

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Femometer Smart Ring Sizer</title>
+  <meta name="description" content="Upload a photo to quickly measure ring size, using a standard credit card as scale reference." />
+  <meta property="og:title" content="Femometer Smart Ring Sizer" />
+  <meta property="og:description" content="Upload a photo to quickly measure ring size, using a standard credit card as scale reference." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Femometer Smart Ring Sizer" />
+  <meta name="twitter:description" content="Upload a photo to quickly measure ring size, using a standard credit card as scale reference." />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="background-orbit"></div>
+  <div class="background-glow"></div>
+
+  <header class="hero">
+    <div class="hero-copy">
+      <p class="hero-kicker">Femometer Smart Ring Sizer</p>
+      <h1>Upload a photo to quickly measure ring size</h1>
+      <p class="hero-sub">
+        Using a photo of your hand with a card of standard credit card size for scale.
+      </p>
+    </div>
+    <div class="hero-card">
+      <form id="measureForm">
+        <label class="file-drop" for="imageInput">
+          <input id="imageInput" name="image" type="file" accept="image/*" />
+          <span class="file-title">Click or drag to upload a photo</span>
+          <span class="file-hint">JPG / PNG supported · 1080p or higher recommended</span>
+        </label>
+
+        <ul class="capture-tips">
+          <li><strong>Turn on your phone's flash</strong>, it sharpens finger edges.</li>
+          <li>Hold phone <strong>directly above</strong> hand, <strong>parallel</strong> to table.</li>
+          <li><strong>Use plain white background</strong>, a sheet of paper works great.</li>
+          <li><strong>Spread your fingers naturally</strong>.</li>
+          <li>Place the card <strong>beside your hand</strong>, fully visible.</li>
+        </ul>
+
+        <div class="controls">
+          <label>
+            <span>Email</span>
+            <input type="email" name="kol_email" id="kolEmailInput" placeholder="you@example.com" autocomplete="email" inputmode="email" />
+          </label>
+          <label>
+            <span>Ring Model</span>
+            <select name="ring_model" id="ringModelSelect">
+              <option value="gen" selected>Gen1/Gen2</option>
+              <option value="air">Air</option>
+            </select>
+          </label>
+          {% if dev_mode %}
+          <label>
+            <span>Mode</span>
+            <select name="mode" id="modeSelect">
+              <option value="multi" selected>All Fingers (Recommended)</option>
+              <option value="single">Single Finger</option>
+            </select>
+          </label>
+          <label id="fingerSelectGroup">
+            <span>Finger Selection</span>
+            <select name="finger_index">
+              <option value="index" selected>Index (Default)</option>
+              <option value="middle">Middle</option>
+              <option value="ring">Ring</option>
+              <option value="pinky">Pinky</option>
+              <option value="auto">Auto</option>
+            </select>
+          </label>
+          <label class="toggle-label">
+            <span>AI Explanation</span>
+            <div class="toggle-row">
+              <input type="checkbox" id="aiExplainToggle" />
+              <span class="toggle-hint">Uses OpenAI tokens</span>
+            </div>
+          </label>
+          {% else %}
+          <input type="hidden" name="mode" id="modeSelect" value="multi" />
+          <input type="hidden" name="finger_index" value="index" />
+          <input type="hidden" id="aiExplainToggle" value="on" />
+          {% endif %}
+        </div>
+
+        <button class="primary" type="submit">Start Measurement</button>
+        <p class="status" id="statusText">Waiting for image…</p>
+      </form>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="preview">
+      <div class="panel">
+        <h2>Input Photo</h2>
+        <div class="image-frame show" id="inputFrame">
+          <img id="inputPreview" src="{{ default_sample_url }}" alt="Default sample photo example" />
+          <p class="placeholder" style="display:none;">No image yet</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Current Photo Overlay</h2>
+        <div class="image-frame" id="debugFrame">
+          <img id="debugPreview" alt="" />
+          <p class="placeholder">Waiting for result</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="result">
+      <div class="panel" id="multiResultPanel">
+        <h2>Ring Size Recommendation</h2>
+        <div id="multiResult" class="multi-result">
+          <div class="overall-size" id="overallSize">
+            <div class="size-hero">
+              <span class="size-label">Waiting for measurement</span>
+            </div>
+          </div>
+          <div class="finger-breakdown" id="fingerBreakdown"></div>
+        </div>
+      </div>
+
+      {% if dev_mode %}
+      <div class="panel">
+        <div class="panel-head">
+          <h2>JSON Output</h2>
+          <a id="jsonLink" class="ghost" href="#" target="_blank" rel="noreferrer">Open raw JSON</a>
+        </div>
+        <pre id="jsonOutput">{}</pre>
+      </div>
+      {% else %}
+      <pre id="jsonOutput" hidden>{}</pre>
+      <a id="jsonLink" hidden href="#"></a>
+      {% endif %}
+    </section>
+
+    <section class="feedback-section" id="feedbackSection" hidden>
+      <div class="panel feedback-panel" id="feedbackPanel">
+        <h2>How did it go?</h2>
+        <p class="feedback-hint">Rate this measurement and tell us anything you'd like to share or ask.</p>
+        <form id="feedbackForm" class="feedback-form">
+          <div class="feedback-rating" role="radiogroup" aria-label="Rating">
+            <button type="button" class="star-btn" data-value="1" role="radio" aria-checked="false" aria-label="1 star">★</button>
+            <button type="button" class="star-btn" data-value="2" role="radio" aria-checked="false" aria-label="2 stars">★</button>
+            <button type="button" class="star-btn" data-value="3" role="radio" aria-checked="false" aria-label="3 stars">★</button>
+            <button type="button" class="star-btn" data-value="4" role="radio" aria-checked="false" aria-label="4 stars">★</button>
+            <button type="button" class="star-btn" data-value="5" role="radio" aria-checked="false" aria-label="5 stars">★</button>
+          </div>
+          <textarea id="feedbackMessage" name="message" rows="4" maxlength="4000"
+                    placeholder="Your comment or question (optional)"></textarea>
+          <div class="feedback-row">
+            <button type="submit" class="primary feedback-submit">Send</button>
+            <span class="feedback-status" id="feedbackStatus" aria-live="polite"></span>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer style="text-align:center;padding:24px 0 12px;opacity:0.4;font-size:13px;">
+    <a href="/admin" style="color:var(--ink-soft);text-decoration:none;">Admin</a>
+  </footer>
+
+  <script>window.DEFAULT_SAMPLE_URL = "{{ default_sample_url }}";</script>
+  <script src="/static/shared/measurement-session.js"></script>
+  <script src="/static/shared/session-evidence.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

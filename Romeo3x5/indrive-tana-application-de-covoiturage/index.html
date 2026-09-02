@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>inDrive Tana — Covoiturage à Antananarivo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{
+  --red:#e10600;
+  --red-dark:#a80400;
+  --black:#0d0d0d;
+  --black-2:#1a1a1a;
+  --black-3:#262626;
+  --white:#ffffff;
+  --gray:#9a9a9a;
+  --green:#22c55e;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;}
+body{background:var(--black);color:var(--white);height:100vh;overflow:hidden;}
+
+/* ====== TOP BAR ====== */
+.topbar{
+  background:linear-gradient(90deg,var(--black) 0%,var(--red) 100%);
+  padding:14px 18px;display:flex;align-items:center;gap:12px;
+  box-shadow:0 2px 12px rgba(0,0,0,.5);position:relative;z-index:1000;
+}
+.logo{font-weight:800;font-size:22px;letter-spacing:1px;color:#fff;}
+.logo span{color:#ffd7d5;}
+.logo small{display:block;font-size:10px;font-weight:400;letter-spacing:2px;color:#ffb3b0;}
+.city-badge{
+  margin-left:auto;background:rgba(0,0,0,.35);padding:6px 12px;border-radius:20px;
+  font-size:12px;display:flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.25);
+}
+.city-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+
+/* ====== MODE SWITCH ====== */
+.mode-switch{display:flex;background:var(--black-2);margin:12px;border-radius:12px;padding:4px;gap:4px;}
+.mode-btn{
+  flex:1;padding:12px;border:none;border-radius:9px;background:transparent;color:var(--gray);
+  font-weight:700;font-size:14px;cursor:pointer;transition:.2s;
+}
+.mode-btn.active{background:var(--red);color:#fff;box-shadow:0 2px 10px rgba(225,6,0,.4);}
+
+/* ====== LAYOUT ====== */
+.app{display:flex;height:calc(100vh - 118px);}
+.map-panel{flex:1;position:relative;min-width:0;}
+#map{width:100%;height:100%;}
+.side-panel{
+  width:400px;max-width:100%;background:var(--black-2);overflow-y:auto;
+  border-left:1px solid var(--black-3);
+}
+@media(max-width:900px){
+  .app{flex-direction:column;}
+  .map-panel{height:45vh;flex:none;}
+  .side-panel{width:100%;height:auto;border-left:none;border-top:1px solid var(--black-3);}
+}
+
+/* ====== PANEL CONTENT ====== */
+.panel-inner{padding:16px;}
+h2{font-size:16px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+h2 .bar{width:4px;height:18px;background:var(--red);border-radius:2px;}
+
+/* ====== FORMS ====== */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;color:var(--gray);margin-bottom:6px;font-weight:600;}
+.input-wrap{position:relative;}
+.input-wrap .ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);}
+.input-wrap input,.input-wrap select{
+  width:100%;padding:13px 12px 13px 38px;background:var(--black-3);border:1px solid var(--black-3);
+  border-radius:10px;color:#fff;font-size:14px;outline:none;transition:.2s;
+}
+.input-wrap input:focus,.input-wrap select:focus{border-color:var(--red);}
+.input-wrap select option{background:var(--black-3);}
+.btn{
+  width:100%;padding:15px;border:none;border-radius:10px;font-size:15px;font-weight:800;
+  cursor:pointer;transition:.2s;
+}
+.btn-red{background:var(--red);color:#fff;}
+.btn-red:hover{background:var(--red-dark);}
+.btn-outline{background:transparent;border:2px solid var(--red);color:var(--red);}
+.btn-outline:hover{background:var(--red);color:#fff;}
+.btn-green{background:var(--green);color:#000;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* ====== PRICE BOX ====== */
+.price-box{
+  background:linear-gradient(135deg,var(--black-3),var(--black));
+  border:1px solid var(--red);border-radius:12px;padding:16px;text-align:center;margin-bottom:14px;
+}
+.price-box .lbl{font-size:12px;color:var(--gray);}
+.price-box .amount{font-size:32px;font-weight:800;color:#fff;margin:4px 0;}
+.price-box .amount span{color:var(--red);}
+.price-box .sub{font-size:12px;color:var(--gray);}
+
+/* ====== NEGOTIATION ====== */
+.nego{display:flex;gap:8px;margin-top:12px;}
+.nego .btn{flex:1;padding:12px;}
+.nego .price-input{
+  width:100%;padding:12px;background:var(--black-3);border:1px solid var(--red);
+  border-radius:10px;color:#fff;font-size:16px;text-align:center;font-weight:700;outline:none;
+}
+
+/* ====== CARD LIST ====== */
+.card{
+  background:var(--black-3);border-radius:12px;padding:14px;margin-bottom:10px;
+  border-left:3px solid var(--red);
+}
+.card .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.card .route{font-size:14px;font-weight:600;}
+.card .meta{font-size:12px;color:var(--gray);}
+.card .price{font-size:16px;font-weight:800;color:var(--red);}
+.stars{color:#fbbf24;font-size:13px;}
+.badge{font-size:10px;padding:3px 8px;border-radius:12px;font-weight:700;}
+.badge.active{background:var(--green);color:#000;}
+.badge.wait{background:#f59e0b;color:#000;}
+.badge.done{background:var(--black-3);color:var(--gray);border:1px solid var(--gray);}
+
+/* ====== DRIVER MODE ====== */
+.driver-request{
+  background:var(--black-3);border:1px solid var(--red);border-radius:12px;padding:16px;margin-bottom:14px;
+}
+.driver-request .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.driver-request h3{font-size:15px;}
+.driver-request .req-price{font-size:26px;font-weight:800;color:var(--red);}
+.driver-request .route{font-size:13px;color:var(--gray);margin-bottom:12px;line-height:1.5;}
+
+/* ====== TOAST ====== */
+#toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);
+  background:var(--red);color:#fff;padding:14px 24px;border-radius:10px;font-weight:700;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);transition:.3s;z-index:9999;opacity:0;
+}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+
+/* ====== STATUS BAR ====== */
+.status-bar{
+  position:absolute;bottom:16px;left:16px;background:rgba(13,13,13,.9);padding:10px 16px;
+  border-radius:10px;font-size:13px;display:flex;align-items:center;gap:8px;
+  border:1px solid var(--red);z-index:1000;max-width:calc(100% - 32px);
+}
+.status-bar .pulse{width:10px;height:10px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.6);}70%{box-shadow:0 0 0 10px rgba(34,197,94,0);}100%{box-shadow:0 0 0 0 rgba(34,197,94,0);}}
+
+/* ====== VEHICLE SELECT ====== */
+.vehicle-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.vehicle{
+  background:var(--black-3);border:2px solid var(--black-3);border-radius:10px;padding:12px;
+  cursor:pointer;transition:.2s;text-align:center;
+}
+.vehicle:hover{border-color:var(--gray);}
+.vehicle.selected{border-color:var(--red);background:rgba(225,6,0,.12);}
+.vehicle .v-ico{font-size:26px;}
+.vehicle .v-name{font-size:13px;font-weight:700;margin-top:4px;}
+.vehicle .v-price{font-size:11px;color:var(--gray);}
+
+.section-title{font-size:13px;color:var(--gray);font-weight:700;margin:18px 0 10px;text-transform:uppercase;letter-spacing:1px;}
+.empty{text-align:center;color:var(--gray);padding:30px 10px;font-size:13px;}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">inDrive <span>Tana</span><small>ANTANANARIVO · MADAGASCAR</small></div>
+  <div class="city-badge"><span class="dot"></span> Antananarivo</div>
+</div>
+
+<!-- MODE SWITCH -->
+<div class="mode-switch">
+  <button class="mode-btn active" id="modePassenger" onclick="setMode('passenger')">🚗 Passager</button>
+  <button class="mode-btn" id="modeDriver" onclick="setMode('driver')">🛞 Conducteur</button>
+</div>
+
+<div class="app">
+  <!-- MAP -->
+  <div class="map-panel">
+    <div id="map"></div>
+    <div class="status-bar" id="statusBar">
+      <span class="pulse"></span>
+      <span id="statusText">Prêt à lancer une course</span>
+    </div>
+  </div>
+
+  <!-- SIDE PANEL -->
+  <div class="side-panel">
+    <div class="panel-inner" id="panelContent"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIGURATION
+   ------------------------------------------------------------
+   Pour utiliser GOOGLE MAPS au lieu d'OpenStreetMap :
+   1. Obtenez une clé API Google Maps (Maps JavaScript API).
+   2. Ajoutez la clé dans l'URL du script ci-dessous.
+   3. Décommentez la ligne "GOOGLE_TILES" dans initMap().
+   ============================================================ */
+const GOOGLE_MAPS_API_KEY = "VOTRE_CLE_GOOGLE_MAPS"; // ← Remplacez par votre clé
+
+// Devise : Ariary malgache
+const CURRENCY = "Ar";
+
+// Ville par défaut
+const DEFAULT_CITY = "Antananarivo";
+
+// Centre d'Antananarivo
+const TANA_CENTER = [-18.8792, 47.5079];
+
+// Points d'intérêt à Antananarivo (lieux populaires)
+const PLACES = [
+  {name:"Analakely", coords:[-18.9056,47.5170]},
+  {name:"Aéroport Ivato", coords:[-18.7969,47.4788]},
+  {name:"Ambohijatovo", coords:[-18.9000,47.5170]},
+  {name:"Anosy", coords:[-18.9040,47.5210]},
+  {name:"Andravoahangy", coords:[-18.8860,47.5220]},
+  {name:"Behoririka", coords:[-18.9020,47.5130]},
+  {name:"Gare Soarano", coords:[-18.9020,47.5080]},
+  {name:"Is'Art Galerie", coords:[-18.9200,47.5230]},
+  {name:"Lac Anosy", coords:[-18.9040,47.5210]},
+  {name:"Tsaralalàna", coords:[-18.9100,47.5120]},
+  {name:"Antaninarenina", coords:[-18.9050,47.5150]},
+  {name:"Mahamasina", coords:[-18.9080,47.5260]},
+  {name:"Tana Water Front", coords:[-18.9000,47.5250]},
+  {name:"Université d'Antananarivo", coords:[-18.9140,47.5310]}
+];
+
+// Types de véhicules avec tarifs de base (Ar/km)
+const VEHICLES = [
+  {id:"moto", name:"Moto", ico:"🛵", base:1500, perKm:700, desc:"Rapide en ville"},
+  {id:"sedan", name:"Berline", ico:"🚗", base:2500, perKm:1200, desc:"Confortable"},
+  {id:"suv", name:"SUV", ico:"🚙", base:3500, perKm:1600, desc:"7 places"},
+  {id:"premium", name:"Premium", ico:"🚘", base:5000, perKm:2200, desc:"Haut de gamme"}
+];
+
+// ====== ÉTAT GLOBAL ======
+const state = {
+  mode: "passenger",
+  map: null,
+  pickupMarker: null,
+  destMarker: null,
+  routeLine: null,
+  pickup: null,
+  destination: null,
+  vehicle: "sedan",
+  basePrice: 0,
+  driverOffer: null,       // offre du conducteur (négociation)
+  currentRide: null,       // course en cours
+  rides: [],               // historique
+  driverRequests: [],      // demandes reçues (mode conducteur)
+  driverOnline: false,
+  driverVehicle: "sedan"
+};
+
+// ====== MAP INIT ======
+function initMap(){
+  state.map = L.map('map').setView(TANA_CENTER, 13);
+
+  // --- OpenStreetMap (gratuit, sans clé) ---
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(state.map);
+
+  /* --- GOOGLE MAPS (décommentez pour utiliser Google Maps) ---
+  L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+    attribution: '© Google Maps',
+    maxZoom: 20
+  }).addTo(state.map);
+  ---------------------------------------------------------- */
+
+  // Marqueur de la ville
+  L.marker(TANA_CENTER).addTo(state.map)
+    .bindPopup("<b>Antananarivo</b><br>Capitale de Madagascar")
+    .openPopup();
+}
+
+// ====== TOAST ======
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+// ====== MODE ======
+function setMode(m){
+  state.mode = m;
+  document.getElementById('modePassenger').classList.toggle('active', m==='passenger');
+  document.getElementById('modeDriver').classList.toggle('active', m==='driver');
+  render();
+}
+
+// ====== CALCUL DE DISTANCE (haversine) ======
+function haversine(a, b){
+  const R = 6371;
+  const dLat = (b[0]-a[0])*Math.PI/180;
+  const dLon = (b[1]-a[1])*Math.PI/180;
+  const la1 = a[0]*Math.PI/180, la2 = b[0]*Math.PI/180;
+  const h = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+
+// ====== CALCUL DU PRIX ======
+function calcPrice(pickup, dest, vehicleId){
+  const v = VEHICLES.find(x=>x.id===vehicleId) || VEHICLES[1];
+  const dist = haversine(pickup, dest);
+  const price = Math.round((v.base + dist*v.perKm) / 100) * 100;
+  return {price, dist};
+}
+
+// ====== FORMAT PRIX ======
+function fmt(n){ return n.toLocaleString('fr-FR') + " " + CURRENCY; }
+
+// ====== RENDU ======
+function render(){
+  const panel = document.getElementById('panelContent');
+  panel.innerHTML = state.mode === 'passenger' ? renderPassenger() : renderDriver();
+  bindEvents();
+}
+
+/* ==================== MODE PASSAGER ==================== */
+function renderPassenger(){
+  let html = '<h2><span class="bar"></span> Commander une course</h2>';
+
+  // Si course en cours
+  if(state.currentRide){
+    const r = state.currentRide;
+    return `
+      <div class="price-box">
+        <div class="lbl">Course en cours</div>
+        <div class="amount">${fmt(r.price)}</div>
+        <div class="sub">${r.vehicleName} · ${r.driverName}</div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="route">📍 ${r.pickupName}</span></div>
+        <div class="row"><span class="route">🏁 ${r.destName}</span></div>
+        <div class="meta" style="margin-top:8px">Distance : ${r.dist.toFixed(1)} km</div>
+        <div class="meta">Conducteur : ${r.driverName} ⭐ ${r.driverRating}</div>
+        <div class="meta">Véhicule : ${r.vehicleName} ${r.vehicleIco}</div>
+      </div>
+      <button class="btn btn-green" onclick="completeRide()">✅ Terminer la course</button>
+      <button class="btn btn-outline" style="margin-top:8px" onclick="cancelRide()">Annuler</button>
+    `;
+  }
+
+  // Sélection véhicule
+  html += '<div class="section-title">Choisissez votre véhicule</div><div class="vehicle-grid">';
+  VEHICLES.forEach(v=>{
+    html += `<div class="vehicle ${state.vehicle===v.id?'selected':''}" onclick="selectVehicle('${v.id}')">
+      <div class="v-ico">${v.ico}</div>
+      <div class="v-name">${v.name}</div>
+      <div class="v-price">${fmt(v.base)} + ${v.perKm} Ar/km</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // Lieux
+  html += '<div class="section-title">Lieu de départ</div>';
+  html += placeSelect('pickup', 'Départ');
+  html += '<div class="section-title">Destination</div>';
+  html += placeSelect('dest', 'Destination');
+
+  // Prix estimé
+  if(state.pickup && state.destination){
+    const c = calcPrice(state.pickup, state.destination, state.vehicle);
+    state.basePrice = c.price;
+    html += `<div class="price-box">
+      <div class="lbl">Prix estimé (négociable)</div>
+      <div class="amount">${fmt(c.price)}</div>
+      <div class="sub">≈ ${c.dist.toFixed(1)} km</div>
+    </div>`;
+    html += `<button class="btn btn-red" onclick="requestRide()">🚗 Demander une course</button>`;
+  } else {
+    html += `<div class="empty">Sélectionnez un départ et une destination pour estimer le prix.</div>`;
+  }
+
+  // Historique
+  if(state.rides.length){
+    html += '<div class="section-title">Historique des courses</div>';
+    state.rides.slice().reverse().forEach(r=>{
+      html += `<div class="card">
+        <div class="row"><span class="route">${r.pickupName} → ${r.destName}</span>
+          <span class="badge ${r.status==='Terminée'?'done':'active'}">${r.status}</span></div>
+        <div class="row"><span class="meta">${r.vehicleName}</span><span class="price">${fmt(r.price)}</span></div>
+        <div class="row"><span class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
+          <span class="meta">${r.date}</span></div>
+      </div>`;
+    });
+  }
+
+  return html;
+}
+
+function placeSelect(id, label){
+  let opts = `<option value="">— Choisir un lieu —</option>`;
+  PLACES.forEach((p,i)=>{
+    opts += `<option value="${i}">${p.name}</option>`;
+  });
+  opts += `<option value="custom">📍 Choisir sur la carte...</option>`;
+  return `<div class="field"><label>${label}</label>
+    <div class="input-wrap"><span class="ico">📍</span>
+    <select id="${id}Select" onchange="onPlaceChange('${id}', this.value)">${opts}</select></div></div>`;
+}
+
+function onPlaceChange(type, val){
+  if(val === 'custom'){
+    toast("Cliquez sur la carte pour choisir l'emplacement");
+    state.map.once('click', (e)=>{
+      setPlace(type, e.latlng.lat, e.latlng.lng, "Emplacement choisi");
+    });
+    return;
+  }
+  if(val === ''){ clearPlace(type); return; }
+  const p = PLACES[parseInt(val)];
+  setPlace(type, p.coords[0], p.coords[1], p.name);
+}
+
+function setPlace(type, lat, lng, name){
+  const coord = [lat,lng];
+  if(type === 'pickup'){
+    state.pickup = coord;
+    if(state.pickupMarker) state.pickupMarker.remove();
+    state.pickupMarker = L.marker(coord, {icon: greenIcon()}).addTo(state.map).bindPopup("Départ : "+name).openPopup();
+    state.pickupName = name;
+  } else {
+    state.destination = coord;
+    if(state.destMarker) state.destMarker.remove();
+    state.destMarker = L.marker(coord, {icon: redIcon()}).addTo(state.map).bindPopup("Destination : "+name).openPopup();
+    state.destName = name;
+  }
+  drawRoute();
+  render();
+}
+
+function clearPlace(type){
+  if(type === 'pickup'){ state.pickup=null; if(state.pickupMarker) state.pickupMarker.remove(); }
+  else { state.destination=null; if(state.destMarker) state.destMarker.remove(); }
+  drawRoute();
+  render();
+}
+
+function greenIcon(){
+  return L.divIcon({html:'<div style="width:22px;height:22px;background:#22c55e;border:3px solid #fff;border-radius:50%;"></div>', className:'', iconSize:[22,22]});
+}
+function redIcon(){
+  return L.divIcon({html:'<div style="width:22px;height:22px;background:#e10600;border:3px solid #fff;border-radius:50%;"></div>', className:'', iconSize:[22,22]});
+}
+
+function drawRoute(){
+  if(state.routeLine) state.routeLine.remove();
+  if(state.pickup && state.destination){
+    state.routeLine = L.polyline([state.pickup, state.destination], {color:'#e10600', weight:4, dashArray:'8,8'}).addTo(state.map);
+    state.map.fitBounds([state.pickup, state.destination], {padding:[50,50]});
+  }
+}
+
+function selectVehicle(id){ state.vehicle = id; render(); }
+
+// ====== DEMANDE DE COURSE ======
+function requestRide(){
+  const c = calcPrice(state.pickup, state.destination, state.vehicle);
+  const v = VEHICLES.find(x=>x.id===state.vehicle);
+
+  // Créer une demande pour le conducteur
+  const request = {
+    id: Date.now(),
+    pickupName: state.pickupName,
+    destName: state.destName,
+    pickup: state.pickup,
+    dest: state.destination,
+    price: c.price,
+    dist: c.dist,
+    vehicleName: v.name,
+    vehicleIco: v.ico,
+    status: "En attente"
+  };
+  state.driverRequests.push(request);
+
+  // Simuler une offre du conducteur (négociation inDrive)
+  const driverOffer = Math.round(c.price * 1.05 / 100) * 100;
+  state.driverOffer = driverOffer;
+
+  render();
+  toast("Demande envoyée ! Un conducteur propose " + fmt(driverOffer));
+}
+
+/* ==================== MODE CONDUCTEUR ==================== */
+function renderDriver(){
+  let html = '<h2><span class="bar"></span> Espace Conducteur</h2>';
+
+  // Bouton en ligne/hors ligne
+  html += `<button class="btn ${state.driverOnline?'btn-green':'btn-red'}" onclick="toggleDriver()">
+    ${state.driverOnline ? '🟢 En ligne — Recevoir des courses' : '⚫ Hors ligne — Se connecter'}
+  </button>`;
+
+  // Sélection véhicule du conducteur
+  html += '<div class="section-title">Mon véhicule</div><div class="vehicle-grid">';
+  VEHICLES.forEach(v=>{
+    html += `<div class="vehicle ${state.driverVehicle===v.id?'selected':''}" onclick="selectDriverVehicle('${v.id}')">
+      <div class="v-ico">${v.ico}</div>
+      <div class="v-name">${v.name}</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  if(!state.driverOnline){
+    html += `<div class="empty">Activez le mode en ligne pour recevoir les demandes de course.</div>`;
+    return html;
+  }
+
+  // Demandes en attente
+  const pending = state.driverRequests.filter(r=>r.status==='En attente');
+  if(pending.length){
+    html += '<div class="section-title">Nouvelles demandes</div>';
+    pending.forEach(r=>{
+      html += `<div class="driver-request">
+        <div class="top"><h3>${r.vehicleName} ${r.vehicleIco}</h3>
+          <span class="req-price">${fmt(r.price)}</span></div>
+        <div class="route">📍 ${r.pickupName}<br>🏁 ${r.destName}<br>≈ ${r.dist.toFixed(1)} km</div>
+        <div class="nego">
+          <input class="price-input" id="offer-${r.id}" value="${fmt(r.price).replace(/[^0-9]/g,'')}" placeholder="Votre offre (Ar)">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-red" onclick="acceptRequest(${r.id})">Accepter</button>
+          <button class="btn btn-outline" onclick="declineRequest(${r.id})">Refuser</button>
+        </div>
+      </div>`;
+    });
+  } else {
+    html += `<div class="empty">Aucune demande pour le moment.<br>En attente de passagers...</div>`;
+  }
+
+  return html;
+}
+
+function toggleDriver(){
+  state.driverOnline = !state.driverOnline;
+  document.getElementById('statusText').textContent =
+    state.driverOnline ? "Conducteur en ligne — en attente de demandes" : "Prêt à lancer une course";
+  render();
+}
+
+function selectDriverVehicle(id){ state.driverVehicle = id; render(); }
+
+function acceptRequest(id){
+  const r = state.driverRequests.find(x=>x.id===id);
+  if(!r) return;
+  const offerInput = document.getElementById('offer-'+id);
+  let offer = offerInput ? parseInt(offerInput.value.replace(/[^0-9]/g,'')) : r.price;
+  if(!offer || offer < 1000) offer = r.price;
+
+  r.status = "Acceptée";
+  r.negotiatedPrice = offer;
+  r.driverName = "Rakoto J.";
+  r.driverRating = 4.8;
+
+  // Créer la course pour le passager
+  state.currentRide = {
+    ...r,
+    price: offer,
+    driverName: r.driverName,
+    driverRating: r.driverRating,
+    vehicleName: r.vehicleName,
+    vehicleIco: r.vehicleIco
+  };
+
+  // Passer le passager en mode passager avec la course
+  state.mode = 'passenger';
+  document.getElementById('modePassenger').classList.add('active');
+  document.getElementById('modeDriver').classList.remove('active');
+
+  // Afficher l'itinéraire
+  if(state.pickupMarker) state.pickupMarker.remove();
+  if(state.destMarker) state.destMarker.remove();
+  state.pickup = r.pickup; state.destination = r.dest;
+  state.pickupMarker = L.marker(r.pickup, {icon:greenIcon()}).addTo(state.map);
+  state.destMarker = L.marker(r.dest, {icon:redIcon()}).addTo(state.map);
+  drawRoute();
+
+  document.getElementById('statusText').textContent = "Conducteur en route vers vous...";
+  render();
+  toast("Course acceptée ! Prix négocié : " + fmt(offer));
+}
+
+function declineRequest(id){
+  const r = state.driverRequests.find(x=>x.id===id);
+  if(r) r.status = "Refusée";
+  render();
+  toast("Demande refusée");
+}
+
+/* ==================== TERMINER COURSE ==================== */
+function completeRide(){
+  const r = state.currentRide;
+  if(!r) return;
+  r.status = "Terminée";
+  r.rating = 5;
+  r.date = new Date().toLocaleDateString('fr-FR');
+  state.rides.push(r);
+  state.currentRide = null;
+  state.driverOffer = null;
+
+  // Nettoyer la carte
+  if(state.pickupMarker) state.pickupMarker.remove();
+  if(state.destMarker) state.destMarker.remove();
+  if(state.routeLine) state.routeLine.remove();
+  state.pickup = state.destination = null;
+
+  document.getElementById('statusText').textContent = "Course terminée. Merci !";
+  render();
+  toast("✅ Course terminée. Paiement : " + fmt(r.price));
+}
+
+function cancelRide(){
+  state.currentRide = null;
+  if(state.pickupMarker) state.pickupMarker.remove();
+  if(state.destMarker) state.destMarker.remove();
+  if(state.routeLine) state.routeLine.remove();
+  state.pickup = state.destination = null;
+  document.getElementById('statusText').textContent = "Prêt à lancer une course";
+  render();
+  toast("Course annulée");
+}
+
+// ====== BIND ======
+function bindEvents(){}
+
+// ====== INIT ======
+initMap();
+render();
+</script>
+</body>
+</html>
+<script data-huggingchat-badge="script">
+(function () {
+	try {
+		if (document.querySelector("[data-huggingchat-badge]:not(script)")) return;
+		var host = document.createElement("div");
+		host.setAttribute("data-huggingchat-badge", "");
+		var styles = [["all","initial"],["position","fixed"],["right","12px"],["bottom","12px"],["z-index","2147483647"],["display","block"],["visibility","visible"],["opacity","1"],["pointer-events","auto"],["width","auto"],["height","auto"],["margin","0"],["padding","0"],["max-width","none"],["max-height","none"],["transform","none"],["filter","none"],["clip-path","none"],["color-scheme","light"]];
+		for (var i = 0; i < styles.length; i++) {
+			host.style.setProperty(styles[i][0], styles[i][1], "important");
+		}
+		host.attachShadow({ mode: "closed" }).innerHTML = "<style>\n:host { all: initial; }\na {\n  display: flex;\n  align-items: center;\n  gap: 5px;\n  box-sizing: border-box;\n  height: 26px;\n  padding: 0 9px 0 7px;\n  border-radius: 999px;\n  border: 1px solid rgba(0, 0, 0, 0.07);\n  background: rgba(255, 255, 255, 0.92);\n  -webkit-backdrop-filter: saturate(180%) blur(8px);\n  backdrop-filter: saturate(180%) blur(8px);\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);\n  color: #111827;\n  font: 500 11px/1 ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  letter-spacing: 0.01em;\n  text-decoration: none;\n  white-space: nowrap;\n  opacity: 0.72;\n  transition: opacity 0.15s ease, transform 0.15s ease;\n}\na:hover, a:focus-visible { opacity: 1; transform: translateY(-1px); }\nsvg { width: 14px; height: 14px; flex: none; }\n@media print { a { display: none; } }\n<\/style><a href=\"https://huggingface.co/chat\" target=\"_blank\" rel=\"noopener noreferrer nofollow\"><svg viewBox=\"0 0 32 32\" fill=\"none\" aria-hidden=\"true\"><path d=\"M16.0006 25.9992C13.8266 25.999 11.7118 25.2901 9.97686 23.9799C8.2419 22.6698 6.98127 20.8298 6.38599 18.7388C5.79071 16.6478 5.89323 14.4198 6.678 12.3923C7.46278 10.3648 8.88705 8.64837 10.735 7.50308C12.5829 6.35779 14.7538 5.84606 16.9187 6.04544C19.0837 6.24481 21.1246 7.14442 22.7323 8.60795C24.34 10.0715 25.4268 12.0192 25.8281 14.1559C26.2293 16.2926 25.9232 18.5019 24.9561 20.449C24.7703 20.8042 24.7223 21.2155 24.8211 21.604L25.4211 23.8316C25.4803 24.0518 25.4805 24.2837 25.4216 24.5039C25.3627 24.7242 25.2468 24.925 25.0856 25.0862C24.9244 25.2474 24.7235 25.3633 24.5033 25.4222C24.283 25.4811 24.0512 25.4809 23.831 25.4217L21.6034 24.8217C21.2172 24.7248 20.809 24.7729 20.4558 24.9567C19.0683 25.6467 17.5457 26.0068 16.0006 26.0068V25.9992Z\" fill=\"currentColor\"/><path d=\"M9.62598 16.0013C9.62598 15.3799 10.1294 14.8765 10.7508 14.8765C11.3721 14.8765 11.8756 15.3799 11.8756 16.0013C11.8756 17.0953 12.3102 18.1448 13.0838 18.9184C13.8574 19.692 14.9069 20.1266 16.001 20.1267C17.095 20.1267 18.1445 19.692 18.9181 18.9184C19.6918 18.1448 20.1264 17.0953 20.1264 16.0013C20.1264 15.3799 20.6299 14.8765 21.2512 14.8765C21.8725 14.8765 22.3759 15.3799 22.3759 16.0013C22.3759 17.6921 21.7046 19.3137 20.509 20.5093C19.3134 21.7049 17.6918 22.3762 16.001 22.3762C14.3102 22.3762 12.6885 21.7049 11.4929 20.5093C10.2974 19.3137 9.62598 17.6921 9.62598 16.0013Z\" fill=\"#fff\"/><\/svg><span>Made with HuggingChat<\/span><\/a>";
+		function attach() {
+			var parent = document.body || document.documentElement;
+			if (parent && host.parentNode !== parent) parent.appendChild(host);
+		}
+		attach();
+		// Artifacts that rewrite document.body wholesale would drop the badge.
+		if (document.body && typeof MutationObserver === "function") {
+			new MutationObserver(attach).observe(document.body, { childList: true });
+		} else {
+			document.addEventListener("DOMContentLoaded", attach);
+		}
+	} catch (e) {}
+})();
+</script>

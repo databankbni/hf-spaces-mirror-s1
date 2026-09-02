@@ -19,6 +19,8 @@ from __future__ import annotations
 import dataclasses
 import json
 import re
+import threading
+import time
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -46,7 +48,7 @@ from ..pipeline import (
     simulate_matchup,
     simulate_matchup_conditioned,
 )
-from ..simcache import simulate_cached
+from ..simcache import SLATE_N, SLATE_SEED, simulate_cached
 from ..simulator.state import InningState
 
 app = FastAPI(
@@ -107,8 +109,8 @@ _load_scored_record()
 
 # ── Request schemas ───────────────────────────────────────────────────────────
 
-CURRENT_SEASON = 2026   # statlines used for upcoming-game predictions
-PARK_SEASON = 2023      # park factors are stable year to year
+from ..seasons import CURRENT_SEASON, PARK_SEASON  # noqa: E402
+from .. import gameid  # noqa: E402
 
 # How long a reader will wait for the slate's simulation before answering from
 # whatever is warm. Generous by request — waiting for the real runs beats
@@ -178,18 +180,10 @@ def _histogram(values: np.ndarray) -> dict:
     return {"edges": edges, "counts": counts}
 
 
-def _base_game_id(game_id: str) -> str:
-    """Drop a doubleheader '-g{N}' suffix so team/date parsing sees the base id."""
-    return re.sub(r"-g\d+$", "", game_id)
-
-
-def _teams_from_game_id(game_id: str) -> tuple[Optional[str], Optional[str]]:
-    """Parse '<date>-<away>-<home>[-g{N}]' → (home, away); None if it doesn't match."""
-    parts = _base_game_id(game_id).rsplit("-", 2)
-    if len(parts) == 3:
-        _, away, home = parts
-        return home, away
-    return None, None
+# Reading a game id lives in `thebeast.gameid` — it was open-coded in five
+# places, and the shape of an id is one fact, not five.
+_base_game_id = gameid.base_id
+_teams_from_game_id = gameid.teams_of
 
 
 # Seasons to walk (newest first) when a player has no statline for the exact
@@ -244,6 +238,70 @@ def _attach_lineup_slots(lines: list[dict], home_lineup, away_lineup) -> list[di
         slot = slot_by_id.get(int(line["player_id"]))
         if slot is not None:
             line["lineup_slot"] = slot
+    return lines
+
+
+def _attach_positions(lines: list[dict], home_lineup, away_lineup,
+                      game_id: Optional[str] = None) -> list[dict]:
+    """Tag each player line with the position he is listed at.
+
+    Two sources, in this order, and the order is the whole point:
+
+    **Tonight's card**, from the game's box score. This is the only place the
+    designated hitter exists — a roster says what a man plays, and never says
+    DH, because DH is an assignment made when the card is written rather than a
+    property of the player. Label a lineup from the roster alone and you get
+    nine fielders and no DH, which is not a lineup anyone recognises. Available
+    from the moment MLB posts the card, and it also records a man who moved:
+    a shortstop who pinch-hits shows PH.
+
+    **His usual position**, from the active roster, when no card is posted yet.
+    That comes free with the availability check, so it costs a dictionary
+    lookup rather than a call. `position_source` says which was used, because
+    "where he usually plays" and "where he is batting tonight" are different
+    claims and the column shouldn't blur them.
+
+    Nothing is guessed. With neither source the column stays empty, which is
+    honest; an invented DH would not be.
+    """
+    from ..data.sources.availability import MLBAvailabilitySource
+    from ..data.sources.boxscore import MLBBoxscoreSource
+
+    carded: dict[int, str] = {}
+    if game_id:
+        try:
+            day = _date_from_game_id(game_id)
+            game_pk = next((g.game_pk for g in get_repo().get_schedule(day)
+                            if g.game_id == game_id), None) if day else None
+            if game_pk:
+                carded = MLBBoxscoreSource().positions(int(game_pk))
+        except Exception:
+            carded = {}
+
+    usual: dict[int, str] = {}
+    source = MLBAvailabilitySource()
+    for lineup in (home_lineup, away_lineup):
+        try:
+            roster = source.roster(lineup.team_id)
+        except Exception:
+            continue
+        if not roster.usable:
+            continue
+        for pid in lineup.batting_order:
+            pos = roster.position(int(pid))
+            if pos:
+                usual[int(pid)] = pos
+
+    for line in lines:
+        if line.get("position"):
+            continue  # already carries a real one; leave it be
+        pid = int(line["player_id"])
+        if pid in carded:
+            line["position"] = carded[pid]
+            line["position_source"] = "lineup"
+        elif pid in usual:
+            line["position"] = usual[pid]
+            line["position_source"] = "roster"
     return lines
 
 
@@ -340,17 +398,17 @@ def games_live(date: str = Query(..., description="Slate date YYYY-MM-DD")) -> l
 
 
 def _fill_roster(repo: SQLiteRepository, game) -> None:
-    """Swap a game's not-yet-posted placeholder batters for the team's roster."""
-    from ..data.ingest import ROSTER_GAME_ID
-    for team in (game.home_team_id, game.away_team_id):
-        lc = repo.get_lineup(game.game_id, team)
-        if lc is None or not lc.batting_order:
-            continue
-        if lc.batting_order[0] >= 9_000_000:  # placeholder marker
-            roster = repo.get_lineup(f"{ROSTER_GAME_ID}-{CURRENT_SEASON}", team)
-            if roster is not None and roster.batting_order:
-                lc.batting_order = roster.batting_order
-                repo.save_lineup(lc)
+    """Swap a game's not-yet-posted placeholder batters for the team's roster.
+
+    A thin alias now. This was a second implementation of `ensure_lineups` with
+    its own placeholder test — and the two disagreed twice over: this one
+    skipped a game with no stored lineup at all where the other created one, and
+    each spelled "is this id a placeholder" differently. Having two writers is
+    also how the injury filter came to be bypassed, since only one of them was
+    ever patched.
+    """
+    ensure_lineups(repo, game.game_id, game.home_team_id, game.away_team_id,
+                   CURRENT_SEASON)
 
 
 def _ensure_lineups(repo: SQLiteRepository, game_id: str,
@@ -512,6 +570,8 @@ def simulate(req: SimulateRequest) -> dict:
     payload["player_lines"] = _attach_names(repo, payload["player_lines"], req.season)
     home_lineup, away_lineup = resolve_lineups(req.game_id, repo, home, away)
     payload["player_lines"] = _attach_lineup_slots(payload["player_lines"], home_lineup, away_lineup)
+    payload["player_lines"] = _attach_positions(
+        payload["player_lines"], home_lineup, away_lineup, req.game_id)
     payload["pitcher_lines"] = _attach_pitcher_names(repo, payload.get("pitcher_lines", []), req.season)
     payload["histograms"] = {
         "home_runs": _histogram(raw.home_runs),
@@ -557,9 +617,16 @@ def bet(req: BetRequest) -> list[dict]:
     home, away = req.home_team, req.away_team
     if home is None or away is None:
         home, away = _teams_from_game_id(req.game_id)
-    result, raw = simulate_matchup(
-        req.game_id, get_repo(), home_team=home, away_team=away,
-        n=req.n, seed=req.seed, season=req.season, park_season=PARK_SEASON,
+    # The cached run, not a fresh one. This priced against its own simulation:
+    # 2.95s where the card beside it answers in 0.03s, and with the seed left at
+    # its default the two disagreed by a few tenths of a point — the same number
+    # quoted twice on one page, differently.
+    repo = get_repo()
+    _ensure_lineups(repo, req.game_id, home, away, req.season)
+    result, raw = simulate_cached(
+        req.game_id, repo, home_team=home, away_team=away,
+        n=req.n, seed=req.seed if req.seed is not None else SLATE_SEED,
+        season=req.season, park_season=PARK_SEASON,
     )
     odds = MarketOdds(
         game_id=req.game_id, home_ml=req.odds.home_ml, away_ml=req.odds.away_ml,
@@ -704,14 +771,66 @@ def game_boxscore(game_id: str) -> dict:
     return dataclasses.asdict(result)
 
 
-def _date_from_game_id(game_id: str) -> Optional[date]:
-    parts = _base_game_id(game_id).rsplit("-", 2)
-    if len(parts) != 3:
-        return None
+# The at-bat panel is polled hard — every few seconds while a game is live —
+# because the count moves between pitches and a stale number is the one thing
+# that panel must not show. This collapses that traffic: the work is the same
+# for every viewer of a game, so one fetch serves all of them, and MLB's feed
+# sees one request every couple of seconds rather than one per viewer per poll.
+#
+# Two seconds is chosen against what actually changes. Pitches are thrown maybe
+# every twenty seconds, so a two-second-old count has never once been wrong in
+# a way anybody could see, while the saving is the entire external round trip.
+_AT_BAT_TTL_SECONDS = 2.0
+_at_bat_cache: dict[str, tuple[float, dict]] = {}
+_at_bat_lock = threading.Lock()
+
+
+@app.get("/api/game/{game_id}/next-at-bat")
+def game_next_at_bat(game_id: str) -> dict:
+    """How long the current at-bat runs, and how confident that is.
+
+    The batter in the box against the pitcher on the mound, forecast from the
+    count he is actually in: an expected number of pitches, and the spread
+    around it.
+
+    Fitted to the Log5 matchup distribution rather than modelled independently,
+    so the strikeout and walk percentages here are the ones the rest of the
+    page already shows. Never raises — an unavailable forecast comes back with
+    `available: false` and a stated reason, because "the game hasn't started",
+    "the feed is unreachable" and "we don't have this reliever" are three
+    different facts that an empty panel would render identically.
+    """
+    from ..next_at_bat import build
+
+    if gameid.parse(game_id)[0] is None:
+        raise HTTPException(status_code=422, detail=f"invalid game_id: {game_id!r}")
+
+    now = time.monotonic()
+    with _at_bat_lock:
+        hit = _at_bat_cache.get(game_id)
+        if hit and now - hit[0] < _AT_BAT_TTL_SECONDS:
+            return hit[1]
+
     try:
-        return datetime.strptime(parts[0], "%Y-%m-%d").date()
-    except ValueError:
-        return None
+        payload = build(get_repo(), game_id, CURRENT_SEASON,
+                        park_season=PARK_SEASON).as_dict()
+    except Exception as e:            # never take the live panel down with it
+        return {"game_id": game_id, "available": False,
+                "reason": f"{type(e).__name__}: {e}"[:200], "notes": []}
+
+    with _at_bat_lock:
+        _at_bat_cache[game_id] = (now, payload)
+        # A slate is fifteen games; anything beyond that is yesterday's.
+        if len(_at_bat_cache) > 60:
+            for key in sorted(_at_bat_cache,
+                              key=lambda k: _at_bat_cache[k][0])[:30]:
+                _at_bat_cache.pop(key, None)
+    return payload
+
+
+def _date_from_game_id(game_id: str) -> Optional[date]:
+    """Strict: an id that doesn't parse into date/teams has no date here."""
+    return gameid.parse(game_id)[0]
 
 
 # ── Live sim: resume a game in progress and simulate the rest ───────────────
@@ -824,7 +943,9 @@ def game_live_sim(game_id: str, n: int = Query(3000, ge=200, le=20000)) -> dict:
     }
     lines = _attach_names(repo, [dict(pl) for pl in result.player_lines], CURRENT_SEASON)
     home_lineup, away_lineup = resolve_lineups(game_id, repo, home, away)
-    payload["player_lines"] = _attach_lineup_slots(lines, home_lineup, away_lineup)
+    payload["player_lines"] = _attach_positions(
+        _attach_lineup_slots(lines, home_lineup, away_lineup),
+        home_lineup, away_lineup, game_id)
     payload["pitcher_lines"] = _attach_pitcher_names(
         repo, [dict(pl) for pl in result.pitcher_lines], CURRENT_SEASON)
     return payload
@@ -959,9 +1080,12 @@ def game_accuracy(game_id: str, n: int = Query(2000, ge=200, le=20000)) -> dict:
     a_home = actual["home_runs"]
     a_away = actual["away_runs"]
 
-    # Base (unconditioned) simulation → the honest pre-game prediction.
-    result, raw = simulate_matchup(
-        game_id, repo, home_team=home, away_team=away, n=n,
+    # Base (unconditioned) simulation → the honest pre-game prediction. Seeded
+    # and cached, so this is the run the card showed rather than a fresh draw of
+    # the same matchup: an unseeded re-run lands a few tenths of a point away,
+    # and "how did the prediction do" has to grade the prediction that was made.
+    result, raw = simulate_cached(
+        game_id, repo, home_team=home, away_team=away, n=n, seed=SLATE_SEED,
         season=CURRENT_SEASON, park_season=PARK_SEASON,
     )
     exact = float(np.mean((raw.home_runs == a_home) & (raw.away_runs == a_away)))
@@ -1022,7 +1146,9 @@ def game_accuracy(game_id: str, n: int = Query(2000, ge=200, le=20000)) -> dict:
     if cond_result is not None and meta is not None and meta.get("matches", 0) > 0:
         lines = _attach_names(repo, [dict(pl) for pl in cond_result.player_lines], CURRENT_SEASON)
         home_lineup, away_lineup = resolve_lineups(game_id, repo, home, away)
-        lines = _attach_lineup_slots(lines, home_lineup, away_lineup)
+        lines = _attach_positions(
+            _attach_lineup_slots(lines, home_lineup, away_lineup),
+            home_lineup, away_lineup, game_id)
         # The base (unconditioned) projection, to contrast each hitter's overall
         # forecast against how he did in just the reality-matching sims.
         base_by_id = {int(pl["player_id"]): pl for pl in result.player_lines}
@@ -1139,7 +1265,9 @@ def accuracy_report(
     refresh: bool = Query(False, description="Score any finished games not yet scored"),
     grade_days: int = Query(ACCURACY_GRADE_DAYS, ge=1, le=60,
                             description="How many days back a refresh grades"),
-    n: int = Query(1500, ge=200, le=5000, description="Sims per game when scoring"),
+    n: int = Query(SLATE_N, ge=200, le=5000,
+                   description="Sims per game when scoring. Defaults to the "
+                               "slate's own, so a grade matches the card."),
     limit: int = Query(30, ge=1, le=200, description="Max games to score in one call"),
 ) -> dict:
     """How close the simulations came to what actually happened.
@@ -1169,6 +1297,88 @@ def accuracy_report(
     report = load_report(repo, end=end, days=days)
     report["refreshed"] = refreshed
     return report
+
+
+@app.get("/api/nfl/props")
+def nfl_props(
+    q: str = Query("", description="Player name, or part of one"),
+    limit: int = Query(200, ge=1, le=500),
+) -> dict:
+    """PrizePicks' NFL projections, searched by name.
+
+    Unmapped on purpose: there's no NFL simulator to translate these onto, so
+    every market PrizePicks posts comes through under its own name rather than
+    being dropped for not matching a vocabulary we'd have had to invent.
+
+    No prices either, because PrizePicks posts none — the payout is on the slip.
+    This is a browser over their board, not a bet, so it shows the line and
+    stops rather than deriving a number there is nothing to compare against.
+    """
+    from ..data.sources.prizepicks_nfl import PrizePicksNFLSource
+
+    src = PrizePicksNFLSource()
+    query = (q or "").strip()
+    if not query:
+        # An empty box is not a search. Returning the whole board would be a
+        # slow way of saying "type something".
+        return {"query": "", "count": 0, "players": 0, "props": [],
+                "note": "Type a player's name to search."}
+    hits = src.search(query, limit=limit)
+    # An empty result has two causes that mean opposite things: nobody posted a
+    # line on that player, or PrizePicks never answered. Reporting the second as
+    # the first tells the reader a fact about a player that's really a fact
+    # about the network.
+    if not hits and src.last_error:
+        note = f"Couldn't reach PrizePicks — {src.last_error}"
+    elif not hits:
+        note = ("No prop on offer for that name. PrizePicks only posts lines "
+                "for the current slate, so a player with no game up has none.")
+    else:
+        note = None
+    return {
+        "query": query,
+        "count": len(hits),
+        "players": len({p.player_key for p in hits}),
+        "props": [p.as_dict() for p in hits],
+        "unreachable": bool(not hits and src.last_error),
+        "note": note,
+    }
+
+
+@app.get("/api/nfl/props/probe")
+def nfl_props_probe() -> dict:
+    """What PrizePicks' NFL feed actually returned, and where it was lost.
+
+    This source has never run against the live API — nothing in the environment
+    it was built in can reach PrizePicks — so this reports the shape that
+    arrived rather than asserting the parser handled it.
+    """
+    from ..data.sources.prizepicks_nfl import PrizePicksNFLSource
+
+    return PrizePicksNFLSource().probe()
+
+
+@app.get("/api/outlook")
+def outlook_report(
+    date: Optional[str] = Query(None, description="Window end YYYY-MM-DD; defaults to yesterday"),
+) -> dict:
+    """Where the record says our numbers have been unreliable, looking ahead.
+
+    Reads the graded games three ways — the most recent day, the last five, and
+    everything ever scored — and keeps only findings that hold across the whole
+    record *and* clear the noise of the sample. Signals that fail either test
+    come back too, marked, because having looked and found nothing is a result
+    rather than an absence.
+    """
+    from ..outlook import build
+
+    end = None
+    if date:
+        try:
+            end = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"invalid date: {date!r}")
+    return build(get_repo(), end=end)
 
 
 @app.get("/api/trends")
@@ -1404,19 +1614,84 @@ def best_bets(
     return payload
 
 
+@app.get("/api/props/board")
+def props_board(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to today"),
+    live: bool = Query(True, description="Include games already under way"),
+) -> dict:
+    """Every prop our simulator has a distribution for, both sides.
+
+    Sourced from whichever feed is configured — PrizePicks by default — and
+    never from two at once; `book` on the payload names the one it was built
+    from.
+
+    The ranked panel answers "what are the best five plays". This answers "what
+    is on the board and what do we say about each of them" — same pricing, same
+    simulations, no filtering. It is a view over the same ranked report rather
+    than a second pricing, because two paths pricing one prop would eventually
+    disagree and the answer would depend on which page you opened.
+    """
+    if date:
+        try:
+            day = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"invalid date: {date!r}")
+    else:
+        day = datetime.utcnow().date()
+
+    repo = get_repo()
+    try:
+        from ..data.sources.schedules import MLBScheduleSource
+        MLBScheduleSource(repo).fetch_schedule(day)
+    except Exception:
+        pass
+
+    from ..slate import ensure as warm_slate, wait as wait_slate
+
+    # The simulations come first, exactly as they do for the ranked panel: a
+    # board built over half a slate isn't a smaller answer, it's a board with
+    # games silently missing from it.
+    warm_slate(repo, day, season=CURRENT_SEASON, park_season=PARK_SEASON)
+    progress = wait_slate(day, timeout=BEST_BETS_WAIT_SECONDS)
+    if progress is not None and progress.running:
+        return {"date": day.isoformat(), "ready": False,
+                "slate": progress.as_dict(), "groups": [],
+                "totals": {"cards": 0, "players": 0, "with_edge": 0},
+                "notes": [f"Simulating the slate — {progress.done} of "
+                          f"{progress.total} games. Every percentage here comes "
+                          f"from those simulations, so the board waits for them."],
+                "generated_at": datetime.now(timezone.utc).isoformat(
+                    timespec="seconds")}
+
+    from ..betting.board import build_board
+    payload = build_board(repo, day, n=2000, season=CURRENT_SEASON,
+                          park_season=PARK_SEASON, live=live)
+    payload["ready"] = True
+    if progress is not None:
+        payload["slate"] = progress.as_dict()
+        if progress.failed:
+            payload.setdefault("notes", []).append(
+                f"{len(progress.failed)} game(s) could not be simulated, so "
+                f"their props are absent rather than unpriced: "
+                f"{', '.join(progress.failed)}")
+    return payload
+
+
 @app.get("/api/props-probe")
 def props_probe(sport: str = Query("mlb")) -> dict:
-    """What the props feed actually returns, verbatim-ish.
+    """What PrizePicks actually returns, verbatim-ish.
 
-    Sleeper's `/lines/available` is public but undocumented and unreachable
-    from the machine this parser was written on, so the field names it reads
-    are informed guesses. This reports reachability, how many lines came back
-    and the keys present on a sample, so the parser can be corrected against
-    the real response instead of guessed at twice.
+    It is an undocumented app endpoint, and it is not reachable from the
+    machine its parser was written on — the egress policy here refuses the
+    connection outright — so the field names it reads are informed by other
+    readers rather than by a response anyone here has seen. This reports
+    reachability, what came back and the keys present on a sample, so the
+    parser can be corrected against the real response instead of guessed at
+    twice.
     """
-    from ..data.sources.sleeper import SleeperPropsSource
+    from ..data.sources.prizepicks import PrizePicksSource
 
-    src = SleeperPropsSource()
+    src = PrizePicksSource()
     out = src.probe(sport)
     try:
         parsed = src.fetch_props(sport)
@@ -1428,18 +1703,18 @@ def props_probe(sport: str = Query("mlb")) -> dict:
     return out
 
 
-@app.get("/api/team-lines-probe")
-def team_lines_probe(sport: str = Query("mlb")) -> dict:
-    """Where Sleeper's team markets live — moneyline, spread, total.
+@app.get("/api/props-probe/leagues")
+def props_leagues() -> dict:
+    """PrizePicks' own league list, so the ids are read rather than assumed.
 
-    The props endpoint we use returns only player over/unders, so the team
-    picks come from somewhere else. This tries the plausible variations and
-    reports what each answered, so the parser is written against a response
-    that exists rather than a guessed URL.
+    The parser holds constants for MLB and NFL as fallbacks and asks for them
+    by name first. This is what that lookup sees — worth having on its own URL,
+    because a wrong league id looks exactly like an empty slate and would send
+    anyone debugging it straight at the parser instead.
     """
-    from ..data.sources.sleeper import SleeperPropsSource
+    from ..data.sources.prizepicks import PrizePicksSource
 
-    return SleeperPropsSource().discover_picks_api(sport)
+    return PrizePicksSource().discover()
 
 
 # ── Players & teams (statline browser + team aggregates) ────────────────────

@@ -1,0 +1,594 @@
+<div class="ablation-pooling"></div>
+<style>
+  .ablation-pooling {
+    position: relative;
+    width: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  .ablation-pooling svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .ablation-pooling .tab-bar {
+    display: flex;
+    gap: 0;
+    margin-bottom: 0;
+    border-bottom: 2px solid var(--border-color, #e2e5ea);
+  }
+  .ablation-pooling .tab-btn {
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted-color, #6b7280);
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.2s, border-color 0.2s;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+  .ablation-pooling .tab-btn:hover {
+    color: var(--text-color, #1f2937);
+  }
+  .ablation-pooling .tab-btn.active {
+    color: oklch(0.65 0.2 280);
+    border-bottom-color: oklch(0.65 0.2 280);
+  }
+  .ablation-pooling .chart-area {
+    padding: 16px 0 0;
+  }
+  .ablation-pooling .legend {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .ablation-pooling .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: var(--text-color, #1f2937);
+    cursor: default;
+  }
+  .ablation-pooling .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .ablation-pooling .legend-item .winner-star {
+    font-size: 10px;
+    margin-left: -2px;
+  }
+  .ablation-pooling .axis path { display: none; }
+  .ablation-pooling .axis line { stroke: var(--axis-color, #d1d5db); }
+  .ablation-pooling .axis text {
+    fill: var(--tick-color, var(--muted-color, #6b7280));
+    font-size: 11px;
+  }
+  .ablation-pooling .grid line {
+    stroke: var(--grid-color, rgba(0,0,0,.06));
+    stroke-width: 1;
+  }
+  .ablation-pooling .bar-rect {
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .ablation-pooling .bar-rect:hover { opacity: 0.82; }
+  .ablation-pooling .bar-value {
+    font-size: 9.5px;
+    font-weight: 600;
+    fill: var(--text-color, #1f2937);
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .ablation-pooling .failure-icon {
+    font-size: 11px;
+    pointer-events: none;
+  }
+  .ablation-pooling .d3-tooltip {
+    position: absolute;
+    top: 0; left: 0;
+    transform: translate(-9999px, -9999px);
+    pointer-events: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.45;
+    border: 1px solid var(--border-color, #e2e5ea);
+    background: var(--surface-bg, #fff);
+    color: var(--text-color, #1f2937);
+    box-shadow: 0 4px 24px rgba(0,0,0,.18);
+    opacity: 0;
+    transition: opacity .12s ease;
+    z-index: 10;
+    max-width: 280px;
+    backdrop-filter: saturate(1.12) blur(8px);
+  }
+  .ablation-pooling .d3-tooltip .tt-task {
+    font-weight: 700;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .ablation-pooling .d3-tooltip .tt-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 2px 0;
+  }
+  .ablation-pooling .d3-tooltip .tt-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted-color, #6b7280);
+  }
+  .ablation-pooling .d3-tooltip .tt-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .ablation-pooling .d3-tooltip .tt-value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .ablation-pooling .d3-tooltip .tt-value.failure {
+    color: oklch(0.6 0.24 25);
+    font-weight: 700;
+  }
+  .ablation-pooling .d3-tooltip .tt-value.winner {
+    color: oklch(0.55 0.2 280);
+    font-weight: 700;
+  }
+  @media (max-width: 600px) {
+    .ablation-pooling .tab-btn { padding: 8px 14px; font-size: 12px; }
+    .ablation-pooling .legend { gap: 10px; }
+    .ablation-pooling .legend-item { font-size: 10.5px; }
+    .ablation-pooling .bar-value { font-size: 8px; }
+  }
+</style>
+<script>
+(() => {
+  if (window.ablationPoolingInitialized) return;
+  window.ablationPoolingInitialized = true;
+
+  const ensureD3 = (cb) => {
+    if (window.d3 && typeof window.d3.select === 'function') return cb();
+    let s = document.getElementById('d3-cdn-script');
+    if (!s) {
+      s = document.createElement('script');
+      s.id = 'd3-cdn-script';
+      s.src = 'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js';
+      document.head.appendChild(s);
+    }
+    const onReady = () => { if (window.d3 && typeof window.d3.select === 'function') cb(); };
+    s.addEventListener('load', onReady, { once: true });
+    if (window.d3) onReady();
+  };
+
+  const bootstrap = () => {
+    const scriptEl = document.currentScript;
+    let container = scriptEl ? scriptEl.previousElementSibling : null;
+    if (!(container && container.classList && container.classList.contains('ablation-pooling'))) {
+      const cs = Array.from(document.querySelectorAll('.ablation-pooling'))
+        .filter(el => !(el.dataset && el.dataset.mounted === 'true'));
+      container = cs[cs.length - 1] || null;
+    }
+    if (!container) return;
+    if (container.dataset) {
+      if (container.dataset.mounted === 'true') return;
+      container.dataset.mounted = 'true';
+    }
+    container.style.position = container.style.position || 'relative';
+
+    const d3 = window.d3;
+
+    // ---- COLORS ----
+    const COLORS = {
+      pooling: {
+        non:  'var(--pooling-non, #9ca3af)',
+        max:  'var(--pooling-max, #6366f1)',
+        mean: 'var(--pooling-mean, #a78bfa)',
+        all:  'var(--pooling-all, #64748b)'
+      },
+      negative: {
+        non:   'var(--neg-non, #9ca3af)',
+        pos:   'var(--neg-pos, oklch(0.58 0.22 280))',
+        neg_s: 'var(--neg-negs, oklch(0.72 0.18 25))',
+        neg_a: 'var(--neg-nega, oklch(0.52 0.22 25))'
+      }
+    };
+    // Resolved colors for tooltip dots (computed at render time)
+    const RESOLVED = {};
+    function resolveColor(css) {
+      const el = document.createElement('span');
+      el.style.color = css;
+      el.style.display = 'none';
+      document.body.appendChild(el);
+      const resolved = getComputedStyle(el).color;
+      el.remove();
+      return resolved;
+    }
+
+    // ---- SERIES CONFIG ----
+    const SERIES = {
+      pooling: [
+        { key: 'non',  label: 'Non-steered',  winner: false },
+        { key: 'max',  label: 'Max-pool',     winner: true  },
+        { key: 'mean', label: 'Mean-pool',    winner: false },
+        { key: 'all',  label: 'All-token',    winner: false }
+      ],
+      negative: [
+        { key: 'non',   label: 'Non-steered', winner: false },
+        { key: 'pos',   label: 'Positive',    winner: true  },
+        { key: 'neg_s', label: 'Neg-S',       winner: false },
+        { key: 'neg_a', label: 'Neg-A',       winner: false }
+      ]
+    };
+
+    // Failure thresholds: values below these on specific tasks are considered catastrophic
+    const FAILURE_THRESHOLD = 15;
+    function isFailure(tabKey, seriesKey, task, value) {
+      if (tabKey === 'pooling') {
+        if (seriesKey === 'mean' && task === 'HarmBench' && value <= 1) return true;
+        if (seriesKey === 'mean' && task === 'XSTest' && value < 60) return true;
+      }
+      if (tabKey === 'negative') {
+        if (seriesKey === 'neg_a' && value < FAILURE_THRESHOLD) return true;
+      }
+      return false;
+    }
+
+    // ---- TOOLTIP ----
+    let tip, tipInner;
+    tip = document.createElement('div');
+    tip.className = 'd3-tooltip';
+    tipInner = document.createElement('div');
+    tipInner.className = 'd3-tooltip__inner';
+    tip.appendChild(tipInner);
+    container.appendChild(tip);
+
+    function showTip(event, html) {
+      tipInner.innerHTML = html;
+      const [px, py] = d3.pointer(event, container);
+      const cw = container.clientWidth;
+      const tipW = tip.offsetWidth || 200;
+      const tipH = tip.offsetHeight || 100;
+      let tx = px + 14;
+      let ty = py - tipH / 2;
+      if (tx + tipW > cw) tx = px - tipW - 14;
+      if (ty < 0) ty = 4;
+      tip.style.transform = `translate(${tx}px, ${ty}px)`;
+      tip.style.opacity = '1';
+    }
+    function hideTip() {
+      tip.style.opacity = '0';
+      tip.style.transform = 'translate(-9999px, -9999px)';
+    }
+
+    // ---- DATA LOADING ----
+    let DATA = null;
+    async function loadData() {
+      const paths = [
+        '/data/ablation_data.json',
+        './data/ablation_data.json',
+        '../assets/data/ablation_data.json',
+        '/assets/data/ablation_data.json'
+      ];
+      for (const p of paths) {
+        try {
+          const res = await fetch(p);
+          if (res.ok) { DATA = await res.json(); return; }
+        } catch (_) {}
+      }
+      // Inline fallback data
+      DATA = {
+        pooling: [
+          { task: 'MMLU', non: 52.23, max: 56.32, mean: 56.32, all: 52.91 },
+          { task: 'MMLU-Pro', non: 30.30, max: 31.00, mean: 31.00, all: 30.16 },
+          { task: 'BBQ Disambig', non: 75.42, max: 76.53, mean: 76.53, all: 75.00 },
+          { task: 'BBQ Ambig', non: 59.10, max: 62.08, mean: 62.08, all: 57.98 },
+          { task: 'HarmBench', non: 44.64, max: 67.50, mean: 0.00, all: 47.14 },
+          { task: 'XSTest', non: 86.35, max: 87.30, mean: 53.65, all: 86.35 },
+          { task: 'SimpleQA', non: 3.63, max: 3.80, mean: 3.76, all: 3.73 }
+        ],
+        negative: [
+          { task: 'MMLU', non: 52.23, pos: 56.32, neg_s: 52.24, neg_a: 49.45 },
+          { task: 'MMLU-Pro', non: 14.00, pos: 17.56, neg_s: 14.24, neg_a: 0.66 },
+          { task: 'BBQ Disambig', non: 75.42, pos: 76.53, neg_s: 75.37, neg_a: 12.15 },
+          { task: 'BBQ Ambig', non: 59.10, pos: 62.08, neg_s: 59.22, neg_a: 60.85 },
+          { task: 'HarmBench', non: 44.64, pos: 67.50, neg_s: 44.64, neg_a: 47.86 },
+          { task: 'XSTest', non: 86.35, pos: 87.30, neg_s: 86.35, neg_a: 86.67 },
+          { task: 'SimpleQA', non: 3.63, pos: 3.80, neg_s: 3.76, neg_a: 3.76 }
+        ]
+      };
+    }
+
+    // ---- TAB STATE ----
+    let activeTab = 'pooling';
+
+    // ---- BUILD UI ----
+    const tabBar = document.createElement('div');
+    tabBar.className = 'tab-bar';
+
+    const tabPooling = document.createElement('button');
+    tabPooling.className = 'tab-btn active';
+    tabPooling.textContent = 'Pooling Strategies';
+    tabPooling.addEventListener('click', () => switchTab('pooling'));
+
+    const tabNegative = document.createElement('button');
+    tabNegative.className = 'tab-btn';
+    tabNegative.textContent = 'Positive vs Negative';
+    tabNegative.addEventListener('click', () => switchTab('negative'));
+
+    tabBar.appendChild(tabPooling);
+    tabBar.appendChild(tabNegative);
+    container.appendChild(tabBar);
+
+    const chartArea = document.createElement('div');
+    chartArea.className = 'chart-area';
+    container.appendChild(chartArea);
+
+    function switchTab(tab) {
+      activeTab = tab;
+      tabPooling.classList.toggle('active', tab === 'pooling');
+      tabNegative.classList.toggle('active', tab === 'negative');
+      render();
+    }
+
+    // ---- RENDER ----
+    function render() {
+      if (!DATA) return;
+      chartArea.innerHTML = '';
+      hideTip();
+
+      const tabKey = activeTab;
+      const series = SERIES[tabKey];
+      const colors = COLORS[tabKey];
+      const data = DATA[tabKey];
+      if (!data || !data.length) return;
+
+      // Resolve colors for tooltip
+      series.forEach(s => {
+        RESOLVED[s.key] = resolveColor(colors[s.key]);
+      });
+
+      // Legend
+      const legend = document.createElement('div');
+      legend.className = 'legend';
+      series.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML =
+          `<span class="legend-swatch" style="background:${colors[s.key]}"></span>` +
+          `<span>${s.label}</span>` +
+          (s.winner ? `<span class="winner-star" title="Best overall">&#9733;</span>` : '');
+        legend.appendChild(item);
+      });
+      chartArea.appendChild(legend);
+
+      // SVG dimensions
+      const containerWidth = container.clientWidth || 700;
+      const margin = { top: 16, right: 16, bottom: 64, left: 48 };
+      const chartHeight = 360;
+      const innerWidth = containerWidth - margin.left - margin.right;
+      const innerHeight = chartHeight - margin.top - margin.bottom;
+
+      const svg = d3.select(chartArea)
+        .append('svg')
+        .attr('viewBox', `0 0 ${containerWidth} ${chartHeight}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet');
+
+      const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Scales
+      const tasks = data.map(d => d.task);
+      const keys = series.map(s => s.key);
+
+      const x0 = d3.scaleBand().domain(tasks).range([0, innerWidth]).paddingInner(0.22).paddingOuter(0.1);
+      const x1 = d3.scaleBand().domain(keys).range([0, x0.bandwidth()]).padding(0.12);
+
+      const allVals = data.flatMap(d => keys.map(k => d[k]));
+      const yMax = Math.min(100, d3.max(allVals) * 1.12);
+      const y = d3.scaleLinear().domain([0, yMax]).range([innerHeight, 0]).nice();
+
+      // Grid
+      const grid = g.append('g').attr('class', 'grid');
+      grid.selectAll('line')
+        .data(y.ticks(5))
+        .join('line')
+        .attr('x1', 0)
+        .attr('x2', innerWidth)
+        .attr('y1', d => y(d))
+        .attr('y2', d => y(d));
+
+      // Axes
+      const xAxis = g.append('g')
+        .attr('class', 'axis')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x0).tickSizeOuter(0));
+
+      xAxis.selectAll('text')
+        .attr('transform', 'rotate(-30)')
+        .style('text-anchor', 'end')
+        .attr('dx', '-0.5em')
+        .attr('dy', '0.5em')
+        .style('font-size', '11px');
+
+      g.append('g')
+        .attr('class', 'axis')
+        .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + '%').tickSizeOuter(0));
+
+      // Y-axis label
+      g.append('text')
+        .attr('transform', `rotate(-90)`)
+        .attr('x', -innerHeight / 2)
+        .attr('y', -38)
+        .attr('text-anchor', 'middle')
+        .attr('fill', 'var(--muted-color, #6b7280)')
+        .attr('font-size', '11px')
+        .attr('font-weight', '600')
+        .text('Accuracy (%)');
+
+      // Rounded top bar path
+      const barPath = (bx, by, bw, bh) => {
+        if (bh <= 0) return '';
+        const r = Math.min(2.5, bh / 2, bw / 2);
+        return `M ${bx},${by + bh} L ${bx},${by + r} Q ${bx},${by} ${bx + r},${by} L ${bx + bw - r},${by} Q ${bx + bw},${by} ${bx + bw},${by + r} L ${bx + bw},${by + bh} Z`;
+      };
+
+      // Failure marker color
+      const failColor = 'oklch(0.6 0.24 25)';
+      const failBg = 'oklch(0.9 0.08 25)';
+
+      // Bar groups
+      data.forEach((d, di) => {
+        const gGroup = g.append('g').attr('transform', `translate(${x0(d.task)},0)`);
+
+        keys.forEach((key, ki) => {
+          const val = d[key];
+          const bx = x1(key);
+          const bw = x1.bandwidth();
+          const bh = innerHeight - y(val);
+          const by = y(val);
+          const fail = isFailure(tabKey, key, d.task, val);
+          const isWinner = series[ki].winner;
+
+          // For zero-height bars, draw a minimal indicator
+          if (bh < 1) {
+            gGroup.append('rect')
+              .attr('class', 'bar-rect')
+              .attr('x', bx)
+              .attr('y', innerHeight - 2)
+              .attr('width', bw)
+              .attr('height', 2)
+              .attr('rx', 1)
+              .attr('fill', fail ? failColor : colors[key])
+              .attr('opacity', 0.4)
+              .on('mousemove', (event) => showTooltip(event, d, tabKey, series, colors, keys))
+              .on('mouseleave', hideTip);
+          } else {
+            // Failure background highlight
+            if (fail) {
+              gGroup.append('rect')
+                .attr('x', bx - 2)
+                .attr('y', by - 2)
+                .attr('width', bw + 4)
+                .attr('height', bh + 4)
+                .attr('rx', 4)
+                .attr('fill', failBg)
+                .attr('opacity', 0.4)
+                .style('pointer-events', 'none');
+            }
+
+            gGroup.append('path')
+              .attr('class', 'bar-rect')
+              .attr('d', barPath(bx, by, bw, bh))
+              .attr('fill', fail ? failColor : colors[key])
+              .attr('opacity', fail ? 0.85 : (isWinner ? 1 : 0.78))
+              .on('mousemove', (event) => showTooltip(event, d, tabKey, series, colors, keys))
+              .on('mouseleave', hideTip);
+          }
+
+          // Value label on top of bar
+          if (val > 0 && bh > 14) {
+            gGroup.append('text')
+              .attr('class', 'bar-value')
+              .attr('x', bx + bw / 2)
+              .attr('y', by - 4)
+              .attr('text-anchor', 'middle')
+              .attr('fill', fail ? failColor : 'var(--text-color, #1f2937)')
+              .attr('font-weight', fail ? '700' : '600')
+              .text(val.toFixed(1));
+          } else if (val === 0) {
+            // Warning icon for 0% (HarmBench mean-pool)
+            gGroup.append('text')
+              .attr('class', 'failure-icon')
+              .attr('x', bx + bw / 2)
+              .attr('y', innerHeight - 8)
+              .attr('text-anchor', 'middle')
+              .attr('fill', failColor)
+              .text('0%');
+          } else if (bh > 0 && bh <= 14) {
+            gGroup.append('text')
+              .attr('class', 'bar-value')
+              .attr('x', bx + bw / 2)
+              .attr('y', by - 4)
+              .attr('text-anchor', 'middle')
+              .attr('fill', fail ? failColor : 'var(--text-color, #1f2937)')
+              .attr('font-size', '8px')
+              .text(val.toFixed(1));
+          }
+
+          // Warning triangle for catastrophic failures
+          if (fail && val > 0) {
+            gGroup.append('text')
+              .attr('class', 'failure-icon')
+              .attr('x', bx + bw / 2)
+              .attr('y', by - 14)
+              .attr('text-anchor', 'middle')
+              .attr('fill', failColor)
+              .attr('font-size', '12px')
+              .text('\u26A0');
+          }
+        });
+      });
+    }
+
+    function showTooltip(event, d, tabKey, series, colors, keys) {
+      const best = keys.reduce((a, b) => d[a] >= d[b] ? a : b);
+      let html = `<div class="tt-task">${d.task}</div>`;
+      series.forEach(s => {
+        const val = d[s.key];
+        const fail = isFailure(tabKey, s.key, d.task, val);
+        const win = s.key === best;
+        const cls = fail ? 'failure' : (win ? 'winner' : '');
+        html += `<div class="tt-row">
+          <span class="tt-label"><span class="tt-dot" style="background:${RESOLVED[s.key] || colors[s.key]}"></span>${s.label}</span>
+          <span class="tt-value ${cls}">${val.toFixed(2)}%${fail ? ' \u26A0' : ''}${win ? ' \u2605' : ''}</span>
+        </div>`;
+      });
+      showTip(event, html);
+    }
+
+    // ---- INIT ----
+    async function init() {
+      await loadData();
+      render();
+
+      // Responsive
+      if (window.ResizeObserver) {
+        new ResizeObserver(() => render()).observe(container);
+      } else {
+        window.addEventListener('resize', () => render());
+      }
+
+      // Dark mode
+      const mo = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+          if (m.type === 'attributes' && m.attributeName === 'data-theme') {
+            render();
+            break;
+          }
+        }
+      });
+      mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    }
+
+    init();
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => ensureD3(bootstrap), { once: true });
+  } else {
+    ensureD3(bootstrap);
+  }
+})();
+</script>

@@ -1,0 +1,100 @@
+name: Keep-Alive Ping
+
+on:
+  schedule:
+    # Run every 12 hours - well within the 48-hour HF sleep timeout
+    - cron: '0 6,18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Restart Sleeping Spaces via HF API
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "HF_TOKEN not set - will rely on HTTP pings to wake spaces"
+            exit 0
+          fi
+
+          SPACES=("saibalajiomg/customercore" "saibalajiomg/SupportPulse" "saibalajiomg/researchiq")
+          for SPACE in "${SPACES[@]}"; do
+            echo "--- Checking $SPACE ---"
+            STATUS=$(curl -s -H "Authorization: Bearer $HF_TOKEN" \
+              "https://huggingface.co/api/spaces/$SPACE" | python3 -c "
+          import sys, json
+          try:
+              data = json.load(sys.stdin)
+              stage = data.get('runtime', {}).get('stage', 'UNKNOWN')
+              print(stage)
+          except:
+              print('UNKNOWN')
+          ")
+            echo "  Current status: $STATUS"
+
+            if [ "$STATUS" != "RUNNING" ]; then
+              echo "  Restarting via API..."
+              curl -s -X POST \
+                -H "Authorization: Bearer $HF_TOKEN" \
+                "https://huggingface.co/api/spaces/$SPACE/restart"
+              echo "  Restart request sent."
+            else
+              echo "  Already running."
+            fi
+          done
+          # Give spaces time to boot before pinging
+          echo "Waiting 60s for spaces to start..."
+          sleep 60
+
+      - name: Ping and wake CustomerCore
+        run: |
+          echo "Pinging CustomerCore (with retry for cold start)..."
+          for i in 1 2 3; do
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 https://saibalajiomg-customercore.hf.space/api/v1/keep-alive)
+            echo "  Attempt $i: HTTP $RESPONSE"
+            if [ "$RESPONSE" -eq 200 ]; then break; fi
+            echo "  Waiting 30s before retry..."
+            sleep 30
+          done
+
+      - name: Ping and wake SupportPulse
+        run: |
+          echo "Pinging SupportPulse (with retry for cold start)..."
+          for i in 1 2 3; do
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 https://saibalajiomg-supportpulse.hf.space/)
+            echo "  Attempt $i: HTTP $RESPONSE"
+            if [ "$RESPONSE" -eq 200 ]; then break; fi
+            echo "  Waiting 30s before retry..."
+            sleep 30
+          done
+
+      - name: Ping and wake ResearchIQ
+        run: |
+          echo "Pinging ResearchIQ (with retry for cold start)..."
+          for i in 1 2 3; do
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 https://saibalajiomg-researchiq.hf.space/)
+            echo "  Attempt $i: HTTP $RESPONSE"
+            if [ "$RESPONSE" -eq 200 ]; then break; fi
+            echo "  Waiting 30s before retry..."
+            sleep 30
+          done
+
+      - name: Prevent GitHub Workflow Suspension
+        run: |
+          # On Sundays, auto-commit to prevent GitHub from suspending this cron after 60 days
+          if [ "$(date +%u)" -eq 7 ]; then
+            echo "Keep-alive tick: $(date -u)" > keepalive_ping.txt
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add keepalive_ping.txt
+            git commit -m "chore: weekly keep-alive tick [skip ci]" || exit 0
+            git push
+          fi

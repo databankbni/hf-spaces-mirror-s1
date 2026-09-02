@@ -36,17 +36,27 @@ them is a direct fetch (no queue, no token, `-L` because the raw path redirects
 to the resolve cache):
 
 ```bash
-curl -sL https://huggingface.co/spaces/TabArena/leaderboard/resolve/main/data/imputation_yes/splits_all/tasks_all/datasets_all/website_leaderboard.csv
+curl -sL https://huggingface.co/spaces/TabArena/leaderboard/resolve/main/data/entrants_models/imputation_yes/splits_all/tasks_all/datasets_all/website_leaderboard.csv
 ```
 
-The path is `data/imputation_{yes,no}/splits_{all,lite}/tasks_{...}/datasets_{...}/`
+The path is
+`data/entrants_{...}/imputation_{yes,no}/splits_{all,lite}/tasks_{...}/datasets_{...}/`
 for TabArena and `data_beyondarena/subsets/{subset}/` for BeyondArena.
 
-The Space also serves three JSON endpoints for agents, defined in `api.py`:
-`list_leaderboards`, `get_tabarena_leaderboard`, `get_beyondarena_leaderboard`.
-Hugging Face advertises them through the **Agents** button on the Space page,
-which points at a generated `agents.md`. See AGENTS.md for the contract and its
-one caveat.
+`entrants` is who competed. There are three system categories that can each be
+admitted or not (`open` for open-source local systems, `llm` for systems with an
+LLM in the loop, `api` for systems behind a closed-source API), so the eight keys
+are `models` (individual models only, the default), `open`, `llm`, `api`,
+`open_llm`, `open_api`, `llm_api` and `open_llm_api`. It is not a row filter: Elo
+is a pairwise rating over whoever competed and Improvability is the gap to the
+best of them, so each pool is its own evaluation with its own numbers.
+
+The Space also serves four JSON endpoints for agents, defined in `api.py`:
+`list_leaderboards`, `get_tabarena_leaderboard`, `get_beyondarena_leaderboard` and
+`get_pareto_frontier`. The same four are served as MCP tools at
+`/gradio_api/mcp/`. Hugging Face advertises the JSON route through the **Agents**
+button on the Space page, which points at a generated `agents.md`. See AGENTS.md
+for the contract and the two constraints on how the descriptions must be written.
 
 # Current Steps to get results:
 1. Run https://github.com/autogluon/tabarena/blob/main/scripts/run_generate_website_artifacts.py

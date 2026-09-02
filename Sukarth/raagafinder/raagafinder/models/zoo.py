@@ -187,6 +187,28 @@ def run(index_fn=load_index, splits_name="splits.json", out_name="model_v1",
     if not (WORK_DIR / splits_name).exists():
         make_splits(mbids, labels, concerts, artists, out_name=splits_name)
     splits = json.loads((WORK_DIR / splits_name).read_text(encoding="utf-8"))
+
+    # make_splits refuses the fresh-YouTube probe recordings a fold so that
+    # no model trains on them. The corpus loader still returns them, so they
+    # arrive here fold-less and must be dropped -- and only they may be: any
+    # other fold-less recording is a stale splits file, which silently
+    # shrinking the corpus would hide.
+    from raagafinder.models.youtube_probe import YOUTUBE_PROBE
+
+    unassigned = [m for m in mbids if m not in splits["concert_fold"]]
+    stray = [m for m in unassigned if m not in set(YOUTUBE_PROBE)]
+    assert not stray, (
+        f"{len(stray)} non-probe recordings missing from {splits_name}, "
+        f"e.g. {stray[:3]} -- the splits file predates the corpus")
+    if unassigned:
+        drop = set(unassigned)
+        keep = [i for i, m in enumerate(mbids) if m not in drop]
+        mbids = [mbids[i] for i in keep]
+        labels = np.asarray(labels)[keep]
+        concerts = [concerts[i] for i in keep]
+        artists = [artists[i] for i in keep]
+        print(f"holding {len(drop)} probe recordings out of training")
+
     folds = np.array([splits["concert_fold"][m] for m in mbids])
     cache = load_pitch_cache(mbids)
 
@@ -348,6 +370,41 @@ def run(index_fn=load_index, splits_name="splits.json", out_name="model_v1",
     best_ens_t1 = top1(ens_oof)
     print(f"exported ensemble: top1 {best_ens_t1:.3f} top3 {topk(ens_oof):.3f}")
 
+    # The number just printed is the MAXIMUM over the simplex grid above,
+    # read off the same out-of-fold predictions it is reported on. This
+    # project measures exactly that bias in other people's methods and
+    # prices it at 6.5 points for a 2700-cell grid and 1.25 for a 36-cell
+    # one, so quoting its own selected maximum without the honest
+    # counterpart would be the same error it documents.
+    #
+    # The nested version chooses the weights on nine folds and applies
+    # them once to the tenth, so no fold contributes to the choice of the
+    # weights that score it. It is stored beside the selected figure
+    # rather than replacing it: both are informative, and the gap between
+    # them is the quantity of interest.
+    nested_hits, nested_choices = [], []
+    for f in sorted(set(folds.tolist())):
+        te = folds == f
+        tr = ~te
+        best_in, best_w = -1.0, (1.0, 0.0, 0.0)
+        for a in grid:
+            for b in grid:
+                if a + b > 1.0 + 1e-9:
+                    continue
+                c = max(0.0, 1.0 - a - b)
+                mix = (a * comps[0][tr] + b * comps[1][tr]
+                       + c * comps[2][tr])
+                t = float((mix.argmax(1) == labels[tr]).mean())
+                if t > best_in + 1e-12:
+                    best_in, best_w = t, (float(a), float(b), float(c))
+        a, b, c = best_w
+        mix_te = a * comps[0][te] + b * comps[1][te] + c * comps[2][te]
+        nested_hits.append(mix_te.argmax(1) == labels[te])
+        nested_choices.append(best_w)
+    nested_t1 = float(np.concatenate(nested_hits).mean())
+    print(f"nested ensemble (weights chosen off-fold): top1 {nested_t1:.3f}"
+          f"  selection advantage {100 * (best_ens_t1 - nested_t1):+.2f} pts")
+
     # ---------------- calibration + thresholds ----------------
     temp = fit_temperature(ens_oof, labels)
     cal = apply_temperature(ens_oof, temp)
@@ -476,6 +533,15 @@ def run(index_fn=load_index, splits_name="splits.json", out_name="model_v1",
             # the same table
             lgbm_control=lgbm_control,
             ensemble=dict(top1=best_ens_t1, top3=topk(ens_oof)),
+            # The selected maximum above, and the same quantity with the
+            # weights chosen off-fold. Reporting only the first would be
+            # the practice this project prices in other people's methods.
+            ensemble_nested=dict(
+                top1=nested_t1,
+                selection_advantage=float(best_ens_t1 - nested_t1),
+                note="weights fitted on nine folds, applied once to the "
+                     "tenth; `ensemble.top1` is the maximum over the same "
+                     "grid read off the folds it is reported on"),
             coverage=float(covered.mean()),
             covered_accuracy=float(correct[covered].mean()),
             rotation_recovery=float(rot_recovery),

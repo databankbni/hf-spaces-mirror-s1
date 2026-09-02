@@ -2,368 +2,528 @@
 
 This file provides detailed analysis of key files in the Opentrons Python API v2 documentation for LLM context understanding.
 
+Generated on: 2026-07-23 08:56:29 CDT
+Knowledge corpus: 9.0.0-k1
+Documentation tag: mkdocs-2026-06-02
+Default apiLevel: 2.28
+About source: claude (claude-sonnet-5)
+
 ## Overview
 
 This documentation covers the Opentrons Python API v2, used to write protocols for Opentrons robots (OT-2 and Flex/OT-3). The API allows users to control pipettes, modules, labware, and execute automated laboratory protocols.
 
+Each entry below includes an `<about>` section describing what the file covers. When selecting relevant docs, use the exact relative paths shown below (for example `modules/index.md`).
+
 ## File-by-File Analysis
 
-## docs/v2/index.rst
+### 1. adapting-ot2-flex.md
 
 <about>
-This file is the main index/welcome page for the Opentrons Python Protocol API documentation (v2), not a protocol file itself. It provides an overview of the API framework designed for writing automated biology lab protocols for both Flex (OT-3) and OT-2 robots. The page includes getting started guidance, links to tutorials and examples, and demonstrates the basic structure of protocols through simple liquid transfer examples for both robot types. The example protocols shown use 1-channel pipettes (flex_1channel_1000 for Flex, p300_single for OT-2), basic labware (96-well plates and tip racks), and demonstrate fundamental liquid handling steps: pick up tip, aspirate 100 µL from well A1, dispense to well B2, and drop tip. The documentation emphasizes that protocols should be readable like lab notebooks while allowing programmers to leverage Python's full capabilities for advanced automation.
+Converting OT-2 protocols to run on Flex, covering required changes to metadata and requirements dictionaries, including apiLevel placement and the mandatory "robotType": "Flex" declaration. Explains updating pipette instrument_name and tip rack load names (e.g., p300_single_gen2 to flex_1channel_1000, opentrons_96_tiprack_300ul to opentrons_flex_96_tiprack_1000ul) via load_instrument and load_labware. Details loading a trash bin with load_trash_bin("A3") to replace the OT-2 fixed_trash, updating deck slot labels from numeric to coordinate format, and converting module load names for Temperature Module, Thermocycler Module, and Heater-Shaker.
 </about>
 
 ---
 
-## docs/v2/new_advanced_running.rst
+### 2. advanced-control/command-line.md
 
 <about>
-This file documents advanced control methods for operating Opentrons robots outside of the standard app interface, focusing on two approaches: Jupyter Notebook and command-line execution. It explains how to use Jupyter Notebook (running on port 48888) to write and debug protocols interactively by restructuring them into cells rather than a single run function, and provides guidance on setting labware offsets manually since Labware Position Check cannot be performed outside the app. The documentation covers both OT-2 and Flex robots, includes examples using various pipette types (1-channel, 8-channel, 96-channel), and addresses special considerations for using modules (requiring the robot server to be stopped). It also explains how to execute protocols via command line using `opentrons_execute`, making it useful for scenarios requiring dynamic variables, CSV file integration, or partial protocol execution during development and debugging.
+Running Python protocols directly from the robot's command line using opentrons_execute, without needing the Opentrons App. Covers accessing the command line via Jupyter Notebook's New > Terminal option or through SSH, copying protocol files to the robot with scp, and executing them. Explains default behavior, including printing the run log (matching what's shown in the Opentrons App) and internal logs at warning level or above, plus how to customize these outputs using opentrons_execute --help for additional command options.
 </about>
 
 ---
 
-## docs/v2/new_modules.rst
+### 3. advanced-control/index.md
 
 <about>
-This file is the main index page for the Hardware Modules section of the Opentrons API v2 documentation, not a protocol file. It provides an overview of both powered and unpowered hardware modules available for the Flex and OT-2 robots, including the Absorbance Plate Reader Module, Heater-Shaker Module, Magnetic Module, Temperature Module, Thermocycler Module (all powered), and the 96-well Magnetic Block (unpowered). The documentation explains that powered modules connect via USB and are automatically detected, while unpowered modules are recognized only when used in uploaded protocols. The file serves as a navigation hub, linking to detailed documentation for setting up modules with labware, working with individual module contexts, and managing multiple modules of the same type in a single protocol. It includes a note about coordinate deck slot naming conventions between Flex (e.g., "D1", "D2") and OT-2 (numeric slots) for API version compatibility.
+Advanced control options for operating an Opentrons robot outside standard protocol execution through the app, covering direct interaction with robot hardware and components like the gantry arm. This index links to guidance on using Jupyter notebook for interactive protocol development and testing, command line access for direct robot control, and robot motor control for low-level manipulation of movement systems.
 </about>
 
 ---
 
-## docs/v2/new_protocol_api.rst
+### 4. advanced-control/jupyter.md
 
 <about>
-This file is the API Version 2 Reference documentation for the Opentrons Python Protocol API, providing a comprehensive reference of classes and methods that make up the API. It's not a protocol file but rather the technical documentation that covers all major components including ProtocolContext, InstrumentContext, Labware classes (including TrashBin and WasteChute), Wells and Liquids (including the new LiquidClass), and all available modules (Absorbance Plate Reader, Heater-Shaker, Magnetic Block, Magnetic Module, Temperature Module, and Thermocycler). The documentation also includes useful types, error classes, and methods for executing and simulating protocols. This reference guide supports both OT-2 and Flex robots and covers all pipette types (1-channel, 8-channel, and 96-channel), though specific implementations depend on the actual protocol being written using these API components.
+Jupyter Notebook access and usage on Flex and OT-2 robots via port 48888, covering opentrons.execute.get_protocol_api() for interactive cell-based protocol development, the required home() call before other commands, and running previously written protocols by defining and invoking a run() function. Explains setting labware offsets manually using set_offset() since Labware Position Check must be run separately through the Opentrons App, including differences in offset reuse behavior between Flex and OT-2 across deck locations, tip racks, and move_labware().
 </about>
 
 ---
 
-## docs/v2/new_pipette.rst
+### 5. advanced-control/robot-motors.md
 
 <about>
-This file is the main index page for the Pipettes section of the Opentrons Python API documentation, not a protocol file. It serves as a navigation hub that introduces pipettes as configurable devices for liquid movement and outlines the four main topics covered in this documentation section: loading pipettes into protocols, pipette characteristics (movement speeds and deck navigation), partial tip pickup configurations for multi-channel pipettes, and volume modes for Flex 50 µL pipettes. The page mentions both Flex (OT-3) and OT-2 robot types and references multi-channel pipettes (implying 8-channel and potentially 96-channel) in the context of partial tip pickup, but doesn't specify modules, fixtures, adapters, labware, liquids, or specific protocol steps. It primarily functions as an organizational page that directs users to more detailed subsections about pipette functionality and configuration.
+Robot motor control on Flex covers low-level RobotContext methods for direct axis movement, bypassing standard pipette and gripper abstractions. Includes move_to, move_axes_to, and move_axes_relative for controlling gantry (X, Y), mount Z-axes (Z_L, Z_R), gripper (Z_G, G), plunger axes (P_L, P_R), and the 96-channel pipette tip pickup motor (Q). Also covers open_gripper_jaw and close_gripper_jaw, plus helper methods axis_coordinates_for, plunger_coordinates_for_volume, and plunger_coordinates_for_named_position for generating axis coordinate maps.
 </about>
 
 ---
 
-## docs/v2/new_examples.rst
+### 6. building-block-commands/index.md
 
 <about>
-This file provides ready-made protocol examples for Opentrons Flex and OT-2 robots, designed to help users learn and build upon basic liquid handling skills. The protocols demonstrate various liquid handling techniques including basic and advanced liquid transfers, loops for automation, creating multiple air gaps, serial dilutions, and plate mapping with automatic tip refilling. All examples use API level 2.20 and are compatible with both Flex (OT-3) and OT-2 robots, utilizing 1-channel pipettes (flex_1channel_1000 for Flex, p300_single_gen2 for OT-2). The protocols use standard labware including USA Scientific 12-well reservoirs, Corning 96-well plates, and appropriate tip racks for each robot type. While no modules, fixtures, adapters, or specific liquids are mentioned, the protocols demonstrate key steps like transferring 100 µL between wells, distributing liquids across rows, creating air gaps between samples, performing serial dilutions with mixing, and dispensing varying volumes across an entire plate.
-</about>
-
-
----
-
-## docs/v2/tutorial.rst
-
-<about>
-This file is a comprehensive tutorial for creating Python protocols using the Opentrons API, guiding users through building a serial dilution protocol from scratch. The tutorial covers API version 2.16 and is designed for both Flex (OT-3) and OT-2 robots, with examples for both 1-channel and 8-channel pipettes (specifically the Flex 1-Channel 1000 µL and P300 Single-Channel GEN2 for examples). The protocol uses NEST 12 Well Reservoir 15 mL, NEST 96 Well Plate 200 µL Flat, and appropriate tip racks (Opentrons Flex Tips 200 µL or Opentrons 96 Tip Rack 300 µL). The serial dilution process involves three main steps: distributing diluent to all wells, adding solution to the first column, and performing stepwise dilution across the plate from column 1 to 12. The tutorial includes sections on metadata, requirements blocks, loading labware and pipettes, and using the transfer() method for complex liquid handling operations, concluding with instructions for both simulating and running the protocol on actual hardware.
+Python API building block commands form the basic robot actions used to construct more complex protocol steps. This overview page links to three subsections: pipette tip manipulation covering pick-up, drop, and return of tips; liquid control covering aspirating, dispensing, blow out, touch tip, mixing, and air gap procedures; and utility commands for pausing or delaying protocols, checking the robot's door, and controlling robot lights. These building blocks underlie the complex commands that combine multiple actions into fewer lines of protocol code.
 </about>
 
 ---
 
-## docs/v2/new_labware.rst
+### 7. building-block-commands/liquids.md
 
 <about>
-This file is API documentation for the labware functionality in the Opentrons Python API, not a protocol file. It provides comprehensive guidance on working with labware including loading default and custom labware, accessing wells, labeling liquids, and understanding well dimensions. The documentation covers both OT-2 and Flex (OT-3) robots and explains how to load labware onto deck slots or adapters, access individual wells or groups of wells through various methods (dictionary access, list access, rows, columns), and optionally define and label liquids in wells. It includes examples of loading lids on compatible plates and tip racks, loading labware on adapters (including heater-shaker module examples), and retrieving well properties like depth, diameter, length, and width. While the documentation references various labware types (96-well plates, tip racks, reservoirs) and mentions the heater-shaker module in adapter examples, it doesn't describe specific protocol steps or liquid handling operations, focusing instead on the foundational labware setup and access methods needed before performing liquid transfers.
+Liquid handling with InstrumentContext.aspirate() and dispense() methods, covering volume, well location, and flow rate parameters for Flex and OT-2 pipettes. Explains location and end_location parameters accepting Well or Location objects, using Well.top(), Well.bottom(), and Well.meniscus() for positioning, plus well_bottom_clearance defaults. Details meniscus-relative pipetting via measure_liquid_height() or Labware.load_liquid(), movement_delay for multi-location moves, and rate versus absolute flow_rate settings (mutually exclusive).
 </about>
 
 ---
 
-## docs/v2/adapting_ot2_flex.rst
+### 8. building-block-commands/pipette-tips.md
 
 <about>
-This file is documentation for adapting OT-2 Python protocols to run on Opentrons Flex robots. It provides a migration guide covering the minimal changes needed to convert OT-2 protocols for Flex compatibility, including updating metadata and requirements (API level 2.15+ and robotType: "Flex"), converting pipette and tip rack load names, adding trash bin loading, updating deck slot labels from numeric to coordinate format, and updating module load names. The documentation includes side-by-side code examples comparing original OT-2 code with updated Flex code, and specifically addresses the incompatibility of the Magnetic Module with Flex, suggesting the use of the Magnetic Block and Flex Gripper as alternatives. While not a protocol itself, the guide references various pipette types (1-channel, 8-channel) and modules (Temperature Module Gen2, Thermocycler Module Gen2, Heater-Shaker Module, and the incompatible Magnetic Module), and demonstrates protocol steps including liquid mixing, transferring, and plate movement using the gripper.
+Pipette tip handling in the Opentrons Python API, covering pick_up_tip(), drop_tip(), and return_tip() methods. Explains automatic tip tracking across single or multiple tip racks, using for loops with range for automated tip pickup across 96 or more tips, and associating tip racks via load_instrument()'s tip_racks argument. Details specifying custom drop locations including trash bins and waste chutes, the alternate_drop_location argument (new in API version 2.28) for varying drop positions, partial tip pickup support for return_tip() (2.28), and how used tips are tracked differently since API version 2.2, applicable to both Flex and OT-2 robots.
 </about>
 
 ---
 
-## docs/v2/runtime_parameters.rst
+### 9. building-block-commands/utilities.md
 
 <about>
-This file is documentation for the Runtime Parameters feature in the Opentrons Python API, not a protocol file. It serves as an index page that introduces runtime parameters - user-customizable variables that allow technicians to modify protocol behavior without editing code. The documentation outlines the structure of the runtime parameters section, including fundamentals (choosing, defining, and using parameters), practical use cases (sample count adjustment, dry run testing, and cherrypicking with CSV files), and style guidance for parameter authors. The file emphasizes that runtime parameters give protocol authors the ability to create flexible, user-friendly protocols while maintaining control over the user experience. It does not contain any specific protocol implementation, pipette configurations, modules, labware, or protocol steps - rather, it provides a roadmap to the detailed documentation pages that cover these topics in depth.
+Utility commands for Opentrons Flex and OT-2 protocols, covering ProtocolContext.delay() and pause() for timed or manual stops, home() and InstrumentContext.home()/home_plunger() for gantry and pipette homing, comment() for displaying messages in the Opentrons App, and capture_image() for taking deck photos with the built-in camera (with options like home_before and custom filenames). Also documents set_rail_lights() and rail_lights_on for controlling and checking rail lights, and door_closed for checking the OT-2 door safety switch status, introduced in robot software version 3.19.
 </about>
 
 ---
 
-## docs/v2/moving_labware.rst
+### 10. complex-commands/index.md
 
 <about>
-This file documents the "Moving Labware" functionality in the Opentrons Python API, explaining how to programmatically move labware between deck slots during protocol execution. It covers both automatic movement using the Flex Gripper and manual movement (requiring user intervention) on both Flex and OT-2 robots, with the gripper being exclusive to Flex. The documentation details supported labware for gripper movement including full-skirt PCR plates, NEST well plates, Opentrons Flex 96 tip racks (50µL, 200µL, 1000µL variants), and Opentrons lids. It explains movement with modules (requiring adapters and proper module states like open latches), movement to waste chutes, lid movement capabilities, and the special OFF_DECK location for removing/adding labware during protocols. While not a protocol itself, the documentation includes code examples showing the move_labware() method usage with various parameters and scenarios, emphasizing that manual moves are the default behavior unless use_gripper=True is specified.
+Complex commands in the Opentrons Python API combine building block commands into single method calls on InstrumentContext, handling multiple wells and tip usage automatically. Legacy commands include transfer(), distribute(), and consolidate(), which support optional behaviors like air gaps, droplet knocks, mixing, and blow-out. Liquid class commands—transfer_with_liquid_class(), distribute_with_liquid_class(), and consolidate_with_liquid_class()—use liquid class definitions to adjust transfer behavior based on liquid properties such as viscosity. Related pages cover source/destination well selection, order of operations, and additional parameters affecting complex command behavior.
 </about>
 
 ---
 
-## docs/v2/new_atomic_commands.rst
+### 11. complex-commands/order-operations.md
 
 <about>
-This file is part of the Opentrons API v2 documentation that provides an overview of the "Building Block Commands" section, which covers the fundamental commands that Opentrons robots can perform. It's not a protocol file but rather a documentation index page that introduces three main categories of basic robot commands: pipette tip handling, liquid control, and utility functions. The file serves as a table of contents linking to detailed documentation on picking up/dropping tips, aspirating/dispensing liquids, and various robot utilities like pausing protocols or controlling lights. It emphasizes that while these commands are basic, they are foundational to more complex commands and essential for protocol development. The documentation applies to both OT-2 and Flex robots and covers all pipette types (1-channel, 8-channel, and 96-channel), though specific details about modules, fixtures, adapters, labware, and liquids are not mentioned in this overview page.
+Order of operations for Opentrons complex commands, covering transfer(), distribute(), and consolidate() versus liquid class methods like transfer_with_liquid_class() and distribute_with_liquid_class(). Details the fixed sequence of steps including tip pickup, mixing, aspirating, touch tip, air gap, dispensing, blow out, and tip drop, plus liquid class-specific steps like submerging, pre-wetting, and delays. Explains tip refilling behavior when volumes exceed pipette capacity, disposal volume effects on distribute(), and using lists of volumes with source/dest arguments to skip wells, including behavior with new_tip parameter set to "never" or "always".
 </about>
 
 ---
 
-## docs/v2/robot_position.rst
+### 12. complex-commands/parameters.md
 
 <about>
-This file is API documentation for controlling robot positioning and movement in the Opentrons Python API, not a protocol file. It provides comprehensive guidance on how to define positions within the robot workspace and control pipette movements, including positioning relative to labware wells (top, bottom, center, meniscus), trash containers, and deck coordinates. The documentation covers both OT-2 and Flex (OT-3) robots, with some features being Flex-specific (like liquid meniscus detection and collision detection), and references movement control for all pipette types (1-channel, 8-channel, and 96-channel). While it uses generic labware references like "plate" in examples and mentions TrashBin and WasteChute fixtures for Flex, it doesn't specify particular modules, adapters, or liquids. The documented features include well positioning methods, default position adjustments, labware position check integration, independent pipette movement with move_to(), controlling movement speeds (both overall gantry speed and individual axis speeds), and working with Points and Locations for precise positioning control.
+Complex command parameters for Opentrons Python API methods like transfer(), distribute(), consolidate(), and transfer_with_liquid_class() are covered, including new_tip (once, always, never, per source, per destination) for tip pickup behavior, mix_before and mix_after for mixing with repetition/volume tuples, disposal_volume for extra aspirated liquid in distribute(), touch_tip for post-aspirate/dispense touches, and air_gap for preventing liquid seepage. Discusses tip refilling strategies, cross-contamination avoidance, and how liquid class definitions govern these behaviors in liquid-class-aware commands, referencing InstrumentContext methods and well_bottom_clearance.
 </about>
 
 ---
 
-## docs/v2/versioning.rst
+### 13. complex-commands/sources-destinations.md
 
 <about>
-This file documents the versioning system for the Opentrons Python Protocol API, explaining how API versions are separate from robot software versions and how to specify versions in protocols. It covers the major/minor version numbering system, provides guidance on choosing appropriate API versions for protocols, and includes a comprehensive changelog detailing new features, improvements, and breaking changes introduced in each API version from 2.0 through 2.23. The documentation applies to both OT-2 and Flex robots, with version 2.15 introducing Flex support and subsequent versions adding Flex-specific features like partial tip pickup for 96-channel pipettes, waste chute/trash bin fixtures, and liquid presence detection. Notable features documented include support for various modules (Heater-Shaker, Magnetic Block, Absorbance Plate Reader), adapters, lids, runtime parameters, and improved liquid handling capabilities, though this is not a protocol file but rather API reference documentation.
+Source and destination well handling for complex liquid handling commands in the Opentrons Python API, covering transfer(), transfer_with_liquid_class(), distribute(), distribute_with_liquid_class(), consolidate(), and consolidate_with_liquid_class(). Explains restrictions on well counts for each method, how single wells versus lists are accepted, and the aspirate/dispense ordering patterns each command follows. Details many-to-many transfer mapping, well list "stretching" for uneven source/destination sizes, divisibility requirements, well ordering pitfalls with rows() and columns(), and tip handling behavior including new_tip and keep_last_tip parameters for liquid class commands.
 </about>
 
 ---
 
-## docs/v2/deck_slots.rst
+### 14. deck-slots.md
 
 <about>
-This file documents deck slot specifications and deck configuration for the Opentrons Python Protocol API, explaining how to specify locations when loading labware, modules, and other items onto the robot deck. It covers both Flex and OT-2 robots, detailing their different labeling systems (Flex uses coordinates A1-D4, OT-2 uses numbers 1-11) and how these formats are interchangeable in API version 2.15+. The documentation extensively covers Flex-specific deck configuration features including staging area slots (A4-D4), trash bins (loaded with `load_trash_bin()` in API 2.16+), and the waste chute (loaded with `load_waste_chute()` in slot D3). It explains deck conflicts that can occur between fixtures and modules, and provides guidance on resolving these conflicts either by physically rearranging hardware or modifying the protocol. While this is not a protocol file, it references various API methods like `load_labware()`, `move_labware()`, and mentions compatibility with different pipette types (1-, 8-, and 96-channel) when using features like the waste chute.
+Deck slot addressing for Flex and OT-2 robots, covering physical labeling systems (Flex coordinates A1–D4, OT-2 numeric 1–11), and how the API accepts both coordinate and numeric slot formats interchangeably since API version 2.15. Explains deck configuration for Flex robot system 7.1.0+, including staging area slots (column 4), trash bin fixtures via load_trash_bin(), and waste chute setup via load_waste_chute() introduced in API 2.16. Covers load_labware(), move_labware(), module placement conflicts, gripper compatibility, and deck conflict checks preventing protocol runs until resolved.
 </about>
 
 ---
 
-## docs/v2/new_complex_commands.rst
+### 15. examples.md
 
 <about>
-This file is documentation for complex liquid handling commands in the Opentrons Python API v2, not a protocol file. It serves as an introduction to three advanced methods (transfer, distribute, and consolidate) that combine multiple basic commands into single method calls for handling larger groups of wells and repetitive actions. The documentation explains that these complex commands integrate tip-handling behavior and can perform additional actions like adding air gaps, knocking droplets, mixing, and blowing out excess liquid. It references three sub-pages covering sources/destinations, order of operations, and parameters for these complex commands. The file doesn't specify robot types, pipette configurations, modules, fixtures, adapters, labware, or liquids as it's a high-level overview document that directs readers to more detailed documentation pages.
+Python API protocol examples for Opentrons Flex and OT-2 robots, illustrating full working protocols using apiLevel 2.28. Covers loading labware (tip racks, well plates, reservoirs, trash bins) and pipettes (flex_1channel_1000, p300_single_gen2), plus liquid transfer techniques ranging from basic building-block commands like pick_up_tip(), aspirate(), and dispense() to advanced methods such as transfer() and transfer_with_liquid_class(), including Opentrons-verified liquid class definitions restricted to Flex pipette/tip combinations.
 </about>
 
 ---
 
-## docs/v2/example_protocols/dilution_tutorial.py
+### 16. index.md
 
 <about>
-This file is a complete serial dil
-
----
-
-## docs/v2/example_protocols/dilution_tutorial_flex.py
-
-<about>
-This file is a complete serial dilution protocol for the Opentrons Flex robot using a 1-channel pipette, created as the outcome of following the Python Protocol API Tutorial. The protocol uses API level 2.16 and is designed for the Flex (OT-3) robot type, employing a flex_1channel_1000 (1-channel 1000 µL pipette) mounted on the left mount. The protocol uses three labware items: opentrons_flex_96_tiprack_200ul in position D1, nest_12_reservoir_15ml in position D2, and nest_96_wellplate_200ul_flat in position D3, plus a trash bin fixture in position A3. The protocol performs a serial dilution by first distributing 100 µL of diluent from reservoir well A1 to all wells of the 96-well plate, then for each of the 8 rows, transfers 100 µL of solution from reservoir well A2 to the first well of each row with mixing (3 times, 50 µL), and finally performs serial dilutions by transferring 100 µL from each well to the next well in the row (columns 1-11 to columns 2-12) with mixing after each transfer.
+Opentrons Python Protocol API landing page introducing how the API works, with side-by-side Flex and OT-2 example protocols demonstrating metadata, requirements (robotType and apiLevel, shown as 2.28), loading labware like corning_96_wellplate_360ul_flat and tip racks, loading pipettes (flex_1channel_1000 or p300_single) via load_instrument, and basic commands such as pick_up_tip, aspirate, dispense, and drop_tip. It points to further resources including the tutorial, examples, Building Block Commands, Complex Commands, and Modules pages, plus links to the Opentrons App, support contacts, custom protocol development services, and contribution guidelines for the open-source project.
 </about>
 
 ---
 
-## docs/v2/example_protocols/dilution_tutorial_multi_flex.py
+### 17. labware.md
 
 <about>
-This file is a serial dilution tutorial protocol for the Opentrons Flex robot using an 8-channel pipette, demonstrating the outcome of following the Python Protocol API Tutorial. The protocol uses API level 2.16 and is designed for the Flex (OT-3) robot type, employing a flex_8channel_1000 pipette mounted on the right side. The protocol uses three labware items: opentrons_96_tiprack_300ul for tips, nest_12_reservoir_15ml for the reservoir, and nest_96_wellplate_200ul_flat for the dilution plate, along with a trash bin fixture. The protocol performs a serial dilution by first distributing 100 µL of diluent from reservoir well A1 to all wells in the first row of the plate, then transferring 100 µL of solution from reservoir well A2 to the first well of the row with mixing, and finally performing stepwise dilutions by transferring 100 µL from each well to the next well in the row (columns 1-11 to columns 2-12) with mixing after each transfer.
+Labware handling in the Opentrons Python API, covering default labware from the Labware Library versus custom labware created via the Labware Creator. Explains loading labware and lids with load_labware(), load_lid_stack(), and Labware.load_lid_stack() for Flex and OT-2, plus loading labware on adapters using load_adapter() (v2.15) and the adapter parameter, including deprecated combination definitions. Details well-access methods—wells(), rows(), columns(), wells_by_name(), rows_by_name(), columns_by_name()—dictionary and list indexing, and iterating well groups. Also covers labeling liquids with define_liquid() and Labware.load_liquid() for tracking well contents and volumes.
 </about>
 
 ---
 
-## docs/v2/example_protocols/dilution_tutorial_multi.py
+### 18. liquid-class-definitions.md
 
 <about>
-This file is a serial dilution protocol for the OT-2 robot using an 8-channel pipette, created as the outcome of following the Python Protocol API Tutorial. It's a protocol file with API level 2.16 that performs a stepwise dilution across a 96-well plate. The protocol uses an 8-channel P300 Gen2 pipette mounted on the right side. No modules, fixtures, or adapters are used. The labware includes an Opentrons 96-tip rack (300µL), a NEST 12-well reservoir (15mL), and a NEST 96-well plate (200µL flat bottom). While specific liquids aren't named, the protocol references diluent in reservoir well A1 and sample solution in reservoir well A2. The protocol steps include: (1) distributing 100µL of diluent to all wells in the first row of the plate, (2) transferring 100µL of sample solution from the reservoir to the first well of the row with mixing, and (3) performing serial dilution by transferring 100µL from each well to the next across 11 wells in the row, mixing after each transfer.
+Opentrons-verified liquid class definitions for the Python API, covering three predefined categories used to configure pipette transfer behavior for different fluid types: Aqueous (based on deionized water), Viscous (based on 50% glycerol), and Volatile (based on 80% ethanol). Each section references detailed parameter tables specifying the liquid class properties applied during pipetting operations. These built-in liquid classes help automate aspiration and dispense settings tailored to fluid characteristics, supporting accurate liquid handling without manual configuration of flow rates, delays, or other transfer parameters for common liquid behaviors encountered in lab protocols.
 </about>
 
 ---
 
-## docs/v2/basic_commands/pipette_tips.rst
+### 19. liquid-class-tables/aqueous.md
 
 <about>
-This file is API documentation for pipette tip manipulation commands in the Opentrons Python API, not a protocol file. It provides comprehensive guidance on the three fundamental tip handling methods: pick_up_tip(), drop_tip(), and return_tip(), with code examples demonstrating basic usage and automation patterns. The documentation covers both OT-2 and Flex (OT-3) robots and references various pipette types (1-channel, 8-channel, and 96-channel) in the context of tip handling, with special notes about partial tip pickup restrictions for returning tips. While the examples use generic tip rack labware (like "opentrons_flex_96_tiprack_1000ul"), the file doesn't mention specific modules, fixtures, adapters, or liquids. The protocol steps documented include picking up tips (with automatic tracking), dropping tips (in trash or specific locations), returning tips to their original positions, and automating tip pickup through loops, with important notes about how the API tracks used versus unused tips.
+Aqueous liquid class aspirate parameters for Opentrons Flex pipettes across multiple pipette and tip configurations, including 1-channel and 8-channel 50 µL and 1000 µL pipettes, plus 96-channel 200 µL and 1000 µL pipettes. Tables detail behavior by volume for submerge speed, aspirate flow rate, delay after aspirating, retract speed, delay after retracting, and air gap, with values varying by tip volume (20 µL, 50 µL, 200 µL, 1000 µL) and target aspiration volume. Useful for configuring liquid class transfer functions and fine-tuning aspiration behavior in protocol scripting for aqueous liquids.
 </about>
 
 ---
 
-## docs/v2/basic_commands/utilities.rst
+### 20. liquid-class-tables/viscous.md
 
 <about>
-This file is API documentation for utility commands in the Opentrons Python API, not a protocol file. It provides guidance on robot utility features including protocol delays and pauses, homing operations for the gantry and pipettes, adding comments to protocols, controlling rail lights, and checking the OT-2 door safety switch status. The documentation covers both OT-2 and Flex robots, with the door safety switch being OT-2-specific and introduced in robot software version 3.19. While the examples reference loading pipettes (specifically mentioning a "flex_1channel_1000" in homing examples), the documentation doesn't specify particular modules, fixtures, adapters, labware, or liquids. The utility commands documented include delay (with seconds/minutes parameters), pause (with optional message), various homing methods (gantry, pipette Z-axis and plunger), comment display, rail light control (on/off), and door status checking for OT-2 robots.
+Aspirate settings for viscous liquid classes across pipette and tip volume combinations, including 1-channel and 8-channel pipettes with 50 µL and 1000 µL tips, plus the 96-channel pipette with 200 µL tips. Tables detail submerge speed, aspirate flow rate by volume, volume correction (µL adjustment) by aspirate volume, delay after aspirating, retract speed, delay after retracting, and air gap by volume, with values broken out per tip size (20 µL, 50 µL, 200 µL, 1000 µL) to fine-tune aspiration behavior for viscous liquid handling.
 </about>
 
 ---
 
-## docs/v2/basic_commands/liquids.rst
+### 21. liquid-class-tables/volatile.md
 
 <about>
-This file is API documentation for liquid control methods in the Opentrons Python API, not a protocol file. It provides comprehensive guidance on liquid handling commands including aspirating, dispensing, mixing, creating air gaps, and detecting liquid presence, with code examples and best practices for each method. The documentation covers both OT-2 and Flex (OT-3) robots, with some features being Flex-specific (like liquid detection and measurement), and references 1-channel, 8-channel, and 96-channel pipettes, particularly in the push-out volume specifications. While the documentation uses generic labware references like "plate" and "reservoir" in examples, it doesn't mention specific modules, fixtures, adapters, or liquids. The protocol steps documented include aspirate (with various positioning options), dispense (with flow rate and push-out controls), blow out, touch tip, mix, air gap creation, and Flex-specific features for detecting/requiring liquid presence and measuring liquid height.
+Aspirate behavior settings for the volatile liquid class, detailing default parameters used by Opentrons pipettes when drawing up liquid. Covers submerge speed, aspirate flow rate by volume, correction by volume, delay after aspirating, retract speed, delay after retracting, and air gap by volume, each broken down across pipette configurations including 1-channel and 8-channel pipettes at 50 µL and 1000 µL volumes, plus the 96-channel pipette at 200 µL. Values are organized in tables by specific liquid volumes (e.g., 1 µL, 20 µL, 50 µL, 200 µL, 1000 µL) to show how flow rates, corrections, and air gaps scale with aspirated volume for accurate volatile liquid handling.
 </about>
 
 ---
 
-## docs/v2/complex_commands/order_operations.rst
+### 22. liquid-classes.md
 
 <about>
-This file documents the order of operations for complex liquid handling commands in the Opentrons Python API, explaining how commands like transfer(), distribute(), and consolidate() execute as a series of basic building block commands. It details the fixed sequence of up to 10 possible steps (pick up tip, mix at source, aspirate, touch tip at source, air gap, dispense, mix at destination, touch tip at destination, blow out, drop tip) and provides examples showing how different parameter combinations affect the execution order. The documentation covers automatic tip refilling behavior when liquid volumes exceed pipette capacity, and explains how to use lists of volumes to transfer different amounts to different wells or skip wells entirely. While not a protocol file itself, it references both single-channel pipettes (50 µL and 1000 µL examples) and mentions generic labware like plates and tip racks in its examples, with no specific modules, fixtures, adapters, or liquids mentioned.
+Liquid classes for Flex protocols, covering Opentrons-verified definitions (Aqueous/water, Volatile/ethanol_80, Viscous/glycerol_50) and their properties like submerge speed, flow rate, touch tip, air gap, push out, blow out, and delay. Explains using ProtocolContext.get_liquid_class() to select a class and InstrumentContext.transfer_with_liquid_class() (introduced in API version 2.24) to perform transfers with pipette, tiprack, trash, and labware setup. Also covers customizing liquid class properties via get_for(), with an optional version parameter (added in 2.26) to select prior definition versions.
 </about>
 
 ---
 
-## docs/v2/complex_commands/sources_destinations.rst
+### 23. modules/absorbance-plate-reader.md
 
 <about>
-This file is API documentation for the Opentrons Python API's complex liquid handling commands, specifically covering the `transfer()`, `distribute()`, and `consolidate()` methods. It explains how these high-level commands handle liquid movement between multiple wells, with `transfer()` being the most versatile (allowing any number of source and destination wells), `distribute()` limiting to one source well and multiple destinations, and `consolidate()` limiting to multiple sources and one destination. The documentation details the different aspiration and dispensing patterns for each method, including how `transfer()` alternates between aspirating and dispensing, `distribute()` minimizes aspirations by filling the tip once and dispensing multiple times, and `consolidate()` aspirates multiple times before dispensing once. It also covers many-to-many transfer patterns, explaining how the API maps source wells to destination wells when lists of different sizes are provided, and discusses optimization strategies for reducing gantry movement and saving time. While this is reference documentation rather than a protocol, it mentions both OT-2 and Flex robots and references various pipette types (1-channel, 8-channel, 96-channel) in the context of optimizing liquid transfers, though it doesn't specify particular modules, fixtures, adapters, or labware beyond generic examples using plates and reservoirs.
+Absorbance Plate Reader module (absorbanceReaderV1) usage on Flex, loadable only in slots A3–D3. Covers lid control via open_lid(), close_lid(), and is_lid_on(), including gripper-based movement and required lid closure before initialization. Details AbsorbanceReaderContext.initialize() for setting single or multi-wavelength modes (450, 562, 600, 650 nm), optional reference wavelength, and read() for capturing plate data, with optional CSV export via export_filename. Explains interpreting returned nested dictionary data (optical density values by wavelength and well) versus structured CSV output, and reusing exported CSVs as runtime parameters with detect_dialect=False.
 </about>
 
 ---
 
-## docs/v2/complex_commands/parameters.rst
+### 24. modules/concurrent.md
 
 <about>
-This file documents complex liquid handling parameters for the Opentrons Python API, providing detailed explanations of optional parameters that control the behavior of complex commands like transfer(), distribute(), and consolidate(). The documentation covers parameters for tip handling (new_tip), mixing before/after operations, disposal volumes, touch tip actions, air gaps, blow out locations, and tip trash behavior, with extensive code examples showing how each parameter affects liquid handling operations. While not a protocol file itself, it references both OT-2 and Flex robots and mentions various pipette types (1-channel, 8-channel, 96-channel) in the context of parameter behavior, particularly noting capacity limitations and tip refilling strategies. The file uses generic labware references like "plate" and "reservoir" in examples but doesn't specify particular modules, fixtures, adapters, or liquids, focusing instead on how parameters modify the sequence of protocol steps including aspirating, dispensing, mixing, touching tips, creating air gaps, and managing tip usage throughout complex liquid handling operations.
+Concurrent module actions for Heater-Shaker, Temperature, and Thermocycler Modules, covering commands like set_target_temperature(), set_shake_speed(), start_set_temperature(), start_set_lid_temperature(), start_set_block_temperature(), and start_execute_profile(), which return Task objects running in the background while the robot continues protocol steps. Explains how to synchronize timing using wait_for_tasks() and create_timer() to pause execution until a module reaches target temperature or an incubation period completes, including guidance on avoiding errors when waiting for multiple tasks on the same module, such as sequential temperature changes on a Temperature Module.
 </about>
 
 ---
 
-## docs/v2/pipettes/volume_modes.rst
+### 25. modules/flex-stacker.md
 
 <about>
-This file documents the volume modes feature for Flex 50 µL pipettes (both 1-channel and 8-channel) in the Opentrons API, explaining how to configure these pipettes for accurate dispensing of very small liquid volumes. The documentation describes the `configure_for_volume()` method introduced in API version 2.15, which switches between low-volume mode (1-4.9 µL) and regular mode (5-50 µL), affecting the pipette's minimum/maximum volumes and default push-out volumes. It provides code examples showing how to configure the pipette before liquid handling operations, emphasizes that the pipette must not contain liquid when changing modes, and demonstrates best practices for handling multiple volumes in a protocol using loops. The file is specific to Flex (OT-3) robots and their 50 µL pipettes, with no mention of modules, fixtures, adapters, or specific labware beyond generic plate references used in examples.
+Flex Stacker Module setup on Opentrons Flex, covering loading up to four stackers in column 4 deck slots (A4, C4), deck slot conflicts with column 3 fixtures, and configuring stored labware with set_stored_labware() and set_stored_labware_items(), including capacity for tip racks, PCR plates, and deep well plates. Details methods like get_max_storable_labware(), get_current_storable_labware(), get_stored_labware(), retrieve(), store(), fill(), and empty() for managing labware stacks, plus using move_labware() with the Flex Gripper to transfer labware between the Stacker and deck. Introduced in API version 2.25.
 </about>
 
 ---
 
-## docs/v2/pipettes/partial_tip_pickup.rst
+### 26. modules/heater-shaker.md
 
 <about>
-This file is comprehensive API documentation for the partial tip pickup feature in Opentrons robots, not a protocol file. It explains how to configure multi-channel pipettes (8-channel and 96-channel) to use fewer tips than their full capacity, which is especially useful for the Flex 96-channel pipette that occupies both mounts. The documentation covers various nozzle layouts including column (API 2.16+), row (API 2.20+), single tip (API 2.20+), and partial column configurations (API 2.20+), with detailed code examples for each. It addresses both OT-2 and Flex robots, though some features are Flex-specific. The file includes important information about tip rack adapters (required for full 96-channel pickup but not for partial pickup), deck extent limitations, labware arrangement considerations to avoid collisions, and best practices for organizing tip racks when switching between full and partial pickup modes. While it references generic tip racks like "opentrons_flex_96_tiprack_1000ul" in examples, it doesn't specify particular modules, fixtures, liquids, or complete protocol steps beyond the configuration and tip pickup operations.
+Heater-Shaker module usage in the Python API, covering deck slot placement rules for Flex and OT-2, including restrictions on adjacent modules, tall labware, and 8-channel pipettes on OT-2. Details labware latch control via open_labware_latch() and close_labware_latch(), loading adapters and labware with load_adapter() and load_labware(), standalone adapter types, and pre-configured adapter-labware combinations.
 </about>
 
 ---
 
-## docs/v2/pipettes/loading.rst
+### 27. modules/index.md
 
 <about>
-This file is API documentation for loading pipettes in the Opentrons Python protocol API, not a protocol file itself. It provides comprehensive guidance on how to load and configure pipettes for both Flex (OT-3) and OT-2 robots, including API load names for all available pipette models (1-channel, 8-channel, and 96-channel variants). The documentation covers loading pipettes with their associated tip racks, configuring trash containers, and enabling liquid presence detection (a Flex-specific feature). While it includes code examples showing how to load pipettes and tip racks (using generic tiprack labware like "opentrons_flex_96_tiprack_1000ul"), it doesn't describe a complete protocol or mention specific modules, fixtures, adapters, or liquids. The file also details advanced features like automatic tip tracking, custom trash container assignment, and global liquid presence detection settings that can be toggled on and off during protocol execution.
+Overview of hardware modules for Flex and OT-2 robots, covering deck-mounted peripherals like the Absorbance Plate Reader Module, Flex Stacker Module, Heater-Shaker Module, Magnetic Block, Magnetic Module, Temperature Module, and Thermocycler Module. Explains the difference between powered modules (USB-connected, auto-detected) and unpowered modules like the Magnetic Block. Links to related topics including module and labware setup, concurrent module actions during pipetting or gripper steps, and loading multiple modules of the same type. Notes that OT-2 users on API version 2.14 or earlier must use numeric deck slots instead of coordinate slots.
 </about>
 
 ---
 
-## docs/v2/pipettes/characteristics.rst
+### 28. modules/magnetic-block.md
 
 <about>
-This file documents the fundamental characteristics and capabilities of Opentrons pipettes, covering multi-channel movement patterns, flow rates, and pipette generations. It explains how multi-channel pipettes (8-channel and 96-channel) use their primary channel (back-left) as a reference point for movement, with specific well access limitations based on channel count and plate type. The documentation provides detailed flow rate specifications for both Flex and OT-2 pipettes, showing default aspirate/dispense/blow-out rates in µL/s for different pipette models and tip capacities, and explains how to modify these rates programmatically. It also covers backward compatibility between OT-2 GEN2 and GEN1 pipettes, noting volume range overlaps and exceptions. While not a protocol file, the documentation includes code examples demonstrating pipette movement and flow rate control for both robot types (OT-2 and Flex), referencing standard labware like 96-well and 384-well plates, but doesn't specify modules, fixtures, adapters, or specific liquids.
+Magnetic Block module usage in the Opentrons Python API, covering loading the module with load_module using module_name "magneticBlockV1" into a deck slot, and adding labware such as a 96-well plate via load_module and load_labware. Demonstrates moving labware between deck locations using the gripper with protocol.move_labware and the use_gripper parameter, relevant to Flex robots supporting gripper-based labware transfers. Introduced in API version 2.15, this reference helps with questions about magnetic modules, labware placement, deck slots, and gripper-enabled automated labware movement commands.
 </about>
 
 ---
 
-## docs/v2/parameters/using_values.rst
+### 29. modules/magnetic-module.md
 
 <about>
-This file is documentation for using runtime parameters in Opentrons Python protocols, not a protocol file itself. It explains how to access and manipulate parameter values within the `run()` function through the `params` object, covering different parameter types (boolean, integer, float, and CSV) and their usage. The documentation provides examples of accessing parameter attributes like `params.dry_run`, `params.sample_count`, and `params.volume`, with special attention to CSV parameter handling through the `CSVParameter` class that offers three access methods: as a file handler, as a string, or as nested lists via `parse_as_csv()`. It also outlines limitations of parameters, noting they cannot affect import statements, robot type selection, API version, metadata, or other runtime parameters, and explains that parameter values are applied through protocol reanalysis which affects timing-dependent operations like labware offset application. The documentation includes practical tips for type casting and error handling, particularly for CSV parameters that lack default values.
+Magnetic Module control in the Opentrons Python API, covering loading compatible labware (Bio-Rad, NEST, Thermo Scientific Nunc, USA Scientific PCR and deep well plates) via load_labware() and checking magdeck_engage_height. Details engage() and disengage() methods, including height_from_base and offset parameters for positioning magnets relative to labware base, introduced in API version 2.0 and 2.2 respectively. Also covers the status property for checking engaged/disengaged state, deactivate() for turning off the module, and differences between GEN1 and GEN2 Magnetic Module hardware, including recommended bead attraction times and Adapter Magnets for added strength.
 </about>
 
 ---
 
-## docs/v2/parameters/choosing.rst
+### 30. modules/multiple-same-type.md
 
 <about>
-This file provides guidance on choosing effective parameters for Opentrons Python protocols, focusing on best practices for parameterization rather than being a protocol itself. It discusses three key goals when adding parameters: adding flexibility for run-to-run variations, working efficiently without overwhelming users with choices, and avoiding errors by ensuring all parameter combinations produce valid protocols. The document uses examples like serial dilution protocols and pipette mount configurations to illustrate how to build parameters around core scientific tasks, avoid contradictory inputs, and set appropriate boundaries for numerical parameters. It emphasizes the importance of reasoning through user choices to prevent nonsensical outcomes and suggests collapsing multiple related questions into single parameters when possible to reduce complexity and potential errors.
+Loading multiple instances of the same module type on Flex and OT-2 robots using protocol.load_module() with module_name or load_name parameters. Explains how module load order is determined by USB port connection rather than deck slot position—modules connected to lower-numbered USB ports load first regardless of their assigned deck slot location. Includes example code for temperature module gen2 on both robot types, showing deck slot placement (D1/C1 for Flex, slots 1/3 for OT-2) alongside corresponding USB port assignments (ports 2/6 for Flex, ports 1/2 for OT-2), with diagrams illustrating physical USB connection order.
 </about>
 
 ---
 
-## docs/v2/parameters/use_case_cherrypicking.rst
+### 31. modules/setup.md
 
 <about>
-This file documents a parameter use case for cherrypicking in Opentrons Python protocols, demonstrating how to use CSV runtime parameters to automate liquid transfers from specific source wells to destination wells. The example protocol is for a Flex robot (API level 2.20 or higher) using a 1-channel 1000 µL pipette. The protocol uses Opentrons 96-well PCR plates (200 µL full skirt) for both source and destination labware, along with a 1000 µL tip rack and trash bin. The CSV parameter controls source slot, source well, and transfer volume, allowing technicians to customize cherrypicking operations without modifying the Python code. The documented protocol steps include parsing CSV data, dynamically loading source labware based on CSV content, and performing parameterized liquid transfers using the parsed data in a loop that maps source locations to sequential destination wells.
+Module setup in the Opentrons Python API covers loading modules onto the deck with ProtocolContext.load_module(), including Temperature Module GEN1/GEN2, Magnetic Module GEN1/GEN2, Thermocycler Module GEN1/GEN2, Heater-Shaker Module GEN1, Magnetic Block GEN1, Absorbance Plate Reader Module, and Flex Stacker Module, along with their API load names and minimum required API versions. It also explains loading labware onto a module using the module context's load_labware() method, module and labware compatibility considerations, and additional labware parameters like label, version, and namespace, applicable to both Flex and OT-2 robot types.
 </about>
 
 ---
 
-## docs/v2/parameters/use_case_dry_run.rst
+### 32. modules/temperature-module.md
 
 <about>
-This file is a use case documentation for implementing a dry run parameter in Opentrons Python protocols, not a protocol file itself. It provides detailed guidance on how to add a Boolean parameter that allows users to perform test runs without handling actual samples or reagents. The documentation demonstrates how a single dry run parameter can control three main behaviors: skipping module actions and delays (including Thermocycler operations), reducing mix repetitions from 10 to 1 to save time, and returning tips to their racks instead of disposing them in trash. While the file references both OT-2 and Flex robots through mentions of tip handling and gripper usage, it doesn't specify particular pipette types, modules (except for a Thermocycler example), fixtures, adapters, labware, or liquids. The protocol steps mentioned include delays, thermocycler operations (setting temperatures, executing PCR profiles), mixing steps, tip handling (pick up, return, drop), and labware movement, all shown as conditional operations based on the dry run parameter value.
+Temperature Module Python API covers loading labware and adapters via load_adapter() and load_labware(), including standalone adapter definitions (aluminum flat bottom plate, 96-well aluminum block, 96 deep well temp mod adapter), 24-well block-and-tube combinations, and 96-well block-and-plate combinations for backwards compatibility. It details temperature control using blocking set_temperature() (since API 2.0) versus concurrent start_set_temperature() (since API 2.27), the deactivate() method, and checking module state with the status property ("holding at target" or "idle").
 </about>
 
 ---
 
-## docs/v2/parameters/style.rst
+### 33. modules/thermocycler.md
 
 <about>
-This file is a style guide for writing parameters in Opentrons Python protocols, not a protocol file itself. It provides comprehensive guidance on how to write clear, consistent parameter names and descriptions when defining runtime parameters (RTP) in protocols. The guide covers general principles like using nouns for parameter names, writing action-oriented descriptions, using sentence case, and ordering choices logically. It also includes type-specific guidance for Boolean parameters (avoiding double negatives, using "On/Off" terminology), numeric choice parameters (not repeating text in choices, using ranges when appropriate), and string parameters (avoiding yes/no synonyms when Boolean would be better). The document emphasizes clarity and consistency to improve the user experience for technicians running protocols, with numerous examples of good and bad practices marked with ✅ and ❌ symbols.
+Thermocycler module control via the Python API, covering lid operations (open_lid, close_lid, set_lid_temperature, start_set_lid_temperature, deactivate_lid) and block temperature control (set_block_temperature, start_set_block_temperature, deactivate_block), including hold times, ramp_rate, and block_max_volume parameters. Also details Thermocycler profiles as lists of temperature/hold_time dictionaries executed via execute_profile or start_execute_profile with repetitions, plus concurrent module action support introduced in version 2.27. Ramp rate control was added in version 2.28.
 </about>
 
 ---
 
-## docs/v2/parameters/use_case_sample_count.rst
+### 34. moving-labware.md
 
 <about>
-This file documents a comprehensive use case for implementing sample count parameters in Opentrons protocols, demonstrating how a single parameter can affect multiple aspects of protocol execution. The example is adapted from an actual DNA prep protocol that uses 8-channel pipettes to process 8, 16, 24, or 32 samples on a Flex robot. The protocol uses both 50 µL and 200 µL tip racks, a Heater-Shaker Module with an adapter (opentrons_96_pcr_adapter), various labware including a NEST 12-well reservoir and Opentrons 96-well PCR plate, and multiple liquids (AMPure Beads, Tagmentation Stop, Tagmentation Wash Buffer, and samples). The documentation explains how the sample count parameter influences tip rack loading calculations, reagent volume calculations, sample processing loops, and tip replenishment strategies, with code examples showing how to dynamically adjust these elements based on the chosen sample count. Key protocol steps mentioned include liquid loading, sample labeling, tagmentation stop addition, and sample transfers between different plate columns.
+Moving labware with the Opentrons Flex covers ProtocolContext.move_labware() and move_lid() for relocating labware, tip racks, and lids between deck slots, modules, adapters, the waste chute, and off-deck locations using OFF_DECK. Explains automatic gripper-based moves (use_gripper=True) versus manual pauses requiring user confirmation, supported labware like NEST plates, Armadillo and Opentrons PCR plates, Flex tip racks, and Opentrons lids. Details module accessibility requirements (open_labware_latch, open_lid) for Heater-Shaker and Thermocycler, load_lid_stack usage, and reloading tip racks mid-protocol.
 </about>
 
 ---
 
-## docs/v2/parameters/defining.rst
+### 35. pipettes/characteristics.md
 
 <about>
-This file documents how to define parameters in Opentrons Python protocols, providing a comprehensive guide on creating runtime parameters (RTP) that allow users to customize protocol behavior during run setup. The documentation explains the `add_parameters()` function and covers five parameter types: Boolean, integer, float, string, and CSV file parameters (added in version 2.20). Each parameter type has specific attributes including variable_name, display_name, description, default values, and type-specific options like minimum/maximum ranges or predefined choices. The file includes code examples for each parameter type, showing how to define them with appropriate constraints and user-friendly display options. This is not a protocol file itself but rather API documentation that helps protocol developers create flexible, user-configurable protocols that can be adjusted at runtime through the Opentrons App or Flex touchscreen interface.
+Pipette characteristics for Opentrons Flex and OT-2, covering multi-channel movement with 1-, 8-, and 96-channel pipettes across 96-well and 384-well plates, including primary channel behavior, configure_nozzle_layout(), partial tip pickup, and well-access patterns for aspirate/dispense with InstrumentContext. Also details flow rate control via InstrumentContext.flow_rate.aspirate, .dispense, and .blow_out, configure_for_volume() resetting defaults, and the deprecated InstrumentContext.speed (API 2.13 and earlier).
 </about>
 
 ---
 
-## docs/v2/modules/heater_shaker.rst
+### 36. pipettes/index.md
 
 <about>
-This file is documentation for the Heater-Shaker Module in the Opentrons Python API, not a protocol file. It provides comprehensive guidance on using the Heater-Shaker Module, which can heat samples from 37-95°C and shake from 200-3000 rpm. The documentation covers deck placement restrictions for both OT-2 and Flex robots, with specific limitations on OT-2 regarding adjacent module placement, tall labware restrictions, and 8-channel pipette movement constraints. It details how to control the module's labware latch, load various thermal adapters (Universal Flat, 96 PCR, 96 Deep Well, and 96 Flat Bottom adapters), and compatible labware combinations. The documentation explains both blocking and non-blocking command execution for heating and shaking operations, with code examples showing how to set temperatures and shake speeds, manage timing, and deactivate the module. While this is API documentation rather than a specific protocol, it references various labware types and provides example code snippets for common operations like temperature control and orbital shaking.
+Pipettes covers the Opentrons Python API's treatment of Flex and OT-2 pipettes, the configurable devices used to move liquids during protocol execution. It serves as an index to related pages: loading pipettes into a protocol, pipette characteristics like movement speed and deck positioning, partial tip pickup configurations for multi-channel pipettes (which can be combined with full tip pickup in one protocol), and volume modes for Flex 50 µL pipettes, which require low-volume mode for accurate dispensing of very small liquid amounts. Liquid handling details are covered separately in Building Block Commands and Complex Commands documentation.
 </about>
 
 ---
 
-## docs/v2/modules/magnetic_module.rst
+### 37. pipettes/loading.md
 
 <about>
-This file documents the Magnetic Module for the OT-2 robot, which controls permanent magnets that can move vertically to create magnetic fields for magnetic bead-based protocols. The documentation covers the MagneticModuleContext API for engaging (raising) and disengaging (lowering) magnets, with examples showing a Magnetic Module GEN2 loaded in slot 6. It lists compatible 96-well PCR plates and deep well plates from the Opentrons Labware Library, including NEST, Bio-Rad, Thermo Scientific Nunc, and USA Scientific plates. The module supports height customization through `height_from_base` and `offset` parameters when engaging magnets, with the GEN2 version using smaller magnets that require 5-7 minute attraction times depending on liquid volume. The documentation notes that adapter magnets are available for applications requiring additional magnetic strength, and emphasizes that the module must be manually deactivated after protocol completion.
+Loading pipettes with load_instrument() covers API load names for Flex pipettes (flex_1channel_50/1000, flex_8channel_50/1000, flex_96channel_200/1000) and OT-2 pipettes (P20, P300, P1000 GEN2 models), plus GEN1 references. Includes code samples for mounting single, multi-, and 96-channel pipettes, using tip_racks for automatic tip tracking, and manual pick_up_tip location specification. Details tip-pipette compatibility tables matching pipette capacity to compatible Flex tip racks (20µL added in version 2.28), and configuring trash_container using trash bins or waste chutes, including TrashBin/WasteChute support added in version 2.16.
 </about>
 
 ---
 
-## docs/v2/modules/temperature_module.rst
+### 38. pipettes/partial-tip-pickup.md
 
 <about>
-This file documents the Temperature Module for Opentrons robots, providing comprehensive guidance on using this heating and cooling device that can control temperatures between 4°C and 95°C. The documentation covers how to load the Temperature Module (both GEN1 and GEN2 versions) in Python protocols, including methods for loading various adapters and labware combinations. It details three types of labware configurations: standalone adapters (aluminum flat bottom plate, 96-well aluminum block, and 96 deep well adapter), 24-well block-and-tube combinations for various tube types (0.5-2mL), and legacy 96-well block-and-plate combinations. The file explains temperature control methods including `set_temperature()` for setting target temperatures and `deactivate()` for stopping temperature control, as well as how to check the module's status. While not a protocol itself, the documentation provides code examples compatible with API version 2.0 and later, with specific features added in versions 2.3 and 2.15, and applies to both OT-2 and Flex robots without specifying particular pipettes or liquids.
+Partial tip pickup on Flex robots using configure_nozzle_layout() with InstrumentContext, covering nozzle layout constants COLUMN, ROW, SINGLE, ALL, and PARTIAL_COLUMN imported from opentrons.protocol_api. Explains configuring the 96-channel pipette for column, row, and single-tip pickup, and the 8-channel pipette for single and partial column (2-7 tip) pickup, including start and end nozzle parameters, tip_racks assignment, pick_up_tip() and drop_tip() usage, manual tip tracking with Labware.rows() and rows_by_name(), and version notes (2.16, 2.20) for each layout style.
 </about>
 
 ---
 
-## docs/v2/modules/thermocycler.rst
+### 39. pipettes/volume-modes.md
 
 <about>
-This file is API documentation for the Thermocycler Module in the Opentrons Python API, not a protocol file. It provides comprehensive guidance on controlling the Thermocycler Module's lid, block temperature, and temperature profiles for automated thermocycling operations. The documentation covers both GEN1 and GEN2 Thermocycler modules, with the GEN2 having a plate lift feature for easier plate removal. The module can heat the block between 4-99°C and the lid up to 110°C. Key features documented include lid control (open/close and temperature settings), block temperature control with hold times and volume adjustments, and creating/executing temperature profiles for PCR and other heat-sensitive reactions. The documentation also covers the use of auto-sealing lids with the Flex robot and gripper, including the Opentrons Tough PCR Auto-sealing Lid and Flex Deck Riser adapter. Example labware mentioned includes "opentrons_96_wellplate_200ul_pcr_full_skirt" for PCR plates. While specific pipettes and liquids aren't mentioned, the documentation focuses on the module's temperature control capabilities and integration with automated liquid handling workflows.
+Volume modes for Flex 1-Channel 50 µL and 8-Channel 50 µL pipettes, which must switch into low-volume mode to accurately handle very small liquid amounts. Explains InstrumentContext.configure_for_volume(), introduced in API version 2.15, which sets minimum/maximum volume ranges (1–4.9 µL and 5–50 µL) and default push-out volumes (7 µL or 2 µL), linking to push-out-after-dispense documentation. Covers required pipette state (no liquid present when calling configure_for_volume), tip pick-up order, and best practices for calling it once per transfer/aspirate or within a for loop when handling variable volume lists.
 </about>
 
 ---
 
-## docs/v2/modules/magnetic_block.rst
+### 40. reference/absorbance-plate-reader.md
 
 <about>
-This file documents the Magnetic Block module for the Opentrons Flex robot, which is an unpowered 96-well plate with high-strength neodymium magnets for magnetic bead-based protocols. The documentation explains that unlike powered modules, the Magnetic Block is not directly controlled by the robot or app, but rather manipulated through protocol commands to load labware onto it and use the Flex Gripper to move labware on and off the module. The file provides code examples showing how to load the Magnetic Block in a deck slot using the MagneticBlockContext object, load labware (specifically a biorad_96_wellplate_200ul_pcr plate) onto the module, and move that labware using the Flex Gripper. This module is exclusively compatible with the Flex robot (not OT-2) and was added in API version 2.15.
+Absorbance Plate Reader API reference covering the AbsorbanceReaderContext class, used for controlling Opentrons absorbance reader modules within a protocol. This documentation details the public methods and inherited members available on AbsorbanceReaderContext for initializing measurements, reading absorbance values, and managing plate reader operations. It excludes internal implementation details like broker, geometry, load_labware_object, and load_adapter methods, focusing instead on the user-facing API surface relevant to configuring and executing absorbance readings as part of automated liquid handling workflows involving compatible labware and plate-based assays.
 </about>
 
 ---
 
-## docs/v2/modules/setup.rst
+### 41. reference/execute-simulate.md
 
 <about>
-This file is API documentation for module setup in the Opentrons Python API, not a protocol file. It provides comprehensive guidance on how to load and configure hardware modules (Temperature Module, Magnetic Module, Thermocycler, Heater-Shaker, Magnetic Block, and Absorbance Plate Reader) onto the robot deck and how to load labware onto these modules. The documentation covers both OT-2 and Flex robots, showing code examples for loading modules using the `load_module()` method with appropriate API load names and deck locations. It includes a detailed table of available modules with their API load names and the API versions in which they were introduced (ranging from 2.0 to 2.21). The file also explains how to load labware onto modules using the module context's `load_labware()` method, discusses module-labware compatibility considerations, and mentions that custom labware with proper stacking offsets can be used with module adapters. While it references generic labware like the Opentrons 24 Well Aluminum Block in examples, it doesn't specify particular pipettes, liquids, or protocol steps beyond the module and labware loading procedures.
+Python API reference for the opentrons.execute and opentrons.simulate modules, which allow protocol authors to run or simulate Opentrons Python API protocols outside the normal robot execution environment. These modules are useful for testing protocol logic, checking for errors, and running protocols directly from the command line or a script on a computer or robot, without needing the full Opentrons App. Relevant for questions about protocol validation, dry runs, simulation results, and programmatic execution of pipette, labware, and module commands during development.
 </about>
 
 ---
 
-## docs/v2/modules/multiple_same_type.rst
+### 42. reference/flex-stacker.md
 
 <about>
-This file documents how to use multiple modules of the same type within a single Opentrons protocol, explaining that modules load based on their USB port number rather than deck location. The documentation covers both Flex (OT-3) and OT-2 robots, showing example code for loading multiple Temperature Module Gen2 units in different deck slots, with the module connected to the lowest USB port number loading first. While not a complete protocol, the examples demonstrate the module loading syntax for both robot types, with the Flex example showing modules in slots D1 and C1 (USB ports 2 and 6), and the OT-2 example showing modules in slots 1 and 3 (USB ports 1 and 2). The documentation notes that the Thermocycler Module is an exception that cannot be used in multiples due to its size, and recommends using the Opentrons App module controls to verify commands are being sent to the expected modules.
+Flex Stacker module API reference covering the FlexStackerContext class, which provides Python methods for controlling the Flex Stacker labware storage and retrieval hardware module on Flex robots. This reference documents the inherited members and methods available for programmatically managing stacker operations within Opentrons protocols, including loading, storing, and retrieving labware stacks. Relevant for questions about Flex Stacker module commands, labware handling automation, hardware module integration, and API methods specific to this storage module's context object in the Protocol API.
 </about>
 
 ---
 
-## docs/v2/modules/absorbance_plate_reader.rst
+### 43. reference/heater-shaker.md
 
 <about>
-This file documents the Absorbance Plate Reader Module for the Opentrons Flex robot (API version 2.21+), which is an on-deck microplate spectrophotometer that measures sample concentrations in 96-well plates using light absorbance. The module can only be loaded in slots A3-D3 and uses the Flex Gripper to control its lid, with the detection unit in deck column 3 and a staging area for the lid in column 4. The documentation covers the complete workflow: closing the lid, initializing the reader (supporting wavelengths 450nm, 562nm, 600nm, and 650nm in single or multi-mode with optional reference wavelength), opening the lid, moving a plate onto the module, closing the lid again, and reading the plate. The module outputs optical density (OD) values from 0.0 to 4.0 as either a nested dictionary for in-protocol use or a CSV file for post-run analysis, with the CSV containing a 9x12 grid matching the plate layout plus metadata about wavelengths, serial number, and timestamps.
+Heater-Shaker module control via the HeaterShakerContext class in the Opentrons Python Protocol API. Covers methods and properties for managing the heater-shaker hardware module, including setting and reading target temperature, controlling shaking speed, latching and unlatching the labware clamp, and monitoring module status during protocol execution. Useful for questions about integrating heater-shaker modules into protocols, temperature and shake control commands, labware latch operations, and module state inheritance within the broader protocol API context for Flex and OT-2 robots.
+</about>
+
+---
+
+### 44. reference/instruments.md
+
+<about>
+Python API reference for the InstrumentContext class, covering pipette instrument methods and properties available in the Opentrons Python Protocol API. This page documents the attributes and functions used to control pipette behavior during protocol execution, such as aspirating, dispensing, mixing, transferring liquids, tip handling, and other pipette-related actions. It serves as a reference for developers configuring pipette instruments on Flex or OT-2 robots, excluding delay-related and internal/private methods from the listing.
+</about>
+
+---
+
+### 45. reference/labware.md
+
+<about>
+Python API reference for the Labware class and fixed trash disposal locations in Opentrons protocols. Covers Labware object properties and methods used to reference wells, tip racks, and reservoirs on the deck, excluding internal tip-tracking methods like next_tip, use_tips, previous_tip, and return_tips. Also documents TrashBin and WasteChute classes, including their top attribute, which represent Flex-compatible trash and waste chute fixtures used for discarding tips and liquid waste during protocol execution.
+</about>
+
+---
+
+### 46. reference/magnetic-block.md
+
+<about>
+Python API Reference for MagneticBlockContext, the class representing a Magnetic Block module on Flex robots. This page documents the inherited members and API methods available for interacting with the Magnetic Block, which is used to hold labware in place using magnetic force during protocol execution, such as for bead-based sample separations. It covers the object model used to reference and control this module within Opentrons Python Protocol API scripts, relevant to protocols involving magnetic labware handling on compatible robot types.
+</about>
+
+---
+
+### 47. reference/magnetic-module.md
+
+<about>
+Python API reference for the MagneticModuleContext class, covering methods and properties used to control the Magnetic Module in Opentrons protocols. This includes engaging and disengaging the module's magnets, setting engagement height, and managing labware placed on the module. The reference documents public members inherited by the class, excluding internal implementation details like broker, geometry, load_labware_object, and calibrate. Useful for questions about magnetic bead-based workflows, module control commands, and pipette interactions with labware positioned on the Magnetic Module during protocol execution on supported Opentrons robots.
+</about>
+
+---
+
+### 48. reference/protocols.md
+
+<about>
+Python API reference for the ProtocolContext class, the central object representing a protocol run in Opentrons Python API v2. Covers its methods and properties for controlling protocol execution, excluding internal items like location_cache, cleanup, clear_commands, group_steps, and create_and_start_step_group. Also documents the Task class. Relevant for questions about structuring protocols, managing steps, pipette and labware interactions within a protocol, and general protocol-level API methods used across Flex and OT-2 robots.
+</about>
+
+---
+
+### 49. reference/robot-motors.md
+
+<about>
+Robot motors reference covering the RobotContext class within the Opentrons Python Protocol API. This documentation addresses low-level robot motor control and hardware axis management, relevant for advanced protocol authors working directly with robot movement mechanics on Flex or OT-2 systems. It serves as an API reference entry point for developers needing to interact with or query robot motor states beyond standard pipette and labware commands, supporting more granular control over robot hardware behavior within custom protocol logic.
+</about>
+
+---
+
+### 50. reference/temperature-module.md
+
+<about>
+Python API reference for TemperatureModuleContext, covering methods and properties available for controlling the Temperature Module within Opentrons protocols. This class provides the interface for setting and managing temperature on the module, including functionality for reaching and maintaining target temperatures. Relevant for protocols that require temperature-controlled labware, such as sample cooling or heating steps, and is applicable to both Flex and OT-2 robot types using the Python Protocol API.
+</about>
+
+---
+
+### 51. reference/thermocycler.md
+
+<about>
+Thermocycler module API reference, covering the ThermocyclerContext class used to control the Thermocycler Module in Opentrons protocols. It documents public methods and properties for managing lid position (open/close), block and lid temperature control, running profiles for PCR-style temperature cycling, and monitoring module state. Internal attributes like broker, geometry, load_labware_object, load_adapter, hold_time, ramp_rate, and cycle/step counters are excluded from the listing. This reference is relevant for protocols using the Thermocycler on Flex or OT-2 robots to automate heating, cooling, and thermal cycling steps for applications such as PCR amplification.
+</about>
+
+---
+
+### 52. reference/types.md
+
+<about>
+Reference for core Opentrons Python API types used throughout protocol scripting. Covers Location, Point, Mount, and StringAxisMap from opentrons.types for representing coordinates, deck positions, and pipette mount assignments; APIVersion for specifying protocol API compatibility; CSVParameter for runtime CSV file parameters; and OFF_DECK along with OffDeckType for marking labware as removed from the deck. These types support labware placement, pipette movement, robot configuration, and runtime parameter handling in Opentrons Flex and OT-2 protocols.
+</about>
+
+---
+
+### 53. reference/wells-liquids.md
+
+<about>
+Python API reference for wells and liquids, covering the Well class with its properties and methods for accessing well geometry, position, and location data within labware, excluding internal and liquid-height estimation helpers. Also documents the Liquid class for defining and tracking liquids loaded into a protocol, and the LiquidClass class, focusing on its get_for method used to retrieve predefined liquid class transfer properties for specific pipette and tip combinations, supporting accurate aspirate and dispense behavior configuration.
+</about>
+
+---
+
+### 54. robot-position.md
+
+<about>
+Labware and deck positioning in the Opentrons Python API, covering well positions via Well.top(), Well.bottom(), Well.center(), and Well.meniscus() methods, plus default aspirate/dispense clearance using well_bottom_clearance. Explains Labware Position Check for offset calculation, movement relative to TrashBin and WasteChute objects using top() methods, deck coordinate system (Location and Point objects), and independent pipette movement with move_to(). References InstrumentContext.aspirate(), dispense(), transfer(), and measure_liquid_height(), noting Flex-only liquid height detection and differences between OT-2 and Flex collision handling at well bottoms.
+</about>
+
+---
+
+### 55. runtime-parameters/choosing.md
+
+<about>
+Guidance on designing effective runtime parameters for Opentrons protocols, focusing on decision-making rather than API syntax. Covers how to align parameters with the protocol's core scientific task (e.g., sample count vs. reagent kit choice), avoid contradictory or dangerous configurations (such as ambiguous pipette mount assignments), and set sensible minimum and maximum boundaries for numerical parameters like dilution counts, dilution factors, and row numbers. Uses the serial dilution tutorial protocol as a recurring example to illustrate combining parameters and enforcing logical limits based on labware format, such as 96-well versus 384-well plates.
+</about>
+
+---
+
+### 56. runtime-parameters/defining.md
+
+<about>
+Runtime parameter definitions using the required add_parameters() function, which takes a ParameterContext argument and must precede run(). Covers the four built-in parameter types—boolean (add_bool), integer (add_int), float (add_float), and string (add_str)—along with configuration options like variable_name, display_name, description, default, minimum, maximum, unit, and choices for menu-based selection. Also explains CSV file parameters (add_csv_file), introduced in API version 2.20, which lack default values and are limited to one per protocol, while other parameter types were introduced in version 2.18.
+</about>
+
+---
+
+### 57. runtime-parameters/index.md
+
+<about>
+Runtime parameters overview covering how to add user-customizable variables to Python protocols, letting technicians adjust behavior at setup without editing code. It links to guidance on choosing good parameters, defining boolean, numeric, and string parameter types, and using parameter values to drive protocol logic and API calls. It also introduces practical use cases like setting sample count, enabling a dry run toggle, and cherrypicking with CSV-specified locations and volumes, plus style and usage advice for writing clear parameter names and descriptions for the people running the protocol.
+</about>
+
+---
+
+### 58. runtime-parameters/style.md
+
+<about>
+Style conventions for naming and describing runtime parameters in the Opentrons Python API. Covers writing parameter names as concise nouns, crafting action-oriented descriptions with proper punctuation, and using sentence case. Addresses formatting numbers, ordering choices logically (numeric ascending/descending or alphabetical), and type-specific guidance for Booleans (On/Off values, avoiding double negatives), number choices (using minimum/maximum ranges versus explicit choices, adding units to display names), and strings (avoiding yes/no synonyms in favor of Boolean toggles). Useful for designing display_name, description, and choices attributes for protocol parameters.
+</about>
+
+---
+
+### 59. runtime-parameters/use-case-cherrypicking.md
+
+<about>
+Cherrypicking protocol design using CSV runtime parameters on Flex robots, demonstrating add_csv_file() and parse_as_csv() to dynamically load labware and drive liquid transfers. Covers building a parameter with add_parameters(), parsing CSV rows into source slot, source well, and volume data, deduplicating slots for loading Opentrons Tough PCR plates, and referencing labware via ProtocolContext.deck. Also details load_labware(), load_instrument() for the flex_1channel_1000 pipette, load_trash_bin(), Labware.wells(), and using pipette.transfer() in a loop with enumerate() to map source and destination wells based on CSV data, at apiLevel 2.28.
+</about>
+
+---
+
+### 60. runtime-parameters/use-case-dry-run.md
+
+<about>
+Runtime parameters for implementing a dry run toggle in Opentrons Python protocols, using a Boolean parameter (add_bool) accessed via protocol.params.dry_run. Covers conditionally skipping delays with protocol.delay() and Thermocycler Module operations (set_block_temperature, set_lid_temperature, execute_profile), shortening mix() repetitions, and managing tip handling by choosing between drop_tip() and return_tip(). Also addresses replenishing tip racks differently for dry versus live runs using reset_tipracks() and move_labware() with the gripper or manual placement, plus writing clear parameter descriptions.
+</about>
+
+---
+
+### 61. runtime-parameters/use-case-sample-count.md
+
+<about>
+Runtime parameters for sample count in Flex protocols, showing how an integer parameter with defined choices (8, 16, 24, 32) drives dynamic protocol behavior. Covers calculating column counts from sample count for 8-channel pipettes, computing required tip rack quantities using math.ceil(), and conditionally loading labware via load_labware() based on slot lists. Demonstrates load_liquid() for reagents and samples with volume calculations scaled by column_count, iterating over wells and labware with list slicing and zip(), and using move_labware() to relocate staging area tip racks when pipettes cannot reach them directly, referencing Flex pipettes like flex_8channel_50 and flex_1channel_100...
+</about>
+
+---
+
+### 62. runtime-parameters/using-values.md
+
+<about>
+Runtime parameter values in Opentrons Python protocols, accessed through ProtocolContext.params, with each attribute named after a parameter's variable_name (e.g., params.dry_run, params.sample_count, params.volume). Covers parameter types, casting integers to strings, integer vs float division pitfalls, and handling CSV parameters via the CSVParameter class using .file, .contents, or parse_as_csv() (new in API version 2.20), including RuntimeParameterRequiredError for analysis-time defaults.
+</about>
+
+---
+
+### 63. tutorial.md
+
+<about>
+Serial dilution walkthrough for building a complete Opentrons Python protocol from scratch, covering both Flex and OT-2 robots. Explains the protocol file structure including the import statement, metadata dictionary (apiLevel, protocolName, description, author), and the requirements block specifying robotType and apiLevel, using API version 2.16 as an example. Details the run() function with ProtocolContext argument, loading labware (tip racks, reservoirs, well plates) via load_labware(), configuring trash bins with load_trash_bin() on Flex versus the fixed OT-2 trash, and loading pipettes like flex_1channel_1000 or p300_single_gen2 with load_instrument(), including tip rack assignment and...
+</about>
+
+---
+
+### 64. versioning.md
+
+<about>
+Python Protocol API versioning explains how major and minor version numbers govern protocol behavior, how to declare apiLevel in metadata or requirements, and maximum supported ranges per robot type—Flex supports 2.15–2.28, OT-2 supports 2.0–2.28, with robot software 9.0.0 as the latest. It includes a full API-to-robot-software correspondence table and a changelog detailing feature additions by version, such as liquid classes, Heater-Shaker support, Flex Stacker Module, concurrent module commands, camera capture, partial tip pickup, meniscus location, robot motor control methods, and pipette/labware/module-related API changes across versions.
 </about>
 
 ---

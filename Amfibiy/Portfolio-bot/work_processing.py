@@ -305,6 +305,17 @@ async def background_work_processing(bot: Bot, task: dict):
     task_dir = os.path.dirname(file_path)
     input_path = file_path
 
+    # Пользователь нажал "⏹ Стоп" / отправил /stop — файлы, уже попавшие в очередь до этого
+    # момента, не запускаем в обработку вовсе. Файл просто удаляется, статус-сообщение стирается.
+    if state_manager.is_stop_requested(user_id):
+        try:
+            await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+        except Exception:
+            pass
+        shutil.rmtree(task_dir, ignore_errors=True)
+        state_manager.dec_processing(user_id)
+        return
+
     try:
         if os.path.getsize(input_path) < 1000:
             await bot.edit_message_text(chat_id=chat_id, message_id=msg_id,

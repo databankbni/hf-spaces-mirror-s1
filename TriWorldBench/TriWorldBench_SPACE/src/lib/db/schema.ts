@@ -101,6 +101,8 @@ export interface ContactInfo {
   label_en?: string | null;
   label_zh?: string | null;
   value: string;
+  value_en?: string | null;
+  value_zh?: string | null;
   href: string | null;
   image_path?: string | null;
   description_en?: string | null;
@@ -108,6 +110,7 @@ export interface ContactInfo {
   sort_order: number;
   updated_at: string;
   labelText?: { en: string; zh: string };
+  valueText?: { en: string; zh: string };
   descriptionText?: { en: string; zh: string };
 }
 
@@ -351,13 +354,6 @@ export interface LeaderboardEntry {
   rank: number;
   statusLabel: string | null;
   updatedLabel: string | null;
-  team: {
-    id: number;
-    slug: string;
-    name: string;
-    affiliation: string | null;
-    strengths: string | null;
-  };
   model: {
     id: number;
     slug: string;
@@ -381,7 +377,6 @@ export interface LeaderboardEntry {
 export interface RadarEntry {
   rank: number;
   model: { name: string; slug: string };
-  team: { name: string };
   score: { percentile: number | null };
   axes: Array<{ code: string; label: string; value: number | null }>;
 }

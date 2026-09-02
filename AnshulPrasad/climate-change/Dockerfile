@@ -1,56 +1,48 @@
-# Use official slim Python image
-FROM python:3.12-slim
+# Base image
+FROM python:3.13-slim
 
-# Avoid interactive prompts, ensure unbuffered stdout
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1
+# System environment variables
+ENV PYTHONUBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PORT=7860 \
+    TZ="America/Los_Angeles"
 
-# Install system packages
-RUN apt-get update && apt-get install -y \
-    python3-pip \
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    git \
-    curl \
-    unzip \
+    libpq-dev \
+    libeccodes-dev \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+# Install Python depedencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt gunicorn whitenoise
 
-# Copy only requirements first for efficient layer caching
-COPY requirements.txt /tmp/requirements.txt
+# Copy application source code
+COPY . .
 
-# Upgrade pip and install Python deps
-RUN python3 -m pip install --upgrade pip setuptools wheel \
- && python3 -m pip install --no-cache-dir -r /tmp/requirements.txt \
- # sanity-check: print django version (non-fatal)
- && python3 -c "import django; print('DJANGO_VER=', django.__version__)" || true
+# Create target static files directory and create non-root user (UID 1000 required by Hugging Face)
+RUN mkdir -p /app/staticfiles && \
+    useradd -m -u 1000 user && \
+    chown -R user:user /app
 
-# Create appuser and make /app writable
-RUN useradd -m -u 1000 appuser \
- && mkdir -p /app \
- && chown -R appuser:appuser /app
+USER user
 
-# Copy application code owned by appuser
-COPY --chown=appuser:appuser . /app
+# Collect static files during build
+RUN python django_app/manage.py collectstatic --noinput
 
-# Switch to non-root user for runtime
-USER appuser
-ENV HOME=/home/appuser
-WORKDIR /app
-
-# GEE credentials (pass at runtime via docker run -e or docker-compose)
-ENV GEE_SERVICE_ACCOUNT=""
-ENV GEE_KEY_FILE="/app/climate-change-0-2dcbf7ec3d1c.json"
-
-# Expose Django default port
+# Expose port 7860
 EXPOSE 7860
 
-# Start Django
-WORKDIR /app
-CMD ["sh", "-c", "\
-  python manage.py migrate 2>&1 && \
-  gunicorn config.wsgi:application \
-    --bind 0.0.0.0:7860 \
-    --workers 2 \
-    --timeout 120 \
-"]
+# Shift the execution context strictly into the nested application directory
+WORKDIR /app/django_app
+
+# Explicitly define the fully qualified namespace for the settings module
+ENV DJANGO_SETTINGS_MODULE="config.settings"
+
+# Execute the WSGI application with the extended timeout threshold
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:7860", "--workers", "2", "--timeout", "300"]

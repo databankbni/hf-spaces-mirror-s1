@@ -1,0 +1,115 @@
+# ── Build hygiene — what NEVER goes into the container image ─────────────────
+# Mirrors .gitignore for the obvious cases, plus a few build-only paths.
+# Keeping the image small is mostly about excluding caches, vendored deps,
+# local DBs, logs, and the proprietary KB corpus.
+
+# Version control & editor metadata
+.git
+.gitignore
+.gitattributes
+.github
+.vscode
+.idea
+
+# Cursor / Claude / agent worktrees (local-only)
+.cursor
+.claude
+
+# Python build artefacts
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+build
+dist
+wheels
+*.egg-info
+*.egg
+pip-wheel-metadata
+
+# Virtual environments
+.venv
+venv
+env
+ENV
+
+# Test code & coverage outputs — runtime never imports tests, so shipping
+# them just bloats the image and widens the attack surface.
+backend/tests
+tests
+e2e_*.py
+.pytest_cache
+.coverage
+.coverage.*
+htmlcov
+.tox
+.nox
+.mypy_cache
+.ruff_cache
+
+# Local databases & their backups (NEVER ship tenant data in the image)
+*.db
+*.sqlite
+*.sqlite3
+*.db.bak
+*.db.bak-*
+*.sqlite.bak
+*.sqlite.bak-*
+*.bak
+*.bak-*
+*.backup
+
+# Runtime artefacts that should never be baked in
+.rics_v2_data
+Generated report
+Generated report.txt
+Master Standard report and paragraphs
+Messy notes.docx
+My literature April 2026.docx
+mnt/data
+chroma_data
+faiss_index
+report_photos
+mock_survey_*.docx
+# Stray .docx in repo root (test fixtures, ad-hoc dumps) — use mock_survey_*
+# inside backend/tests if a sample is genuinely needed.
+*.docx
+
+# Proprietary RICS corpora (gitignored; defence in depth in case they
+# exist locally on a developer's disk during `docker build`).
+Behrang RICS Documents
+RAW Context
+
+# Logs (server dumps, ad-hoc traces)
+*.log
+uvicorn_*.log
+uvicorn_*.txt
+*_log.txt
+*_stdout.txt
+*_stderr.txt
+
+# Temporary analysis outputs
+tmp_*.txt
+tmp_*.json
+
+# Secrets — must never be in the image. Use the platform's secret manager.
+.env
+.env.*
+!.env.example
+API\ KEY.txt
+*.pem
+*.key
+*.crt
+
+# OS junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Docs / scaffolding that the runtime doesn't need.
+# README.md is exempted because Hatchling reads it during `pip install` in
+# stage 1 (see Dockerfile); without the negation the build fails.
+*.md
+!README.md

@@ -6,12 +6,19 @@ Used for the matchup detail page's real (not simulated) game leaders.
 """
 from __future__ import annotations
 
+import threading
+import time
 from dataclasses import dataclass
 from typing import Any, Optional
 
 import requests
 
 _MLB_API_BASE = "https://statsapi.mlb.com/api/v1"
+
+# Positions change once per game — when the card is posted — so they are worth
+# holding rather than re-fetching on every page view. Short enough that a late
+# scratch is picked up before it matters.
+_POSITIONS_TTL_SECONDS = 300.0
 
 
 @dataclass
@@ -93,6 +100,56 @@ class MLBBoxscoreSource:
         resp = requests.get(url, timeout=(3, 5))
         resp.raise_for_status()
         return resp.json()
+
+    # {game_pk: (fetched_at, {player_id: position})}, shared across instances.
+    _positions: dict[int, tuple[float, dict[int, str]]] = {}
+    _positions_lock = threading.Lock()
+
+    def positions(self, game_pk: int) -> dict[int, str]:
+        """{player_id: position} for one game, DH included. Never raises.
+
+        The position a man is *listed at tonight*, which is the only place the
+        designated hitter exists. A roster says what someone plays — shortstop,
+        right field — and never says DH, because DH is an assignment made when
+        the card is written, not a property of the player. So a lineup labelled
+        from the roster alone has nine fielders and no DH, which is not a
+        lineup anyone recognises.
+
+        This reads the same box score the page already uses, but takes only the
+        `position` field, so it works from the moment the card is posted rather
+        than waiting for someone to bat. `_parse_team` keeps only players with
+        at-bats — right for a box score, useless before first pitch.
+        """
+        now = time.time()
+        with self._positions_lock:
+            hit = self._positions.get(game_pk)
+            if hit is not None and now - hit[0] < _POSITIONS_TTL_SECONDS:
+                return dict(hit[1])
+        try:
+            data = self._fetch_json(f"{_MLB_API_BASE}/game/{game_pk}/boxscore")
+        except Exception:
+            return {}
+
+        found: dict[int, str] = {}
+        for side in ("home", "away"):
+            team = ((data.get("teams") or {}).get(side) or {})
+            for p in (team.get("players") or {}).values():
+                try:
+                    pid = int((p.get("person") or {}).get("id"))
+                except (TypeError, ValueError):
+                    continue
+                pos = (p.get("position") or {}).get("abbreviation")
+                if pos:
+                    found[pid] = str(pos).strip().upper()
+        if found:
+            with self._positions_lock:
+                self._positions[game_pk] = (now, found)
+        return found
+
+    @classmethod
+    def clear_positions(cls) -> None:
+        with cls._positions_lock:
+            cls._positions.clear()
 
     def fetch_boxscore(self, game_pk: int, game_id: str) -> Optional[GameBoxscore]:
         """Best-effort box score for one game; None if unreachable/malformed."""

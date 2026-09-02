@@ -15,7 +15,7 @@ short_description: Time Series Forecasting Arena
 TS-Arena is a live forecasting benchmarking platform designed for **pre-registered forecasts into the real future**. This approach ensures rigorous, information leakage-free evaluations by comparing model predictions against data that did not exist at the time of the forecast.
 
 
-For more information visit our [Git repository](https://github.com/DAG-UPB/ts-arena) or have a look at our paper at [arxiv.org/abs/2512.20761](https://arxiv.org/abs/2512.20761).
+For more information visit our [Git repository](https://github.com/DAG-UPB/ts-arena) or have a look at our KDD '26 paper at [doi.org/10.1145/3770855.3817515](https://doi.org/10.1145/3770855.3817515).
 
 ## Build paths
 
@@ -96,6 +96,42 @@ the Markdown is baked into the image, so a rebuild is what makes a new post appe
 
 For local development, drop `.md` files straight into `content/news/` (it is gitignored)
 and run `npm run dev`.
+
+## Logging
+
+Server-side output goes through `src/lib/logger.ts`, which writes one line per
+event in the same shape the platform's Python services use:
+
+```
+2026-08-17T09:12:44.317Z | INFO | /api/v1/rounds | message
+```
+
+Timestamps are ISO-8601 in UTC, so a log window can be dated regardless of the
+container's clock zone.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN` or `ERROR`, case-insensitive. An unrecognised value falls back to `INFO` rather than failing to start. |
+
+This is a **runtime** variable — unlike `NEWS_CONTENT_REPO` and `CONSOLE_URL` it
+is read on every call, so changing it takes effect on restart without a rebuild.
+
+The API routes under `src/app/api/v1/` proxy the dashboard-api. Each one logs
+the upstream request it makes at `DEBUG`, which is off by default: at `INFO` a
+healthy site is silent and only failures appear. Set `LOG_LEVEL=DEBUG` to trace
+requests while debugging, and turn it back off afterwards — it is one line per
+proxied call, and a single chart view makes several.
+
+Two things are deliberately never logged, at any level: the dashboard-api base
+URL, which is internal topology that does not belong on the stdout of a
+public-facing service, and the API key.
+
+Client-side code keeps using `console.warn`/`console.error` directly. Those
+land in the browser's console, which supplies its own timestamps and severity.
+
+`/api/client-error` is separate: it is the sink the error boundaries POST to,
+it writes its own structured `CLIENT ERROR:` line, and it rate-limits itself.
+It is not affected by `LOG_LEVEL` — a crash report must never be filtered out.
 
 ## User console
 

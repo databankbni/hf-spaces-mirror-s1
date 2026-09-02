@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FoodExpress - Livraison de repas à domicile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom CSS for animations and specific elements */
+        .dish-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .restaurant-card:hover img {
+            transform: scale(1.05);
+        }
+        
+        .cart-item-enter {
+            animation: slideIn 0.3s forwards;
+        }
+        
+        .cart-item-exit {
+            animation: slideOut 0.3s forwards;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Header -->
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center">
+                <i class="fas fa-utensils text-orange-500 text-2xl mr-2"></i>
+                <h1 class="text-xl font-bold text-gray-800">Food<span class="text-orange-500">Express</span></h1>
+            </div>
+            
+            <div class="hidden md:flex space-x-6">
+                <a href="#home" class="text-gray-700 hover:text-orange-500 transition">Accueil</a>
+                <a href="#restaurants" class="text-gray-700 hover:text-orange-500 transition">Restaurants</a>
+                <a href="#popular" class="text-gray-700 hover:text-orange-500 transition">Plats populaires</a>
+                <a href="#categories" class="text-gray-700 hover:text-orange-500 transition">Catégories</a>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <button id="cart-btn" class="relative text-gray-700 hover:text-orange-500">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                </button>
+                
+                <button id="auth-btn" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-full transition">
+                    <i class="fas fa-user mr-2"></i>Connexion
+                </button>
+                
+                <button id="mobile-menu-btn" class="md:hidden text-gray-700">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Mobile menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-white shadow-lg absolute w-full px-4 py-2">
+            <a href="#home" class="block py-2 text-gray-700 hover:text-orange-500 transition">Accueil</a>
+            <a href="#restaurants" class="block py-2 text-gray-700 hover:text-orange-500 transition">Restaurants</a>
+            <a href="#popular" class="block py-2 text-gray-700 hover:text-orange-500 transition">Plats populaires</a>
+            <a href="#categories" class="block py-2 text-gray-700 hover:text-orange-500 transition">Catégories</a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="home" class="bg-gradient-to-r from-orange-400 to-orange-600 text-white py-16">
+        <div class="container mx-auto px-4 flex flex-col md:flex-row items-center">
+            <div class="md:w-1/2 mb-8 md:mb-0">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">Vos plats préférés, livrés chez vous</h2>
+                <p class="text-xl mb-6">Commandez en quelques clics parmi des centaines de restaurants locaux.</p>
+                <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                    <button class="bg-white text-orange-500 hover:bg-gray-100 px-6 py-3 rounded-full font-semibold transition">
+                        <i class="fas fa-utensils mr-2"></i>Commander maintenant
+                    </button>
+                    <button class="border-2 border-white text-white hover:bg-white hover:text-orange-500 px-6 py-3 rounded-full font-semibold transition">
+                        <i class="fas fa-store mr-2"></i>Découvrir les restaurants
+                    </button>
+                </div>
+            </div>
+            <div class="md:w-1/2 flex justify-center">
+                <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
+                     alt="Plats de nourriture" class="rounded-lg shadow-xl w-full max-w-md">
+            </div>
+        </div>
+    </section>
+
+    <!-- Popular Dishes Section -->
+    <section id="popular" class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-800">Plats <span class="text-orange-500">Populaires</span></h2>
+                <a href="#" class="text-orange-500 hover:text-orange-600 font-medium">Voir tout <i class="fas fa-arrow-right ml-1"></i></a>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <!-- Dish 1 -->
+                <div class="dish-card bg-white rounded-lg overflow-hidden shadow-md transition duration-300">
+                    <div class="relative">
+                        <img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1398&q=80" 
+                             alt="Burger" class="w-full h-48 object-cover">
+                        <span class="absolute top-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">Populaire</span>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-lg text-gray-800">Burger Gourmet</h3>
+                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">4.8 <i class="fas fa-star"></i></span>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-3">Pain brioché, steak haché 180g, cheddar, oignons caramélisés</p>
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-orange-500">12,90€</span>
+                            <button class="add-to-cart bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-full text-sm transition" 
+                                    data-id="1" data-name="Burger Gourmet" data-price="12.90" data-restaurant="Burger House">
+                                <i class="fas fa-plus mr-1"></i>Ajouter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dish 2 -->
+                <div class="dish-card bg-white rounded-lg overflow-hidden shadow-md transition duration-300">
+                    <div class="relative">
+                        <img src="https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
+                             alt="Pizza" class="w-full h-48 object-cover">
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-lg text-gray-800">Pizza Margherita</h3>
+                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">4.6 <i class="fas fa-star"></i></span>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-3">Sauce tomate, mozzarella, basilic frais, pâte fine</p>
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-orange-500">14,50€</span>
+                            <button class="add-to-cart bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-full text-sm transition" 
+                                    data-id="2" data-name="Pizza Margherita" data-price="14.50" data-restaurant="Pizza Napoli">
+                                <i class="fas fa-plus mr-1"></i>Ajouter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dish 3 -->
+                <div class="dish-card bg-white rounded-lg overflow-hidden shadow-md transition duration-300">
+                    <div class="relative">
+                        <img src="https://images.unsplash.com/photo-1559847844-5315695dadae?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1398&q=80" 
+                             alt="Sushi" class="w-full h-48 object-cover">
+                        <span class="absolute top-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded">Nouveau</span>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-lg text-gray-800">Assortiment Sushi</h3>
+                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">4.9 <i class="fas fa-star"></i></span>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-3">12 pièces: 4 nigiri, 4 maki, 4 sashimi, accompagnement</p>
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-orange-500">18,90€</span>
+                            <button class="add-to-cart bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-full text-sm transition" 
+                                    data-id="3" data-name="Assortiment Sushi" data-price="18.90" data-restaurant="Sushi Palace">
+                                <i class="fas fa-plus mr-1"></i>Ajouter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dish 4 -->
+                <div class="dish-card bg-white rounded-lg overflow-hidden shadow-md transition duration-300">
+                    <div class="relative">
+                        <img src="https://images.unsplash.com/photo-1544025162-d76694265947?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1469&q=80" 
+                             alt="Poulet" class="w-full h-48 object-cover">
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-lg text-gray-800">Poulet rôti</h3>
+                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">4.7 <i class="fas fa-star"></i></span>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-3">Poulet fermier rôti, accompagnement au choix, sauce</p>
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-orange-500">15,50€</span>
+                            <button class="add-to-cart bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-full text-sm transition" 
+                                    data-id="4" data-name="Poulet rôti" data-price="15.50" data-restaurant="Le Poulet Doré">
+                                <i class="fas fa-plus mr-1"></i>Ajouter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Restaurants Section -->
+    <section id="restaurants" class="py-12 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-800">Nos <span class="text-orange-500">Restaurants</span></h2>
+                <a href="#" class="text-orange-500 hover:text-orange-600 font-medium">Voir tout <i class="fas fa-arrow-right ml-1"></i></a>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Restaurant 1 -->
+                <div class="restaurant-card bg-white rounded-lg overflow-hidden shadow-md transition duration-300">
+                    <div class="relative overflow-hidden h-48">
+                        <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80" 
+                             alt="Burger House" class="w-full h-full object-cover transition duration-500">
+                        <span class="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">Ouvert</span>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-lg text-gray-800">Burger House</h3>
+                            <div class="flex items-center">
+                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">4.8 <i class="fas fa-star"></i></span>
+                                <span class="text-gray-500 text-sm ml-2">(124 avis)</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-3">Spécialités de burgers gourmets avec des ingrédients frais</p>
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center text-sm text-gray-500">
+                                <i class="fas fa-clock mr-1"></i> 10-22h
+                            </div>
+                            <a href="#restaurant-burger-house" class="text-orange-500 hover:text-orange-600 font-medium text-sm">
+                                Voir le menu <i class="fas fa-arrow-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Restaurant 2 -->
+                <div class="restaurant-card bg-white rounded-lg overflow-hidden shadow-md transition duration-300">
+                    <div class="relative overflow-hidden h-48">
+                        <img src="https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
+                             alt="Pizza Napoli" class="w-full h-full object-cover transition duration-500">
+                        <span class="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">Ouvert</span>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-lg text-gray-800">Pizza Napoli</h3>
+                            <div class="flex items-center">
+                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">4.6 <i class="fas fa-star"></i></span>
+                                <span class="text-gray-500 text-sm ml-2">(98 avis)</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-3">Pizzas traditionnelles napolitaines au feu de bois</p>
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center text-sm text-gray-500">
+                                <i class="fas fa-clock mr-1"></i> 11-23h
+                            </div>
+                            <a href="#restaurant-pizza-napoli" class="text-orange-500 hover:text-orange-600 font-medium text-sm">
+                                Voir le menu <i class="fas fa-arrow-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Restaurant 3 -->
+                <div class="restaurant-card bg-white rounded-lg overflow-hidden shadow-md transition duration-300">
+                    <div class="relative overflow-hidden h-48">
+                        <img src="https://images.unsplash.com/photo-1579871494447-9811cf80d66c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
+                             alt="Sushi Palace" class="w-full h-full object-cover transition duration-500">
+                        <span class="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">Ouvert</span>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-lg text-gray-800">Sushi Palace</h3>
+                            <div class="flex items-center">
+                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">4.9 <i class="fas fa-star"></i></span>
+                                <span class="text-gray-500 text-sm ml-2">(156 avis)</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-3">Spécialités japonaises et sushis préparés à la commande</p>
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center text-sm text-gray-500">
+                                <i class="fas fa-clock mr-1"></i> 12-22h
+                            </div>
+                            <a href="#restaurant-sushi-palace" class="text-orange-500 hover:text-orange-600 font-medium text-sm">
+                                Voir le menu <i class="fas fa-arrow-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Categories Section -->
+    <section id="categories" class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl font-bold text-gray-800 mb-8">Parcourir par <span class="text-orange-500">Catégories</span></h2>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <!-- Category 1 -->
+                <a href="#" class="category-card bg-gray-50 rounded-lg p-4 text-center hover:bg-orange-50 transition duration-300 border border-gray-200 hover:border-orange-200">
+                    <div class="bg-orange-100 w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-hamburger text-orange-500 text-2xl"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-800">Burgers</h3>
+                    <p class="text-xs text-gray-500">56 plats</p>
+                </a>
+                
+                <!-- Category 2 -->
+                <a href="#" class="category-card bg-gray-50 rounded-lg p-4 text-center hover:bg-orange-50 transition duration-300 border border-gray-200 hover:border-orange-200">
+                    <div class="bg-orange-100 w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-pizza-slice text-orange-500 text-2xl"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-800">Pizzas</h3>
+                    <p class="text-xs text-gray-500">42 plats</p>
+                </a>
+                
+                <!-- Category 3 -->
+                <a href="#" class="category-card bg-gray-50 rounded-lg p-4 text-center hover:bg-orange-50 transition duration-300 border border-gray-200 hover:border-orange-200">
+                    <div class="bg-orange-100 w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-fish text-orange-500 text-2xl"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-800">Sushi</h3>
+                    <p class="text-xs text-gray-500">38 plats</p>
+                </a>
+                
+                <!-- Category 4 -->
+                <a href="#" class="category-card bg-gray-50 rounded-lg p-4 text-center hover:bg-orange-50 transition duration-300 border border-gray-200 hover:border-orange-200">
+                    <div class="bg-orange-100 w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-drumstick-bite text-orange-500 text-2xl"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-800">Poulet</h3>
+                    <p class="text-xs text-gray-500">27 plats</p>
+                </a>
+                
+                <!-- Category 5 -->
+                <a href="#" class="category-card bg-gray-50 rounded-lg p-4 text-center hover:bg-orange-50 transition duration-300 border border-gray-200 hover:border-orange-200">
+                    <div class="bg-orange-100 w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-ice-cream text-orange-500 text-2xl"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-800">Desserts</h3>
+                    <p class="text-xs text-gray-500">35 plats</p>
+                </a>
+                
+                <!-- Category 6 -->
+                <a href="#" class="category-card bg-gray-50 rounded-lg p-4 text-center hover:bg-orange-50 transition duration-300 border border-gray-200 hover:border-orange-200">
+                    <div class="bg-orange-100 w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3">
+                        <i class="fas fa-coffee text-orange-500 text-2xl"></i>
+                    </div>
+                    <h3 class="font-medium text-gray-800">Boissons</h3>
+                    <p class="text-xs text-gray-500">48 plats</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="py-12 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-12">Comment <span class="text-orange-500">ça marche</span></h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Step 1 -->
+                <div class="text-center">
+                    <div class="bg-orange-500 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 text-white text-2xl font-bold">1</div>
+                    <h3 class="font-bold text-xl text-gray-800 mb-2">Choisissez un restaurant</h3>
+                    <p class="text-gray-600">Parcourez notre sélection de restaurants locaux et choisissez celui qui vous fait envie.</p>
+                </div>
+                
+                <!-- Step 2 -->
+                <div class="text-center">
+                    <div class="bg-orange-500 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 text-white text-2xl font-bold">2</div>
+                    <h3 class="font-bold text-xl text-gray-800 mb-2">Composez votre menu</h3>
+                    <p class="text-gray-600">Sélectionnez vos plats préférés et ajoutez-les à votre panier.</p>
+                </div>
+                
+                <!-- Step 3 -->
+                <div class="text-center">
+                    <div class="bg-orange-500 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 text-white text-2xl font-bold">3</div>
+                    <h3 class="font-bold text-xl text-gray-800 mb-2">Livraison ou à emporter</h3>
+                    <p class="text-gray-600">Choisissez la livraison à domicile ou le retrait sur place et régalez-vous !</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download App Section -->
+    <section class="py-12 bg-orange-500 text-white">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row items-center">
+                <div class="md:w-1/2 mb-8 md:mb-0">
+                    <h2 class="text-3xl font-bold mb-4">Téléchargez notre application</h2>
+                    <p class="text-xl mb-6">Commandez encore plus facilement avec l'application FoodExpress. Disponible sur iOS et Android.</p>
+                    <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                        <button class="bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-lg font-semibold transition flex items-center justify-center">
+                            <i class="fab fa-apple text-2xl mr-2"></i>
+                            <div class="text-left">
+                                <div class="text-xs">Télécharger sur</div>
+                                <div class="text-lg">App Store</div>
+                            </div>
+                        </button>
+                        <button class="bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-lg font-semibold transition flex items-center justify-center">
+                            <i class="fab fa-google-play text-2xl mr-2"></i>
+                            <div class="text-left">
+                                <div class="text-xs">Disponible sur</div>
+                                <div class="text-lg">Google Play</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+                <div class="md:w-1/2 flex justify-center">
+                    <img src="https://cdn.pixabay.com/photo/2017/01/22/12/07/imac-1999636_1280.png" 
+                         alt="Application mobile" class="w-full max-w-md">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-12">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center mb-4">
+                        <i class="fas fa-utensils text-orange-500 text-2xl mr-2"></i>
+                        <h3 class="text-xl font-bold">Food<span class="text-orange-500">Express</span></h3>
+                    </div>
+                    <p class="text-gray-400 mb-4">Vos plats préférés, livrés chez vous en un clin d'œil.</p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-orange-500 transition"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-orange-500 transition"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-orange-500 transition"><i class="fab fa-instagram"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-orange-500 transition"><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">Liens utiles</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-orange-500 transition">Accueil</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-orange-500 transition">Restaurants</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-orange-500 transition">Plats populaires</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-orange-500 transition">Catégories</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-orange-500 transition">Mon compte</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">Informations</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-orange-500 transition">À propos</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-orange-500 transition">Contact</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-orange-500 transition">Blog</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-orange-500 transition">Carrières</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-orange-500 transition">Presse</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">Contact</h4>
+                    <ul class="space-y-2">
+                        <li class="flex items-center text-gray-400"><i class="fas fa-map-marker-alt mr-2 text-orange-500"></i> 123 Rue de la Gastronomie, Paris</li>
+                        <li class="flex items-center text-gray-400"><i class="fas fa-phone-alt mr-2 text-orange-500"></i> +33 1 23 45 67 89</li>
+                        <li class="flex items-center text-gray-400"><i class="fas fa-envelope mr-2 text-orange-500"></i> contact@foodexpress.com</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-700 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-gray-400 mb-4 md:mb-0">© 2023 FoodExpress. Tous droits réservés.</p>
+                <div class="flex space-x-6">
+                    <a href="#" class="text-gray-400 hover:text-orange-500 transition">Conditions générales</a>
+                    <a href="#" class="text-gray-400 hover:text-orange-500 transition">Politique de confidentialité</a>
+                    <a href="#" class="text-gray-400 hover:text-orange-500 transition">Cookies</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Shopping Cart Sidebar -->
+    <div id="cart-sidebar" class="fixed top-0 right-0 w-full sm:w-96 h-full bg-white shadow-lg transform translate-x-full transition-transform duration-300 z-50 overflow-y-auto">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800">Votre panier</h3>
+                <button id="close-cart" class="text-gray-500 hover:text-orange-500">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div id="cart-items" class="space-y-4 mb-6">
+                <!-- Cart items will be added here dynamically -->
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-shopping-cart text-4xl mb-2"></i>
+                    <p>Votre panier est vide</p>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-200 pt-4 mb-4">
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-600">Sous-total</span>
+                    <span id="cart-subtotal" class="font-medium">0,00€</span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-600">Frais de livraison</span>
+                    <span id="delivery-fee" class="font-medium">2,99€</span>
+                </div>
+                <div class="flex justify-between text-lg font-bold">
+                    <span>Total</span>
+                    <span id="cart-total">2,99€</span>
+                </div>
+            </div>
+            
+            <button id="checkout-btn" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Valider la commande
+            </button>
+        </div>
+    </div>
+    
+    <!-- Overlay for cart and modals -->
+    <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl z-50 w-full max-w-md hidden">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800">Connexion / Inscription</h3>
+                <button id="close-auth" class="text-gray-500 hover:text-orange-500">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="flex border-b mb-6">
+                <button id="login-tab" class="tab-btn py-2 px-4 font-medium text-orange-500 border-b-2 border-orange-500">Connexion</button>
+                <button id="register-tab" class="tab-btn py-2 px-4 font-medium text-gray-500">Inscription</button>
+            </div>
+            
+            <div id="login-content" class="tab-content active">
+                <form id="login-form" class="space-y-4">
+                    <div>
+                        <label for="login-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="login-email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" required>
+                    </div>
+                    <div>
+                        <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                        <input type="password" id="login-password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" required>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="remember-me" class="h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded">
+                            <label for="remember-me" class="ml-2 block text-sm text-gray-700">Se souvenir de moi</label>
+                        </div>
+                        <a href="#" class="text-sm text-orange-500 hover:text-orange-600">Mot de passe oublié?</a>
+                    </div>
+                    <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-medium transition">
+                        Se connecter
+                    </button>
+                </form>
+            </div>
+            
+            <div id="register-content" class="tab-content">
+                <form id="register-form" class="space-y-4">
+                    <div>
+                        <label for="register-name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
+                        <input type="text" id="register-name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" required>
+                    </div>
+                    <div>
+                        <label for="register-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="register-email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" required>
+                    </div>
+                    <div>
+                        <label for="register-password" class="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                        <input type="password" id="register-password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" required>
+                    </div>
+                    <div>
+                        <label for="register-confirm" class="block text-sm font-medium text-gray-700 mb-1">Confirmer le mot de passe</label>
+                        <input type="password" id="register-confirm" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" required>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="terms" class="h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded" required>
+                        <label for="terms" class="ml-2 block text-sm text-gray-700">J'accepte les <a href="#" class="text-orange-500 hover:text-orange-600">conditions générales</a></label>
+                    </div>
+                    <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-medium transition">
+                        S'inscrire
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Panel (hidden by default) -->
+    <div id="admin-panel" class="fixed inset-0 bg-gray-100 z-50 hidden overflow-y-auto">
+        <div class="min-h-screen">
+            <!-- Admin Header -->
+            <header class="bg-gray-800 text-white shadow">
+                <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                    <div class="flex items-center">
+                        <i class="fas fa-user-shield text-orange-500 text-2xl mr-2"></i>
+                        <h1 class="text-xl font-bold">Admin <span class="text-orange-500">Panel</span></h1>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <button id="admin-logout" class="text-white hover:text-orange-300 transition">
+                            <i class="fas fa-sign-out-alt mr-1"></i> Déconnexion
+                        </button>
+                        <button id="close-admin" class="text-white hover:text-orange-300">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Admin Navigation -->
+            <nav class="bg-white shadow-md">
+                <div class="container mx-auto px-4">
+                    <div class="flex overflow-x-auto">
+                        <button data-tab="dashboard" class="admin-tab px-4 py-3 font-medium text-gray-700 hover:text-orange-500 border-b-2 border-transparent hover:border-orange-500 transition whitespace-nowrap">
+                            <i class="fas fa-tachometer-alt mr-2"></i> Tableau de bord
+                        </button>
+                        <button data-tab="restaurants" class="admin-tab px-4 py-3 font-medium text-gray-700 hover:text-orange-500 border-b-2 border-transparent hover:border-orange-500 transition whitespace-nowrap">
+                            <i class="fas fa-store mr-2"></i> Restaurants
+                        </button>
+                        <button data-tab="dishes" class="admin-tab px-4 py-3 font-medium text-gray-700 hover:text-orange-500 border-b-2 border-transparent hover:border-orange-500 transition whitespace-nowrap">
+                            <i class="fas fa-utensils mr-2"></i> Plats
+                        </button>
+                        <button data-tab="orders" class="admin-tab px-4 py-3 font-medium text-gray-700 hover:text-orange-500 border-b-2 border-transparent hover:border-orange-500 transition whitespace-nowrap">
+                            <i class="fas fa-clipboard-list mr-2"></i> Commandes
+                        </button>
+                        <button data-tab="users" class="admin-tab px-4 py-3 font-medium text-gray-700 hover:text-orange-500 border-b-2 border-transparent hover:border-orange-500 transition whitespace-nowrap">
+                            <i class="fas fa-users mr-2"></i> Utilisateurs
+                        </button>
+                        <button data-tab="settings" class="admin-tab px-4 py-3 font-medium text-gray-700 hover:text-orange-500 border-b-2 border-transparent hover:border-orange-500 transition whitespace-nowrap">
+                            <i class="fas fa-cog mr-2"></i> Paramètres
+                        </button>
+                    </div>
+                </div>
+            </nav>
+            
+            <!-- Admin Content -->
+            <main class="container mx-auto px-4 py-6">
+                <!-- Dashboard Tab -->
+                <div id="dashboard-content" class="admin-tab-content active">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Tableau de bord</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-orange-100 text-orange-500 mr-4">
+                                    <i class="fas fa-store text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500">Restaurants</p>
+                                    <p class="text-2xl font-bold">24</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-blue-100 text-blue-500 mr-4">
+                                    <i class="fas fa-utensils text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500">Plats</p>
+                                    <p class="text-2xl font-bold">156</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-green-100 text-green-500 mr-4">
+                                    <i class="fas fa-clipboard-list text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500">Commandes (30j)</p>
+                                    <p class="text-2xl font-bold">1,248</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-purple-100 text-purple-500 mr-4">
+                                    <i class="fas fa-users text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500">Utilisateurs</p>
+                                    <p class="text-2xl font-bold">3,456</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow p-6 mb-8">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Commandes récentes</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Commande</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Restaurant</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#ORD-78945</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Jean Dupont</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Burger House</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">25,90€</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Livré</span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12/06/2023</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#ORD-78944</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Marie Martin</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Pizza Napoli</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">32,50€</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">En cours</span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12/06/2023</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#ORD-78943</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Thomas Leroy</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Sushi Palace</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">45,20€</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">En préparation</span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">11/06/2023</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Restaurants Tab -->
+                <div id="restaurants-content" class="admin-tab-content">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Gestion des restaurants</h2>
+                        <button id="add-restaurant" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition">
+                            <i class="fas fa-plus mr-2"></i> Ajouter un restaurant
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow overflow-hidden mb-8">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Note</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-10 w-10">
+                                                    <img class="h-10 w-10 rounded-full" src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80" alt="">
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900">Burger House</div>
+                                                    <div class="text-sm text-gray-500">123 Rue des Burgers</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Fast-food</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                                <span>4.8</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Actif</span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-orange-600 hover:text-orange-900 mr-3"><i class="fas fa-edit"></i></button>
+                                            <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash-alt"></i></button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-10 w-10">
+                                                    <img class="h-10 w-10 rounded-full" src="https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" alt="">
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900">Pizza Napoli</div>
+                                                    <div class="text-sm text-gray-500">456 Avenue des Pizzas</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Italien</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                                <span>4.6</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Actif</span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-orange-600 hover:text-orange-900 mr-3"><i class="fas fa-edit"></i></button>
+                                            <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash-alt"></i></button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-10 w-10">
+                                                    <img class="h-10 w-10 rounded-full" src="https://images.unsplash.com/photo-1579871494447-9811cf80d66c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" alt="">
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900">Sushi Palace</div>
+                                                    <div class="text-sm text-gray-500">789 Boulevard des Sushis</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Japonais</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                                <span>4.9</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">En maintenance</span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-orange-600 hover:text-orange-900 mr-3"><i class="fas fa-edit"></i></button>
+                                            <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash-alt"></i></button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dishes Tab -->
+                <div id="dishes-content" class="admin-tab-content">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Gestion des plats</h2>
+                        <button id="add-dish" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition">
+                            <i class="fas fa-plus mr-2"></i> Ajouter un plat
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow overflow-hidden mb-8">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Restaurant</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <img class="h-12 w-12 rounded object-cover" src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1398&q=80" alt="">
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Burger Gourmet</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Burger House</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Burgers</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12,90€</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-orange-600 hover:text-orange-900 mr-3"><i class="fas fa-edit"></i></button>
+                                            <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash-alt"></i></button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <img class="h-12 w-12 rounded object-cover" src="https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" alt="">
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pizza Margherita</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Pizza Napoli</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Pizzas</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">14,50€</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-orange-600 hover:text-orange-900 mr-3"><i class="fas fa-edit"></i></button>
+                                            <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash-alt"></i></button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <img class="h-12 w-12 rounded object-cover" src="https://images.unsplash.com/photo-1559847844-5315695dadae?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1398&q=80" alt="">
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Assortiment Sushi</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Sushi Palace</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Sushi</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">18,90€</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-orange-600 hover:text-orange-900 mr-3"><i class="fas fa-edit"></i></button>
+                                            <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash-alt"></i></button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Orders Tab -->
+                <div id="orders-content" class="admin-tab-content">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Gestion des commandes</h2>
+                    
+                    <div class="bg-white rounded-lg shadow overflow-hidden mb-8">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Commande</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Restaurant</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#ORD-78945</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Jean Dupont</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Burger House</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">25,90€</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <select class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 text-sm">
+                                                <option selected>Livré</option>
+                                                <option>En cours</option>
+                                                <option>En préparation</option>
+                                                <option>Annulé</option>
+                                            </select>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12/06/2023</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-orange-600 hover:text-orange-900 mr-3"><i class="fas fa-eye"></i></button>
+                                            <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash-alt"></i></button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#ORD-78944</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Marie Martin</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Pizza Napoli</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">32,50€</td>
+                                        <td
+</html>

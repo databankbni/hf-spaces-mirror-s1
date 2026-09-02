@@ -6,12 +6,12 @@ const NodeCache = require('node-cache');
 const app = express();
 app.use(cors());
 
-const cache = new NodeCache({ stdTTL: 10, checkperiod: 10 });
-const TIMEOUT = 5150;
+const cache = new NodeCache({ stdTTL: 180, checkperiod: 240 });
+const TIMEOUT = 5000;
 
 const MANIFEST = {
     id: 'org.golink.payload',
-    version: '2.2.7',
+    version: '2.5.0',
     name: '🔻GHOST🔻',
     description: 'Multi-Sources Rapide - Films & Series By Superadlen DZ',
     resources: ['stream'],
@@ -22,6 +22,11 @@ const MANIFEST = {
 };
 
 const SOURCES = [
+    { url: 'https://showbox.codiv.dpdns.org/%7B%22cookie%22%3A%22eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODUzMTQ1NDUsIm5iZiI6MTc4NTMxNDU0NSwiZXhwIjoxODE2NDE4NTY1LCJkYXRhIjp7InVpZCI6MjIzNDQxOCwidG9rZW4iOiI1MjNhNGExMTUxNjg4NmM0YzJkZDg3OTU1ZWUzZTg4MiJ9fQ.8YXH3OC9NPAYVi7Dkk3kJzSixgfsWmVl7Gd9qWG4IGk%22%7D', name: '⭐HTTP.SHBX' },
+    { url: 'https://pengu.uk/%7B%22auth_token%22%3A%22kep9D1CCHeIAunGPNrfG2IJoqX5KyeR8q-CbYqQMplo%22%7D', name: '⭐HTTP MOVIEBOX' },
+    { url: 'https://nova-addon-9nxe.onrender.com', name: 'HTTP NOVA' },
+    { url: 'https://febbox-addon.onrender.com/LgUfPQ_WqR3zX4Ljmr8NsZg8DIl6_jiSLrDGr30gzelVyK4Ca6ClbKq7zjjmBtwyzkzvNPBYe-krA3LIkZ1Zv6T4oSxAoULXQKJJ-ekAuDGXZ3jfIVp9NPrIjfbtBxd88LbInSRAWBmOdx-maKwUVnrSm65XFVzzn9VkuAs9J3HtUPcAfH1w8cNeoZxVd_ihY3Ufzp7HpG411AsQAnOzE6dWf1rU0MCJX8Xp5RQyAJVotMCW4EXlMeOENURf2COXFBG27INfNIPDgQ6Yi3CBmJsmNc_pM7UzCs96tiAqJHXjptWrnPGsh2SWkHAX_-mISRnf_-ULXjFACZmJhYScEoaOgEPrYsedAht1ZmT_EZ6pwWLQ2cyG0Yne43urufsTIAMnnqxBxh1HYdeNFmaYmExPhQz1dTDMhRl3hJki6Xl94-fAm-Jq5JrNKN915TaUSS4nIwKvJdD3nbKEq9qTBmNG10d2BPVvxQDWWFUjipiCN-kM2Q', name: 'HTTP FEB' },
+    { url: 'https://87d6a6ef6b58-webstreamrmbg.baby-beamup.club/%7B%22multi%22%3A%22on%22%2C%22fr%22%3A%22on%22%2C%22excludeResolution_Unknown%22%3A%22on%22%2C%22excludeResolution_144p%22%3A%22on%22%2C%22excludeResolution_240p%22%3A%22on%22%2C%22excludeResolution_360p%22%3A%22on%22%2C%22excludeResolution_480p%22%3A%22on%22%2C%22excludeResolution_576p%22%3A%22on%22%2C%22excludeResolution_720p%22%3A%22on%22%7D', name: 'HTTP MBG ' },
     { url: 'https://addon.peerflix.mov/language=en|qualityfilter=sd,480p,540p,hdtv,screener,vhs,unknown|sort=seed-desc,quality-desc,size-desc', name: 'DZ1' },
     { url: 'https://filmora2.vercel.app', name: 'DZ2' },
     { url: 'https://str.zmb.lat/lite', name: 'DZ3' },
@@ -29,243 +34,97 @@ const SOURCES = [
     { url: 'https://hdhub.thevolecitor.qzz.io/eyJ0b3Jib3giOiJ1bnNldCIsInF1YWxpdGllcyI6IjIxNjBwLDEwODBwLDcyMHAiLCJzb3J0IjoiZGVzYyJ9', name: 'DZ5' },
     { url: 'https://watcho3.rafaelzioneverest.workers.dev', name: 'DZ6' },
     { url: 'https://vela-flow.vercel.app', name: 'DZ7' },
-    { url: 'https://showbox.codiv.dpdns.org/%7B%22cookie%22%253A%22eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODUzMTQ1NDUsIm5iZiI6MTc4NTMxNDU0NSwiZXhwIjoxODE2NDE4NTY1LCJkYXDataI6eyJ1aWQiOjIyMzQ0MTgsInRva2VuIjoiNTIzYTRhMTE1MTY4ODZjNGMyZGQ4Nzk1NWVlM2U4ODIiLCJhbGciOiJIUzI1NiJ9.8YXH3OC9NPAYVi7Dkk3kJzSixgfsWmVl7Gd9qWG4IGk%22%7D', name: 'HTTP.DZ1⭐' },
-    { url: 'https://pengu.uk/%7B%22auth_token%22%3A%22re3Z2wByO95MYjcFmBzKY_8fPxql6xtpdHRNCrFBomA%22%7D', name: 'HTTP.DZ2⭐' },
     { url: 'https://magneto-jnv5.onrender.com/v1', name: 'DZ8' },
-    { url: 'https://yastream.tamthai.de/eyJjYXRhbG9ncyI6WyJraXNza2gubW92aWUuVVMiLCJraXNza2guc2VyaWVzLlVTIiwib25ldG91Y2h0di5zZXJpZXMuUG9wdWxhciIsImtpc3NraC5zZXJpZXMuU2VhcmNoIiwia2lzc2toLm1vdmllLlNlYXJjaCIsIm9uZXRvdWNodHYuc2VyaWVzLlNlYXJjaCIsImlkcmFtYS5zZXJpZXMuaURyYW1hIiwiaWRyYW1hLnNlcmllcy5TZWFyY2giXSwiY2F0YWxvZyI6WyJraXNza2giLCJvbmV0b3VjaHR2Il0sInN0cmVhbSI6WyJraXNza2giLCJvbmV0b3VjaHR2Il0sIm5zZnciOmZhbHNlLCJpbmZvIjp0cnVlLCJwb3N0ZXIiOiJycGRiIiwibWZwVXJsIjoiIiwidGJLZXkiOiIiLCJtZnBQYXNzIjoiIn0=', name: 'HTTP.DZ3⭐' },
-    { url: 'https://hdhub.thevolecitor.qzz.io/eyJ0b3Jib3giOiJ1bnNldCIsInF1YWxpdGllcyI6IjIxNjBwLDEwODBwLDcyMHAiLCJzb3J0IjoiZGVzYyIsImNvbnRlbnQiOiJmcmVuY2giLCJjYXRhbG9ncyI6IiJ9', name: 'HTTP.DZ4⭐' }
+    { url: 'https://toastflix.stremio-italia.eu/eyJtdWx0aUxhbmdNb2RlIjp0cnVlLCJzb2xvRkhEIjp0cnVlLCJzb2xvRGlyZWN0Ijp0cnVlfQ', name: 'HTTP IT' },
+    { url: 'https://87d6a6ef6b58-webstreamrmbg.baby-beamup.club/%7B%22multi%22%3A%22on%22%2C%22fr%22%3A%22on%22%2C%22excludeResolution_Unknown%22%3A%22on%22%2C%22excludeResolution_144p%22%3A%22on%22%2C%22excludeResolution_240p%22%3A%22on%22%2C%22excludeResolution_360p%22%3A%22on%22%2C%22excludeResolution_480p%22%3A%22on%22%2C%22excludeResolution_576p%22%3A%22on%22%7D', name: 'HTTP MBG 2 ' },
+    { url: 'https://aiostreamsfortheweebsstable.midnightignite.me/stremio/7ea1e7e7-0315-45a1-be59-ea3a3e79c872/eyJpIjoieWRtQ0lwU3BhNm92aXduUDJzUGZ3dz09IiwiZSI6ImdYS2NhMG41dU5OOGN0QURMZlZRK1UzeHBMb2lMYzJORkdwa2ViNWIxcjA9IiwidCI6ImEifQ', name: 'DZ11' },
+    { url: 'https://froststream.cloutteam.com/%7B%22providers%22%3A%7B%22cdmoviedb%22%3Atrue%2C%22redeflix%22%3Atrue%2C%22tomato%22%3Atrue%2C%22myembed%22%3Atrue%2C%22anizone%22%3Atrue%7D%2C%22resolutions%22%3A%7B%224K%22%3Atrue%2C%221080p%22%3Atrue%2C%22720p%22%3Atrue%2C%22SD%22%3Afalse%2C%22Cinema%22%3Afalse%7D%2C%22iptvSources%22%3A%7B%224k2026%22%3Atrue%2C%22HJA%22%3Atrue%2C%22SvenTank%22%3Atrue%2C%22Shazam%22%3Atrue%7D%7D', name: 'DZ10' },
 ];
 
-/* ================= PROVIDER / PEER DETECTOR ================= */
-function getPeerSite(title) {
-    const t = (title || '').toLowerCase();
-    if (t.includes('yts') || t.includes('yify') || t.includes('yifi')) return 'YTS';
-    if (t.includes('vegamovies')) return 'VegaMovies⚡';
-    if (t.includes('moviebox')) return 'MovieBox⚡';
-    if (t.includes('hdghartv')) return 'HDGharTv';
-    if (t.includes('hdhub')) return 'HD-Hub🌐';
-    if (t.includes('vidlink')) return 'VidLink';
-    if (t.includes('vidking')) return 'VidKing⚡';
-    if (t.includes('vaplayer')) return 'VaPlayer';
-    if (t.includes('2peckle')) return '2Peckle';
-    if (t.includes('4khdhub')) return '4K-HuB';
-    if (t.includes('cinefreak')) return 'CineCloud';
-    if (t.includes('yastream')) return 'Yastream✨';
-    if (t.includes('cinejoy')) return 'CineJoy';
-    if (t.includes('moviesdrives')) return 'MoviesDrives';
-    if (t.includes('thepiratebay') || t.includes('tpb')) return 'TPB';
-    if (t.includes('1337x')) return '1337X';
-    if (t.includes('rutor')) return 'RUTOR';
-    if (t.includes('rarbg')) return 'RARBG';
-    if (t.includes('torrentgalaxy') || t.includes('tgx')) return 'TGX';
-    if (t.includes('eztv')) return 'EZTV';
-    if (t.includes('nyaa')) return 'NYAA';
-    if (t.includes('torrentleech')) return 'TL';
-    if (t.includes('kickass') || t.includes('kat')) return 'KAT';
-    if (t.includes('zooqle')) return 'ZOOQLE';
-    if (t.includes('limetorrents')) return 'LIME';
-    if (t.includes('torlock')) return 'TORLOCK';
-    if (t.includes('torrentdownloads')) return 'TD';
-    if (t.includes('magnetdl')) return 'MAGNETDL';
-    if (t.includes('idope')) return 'IDOPE';
-    if (t.includes('rutracker')) return 'RUTRACKER';
-    if (t.includes('solidtorrents')) return 'SOLID';
-    if (t.includes('bitsearch')) return 'BITSEARCH';
-    if (t.includes('torrentfunk')) return 'TFUNK';
-    if (t.includes('glodls')) return 'GLODLS';
-    if (t.includes('ettv')) return 'ETTV';
-    if (t.includes('psa')) return 'PSA';
-    if (t.includes('rmteam')) return 'RMTEAM';
-    if (t.includes('galaxyrg')) return 'GALAXYRG';
-    if (t.includes('megusta')) return 'MEGUSTA';
-    if (t.includes('tigole')) return 'TIGOLE';
-    if (t.includes('qxr')) return 'QXR';
-    if (t.includes('utr')) return 'UTR';
-    if (t.includes('xannyfamily')) return 'ADLEN';
-    return 'P2P++';
+/* ================= UTILS & PARSERS ================= */
+
+function getFileSize(title, behaviorHints) {
+    // 1. Chercher d'abord dans le titre
+    if (title) {
+        const t = title.replace(/,/g, '.');
+        const match = t.match(/\b(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB|TIB|GIB|MIB|KIB)\b/i);
+        if (match) {
+            let size = parseFloat(match[1]);
+            let unit = match[2].toUpperCase().replace('TIB', 'TB').replace('GIB', 'GB').replace('MIB', 'MB').replace('KIB', 'KB');
+            return `${size} ${unit}`;
+        }
+    }
+    // 2. Chercher dans behaviorHints.videoSize (octets bruts)
+    if (behaviorHints && behaviorHints.videoSize) {
+        const bytes = Number(behaviorHints.videoSize);
+        if (!isNaN(bytes) && bytes > 0) {
+            const gb = bytes / (1024 * 1024 * 1024);
+            if (gb >= 1) return `${gb.toFixed(2)} GB`;
+            const mb = bytes / (1024 * 1024);
+            return `${mb.toFixed(0)} MB`;
+        }
+    }
+    return null;
 }
 
-function getPeerScore(title) {
-    const peer = getPeerSite(title);
-    const order = [
-        'VidKing⚡', 'VegaMovies⚡', 'MovieBox⚡', 'Yastream✨', 'HDGharTv','CineJoy','HD-Hub🌐','YTS', '1337X', 'TIGOLE', 'ADLEN', 'RARBG', 'RUTRACKER', 'TPB', 'EZTV', 'PSA', 
-        'TORLOCK', 'ZOOQLE', 'SOLID', 'BITSEARCH', 'QXR', 'TL', 'NYAA', 'UTR', 'GLODLS', 
-        'TFUNK', 'ETTV', 'GALAXYRG', 'RMTEAM', 'MEGUSTA', 'TGX', 'RUTOR', 'LIME', 'TD', 
-        'MAGNETDL', 'IDOPE', 'KAT'
-    ];
-    const index = order.indexOf(peer);
-    return index !== -1 ? order.length - index : 0;
-}
-
-/* ================= SIZE ================= */
-function getFileSize(title) {
-    if (!title) return null;
-    const t = title.replace(/,/g, '.');
-    const match = t.match(/\b(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB|TIB|GIB|MIB|KIB)\b/i);
-    if (!match) return null;
-
-    let size = parseFloat(match[1]);
-    let unit = match[2].toUpperCase(); 
-    unit = unit.replace('TIB', 'TB').replace('GIB', 'GB').replace('MIB', 'MB').replace('KIB', 'KB');
-    return `${size} ${unit}`;
-}
-
-/* ================= SEEDERS ================= */
 function getSeeders(title) {
     if (!title) return 0;
     const t = String(title).toLowerCase().replace(/\n/g, ' ');
     if (t.includes('unknown')) return 0;
 
-    const match = t.match(/(?:👤|👥|seeders?|seeds?|\bs\b)\s*[:=]?\s*(\d+)/i);
-    if (match && match[1]) {
-        const num = Number(match[1]);
-        return isNaN(num) ? 0 : num;
-    }
-
-    const fallbackMatch = t.match(/(\d+)\s*(?:seed|peer)/i);
-    if (fallbackMatch && fallbackMatch[1]) {
-        const num = Number(fallbackMatch[1]);
-        return isNaN(num) ? 0 : num;
-    }
-    return 0; 
+    const match = t.match(/(?:👤|👥|seeders?|seeds?|\bs\b)\s*[:=]?\s*(\d+)/i) || t.match(/(\d+)\s*(?:seed|peer)/i);
+    return (match && match[1]) ? parseInt(match[1], 10) || 0 : 0;
 }
 
-/* ================= QUALITY SCORE ================= */
-function getQualityScore(text) {
+function getQualityInfo(text) {
     const t = (text || '').toLowerCase();
-    if (t.includes('1080p')) return 10; 
-    if (t.includes('4k') || t.includes('2160p')) return 7; 
-    if (t.includes('720p')) return 5; 
-    return 1;
-}
-
-/* ================= LANG SCORE ================= */
-function getLangScore(text) {
-    const t = (text || '').toLowerCase();
-    if (t.includes('fr') || t.includes('french') || t.includes(' vf ') || t.includes(' vff ') || t.includes('francais')) {
-        return 1; 
-    }
-    return 0;
-}
-
-/* ================= QUALITY INFO ================= */
-function getQualityInfo(title) {
-    const t = (title || '').toLowerCase();
-    let quality = '';
+    let quality = 'HD';
     let codec = '';
-    let lang = 'Unknown';
-    let audio = 'Unknown';
+    let lang = 'MULTI';
 
     const languages = {
-        fr: { flag: '⭐🇫🇷', names: ['french', ' vf ', ' vff ', 'francais'], label: 'VF' },
-        en: { flag: '🇺🇸', names: ['english', ' en ', ' eng ', 'anglais'], label: 'VO' },
+        fr: { flag: '🇫🇷', names: ['french', ' vf ', ' vff ', 'francais'] },
+        en: { flag: '🇺🇸', names: ['english', ' en ', ' eng ', 'anglais'] },
         es: { flag: '🇪🇸', names: ['spanish', ' es ', ' spa ', 'espanol'] },
-        sub: { flag: '💬', names: ['subtitles', ' sub ', 'srt'] },
-        it: { flag: '🇮🇹', names: ['italian', ' it ', ' ita ', 'italiano'] },
         ar: { flag: '🇩🇿', names: ['arabic', ' ar ', ' ara ', 'arabe'] },
-        ru: { flag: '🇷🇺', names: ['russian', ' ru ', ' rus ', 'russe'] },
-        hi: { flag: '🇮🇳', names: ['hindi', ' hi ', ' hin '] },
     };
 
     const found = Object.entries(languages)
         .filter(([code, data]) => t.includes(code) || data.names.some(name => t.includes(name)))
         .map(([code]) => code);
 
-    if (found.length >= 2) {
-        lang = `🎧: ${found.map(code => languages[code].flag).join('/')} `;
-    } else if (t.includes('multi')) {
-        const hasFrench = t.includes('fr') || languages.fr.names.some(name => t.includes(name));
-        lang = hasFrench ? '🎧: ⭐🌍 MULTI ' : '🎧: 🌍 MULTI ';
-    } else if (found.length === 1) {
-        const code = found[0];
-        lang = `🎧: ${languages[code].flag}${code === 'fr' ? ' VF' : (code === 'en' ? ' VO' : '')}`;
-    }
+    if (t.includes('multi')) lang = '⭐ 🌍 MULTI';
+    else if (found.length > 0) lang = languages[found[0]].flag + ' ' + found[0].toUpperCase();
 
-    if (t.includes('2160p') || t.includes('4k')) quality = '🟤4K';
-    else if (t.includes('1080p')) quality = '🟢1080P';
-    else if (t.includes('720p')) quality = '🟠720P';
-    else if (t.includes('480p') || t.includes('360p')) quality = '⚪SD';
-    else if (t.includes('cam')) quality = '🔴CAM';
-    else quality = '🔵Stream';
+    if (t.includes('2160p') || t.includes('4k')) quality = '4K';
+    else if (t.includes('1080p')) quality = '1080p';
+    else if (t.includes('720p')) quality = '720p';
 
     if (t.includes('hevc') || t.includes('x265') || t.includes('h265')) codec = 'HEVC';
-    else if (t.includes('x264') || t.includes('h264')) codec = 'AVC/x264';
-    else codec = 'x264';
+    else if (t.includes('x264') || t.includes('h264')) codec = 'x264';
 
-    let source = 'MP4';
-    if (t.includes('bluray') || t.includes('bdrip')) source = 'BluRay';
-    else if (t.includes('web-dl') || t.includes('webdl') || t.includes('webrip')) source = 'WEB-DL';
-    else if (t.includes('dvdrip')) source = 'DVDRip';
-    else if (t.includes('hdrip')) source = '🎞️HDRip';
-    else if (t.includes('uhd')) source = '🖥️UHD';
-    else if (t.includes('3d')) source = '🔅3D';
-    else if (t.includes('amzn')) source ='🛒AMZN';
-    else if (t.includes('10bit')) source = '🎨10BIT';
-    else if (t.includes('hdr10')) source = '💯HDR10';
-    else if (t.includes('hdr')) source = '✨HDR';
-    else if (t.includes('moviebox')) source = 'F-WEB💎';
-    else if (t.includes('yastream')) source = 'V-Fast✨';
-    else if (t.includes('cinejoy')) source = 'CineJoy💎';
-    else if (t.includes('dolby vision') || t.includes(' dv ') || t.includes('vision') || t.includes('.dv.')) source = '🌈D-Vision';
-    else if (t.includes('mkv')) source = 'MKV';
-
-    if (t.includes('atmos')) audio = 'Atmos';
-    else if (t.includes('dts-hd')) audio = 'DTS-HD MA';
-    else if (t.includes('dts')) audio = 'DTS';
-    else if (t.includes('ddp5') || t.includes('ddp5.1')) audio = 'DDP5.1';
-    else if (t.includes('truehd')) audio = 'TrueHD';
-    else if (t.includes('aac')) audio = 'AAC';
-
-    return { quality, codec, source, audio, lang };
+    return { quality, codec, lang };
 }
 
-/* ================= FILTER FAKE ADVANCED ================= */
+function getQualityScore(qualityStr) {
+    if (qualityStr === '1080p') return 40;
+    if (qualityStr === '4K') return 30;
+    if (qualityStr === '720p') return 20;
+    return 10;
+}
+
 function isFake(title = '') {
     const t = title.toLowerCase();
-    const fakeKeywords = [
-        'sample', 'trailer', 'test', 'fake', 'scam', 'virus', 
-        'password', 'mot de passe', 'crack', 'patched', 'serial',
-        'keyger', 'keygen', 'unzip me', 'extract me', 'install', 
-        'setup', 'update', 'vlc player', 'codec update'
-    ];
+    const fakeKeywords = ['sample', 'trailer', 'fake', 'scam', 'virus', 'password', 'keygen', 'setup.exe'];
     if (fakeKeywords.some(keyword => t.includes(keyword))) return true;
-
-    const dangerousExtensions = /\.(exe|scr|bat|cmd|vbs|rar|zip|iso|dmg|tar|7z)\b/i;
-    if (dangerousExtensions.test(t)) return true;
-
-    const scamPatterns = /(free[\s_-]?movie|download[\s_-]?here|click[\s_-]?here|premium)/i;
-    if (scamPatterns.test(t)) return true;
-
-    return false;
-}
-
-/* ================= DETECT PREMIUM UPLOADERS ================= */
-function getUploader(title) {
-    if (!title) return "";
-    const t = title.toLowerCase();
-    const topGroups = [
-        { name: "FraMeSToR", label: "💎 FraMeSToR" },
-        { name: "EPSILON", label: "💎 EPSILON" },
-        { name: "Tigole", label: "⭐ Tigole" },
-        { name: "QxR", label: "⭐ QxR" },
-        { name: "PSA", label: "⭐ PSA" },
-        { name: "Joy", label: "⭐ Joy" },
-        { name: "NTb", label: "⚡ NTb" },
-        { name: "FLUX", label: "⚡ FLUX" },
-        { name: "DON", label: "⭐ DON" },
-        { name: "CtrlHD", label: "⭐ CtrlHD" },
-        { name: "WiKi", label: "⭐ WiKi" },
-        { name: "GanoOM", label: "⭐ GanoOM" }
-    ];
-    for (const group of topGroups) {
-        const regex = new RegExp(`\\b${group.name.toLowerCase()}\\b`, 'i');
-        if (regex.test(t)) return group.label;
-    }
-    return "";
+    return /\.(exe|scr|bat|cmd|vbs|rar|zip|iso)\b/i.test(t);
 }
 
 /* ================= STREAM ROUTE ================= */
+
 app.get('/stream/:type/:id.json', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+
     const { type, id } = req.params;
     const cacheKey = `${type}-${id}`;
 
@@ -273,203 +132,131 @@ app.get('/stream/:type/:id.json', async (req, res) => {
     if (cached) return res.json(cached);
 
     const promises = SOURCES.map(source =>
-        axios.get(`${source.url}/stream/${type}/${id}.json`, { 
+        axios.get(`${source.url}/stream/${type}/${id}.json`, {
             timeout: TIMEOUT,
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
         })
-        .then(res => (res.data.streams || []).map(s => ({
+        .then(response => (response.data && response.data.streams ? response.data.streams : []).map(s => ({
             ...s,
             sourceName: source.name
         })))
-        .catch((err) => {
-            console.log(`[Source Error] ${source.name}: ${err.message}`);
-            return [];
-        })
+        .catch(() => [])
     );
 
     const results = await Promise.all(promises);
     let finalStreams = [];
     const seenKeys = new Set();
-    const seenContents = new Set();
 
-    results.forEach((sourceStreams, index) => {
-        const sourceName = SOURCES[index].name;
-        const counts = { '1080p': 0, '4k': 0, '720p': 0, 'other': 0 };
+    results.forEach((sourceStreams) => {
+        for (const stream of sourceStreams) {
+            const rawTitle = stream.title || stream.name || '';
 
-        const sortedSourceStreams = [...sourceStreams].sort((a, b) => getSeeders(b.title) - getSeeders(a.title));
-
-        for (const stream of sortedSourceStreams) {
-            // 0. Ignorer les liens externes / dons
-            if (stream.externalUrl && !stream.url) continue;
-
-            // 1. Reconstituer un rawTitle complet (title OU name + description)
-            let rawTitle = stream.title || '';
-            if (!rawTitle) {
-                const nameStr = stream.name || '';
-                const descStr = stream.description || '';
-                rawTitle = `${nameStr}\n${descStr}`;
-            }
-
-            // 2. Filtrage strict par mots-clés de fakes
             if (isFake(rawTitle)) continue;
 
-            // 3. Extraction/Calcul de la taille
-            let size = getFileSize(rawTitle);
+            const isDirect = Boolean(stream.url);
+            const isTorrent = Boolean(stream.infoHash);
 
-            // Secours si la taille est dans behaviorHints.videoSize (en octets)
-            if (!size && stream.behaviorHints && stream.behaviorHints.videoSize) {
-                const bytes = stream.behaviorHints.videoSize;
-                const mb = (bytes / (1024 * 1024)).toFixed(0);
-                if (mb >= 1000) {
-                    size = `${(mb / 1024).toFixed(2)} GB`;
-                } else {
-                    size = `${mb} MB`;
-                }
-            }
+            // Clé d'unicité
+            let uniqueKey = isTorrent 
+                ? stream.infoHash.toLowerCase().trim() 
+                : (stream.url ? stream.url.trim() : null);
 
-            // Secours par défaut élargi pour les flux Cinejoy / HLS / IPTV sans taille fixe
-            const lowerTitle = rawTitle.toLowerCase();
-            const streamUrl = (stream.url || '').toLowerCase();
-            const isStreamSource = lowerTitle.includes('cinejoy') ||
-                                    lowerTitle.includes('m3u8') ||
-                                    lowerTitle.includes('auto') ||
-                                    lowerTitle.includes('hls') ||
-                                    streamUrl.includes('m3u8') ||
-                                    streamUrl.includes('hls') ||
-                                    streamUrl.includes('cinejoy');
+            if (!uniqueKey || seenKeys.has(uniqueKey)) continue;
 
-            if (!size && isStreamSource) {
-                size = "STREAM";
-            }
-
-            if (!size) continue;
-
-            // Calcul de la taille en MB pour le filtre < 400 MB
-            let sizeInMB = 0;
-            if (size === "STREAM") {
-                sizeInMB = 9999; // bypass pour laisser passer les flux HLS direct
-            } else {
-                const sizeValue = parseFloat(size);
-                if (size.includes("GB")) sizeInMB = sizeValue * 1024;
-                else if (size.includes("MB")) sizeInMB = sizeValue;
-            }
-
-            if (size !== "STREAM" && sizeInMB < 400) continue;
-
-            // 4. Élimination des doublons de réseau stricts (Clé unique)
-            let key = (stream.infoHash || stream.url || '').toLowerCase().trim();
-            if (!key || seenKeys.has(key)) continue;
-
-            // 5. Nettoyage du nom de fichier
-            let cleanedRawTitle = rawTitle;
-            if (rawTitle.toLowerCase().includes('vela')) {
-                cleanedRawTitle = rawTitle.replace(/[|.\-_]?\s*vela\s*[|.\-_]?/gi, '').trim();
-                cleanedRawTitle = cleanedRawTitle.replace(/\s*[|]\s*/g, '|').trim();
-                cleanedRawTitle = cleanedRawTitle.replace(/[.\-_]{2,}/g, '.').trim();
-            }
-
-            const lines = cleanedRawTitle.split('\n').map(s => s.trim());
-
-            let fileName =
-                lines.find(l => l.startsWith('🍿')) ||
-                lines.find(l => /\(\d{4}\)/.test(l)) ||
-                lines[0] ||
-                'Unknown';
-            fileName = fileName
-                .replace(/\s*(1080p|720p|4k|2160p|hevc|x265|x264|h264|h265|bluray|web-dl|webrip|bdrip|dvdrip|hdrip|amzn|hdr|dolby vision|atmos|dts|aac)\s*/gi, '')
-                .replace(/\s*(🐧 PenguPlay|pengu)\s*/gi, 'Fast Source🔥 :')
-                .replace(/\s*(🐧)\s*/gi, '📼')
-                .replace(/\s*(🍿)\s*/gi, '')
-                .replace(/\s*[\[\(].*?[\]\)]\s*/g, '') 
-                .replace(/[.\-_]{2,}/g, '.') 
-                .replace(/^[.\-_]+|[.\-_]+$/g, '') 
-                .trim();
-
-            if (fileName.length > 60) {
-                fileName = fileName.substring(0, 57) + '...';
-            }
-
-            // 6. Élimination des doublons visuels
-            const contentSignature = `${fileName.toLowerCase()}_${size.toLowerCase()}`.replace(/\s+/g, '');
-            if (seenContents.has(contentSignature)) continue;
-
-            // 7. Quotas par catégories de qualité
-            const t = rawTitle.toLowerCase();
-            let qType = 'other';
-            if (t.includes('1080p')) qType = '1080p';
-            else if (t.includes('4k') || t.includes('2160p')) qType = '4k';
-            else if (t.includes('720p')) qType = '720p';
-
-            if (counts[qType] >= 25) continue;
-
-            // Validation finale
-            seenKeys.add(key);
-            seenContents.add(contentSignature);
-            counts[qType]++;
-
-            // 8. Collecte des métadonnées enrichies
-            const info = getQualityInfo(rawTitle);
+            const size = getFileSize(rawTitle, stream.behaviorHints);
+            const info = getQualityInfo(rawTitle + ' ' + (stream.name || ''));
             const seeds = getSeeders(rawTitle);
-            const seedText = seeds > 0 ? seeds : "Speed⚡";
-            const peer = getPeerSite(rawTitle);
-            const uploader = getUploader(rawTitle);
-            const uploaderTag = uploader ? ` | 👑 ${uploader}` : "";
 
-            const buttonName = `🎬 ${info.quality !== 'Unknown' ? info.quality : ''} |📦 ${info.codec} | ${info.source}`.trim();
+            // Serveur Label
+            const serverLabel = stream.sourceName || (isDirect ? 'HTTP Direct' : 'Torrent');
+            const streamTypeIcon = isDirect ? '⚡ DIRECT' : '🧲 TORRENT';
+            
+            // 1. Bouton Principal Stremio
+            const displayName = `[${serverLabel}] ${info.quality} ${streamTypeIcon}`;
 
-            let packInfo = "";
-            const packMatch = rawTitle.match(/Pack:\s*(\d+(?:\.\d+)?\s*[TGMBK]B)/i);
-            if (packMatch) {
-                packInfo = ` / Pack: ${packMatch[1]}`;
+            // 2. Titre / Description déroulante
+            let cleanFileName = rawTitle.split('\n')[0].replace(/[\/\\]/g, '').trim();
+            if (cleanFileName.length > 65) cleanFileName = cleanFileName.substring(0, 62) + '...';
+
+            let displayDetails = `📁 ${cleanFileName}\n`;
+            if (size) displayDetails += `💾 ${size} `;
+            if (isTorrent) displayDetails += `| 👥 Seeds: ${seeds} `;
+            displayDetails += `\n🌍 ${info.lang} ${info.codec ? '| 📦 ' + info.codec : ''}`;
+
+            // Transfert complet des behaviorHints d'origine du serveur (ex: bingeGroup, videoSize, notWebReady)
+            const behaviorHints = stream.behaviorHints ? { ...stream.behaviorHints } : {};
+
+            const formattedStream = {
+                name: displayName,
+                title: displayDetails,
+                behaviorHints: behaviorHints
+            };
+
+            if (isDirect) {
+                formattedStream.url = stream.url;
+            } else if (isTorrent) {
+                formattedStream.infoHash = stream.infoHash.toLowerCase();
+                if (stream.fileIdx !== undefined) formattedStream.fileIdx = stream.fileIdx;
             }
 
-            // Conservation des behaviorHints originaux
-            const behavior = stream.behaviorHints ? { ...stream.behaviorHints, notWebReady: true } : { notWebReady: true };
-            console.log(stream.behaviorHints);
+            if (stream.subtitles) formattedStream.subtitles = stream.subtitles;
 
-            finalStreams.push({
-                name: buttonName || sourceName,
-                title: `📁: ${fileName}\n💾: ${size}${packInfo}\n👥: ${seedText} | ⚙️: ${peer} • 📡:${sourceName}${uploaderTag}\n🌍: ${info.lang}`,
-                infoHash: stream.infoHash ? stream.infoHash.toLowerCase() : undefined,
-                url: stream.url,
-                fileIdx: stream.fileIdx,
-                behaviorHints: behavior,
-                _isTopSource:
-                    (sourceName === 'HTTP.DZ1⭐' || 
-                      sourceName === 'HTTP.DZ2⭐' || 
-                      sourceName === 'HTTP.DZ3⭐' || 
-                      sourceName === 'HTTP.DZ4⭐') ? 1 : 0,
-                _sortQuality: getQualityScore(cleanedRawTitle),
-                _sortPeer: getPeerScore(cleanedRawTitle),
-                _sortSeeds: seeds,
-                _sortLang: getLangScore(cleanedRawTitle)
-            });
+            // Score de priorité pour le tri :
+            // 100 = ⭐HTTP.SHBX
+            // 80  = Autres serveurs HTTP Direct
+            // 10  = Torrents
+            let priorityScore = 10;
+            if (serverLabel === '⭐HTTP.SHBX') {
+                priorityScore = 100;
+            } else if (isDirect) {
+                priorityScore = 80;
+            }
+
+            formattedStream._priorityScore = priorityScore;
+            formattedStream._qualityScore = getQualityScore(info.quality);
+            formattedStream._seeds = seeds;
+
+            seenKeys.add(uniqueKey);
+            finalStreams.push(formattedStream);
         }
     });
 
-    // Tri final des flux
+    // --- RÈGLE DE TRI FINAL ---
+    // 1. ⭐HTTP.SHBX en premier, suivi des autres HTTP Direct, puis Torrents
+    // 2. Qualité vidéo (1080p > 4K > 720p)
+    // 3. Seeders (si torrent)
     finalStreams.sort((a, b) => {
-        if (b._isTopSource !== a._isTopSource) return b._isTopSource - a._isTopSource;
-        if (b._sortPeer !== a._sortPeer) return b._sortPeer - a._sortPeer; 
-        if (b._sortSeeds !== a._sortSeeds) return b._sortSeeds - a._sortSeeds;
-        return b._sortLang - a._sortLang;
+        if (b._priorityScore !== a._priorityScore) {
+            return b._priorityScore - a._priorityScore;
+        }
+        if (b._qualityScore !== a._qualityScore) {
+            return b._qualityScore - a._qualityScore;
+        }
+        return b._seeds - a._seeds;
     });
 
-    // Nettoyage des propriétés temporaires de tri
+    // Nettoyage des variables de tri
     finalStreams.forEach(s => {
-        delete s._sortQuality;
-        delete s._sortPeer;
-        delete s._sortSeeds;
-        delete s._sortLang;
+        delete s._priorityScore;
+        delete s._qualityScore;
+        delete s._seeds;
     });
 
-    cache.set(cacheKey, { streams: finalStreams });
-    res.json({ streams: finalStreams });
+    const responsePayload = { streams: finalStreams };
+    cache.set(cacheKey, responsePayload);
+    res.json(responsePayload);
 });
 
-/* ================= MANIFEST & HOME ROUTES ================= */
-app.get('/manifest.json', (req, res) => res.json(MANIFEST));
-app.get('/', (req, res) => res.json(MANIFEST));
+/* ================= MANIFEST & ROUTES CLIENTS ================= */
+
+const sendManifest = (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.json(MANIFEST);
+};
+
+app.get('/manifest.json', sendManifest);
+app.get('/', sendManifest);
 
 const PORT = process.env.PORT || 7860;
-app.listen(PORT, () => console.log(`Torrent DZ ONLINE FIXED ON PORT ${PORT}`));
+app.listen(PORT, () => console.log(`GHOST Addon v2.5 ONLINE ON PORT ${PORT}`));

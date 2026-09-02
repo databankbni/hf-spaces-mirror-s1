@@ -1,5 +1,5 @@
 # Use an official Python runtime as the base image
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Set the working directory in the container
 WORKDIR /app
@@ -21,15 +21,20 @@ RUN apt-get update \
 COPY . .
 
 # Install the project dependencies
-RUN pip install --no-cache-dir -e . "langgraph-cli[inmem]"
+RUN pip install --no-cache-dir -e .
 
 # Expose the port the app runs on
-EXPOSE 2024
+EXPOSE 2026
 
 # Create a non-root user and switch to it
 RUN adduser --disabled-password --gecos '' appuser
 RUN chown -R appuser:appuser /app
 USER appuser
 
-# Run the application
-CMD ["langgraph", "dev", "--host", "0.0.0.0", "--port", "2024"]
+# Health check using the /health endpoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:2026/health || exit 1
+
+# Run the application using aegra serve (PaaS mode)
+# PostgreSQL and Redis are provided externally via DATABASE_URL and REDIS_URL
+CMD ["aegra", "serve", "--host", "0.0.0.0", "--port", "2026"]

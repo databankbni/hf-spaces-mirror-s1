@@ -381,7 +381,11 @@ async def web_search(req: SearchRequest):
             "fetched_at": datetime.utcnow().isoformat() + "Z"}
 
 
-@router.get("/selftest")
+# GET/POST/HEAD: this is a free diagnostic and the crawler fleet POSTs it. Registered
+# GET-only it answered 405, which tells a prober the path is not there at all. Its
+# full path is also in mcp_http.FREE_PATHS so tokenguard's blanket POST sweep cannot
+# turn a diagnostic into a paid route.
+@router.api_route("/selftest", methods=["GET", "POST", "HEAD"])
 async def search_selftest():
     """FREE. Per-backend reachability and parser yield for a fixed query.
 
@@ -464,7 +468,11 @@ async def crawl_site(req: CrawlRequest):
             "fetched_at": datetime.utcnow().isoformat() + "Z"}
 
 
-@router.get("/sitemap/selftest")
+# GET/POST/HEAD: this is a free diagnostic and the crawler fleet POSTs it. Registered
+# GET-only it answered 405, which tells a prober the path is not there at all. Its
+# full path is also in mcp_http.FREE_PATHS so tokenguard's blanket POST sweep cannot
+# turn a diagnostic into a paid route.
+@router.api_route("/sitemap/selftest", methods=["GET", "POST", "HEAD"])
 async def sitemap_selftest():
     """FREE diagnostic: can this host actually read sitemaps from the public internet?
 

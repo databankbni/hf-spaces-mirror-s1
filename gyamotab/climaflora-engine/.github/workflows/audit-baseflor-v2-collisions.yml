@@ -1,0 +1,124 @@
+name: Audit Baseflor v2 taxonomic collisions
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [edaphic-v2.0-enrichment]
+    paths:
+      - '.github/workflows/audit-baseflor-v2-collisions.yml'
+      - '.github/tools/normalize_edaphic_v2_sources.py'
+      - '.github/tools/edaphic_v2_common.py'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: audit-baseflor-v2-collisions
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      V19_URL: https://shugoan.com/climaflora/data/climaflora_global_plants_v1_9.sqlite.zst
+      V19_ZST_SHA: 5851572bd48dea34d3b69e16a78126d1ac149c907e5db8fa7af1bc36812779dc
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Prepare audited sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+          python -m pip install --quiet openpyxl
+          RUN_ID=$(python - <<'PY'
+          import json
+          d=json.load(open('.github/edaphic-v2-source-status.json'))
+          assert d.get('status')=='ready',d
+          print(d['run_id'])
+          PY
+          )
+          mkdir -p source
+          gh run download "$RUN_ID" -n climaflora-edaphic-v2-sources -D source
+          (cd source && sha256sum -c edaphic_v2_source_files.sha256)
+          curl -fL --retry 6 --retry-all-errors "$V19_URL" -o v19.zst
+          echo "$V19_ZST_SHA  v19.zst" | sha256sum -c -
+          zstd -d -f v19.zst -o v19.sqlite
+          : > empty-synonyms.jsonl
+          python .github/tools/normalize_edaphic_v2_sources.py \
+            --catalog v19.sqlite \
+            --usda-primary source/usda_edaphic_growth_requirements.jsonl \
+            --usda-synonyms empty-synonyms.jsonl \
+            --usda-output /tmp/usda.jsonl \
+            --baseflor source/baseflor_2023_10.xlsx \
+            --baseflor-output /tmp/baseflor-normalized.xlsx \
+            --report /tmp/normalization.json
+      - name: Audit duplicate accepted taxa and indicator conflicts
+        run: |
+          python - <<'PY'
+          import json
+          from collections import defaultdict
+          from pathlib import Path
+          from openpyxl import load_workbook
+          from importlib.util import spec_from_file_location,module_from_spec
+
+          spec=spec_from_file_location('common','.github/tools/edaphic_v2_common.py')
+          common=module_from_spec(spec); spec.loader.exec_module(common)
+          wb=load_workbook('/tmp/baseflor-normalized.xlsx',read_only=True,data_only=True)
+          ws=wb['baseflor']; rows=ws.iter_rows(values_only=True)
+          header=[str(x or '').strip() for x in next(rows)]; idx={h:i for i,h in enumerate(header)}
+          by=defaultdict(lambda:defaultdict(list))
+          source_names=defaultdict(list)
+          matched_rows=0
+          for r in rows:
+              if str(r[idx.get('rang_taxinomique',0)] or '').strip().lower()!='esp': continue
+              tid=str(r[idx['CLIMAFLORA_TAXON_ID']] or '').strip()
+              if not tid: continue
+              matched_rows += 1
+              accepted=str(r[idx['nomH']] or '').strip()
+              original=str(r[idx['CLIMAFLORA_SOURCE_NOMH']] or '').strip()
+              source_names[tid].append({'accepted':accepted,'source':original})
+              for col,(indicator,smin,smax) in common.BASEFLOR_INDICATORS.items():
+                  v=common.finite(r[idx[col]])
+                  if v is not None and smin <= v <= smax:
+                      by[tid][indicator].append(v)
+          duplicate_taxa={tid:names for tid,names in source_names.items() if len(names)>1}
+          conflicts=[]; corroborated=[]
+          for tid,indicators in by.items():
+              for indicator,vals in indicators.items():
+                  if len(vals)<=1: continue
+                  uniq=sorted(set(vals))
+                  row={'taxon_id':tid,'indicator':indicator,'values':uniq,'rows':len(vals),'names':source_names[tid]}
+                  (corroborated if len(uniq)==1 else conflicts).append(row)
+          out={
+              'status':'ready',
+              'matched_species_rows':matched_rows,
+              'unique_taxa':len(source_names),
+              'taxa_with_multiple_source_rows':len(duplicate_taxa),
+              'duplicate_indicator_same_value_groups':len(corroborated),
+              'conflicting_indicator_groups':len(conflicts),
+              'conflicting_taxa':len({x['taxon_id'] for x in conflicts}),
+              'conflicts':conflicts,
+              'policy':'Any conflicting Baseflor indicator after WCVP synonym collapse must not be silently canonicalized; conflict must be preserved or canonical indicator omitted.',
+          }
+          Path('/tmp/baseflor-v2-collision-audit.json').write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          print(json.dumps({k:v for k,v in out.items() if k!='conflicts'},indent=2,ensure_ascii=False))
+          PY
+      - name: Record audit
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4 5; do
+            git fetch origin edaphic-v2.0-enrichment && git reset --hard origin/edaphic-v2.0-enrichment
+            cp /tmp/baseflor-v2-collision-audit.json .github/baseflor-v2-collision-audit.json
+            git add .github/baseflor-v2-collision-audit.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record Baseflor v2 collision audit [skip ci]'
+            git push origin HEAD:edaphic-v2.0-enrichment && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

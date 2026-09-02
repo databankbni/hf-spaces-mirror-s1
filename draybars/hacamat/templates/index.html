@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+  <title>Hacamat ve Akupunktur Klinik Platformu Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    :root {
+      --primary: #0891b2;
+      --primary-dark: #0e7490;
+      --accent: #f59e0b;
+    }
+    
+    body { 
+      font-family: 'Plus Jakarta Sans', sans-serif; 
+      -webkit-font-smoothing: antialiased; 
+      -webkit-text-size-adjust: 100%;
+      background-color: #f8fafc;
+      background-image: 
+        radial-gradient(at 0% 0%, hsla(189,100%,94%,1) 0, transparent 50%), 
+        radial-gradient(at 100% 0%, hsla(38,100%,95%,1) 0, transparent 50%);
+      background-attachment: fixed;
+    }
+    
+    @media screen and (max-width: 768px) {
+      input, select, textarea { font-size: 16px !important; }
+    }
+
+    .overflow-x-auto, .overflow-y-auto { -webkit-overflow-scrolling: touch; }
+    * { -webkit-tap-highlight-color: transparent; }
+
+    .modern-input {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      transition: all 0.2s ease;
+    }
+    .modern-input:focus {
+      background-color: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(8, 145, 178, 0.12);
+      outline: none;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+    #toast {
+      visibility: hidden;
+      opacity: 0;
+      right: 1rem;
+      left: 1rem;
+      max-width: calc(100vw - 2rem);
+      margin: 0 auto;
+      transform: translateY(20px);
+      transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+    #toast.show {
+      visibility: visible;
+      opacity: 1;
+      transform: translateY(0);
+      bottom: 2.5rem;
+    }
+    @media(min-width: 640px) {
+      #toast { left: auto; right: 2rem; max-width: none; }
+    }
+    
+    .history-card {
+      transition: all 0.2s ease;
+      border: 1px solid #f1f5f9;
+    }
+    .history-card:hover {
+      border-color: var(--primary);
+      background-color: #f0fdf4;
+    }
+
+    .view-hidden { display: none !important; }
+
+    .acu-point-dot {
+      cursor: pointer;
+      transform-box: fill-box;
+      transform-origin: center;
+      transition: filter 0.2s ease, stroke 0.2s ease;
+    }
+    .acu-point-dot:hover {
+      filter: drop-shadow(0 0 6px rgba(14, 165, 233, 0.9));
+      stroke: #0284c7;
+      stroke-width: 2.5px;
+    }
+    .acu-point-dot.active-point {
+      stroke: #ffffff !important;
+      stroke-width: 3px !important;
+      filter: drop-shadow(0 0 10px rgba(14, 165, 233, 1));
+    }
+
+    @media print {
+      body { background: white !important; background-image: none !important; }
+      header, nav, .no-print, #toast, #timerBar, #pointTooltip { display: none !important; }
+      .print-only { display: block !important; }
+      .page { border: none !important; box-shadow: none !important; padding: 0 !important; }
+    }
+    .print-only { display: none; }
+  </style>
+</head>
+<body class="text-slate-600 min-h-screen min-h-[100dvh] flex flex-col selection:bg-cyan-100 selection:text-cyan-900">
+
+  <header class="sticky top-0 z-40 w-full bg-white/85 backdrop-blur-xl border-b border-slate-200/60 shadow-sm supports-[backdrop-filter]:bg-white/70 no-print">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="bg-gradient-to-br from-cyan-600 to-amber-500 p-2 sm:p-2.5 rounded-2xl text-white shadow-lg shadow-cyan-500/20 shrink-0">
+          <i data-lucide="shield-plus" class="w-5 h-5 sm:w-6 sm:h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <h1 class="text-sm sm:text-xl font-extrabold text-slate-800 tracking-tight">
+              Hacamat & Akupunktur
+            </h1>
+            <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm shrink-0">PRO</span>
+          </div>
+          <p class="text-[11px] text-slate-500 font-medium hidden sm:block">Geleneksel Kupa Terapisi ve Akupunktur Kombine Reçete Sistemi</p>
+        </div>
+      </div>
+
+      <nav class="flex items-center gap-1 overflow-x-auto py-1 max-w-full">
+        <a href="https://nanomed-ai.com/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all shrink-0">
+          <i data-lucide="globe" class="w-3.5 h-3.5 text-cyan-600"></i>
+          <span>Anasayfa</span>
+        </a>
+        <button id="navBtnApp" class="nav-tab active flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 transition-all shrink-0">
+          <i data-lucide="stethoscope" class="w-3.5 h-3.5"></i>
+          <span>Reçete</span>
+        </button>
+        <button id="navBtnMap" class="nav-tab flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all shrink-0">
+          <i data-lucide="map" class="w-3.5 h-3.5 text-cyan-600"></i>
+          <span>Harita</span>
+        </button>
+        <button id="navBtnLibrary" class="nav-tab flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all shrink-0">
+          <i data-lucide="database" class="w-3.5 h-3.5 text-cyan-600"></i>
+          <span>Kütüphane</span>
+        </button>
+        <button id="navBtnHistory" class="nav-tab flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all shrink-0">
+          <i data-lucide="history" class="w-3.5 h-3.5 text-purple-600"></i>
+          <span>Geçmiş</span>
+        </button>
+        <button id="navBtnGuide" class="nav-tab flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all shrink-0">
+          <i data-lucide="book-open" class="w-3.5 h-3.5 text-emerald-600"></i>
+          <span>Kılavuz</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div id="timerBar" class="bg-slate-900 text-white text-xs py-2 px-4 shadow-md flex items-center justify-between no-print hidden">
+    <div class="max-w-7xl mx-auto w-full flex items-center justify-between flex-wrap gap-2">
+      <div class="flex items-center gap-3">
+        <span class="relative flex h-3 w-3">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+        </span>
+        <span class="font-semibold text-slate-200">Aktif Seans Sayacı:</span>
+        <span id="timerPatientDisplay" class="bg-slate-800 text-amber-300 font-bold px-2.5 py-1 rounded-lg border border-slate-700 text-xs">Hasta: -</span>
+        <span id="timerDisplay" class="font-mono text-base font-bold text-cyan-400">20:00</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btnTestSound" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg text-xs font-medium transition-colors flex items-center gap-1">
+          <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+        </button>
+        <button id="btnPauseTimer" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium transition-colors">Duraklat</button>
+        <button id="btnStopTimer" class="px-2.5 py-1 bg-rose-600/80 hover:bg-rose-600 rounded-lg text-xs font-medium transition-colors">Bitir</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="flex-grow max-w-7xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6 touch-pan-y">
+
+    <div id="appView" class="view-panel">
+      <div class="page bg-white/90 backdrop-blur-md rounded-2xl sm:rounded-[2rem] shadow-xl shadow-slate-200/50 border border-white/80 p-4 sm:p-10 mb-8 relative overflow-hidden">
+        
+        <div class="absolute top-0 right-0 w-72 h-72 bg-gradient-to-br from-cyan-100/50 to-amber-100/30 rounded-bl-[12rem] -z-10 opacity-70"></div>
+
+        <section class="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-5 mb-6 sm:mb-8 bg-slate-50/60 p-3 sm:p-5 rounded-2xl border border-slate-100">
+          <div class="sm:col-span-8 space-y-1.5">
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Hasta Adı Soyadı</label>
+            <input id="patientName" type="text" class="w-full modern-input rounded-xl px-4 py-2.5 text-slate-800 font-semibold placeholder:font-normal placeholder:text-slate-400 text-sm" placeholder="Örn: Ayşe Demir" />
+          </div>
+          <div class="sm:col-span-4 space-y-1.5">
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">T.C. Kimlik No</label>
+            <div class="relative group">
+              <input id="patientId" type="tel" maxlength="11" class="w-full modern-input rounded-xl pl-4 pr-11 py-2.5 text-slate-800 font-semibold placeholder:font-normal placeholder:text-slate-400 text-sm" placeholder="11 Haneli No" />
+              <button id="btnLoadHistoryMini" title="Geçmiş Kayıtları Ara" class="absolute right-1.5 top-1.5 bottom-1.5 px-2.5 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-cyan-600 hover:border-cyan-200 hover:bg-cyan-50 transition-all shadow-sm flex items-center justify-center">
+                <i data-lucide="search" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="mb-6 sm:mb-8 p-1 bg-gradient-to-r from-cyan-500/10 via-amber-500/10 to-emerald-500/10 rounded-2xl">
+          <div class="bg-white rounded-xl shadow-sm border border-cyan-100 p-3.5 sm:p-5 flex flex-col sm:flex-row gap-3 sm:gap-4 items-end">
+            <div class="flex-grow w-full space-y-2">
+              <label class="block text-xs font-bold text-cyan-900 uppercase tracking-wider ml-1 flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-4 h-4 text-amber-600"></i>
+                Hacamat & Akupunktur Kombine Şablonu
+              </label>
+              <div class="relative">
+                <input id="chiefInput" list="chiefList" class="w-full pl-10 pr-4 py-3 rounded-xl modern-input focus:ring-cyan-500/20 font-medium text-slate-800 text-xs sm:text-sm" placeholder="Klinik belirtileri veya Hastalık  (Örn: Migren, Bel Fıtığı)...">
+                <i data-lucide="search" class="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400"></i>
+              </div>
+              <datalist id="chiefList"></datalist>
+            </div>
+            <button id="btnApplyTemplate" class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-cyan-600 to-amber-600 hover:from-cyan-700 hover:to-amber-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 shrink-0">
+              <i data-lucide="wand-2" class="w-4 h-4"></i> Şablonu Uygula
+            </button>
+          </div>
+        </section>
+
+        <section class="mb-8 sm:mb-10">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+            <h3 class="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+              <span class="bg-amber-100 text-amber-700 p-1.5 rounded-lg"><i data-lucide="target" class="w-4 h-4"></i></span>
+              Akupunktur Reçete Noktaları
+            </h3>
+
+            <div class="flex items-center gap-2">
+              <div class="relative w-full sm:w-64 group">
+                <input type="text" id="pointSearch" placeholder="Manuel Nokta Ekle (Örn: GB21)..." class="w-full pl-9 pr-4 py-2.5 sm:py-2 text-xs modern-input rounded-xl focus:shadow-md transition-all">
+                <i data-lucide="plus" class="absolute left-3 top-3 sm:top-2.5 w-3.5 h-3.5 text-slate-400 group-focus-within:text-cyan-600 transition-colors"></i>
+                <div id="searchResults" class="absolute z-50 w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-2xl max-h-60 overflow-y-auto hidden"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs sm:text-sm text-left whitespace-nowrap sm:whitespace-normal">
+                <thead class="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th class="p-3 w-10 text-center">#</th>
+                    <th class="p-3 w-24 sm:w-28 text-center">Kod</th>
+                    <th class="p-3 min-w-[9rem]">Nokta Çince/Pinyin Adı</th>
+                    <th class="p-3 w-28 sm:w-32">Taraf</th>
+                    <th class="p-3 w-28 sm:w-32">Teknik</th>
+                    <th class="p-3 w-12 text-center">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody id="pointsBody" class="divide-y divide-slate-100 bg-white">
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="mt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs text-slate-400 gap-2">
+            <span><i data-lucide="info" class="w-3.5 h-3.5 inline mr-1"></i> Detay, lokasyon ve görsel için nokta adına tıklayabilirsiniz.</span>
+            <button id="btnClearPoints" class="font-semibold text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-3 py-1 rounded-lg transition-colors flex items-center gap-1">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Tümünü Temizle
+            </button>
+          </div>
+        </section>
+
+        <section class="mb-6 sm:mb-8 bg-amber-50/60 rounded-2xl border border-amber-200 p-4 sm:p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-xs font-extrabold uppercase tracking-wider text-amber-900 flex items-center gap-2">
+              <i data-lucide="circle-dot" class="w-4 h-4 text-amber-600"></i>
+              Hacamat Kupa Yerleşim Planı
+            </h4>
+            <span id="cupCountBadge" class="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full font-bold">0 Kupa</span>
+          </div>
+          <div id="cuppingPlanContainer" class="flex flex-wrap items-center gap-2 text-xs text-slate-700 font-medium leading-relaxed">
+            <span class="text-slate-400">Şablon seçildiğinde önerilen hacamat kupa noktaları burada listelenecektir.</span>
+          </div>
+        </section>
+
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 mb-6 sm:mb-8">
+          <div class="bg-cyan-50/40 rounded-2xl border border-cyan-200 p-4">
+            <label class="flex items-center gap-2 text-xs font-extrabold text-cyan-900 uppercase tracking-wider mb-2.5">
+              <i data-lucide="clipboard-list" class="w-4 h-4 text-cyan-600"></i>
+              Klinik Bulgular & Teşhis Notları
+            </label>
+            <textarea id="clinicalNotes" rows="4" class="w-full bg-white border border-cyan-200 rounded-xl p-3 text-xs sm:text-sm text-slate-700 leading-relaxed focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/10 outline-none transition-all resize-none font-medium" placeholder="TCM Diagnostik, anamnez ve hacamat kupa sayısı notları..."></textarea>
+          </div>
+          <div class="bg-emerald-50/40 rounded-2xl border border-emerald-200 p-4">
+            <label class="flex items-center gap-2 text-xs font-extrabold text-emerald-900 uppercase tracking-wider mb-2.5">
+              <i data-lucide="home" class="w-4 h-4 text-emerald-600"></i>
+              Hacamat Sonrası Bakım & Ev Önerileri
+            </label>
+            <textarea id="homeAdvice" rows="4" class="w-full bg-white border border-emerald-200 rounded-xl p-3 text-xs sm:text-sm text-slate-700 leading-relaxed focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all resize-none font-medium" placeholder="24 saat su değdirmeme, hayvansal gıda kısıtlaması, dinlenme önerileri..."></textarea>
+          </div>
+        </section>
+
+        <section class="pt-5 sm:pt-6 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div class="text-[11px] sm:text-xs font-medium text-slate-400 flex items-center gap-1.5 bg-slate-50 px-3.5 py-2 rounded-full border border-slate-100 text-center sm:text-left w-full sm:w-auto justify-center">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500 shrink-0"></i>
+            <span>Tüm veriler cihazınızda tarayıcı hafızasında saklanır.</span>
+          </div>
+          <div class="flex flex-wrap gap-2.5 w-full sm:w-auto items-center justify-end">
+            <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+              <span class="text-[11px] font-bold text-slate-500 px-2">Süre:</span>
+              <select id="timerDurationSelectBottom" class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none cursor-pointer">
+                <option value="3">3 Dk</option>
+                <option value="5">5 Dk</option>
+                <option value="10">10 Dk</option>
+                <option value="15">15 Dk</option>
+                <option value="20" selected>20 Dk</option>
+              </select>
+            </div>
+            <button id="btnStartSessionTimerBottom" class="flex-grow sm:flex-grow-0 px-4 sm:px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0">
+              <i data-lucide="timer" class="w-4 h-4"></i>
+              <span>Seans Başlat</span>
+            </button>
+            <button id="btnSaveSession" class="flex-grow sm:flex-grow-0 px-6 sm:px-8 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm shadow-xl transition-all flex items-center justify-center gap-2 shrink-0">
+              <i data-lucide="save" class="w-4 h-4 text-amber-400"></i> Seansı Kaydet
+            </button>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <div id="mapView" class="view-panel view-hidden">
+      <div class="bg-white/90 backdrop-blur-md rounded-[2rem] shadow-xl border border-white p-6 sm:p-8 mb-8">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+              <i data-lucide="map" class="w-6 h-6 text-cyan-600"></i> İnteraktif Vücut ve Akupunktur Haritası
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">Haritadaki noktalara tıklayarak detaylı anatomik görseli ve uygulama notunu görün.</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="btnMapAnterior" class="px-3.5 py-1.5 bg-cyan-600 text-white font-bold text-xs rounded-lg shadow-sm">Ön (Anterior)</button>
+            <button id="btnMapPosterior" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors">Sırt (Posterior)</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+          <div class="md:col-span-7 flex justify-center bg-slate-900/5 p-6 rounded-3xl border border-slate-200/60 min-h-[480px] relative overflow-hidden">
+            <!-- ANTERIOR SVG MAP -->
+            <svg id="svgMapAnterior" viewBox="0 0 300 600" class="w-full max-w-[320px] h-auto drop-shadow-md">
+              <path d="M 150 40 C 130 40 120 55 120 75 C 120 95 132 105 135 115 C 120 120 90 130 80 155 C 70 180 65 230 55 280 C 50 300 40 320 42 340 C 45 350 55 340 60 320 C 70 270 78 210 85 185 C 85 230 85 280 85 330 C 85 370 88 410 92 460 C 95 500 100 540 105 580 C 108 590 122 590 122 575 C 120 520 125 460 130 400 C 135 380 145 380 150 380 C 155 380 165 380 170 400 C 175 460 180 520 178 575 C 178 590 192 590 195 580 C 200 540 205 500 208 460 C 212 410 215 370 215 330 C 215 280 215 230 215 185 C 222 210 230 270 240 320 C 245 340 255 350 258 340 C 260 320 250 300 245 280 C 235 230 230 180 220 155 C 210 130 180 120 165 115 C 168 105 180 95 180 75 C 180 55 170 40 150 40 Z" fill="#e2e8f0" stroke="#64748b" stroke-width="2"/>
+              <g class="points-group">
+                <circle class="acu-point-dot" data-code="DU20" cx="150" cy="50" r="4.5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="YINTANG" cx="150" cy="70" r="4.5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="LI15" cx="95" cy="140" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="LI15" cx="205" cy="140" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="REN17" cx="150" cy="180" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="REN12" cx="150" cy="220" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="ST25" cx="132" cy="265" r="4.5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="ST25" cx="168" cy="265" r="4.5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="REN6" cx="150" cy="285" r="4.5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="ST36" cx="118" cy="455" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="ST36" cx="182" cy="455" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="SP6" cx="112" cy="520" r="4.5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="SP6" cx="188" cy="520" r="4.5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="LV3" cx="114" cy="560" r="4.5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="LV3" cx="186" cy="560" r="4.5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+              </g>
+            </svg>
+
+            <!-- POSTERIOR SVG MAP -->
+            <svg id="svgMapPosterior" viewBox="0 0 300 600" class="w-full max-w-[320px] h-auto drop-shadow-md hidden">
+              <path d="M 150 40 C 130 40 120 55 120 75 C 120 95 132 105 135 115 C 120 120 90 130 80 155 C 70 180 65 230 55 280 C 50 300 40 320 42 340 C 45 350 55 340 60 320 C 70 270 78 210 85 185 C 85 230 85 280 85 330 C 85 370 88 410 92 460 C 95 500 100 540 105 580 C 108 590 122 590 122 575 C 120 520 125 460 130 400 C 135 380 145 380 150 380 C 155 380 165 380 170 400 C 175 460 180 520 178 575 C 178 590 192 590 195 580 C 200 540 205 500 208 460 C 212 410 215 370 215 330 C 215 280 215 230 215 185 C 222 210 230 270 240 320 C 245 340 255 350 258 340 C 260 320 250 300 245 280 C 235 230 230 180 220 155 C 210 130 180 120 165 115 C 168 105 180 95 180 75 C 180 55 170 40 150 40 Z" fill="#e2e8f0" stroke="#64748b" stroke-width="2"/>
+              <g class="points-group">
+                <circle class="acu-point-dot" data-code="GB20" cx="128" cy="95" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="GB20" cx="172" cy="95" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="GB21" cx="112" cy="130" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="GB21" cx="188" cy="130" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="DU14" cx="150" cy="122" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                
+                <circle class="acu-point-dot" data-code="BL11" cx="130" cy="155" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL11" cx="170" cy="155" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL13" cx="130" cy="178" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL13" cx="170" cy="178" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                
+                <circle class="acu-point-dot" data-code="BL15" cx="130" cy="201" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL15" cx="170" cy="201" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="SI11" cx="112" cy="205" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="SI11" cx="188" cy="205" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                
+                <circle class="acu-point-dot" data-code="BL43" cx="120" cy="225" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL43" cx="180" cy="225" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                
+                <circle class="acu-point-dot" data-code="BL17" cx="130" cy="248" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL17" cx="170" cy="248" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL18" cx="130" cy="272" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL18" cx="170" cy="272" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                
+                <circle class="acu-point-dot" data-code="BL20" cx="130" cy="296" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL20" cx="170" cy="296" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL21" cx="130" cy="320" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL21" cx="170" cy="320" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                
+                <circle class="acu-point-dot" data-code="BL23" cx="130" cy="344" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL23" cx="170" cy="344" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="GV4" cx="150" cy="344" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                
+                <circle class="acu-point-dot" data-code="BL40" cx="130" cy="460" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+                <circle class="acu-point-dot" data-code="BL40" cx="170" cy="460" r="5" fill="#0891b2" stroke="#164e63" stroke-width="1.5"/>
+              </g>
+            </svg>
+          </div>
+
+          <div class="md:col-span-5 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+            <span class="text-[10px] font-extrabold uppercase tracking-widest text-cyan-600 block mb-1">Seçili Nokta Kartı</span>
+            <h3 id="mapPointTitle" class="text-2xl font-black text-slate-800 mb-1">GB21 - Jianjing</h3>
+            <p id="mapPointPinyin" class="text-xs text-slate-500 font-medium mb-4">Haritadaki noktalara tıklayarak detaylı anatomik görseli inceleyin.</p>
+
+            <div id="mapPointImageWrapper" class="relative w-full h-44 bg-slate-800 rounded-xl overflow-hidden mb-4 flex items-center justify-center border border-slate-200 shadow-sm">
+              <img id="mapPointImage" src="static/images/GB21.png" class="w-full h-full object-cover opacity-95" alt="Nokta Görseli" onerror="this.onerror=null; this.src='https://placehold.co/400x200/0f172a/38bdf8?text=Anatomi+Semasi';">
+            </div>
+
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Anatomik Lokasyon / Açıklama</span>
+              <p id="mapPointLocation" class="text-xs text-slate-700 leading-relaxed font-medium">Omuz üstünde trapets kası üzerinde, C7 ile akromion arası orta noktada.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="libraryView" class="view-panel view-hidden">
+      <div class="bg-white/90 backdrop-blur-md rounded-[2rem] shadow-xl border border-white p-6 sm:p-8 mb-8">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+              <i data-lucide="database" class="w-6 h-6 text-cyan-600"></i> Akupunktur & Hacamat Nokta Kütüphanesi
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">Meridyen noktaları, lokasyonlar ve kupa şemaları.</p>
+          </div>
+          <div class="w-full sm:w-72">
+            <input type="text" id="libFilterInput" placeholder="Nokta ara..." class="w-full modern-input rounded-xl px-4 py-2 text-xs font-medium">
+          </div>
+        </div>
+
+        <div id="libGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        </div>
+      </div>
+    </div>
+
+    <div id="historyView" class="view-panel view-hidden">
+      <div class="bg-white/90 backdrop-blur-md rounded-[2rem] shadow-xl border border-white p-6 sm:p-8 mb-8">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+              <i data-lucide="history" class="w-6 h-6 text-purple-600"></i> Kayıtlı Seanslar & Hasta Geçmişi (20+ Kayıt)
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">Tarayıcınızda kayıtlı geçmiş tedavi seansları.</p>
+          </div>
+        </div>
+
+        <div id="historyList" class="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+          <p class="text-center text-slate-400 py-12 text-sm">Henüz kayıtlı seans bulunmamaktadır.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="guideView" class="view-panel view-hidden">
+      <div class="bg-white/90 backdrop-blur-md rounded-[2rem] shadow-xl border border-white p-6 sm:p-10 mb-8 space-y-8">
+        <div class="text-center max-w-2xl mx-auto space-y-3">
+          <span class="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full">Klinik Protokol Kılavuzu</span>
+          <h2 class="text-3xl font-black text-slate-800 tracking-tight">Kupa Terapisi (Hacamat) Protokolü</h2>
+          <p class="text-slate-500 text-xs sm:text-sm font-medium">Geleneksel Kupa Terapisi ile toksik kanın uzaklaştırılması, mikrosirkülasyonun artırılması ve derin doku stazının giderilmesine yönelik klinik uygulama esasları.</p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-3">
+            <span class="w-8 h-8 bg-amber-600 text-white rounded-xl flex items-center justify-center font-extrabold text-xs">01</span>
+            <h4 class="font-bold text-slate-800 text-sm">Sterilizasyon & Hazırlık</h4>
+            <p class="text-xs text-slate-500 leading-relaxed">Uygulama alanı antiseptik solüsyonla temizlenir. Tek kullanımlık steril hacamat kupaları ve bisturiler kullanılır.</p>
+          </div>
+          <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-3">
+            <span class="w-8 h-8 bg-amber-600 text-white rounded-xl flex items-center justify-center font-extrabold text-xs">02</span>
+            <h4 class="font-bold text-slate-800 text-sm">Vakum & İnsizyon</h4>
+            <p class="text-xs text-slate-500 leading-relaxed">İlk aşamada hafif negatif basınç uygulanarak doku konjesyonu sağlanır. Epidermis üzerine 2-3 mm derinliğinde mikro çizikler atılır.</p>
+          </div>
+          <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-3">
+            <span class="w-8 h-8 bg-amber-600 text-white rounded-xl flex items-center justify-center font-extrabold text-xs">03</span>
+            <h4 class="font-bold text-slate-800 text-sm">Sonrası Bakım</h4>
+            <p class="text-xs text-slate-500 leading-relaxed">Kupalar çıkarıldıktan sonra bölge antiseptikle kapatılır. İlk 24 saat su temasından ve hayvansal gıdalardan kaçınılır.</p>
+          </div>
+        </div>
+
+        <div class="bg-rose-50/70 border border-rose-200 p-6 rounded-2xl space-y-3">
+          <h4 class="font-extrabold text-rose-900 text-sm flex items-center gap-2">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i> Dikkat Edilmesi Gereken Hususlar & Kontrendikasyonlar
+          </h4>
+          <ul class="list-disc list-inside text-xs text-rose-900/80 space-y-1.5 font-medium leading-relaxed">
+            <li>Aktif kanama bozukluğu olanlara, koagülasyon (kan sulandırıcı) tedavisi görenlere uygulanmaz.</li>
+            <li>Açık yara, enfeksiyon, egzama veya varisli damarlar üzerine kupa konulmaz.</li>
+            <li>Gebeliğin ilk trimesterinde ve kritik kalp yetmezliği vakalarında sakıncalıdır.</li>
+            <li>Uygulama sonrası en az 24 saat ağır egzersizden kaçınılmalı, protein ve sıvı alımına dikkat edilmelidir.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <div id="pointTooltip" class="fixed z-[70] bg-slate-900/95 backdrop-blur-xl text-white rounded-3xl shadow-2xl overflow-hidden hidden transition-all duration-300 flex-col border border-white/10 w-[90vw] max-w-md top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+    <button id="closeTooltip" class="absolute top-4 right-4 z-20 bg-black/60 hover:bg-black/80 backdrop-blur-sm p-2 rounded-full text-white transition-all border border-white/20">
+      <i data-lucide="x" class="w-4 h-4"></i>
+    </button>
+    <div class="relative w-full h-56 bg-slate-800 shrink-0 flex items-center justify-center overflow-hidden border-b border-white/10">
+      <img id="pointTooltipImg" src="" class="w-full h-full object-cover opacity-95" alt="Nokta Şeması" onerror="this.onerror=null; this.src='https://placehold.co/600x400/0f172a/38bdf8?text=Anatomi+Semasi';">
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <span id="tooltipMeridian" class="text-[10px] font-bold px-2.5 py-1 bg-cyan-500/20 text-cyan-300 rounded-full border border-cyan-500/30 uppercase tracking-wider"></span>
+        <h4 id="tooltipTitle" class="font-black text-2xl text-white mt-2 mb-0.5"></h4>
+        <p id="tooltipSubtitle" class="text-xs text-amber-300 font-mono font-medium"></p>
+      </div>
+      <div class="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-2">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Anatomik Lokasyon / Açıklama</span>
+        <p id="tooltipDesc" class="text-slate-200 text-xs leading-relaxed font-medium"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="fixed z-[100] bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 whitespace-nowrap border border-white/10 text-xs font-semibold">
+    <div class="bg-amber-500/20 p-1 rounded-full shrink-0">
+      <i id="toastIcon" data-lucide="check-circle" class="w-4 h-4 text-amber-400"></i>
+    </div>
+    <span id="toastMessage">İşlem başarılı</span>
+  </div>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => document.querySelectorAll(sel);
+
+    const POINTS_DATABASE = {
+      'GB21': { name: 'Jianjing', pinyin: '肩井', meridian: 'Safra Kesesi (GB)', location: 'Omuz üstünde trapets kası üzerinde, C7 ile akromion arası.', imageUrl: 'static/images/GB21.png' },
+      'LI15': { name: 'Jianyu', pinyin: '肩髃', meridian: 'Kalın Bağırsak (LI)', location: 'Omuz ekleminin anteroinferior çukurunda.', imageUrl: 'static/images/LI15.png' },
+      'SI11': { name: 'Tianzong', pinyin: '天宗', meridian: 'İnce Bağırsak (SI)', location: 'Kürek kemiği merkezindeki çukurda.', imageUrl: 'static/images/SI11.png' },
+      'BL11': { name: 'Dazhu', pinyin: '大杼', meridian: 'Mesane (BL)', location: 'T1 spinöz çıkıntı 1.5 cun lateralde.', imageUrl: 'static/images/BL11.png' },
+      'BL13': { name: 'Feishu', pinyin: '肺俞', meridian: 'Mesane (BL)', location: 'T3 spinöz çıkıntı 1.5 cun lateralde.', imageUrl: 'static/images/BL13.png' },
+      'BL15': { name: 'Xinshu', pinyin: '心俞', meridian: 'Mesane (BL)', location: 'T5 spinöz çıkıntı 1.5 cun lateralde.', imageUrl: 'static/images/BL15.png' },
+      'BL17': { name: 'Geshu', pinyin: '膈俞', meridian: 'Mesane (BL)', location: 'T7 spinöz çıkıntı 1.5 cun lateralde.', imageUrl: 'static/images/BL17.png' },
+      'BL18': { name: 'Panshu', pinyin: '肝俞', meridian: 'Mesane (BL)', location: 'T9 spinöz çıkıntı 1.5 cun lateralde.', imageUrl: 'static/images/BL18.png' },
+      'BL20': { name: 'Pishu', pinyin: '脾俞', meridian: 'Mesane (BL)', location: 'T11 spinöz çıkıntı 1.5 cun lateralde.', imageUrl: 'static/images/BL20.png' },
+      'BL21': { name: 'Weishu', pinyin: '胃俞', meridian: 'Mesane (BL)', location: 'T12 spinöz çıkıntı 1.5 cun lateralde.', imageUrl: 'static/images/BL21.png' },
+      'BL23': { name: 'Shenshu', pinyin: '肾俞', meridian: 'Mesane (BL)', location: 'L2 spinöz çıkıntı 1.5 cun lateralde.', imageUrl: 'static/images/BL23.png' },
+      'GV4': { name: 'Mingmen', pinyin: '命门', meridian: 'Yönetici (DU/GV)', location: 'L2 spinöz çıkıntı altındaki çukurda.', imageUrl: 'static/images/GV4.png' },
+      'BL43': { name: 'Gaohuang', pinyin: '膏肓', meridian: 'Mesane (BL)', location: 'T4 spinöz çıkıntı 3 cun lateralde.', imageUrl: 'static/images/BL43.png' },
+      'BL40': { name: 'Weizhong', pinyin: '委中', meridian: 'Mesane (BL)', location: 'Diz arkası çukuru merkezinde.', imageUrl: 'static/images/BL40.png' },
+      'GB20': { name: 'Fengchi', pinyin: '风池', meridian: 'Safra Kesesi (GB)', location: 'Ensede trapets ve SCM kasları arası çukurda.', imageUrl: 'static/images/GB20.png' },
+      'DU14': { name: 'Dazhui', pinyin: '大椎', meridian: 'Yönetici (DU)', location: 'C7 spinöz çıkıntı altındaki çukurda.', imageUrl: 'static/images/DU14.png' },
+      'DU20': { name: 'Baihui', pinyin: '百会', meridian: 'Yönetici (DU)', location: 'Baş tepesi orta hattında kulak tepeleri birleşme çizgisinde.', imageUrl: 'static/images/DU20.png' },
+      'YINTANG': { name: 'Yintang', pinyin: '印堂', meridian: 'Ekstra', location: 'İki kaşın tam orta noktasında.', imageUrl: 'static/images/YINTANG.png' },
+      'REN17': { name: 'Danzhong', pinyin: '膻中', meridian: 'Konsepsiyon (REN)', location: 'Sternum üzerinde 4. interkostal aralık hizasında.', imageUrl: 'static/images/REN17.png' },
+      'REN12': { name: 'Zhongwan', pinyin: '中脘', meridian: 'Konsepsiyon (REN)', location: 'Göbek deliğinin 4 cun üstünde.', imageUrl: 'static/images/REN12.png' },
+      'ST25': { name: 'Tianshu', pinyin: '天枢', meridian: 'Mide (ST)', location: 'Göbek deliğinin (umbilikus) 2 cun lateralinde.', imageUrl: 'static/images/ST25.png' },
+      'REN6': { name: 'Qihai', pinyin: '气海', meridian: 'Konsepsiyon (REN)', location: 'Göbek deliğinin 1.5 cun altında.', imageUrl: 'static/images/REN6.png' },
+      'ST36': { name: 'Zusanli', pinyin: '足三里', meridian: 'Mide (ST)', location: 'Patella alt dış köşesinin 3 cun altında.', imageUrl: 'static/images/ST36.png' },
+      'SP6': { name: 'Sanyinjiao', pinyin: '三阴交', meridian: 'Dalak (SP)', location: 'İç malleolün 3 cun proksimalinde.', imageUrl: 'static/images/SP6.png' },
+      'LV3': { name: 'Taichong', pinyin: '太冲', meridian: 'Karaciğer (LV)', location: '1. ve 2. metatars kemikleri arası boşluğun 1.5 cun arkasında.', imageUrl: 'static/images/LV3.png' },
+      'LI4': { name: 'Hegu', pinyin: '合谷', meridian: 'Kalın Bağırsak (LI)', location: '1. ve 2. metakarpal kemikler arasında.', imageUrl: 'static/images/LI4.png' },
+      'LI11': { name: 'Quchi', pinyin: '曲池', meridian: 'Kalın Bağırsak (LI)', location: 'Dirsek fleksör çizgisinin lateral ucunda.', imageUrl: 'static/images/LI11.png' },
+      'SI3': { name: 'Houxi', pinyin: '后溪', meridian: 'İnce Bağırsak (SI)', location: '5. metakarpofalangeal eklemin ulnar tarafında.', imageUrl: 'static/images/SI3.png' }
+    };
+
+    const TEMPLATES = {
+      'Migren & Baş Ağrısı': { points: ['GB20', 'DU20', 'YINTANG', 'LV3'], cups: ['BL11', 'BL13'], note: 'Teşhis: Karaciğer Yang Yükselmesi.', advice: '• 24 saat su değdirmeyin.' },
+      'Omuz & Boyun Tutulması': { points: ['GB21', 'LI15', 'SI11'], cups: ['GB21', 'SI11'], note: 'Teşhis: Omuz kuşağı kas spazmı.', advice: '• Bölgeyi sıcak tutun.' },
+      'Bel Fıtığı & Bel Ağrısı': { points: ['BL23', 'BL40', 'DU14'], cups: ['BL23', 'GV4'], note: 'Teşhis: Kan Stazı ve Böbrek Qi Zayıflığı.', advice: '• Ağır kaldırmayın.' },
+      'Kronik Yorgunluk & Detoks': { points: ['DU20', 'ST36', 'REN6'], cups: ['BL11', 'BL15', 'BL17'], note: 'Teşhis: Genel Qi ve Kan Eksikliği.', advice: '• Bol sıvı tüketin.' },
+      'Hipertansiyon & Baş Dönmesi': { points: ['GB20', 'LV3', 'LI11'], cups: ['GB20', 'DU14'], note: 'Teşhis: Karaciğer Yang Aşırılığı.', advice: '• Tuz tüketimini azaltın.' },
+      'Uykusuzluk & Anksiyete': { points: ['YINTANG', 'SP6'], cups: ['BL15', 'BL23'], note: 'Teşhis: Kalp ve Böbrek Uyumsuzluğu.', advice: '• Akşam kafein alımını kesin.' },
+      'Mide & Sindirim Bozuklukları': { points: ['REN12', 'ST36'], cups: ['BL20', 'BL21'], note: 'Teşhis: Dalak Mide Zayıflığı.', advice: '• Düzenli öğünler tüketin.' },
+      'Diyabet & İnsülin Direnci': { points: ['ST36', 'SP6', 'BL20'], cups: ['BL18', 'BL20'], note: 'Teşhis: Dalak Nem Isı Birikimi.', advice: '• Karbonhidrat kısıtlaması.' },
+      'Astım & Solunum Yolu': { points: ['BL13', 'REN17'], cups: ['BL11', 'BL13'], note: 'Teşhis: Akciğer Qi Tıkanıklığı.', advice: '• Tozlu ortamlardan kaçının.' },
+      'Romatoid Artrit & Eklem Ağrısı': { points: ['LI4', 'ST36'], cups: ['BL11', 'BL23'], note: 'Teşhis: Rüzgar Nem Soğuk Tıkanıklığı.', advice: '• Eklem bölgelerini koruyun.' },
+      'Siyatik & Kalça Ağrısı': { points: ['BL40', 'BL23'], cups: ['BL23', 'GV4'], note: 'Teşhis: Meridyen Boyunca Kan Stazı.', advice: '• Uzun süreli oturmayın.' },
+      'Sinüzit & Alerjik Rinit': { points: ['YINTANG', 'LI4'], cups: ['GB20', 'DU14'], note: 'Teşhis: Rüzgar Soğuk İstilası.', advice: '• Alerjenlerden uzak durun.' },
+      'Kardiyovasküler Destek': { points: ['BL15', 'REN17'], cups: ['BL15', 'REN17'], note: 'Teşhis: Kalp Qi Durgunluğu.', advice: '• Aşırı heyecandan kaçının.' },
+      'Böbrek & İdrar Yolu': { points: ['BL23', 'REN4'], cups: ['BL23', 'GV4'], note: 'Teşhis: Böbrek Yang Zayıflığı.', advice: '• Bel bölgesini üşütmeyin.' },
+      'Karaciğer Yağlanması & Detoks': { points: ['LV3', 'BL18'], cups: ['BL18', 'BL20'], note: 'Teşhis: Karaciğer Qi Durgunluğu.', advice: '• Alkol ve yağlı gıdalardan kaçının.' },
+      'Adet Düzensizliği & Menopoz': { points: ['SP6', 'REN4'], cups: ['BL23', 'REN6'], note: 'Teşhis: Chong ve Ren Meridyen Stazı.', advice: '• Ilık banyo önerilir.' },
+      'Bağışıklık Güçlendirme': { points: ['ST36', 'LI4', 'DU14'], cups: ['BL11', 'BL13'], note: 'Teşhis: Wei Qi Zayıflığı.', advice: '• C vitamini ve dengeli beslenme.' },
+      'Depresyon & Duygu Durum': { points: ['DU20'], cups: ['BL15', 'BL18'], note: 'Teşhis: Ruh (Shen) Durgunluğu.', advice: '• Açık havada yürüyüş yapın.' },
+      'Cilt Rahatsızlıkları & Egzama': { points: ['LI11', 'LI4'], cups: ['BL13', 'BL17'], note: 'Teşhis: Kan Isısı ve Toksin Birikimi.', advice: '• Baharatlı gıdalardan kaçının.' },
+      'Genel Ağrı & Fibromiyalji': { points: ['GB21', 'LI4', 'BL23'], cups: ['BL11', 'BL15', 'BL23'], note: 'Teşhis: Genel Doku Stazı ve Ağrı.', advice: '• Düzenli hafif esneme hareketleri.' }
+    };
+
+    const pointsBody = $('#pointsBody');
+
+    function updatePointCountBadge() {
+      const count = pointsBody.children.length;
+      // Badge element removed from DOM, keep function safe if called
+    }
+
+    function reindexRows() {
+      [...pointsBody.children].forEach((tr, i) => {
+        const idx = tr.querySelector('.row-index');
+        if (idx) idx.innerText = i + 1;
+      });
+    }
+
+    function addPointRow(data = {}) {
+      const tr = document.createElement('tr');
+      tr.className = "hover:bg-cyan-50/30 transition-colors group border-b border-slate-100"; 
+      const code = (data.code || '').toUpperCase();
+      const pData = code ? (POINTS_DATABASE[code] || { name: code, pinyin: '', meridian: 'Akupunktur', location: 'Lokasyon bilgisi' }) : {};
+      
+      tr.innerHTML = `
+        <td class="p-3 text-center text-slate-400 font-mono text-xs row-index">${pointsBody.children.length + 1}</td>
+        <td class="p-3 w-24 sm:w-28 cell-trigger-code cursor-pointer">
+          <input type="text" value="${code}" class="w-full bg-transparent border-b border-slate-200 focus:border-cyan-500 outline-none uppercase font-bold text-slate-800 point-code tracking-wider text-xs">
+        </td>
+        <td class="p-3 point-name text-slate-700 text-xs font-semibold cursor-pointer hover:text-cyan-600 transition-colors cell-trigger-name">
+          ${pData.name ? `${pData.name} (${pData.pinyin})` : '-'}
+        </td>
+        <td class="p-3 w-28 sm:w-32">
+          <select class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-medium text-slate-700 outline-none">
+            <option value="bilateral" ${(!data.side || data.side==='bilateral')?'selected':''}>Bilateral (Çift)</option>
+            <option value="sağ" ${data.side==='sağ'?'selected':''}>Sağ</option>
+            <option value="sol" ${data.side==='sol'?'selected':''}>Sol</option>
+          </select>
+        </td>
+        <td class="p-3 w-28 sm:w-32">
+          <select class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-medium text-slate-700 outline-none">
+            <option value="Hacamat" ${(!data.technique || data.technique==='Hacamat')?'selected':''}>Hacamat</option>
+            <option value="Elektro" ${data.technique==='Elektro'?'selected':''}>Elektro</option>
+            <option value="Moksa" ${data.technique==='Moksa'?'selected':''}>Moksa</option>
+          </select>
+        </td>
+        <td class="p-3 w-12 text-center">
+          <button class="text-slate-300 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition-all btn-remove" title="Sil">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </td>
+      `;
+
+      const input = tr.querySelector('.point-code');
+      const nameCell = tr.querySelector('.point-name');
+
+      input.addEventListener('input', (e) => {
+        const val = e.target.value.toUpperCase();
+        const info = POINTS_DATABASE[val];
+        nameCell.innerText = info ? `${info.name} (${info.pinyin})` : '-';
+      });
+
+      const handleShowTooltip = () => {
+        const val = input.value.toUpperCase();
+        if (POINTS_DATABASE[val]) showPointModal(val, POINTS_DATABASE[val]);
+      };
+
+      tr.querySelector('.cell-trigger-code').onclick = (e) => { if(e.target.tagName !== 'INPUT') handleShowTooltip(); };
+      tr.querySelector('.cell-trigger-name').onclick = handleShowTooltip;
+
+      tr.querySelector('.btn-remove').onclick = () => {
+        tr.remove();
+        reindexRows();
+        updatePointCountBadge();
+      };
+
+      pointsBody.appendChild(tr);
+      reindexRows();
+      updatePointCountBadge();
+      lucide.createIcons();
+    }
+
+    const showToast = (msg) => {
+      $('#toastMessage').innerText = msg;
+      $('#toast').classList.add('show');
+      setTimeout(() => $('#toast').classList.remove('show'), 3000);
+    };
+
+    function switchTab(viewId, activeBtn) {
+      $$('.view-panel').forEach(el => el.classList.add('view-hidden'));
+      $$('.nav-tab').forEach(btn => {
+        btn.classList.remove('active', 'bg-cyan-50', 'text-cyan-700', 'border', 'border-cyan-200');
+        btn.classList.add('text-slate-600');
+      });
+
+      $(`#${viewId}`).classList.remove('view-hidden');
+      if (activeBtn) {
+        activeBtn.classList.add('active', 'bg-cyan-50', 'text-cyan-700', 'border', 'border-cyan-200');
+      }
+      lucide.createIcons();
+    }
+
+    $('#navBtnApp').onclick = (e) => switchTab('appView', e.currentTarget);
+    $('#navBtnMap').onclick = (e) => switchTab('mapView', e.currentTarget);
+    $('#navBtnLibrary').onclick = (e) => { switchTab('libraryView', e.currentTarget); renderLibrary(); };
+    $('#navBtnHistory').onclick = (e) => { switchTab('historyView', e.currentTarget); updateHistoryUI(); };
+    $('#navBtnGuide').onclick = (e) => switchTab('guideView', e.currentTarget);
+
+    const pointSearch = $('#pointSearch');
+    const searchResults = $('#searchResults');
+
+    if (pointSearch) {
+      pointSearch.addEventListener('input', (e) => {
+        const val = e.target.value.toUpperCase();
+        searchResults.innerHTML = '';
+        if (val.length < 1) { searchResults.classList.add('hidden'); return; }
+
+        const matches = Object.keys(POINTS_DATABASE).filter(k => 
+          k.includes(val) || POINTS_DATABASE[k].name.toUpperCase().includes(val)
+        ).slice(0, 6);
+
+        if (matches.length > 0) {
+          searchResults.classList.remove('hidden');
+          matches.forEach(k => {
+            const div = document.createElement('div');
+            div.className = "p-2.5 hover:bg-cyan-50 cursor-pointer border-b border-slate-100 text-xs flex justify-between items-center";
+            div.innerHTML = `<div><span class="font-bold text-slate-800">${k}</span> <span class="text-slate-500 ml-1">(${POINTS_DATABASE[k].name})</span></div><span class="text-[10px] text-cyan-600 font-semibold">${POINTS_DATABASE[k].meridian}</span>`;
+            div.onclick = () => {
+              addPointRow({ code: k });
+              pointSearch.value = '';
+              searchResults.classList.add('hidden');
+            };
+            searchResults.appendChild(div);
+          });
+        } else {
+          searchResults.classList.add('hidden');
+        }
+      });
+    }
+
+    $('#btnClearPoints').onclick = () => {
+      pointsBody.innerHTML = '';
+      addPointRow();
+      showToast("Tüm noktalar temizlendi.");
+    };
+
+    function updateCuppingPlanDisplay(cupsArray) {
+      const container = $('#cuppingPlanContainer');
+      container.innerHTML = '';
+      $('#cupCountBadge').innerText = `${cupsArray.length} Kupa`;
+
+      if (!cupsArray || cupsArray.length === 0) {
+        container.innerHTML = '<span class="text-slate-400">Şablon seçildiğinde önerilen hacamat kupa noktaları burada listelenecektir.</span>';
+        return;
+      }
+
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'font-bold text-slate-700 mr-2';
+      labelSpan.innerText = 'Önerilen Hacamat Noktaları:';
+      container.appendChild(labelSpan);
+
+      cupsArray.forEach(code => {
+        const btn = document.createElement('button');
+        btn.className = 'px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 font-bold text-xs rounded-lg border border-amber-300 shadow-sm transition-all flex items-center gap-1 cursor-pointer';
+        btn.innerHTML = `<i data-lucide="circle-dot" class="w-3 h-3 text-amber-600"></i> ${code}`;
+        btn.onclick = () => {
+          const info = POINTS_DATABASE[code] || { name: code, pinyin: '', meridian: 'Hacamat Noktası', location: 'Detaylı lokasyon bilgisi.' };
+          showPointModal(code, info);
+        };
+        container.appendChild(btn);
+      });
+      lucide.createIcons();
+    }
+
+    $('#btnApplyTemplate').onclick = () => {
+      const tplKey = $('#chiefInput').value;
+      const tpl = TEMPLATES[tplKey];
+      if (tpl) {
+        pointsBody.innerHTML = '';
+        tpl.points.forEach(p => addPointRow({ code: p, side: 'bilateral' }));
+        $('#clinicalNotes').value = tpl.note;
+        $('#homeAdvice').value = tpl.advice;
+        updateCuppingPlanDisplay(tpl.cups);
+        showToast(`'${tplKey}' şablonu uygulandı.`);
+      } else {
+        showToast("Lütfen geçerli bir şablon seçin.");
+      }
+    };
+
+    $('#btnMapAnterior').onclick = () => {
+      $('#svgMapAnterior').classList.remove('hidden');
+      $('#svgMapPosterior').classList.add('hidden');
+      $('#btnMapAnterior').className = "px-3.5 py-1.5 bg-cyan-600 text-white font-bold text-xs rounded-lg shadow-sm";
+      $('#btnMapPosterior').className = "px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors";
+    };
+
+    $('#btnMapPosterior').onclick = () => {
+      $('#svgMapPosterior').classList.remove('hidden');
+      $('#svgMapAnterior').classList.add('hidden');
+      $('#btnMapPosterior').className = "px-3.5 py-1.5 bg-cyan-600 text-white font-bold text-xs rounded-lg shadow-sm";
+      $('#btnMapAnterior').className = "px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors";
+    };
+
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('acu-point-dot')) {
+        $$('.acu-point-dot').forEach(el => el.classList.remove('active-point'));
+        e.target.classList.add('active-point');
+
+        const code = e.target.getAttribute('data-code');
+        const info = POINTS_DATABASE[code] || { name: code, pinyin: '', meridian: 'Akupunktur', location: 'Detaylı lokasyon bilgisi.' };
+        
+        $('#mapPointTitle').innerText = `${code} - ${info.name}`;
+        $('#mapPointPinyin').innerText = info.pinyin;
+        $('#mapPointLocation').innerText = info.location;
+        
+        const imgEl = $('#mapPointImage');
+        imgEl.src = `static/images/${code}.png`;
+        imgEl.onerror = () => {
+          imgEl.src = `https://placehold.co/400x200/0f172a/38bdf8?text=${encodeURIComponent(code + ' + Semasi')}`;
+        };
+      }
+    });
+
+    function showPointModal(code, info) {
+      $('#tooltipMeridian').innerText = info.meridian;
+      $('#tooltipTitle').innerText = `${code} - ${info.name}`;
+      $('#tooltipSubtitle').innerText = info.pinyin;
+      $('#tooltipDesc').innerText = info.location;
+      
+      const imgEl = $('#pointTooltipImg');
+      imgEl.src = `static/images/${code}.png`;
+      imgEl.onerror = () => {
+        imgEl.src = `https://placehold.co/600x400/0f172a/38bdf8?text=${encodeURIComponent(code + ' + Semasi')}`;
+      };
+      
+      $('#pointTooltip').classList.remove('hidden');
+    }
+
+    $('#closeTooltip').onclick = () => $('#pointTooltip').classList.add('hidden');
+
+    $('#btnSaveSession').onclick = () => {
+      const pName = $('#patientName').value.trim();
+      if (!pName) { showToast("Lütfen hasta adını giriniz."); return; }
+
+      const session = {
+        id: Date.now(),
+        patientName: pName,
+        patientId: $('#patientId').value,
+        sessionDate: new Date().toISOString().split('T')[0],
+        notes: $('#clinicalNotes').value,
+        advice: $('#homeAdvice').value,
+        cuppingPlanText: $('#cuppingPlanContainer').innerText,
+        points: [...pointsBody.children].map(tr => ({
+          code: tr.querySelector('.point-code').value.toUpperCase(),
+          side: tr.querySelectorAll('select')[0].value,
+          technique: tr.querySelectorAll('select')[1].value
+        })).filter(p => p.code !== '')
+      };
+
+      let history = JSON.parse(localStorage.getItem('hacamatAcuHistory') || '[]');
+      history.unshift(session);
+      localStorage.setItem('hacamatAcuHistory', JSON.stringify(history.slice(0, 100)));
+      showToast("Seans başarıyla kaydedildi.");
+      updateHistoryUI();
+    };
+
+    $('#btnLoadHistoryMini').onclick = () => {
+      const tc = $('#patientId').value.trim();
+      if(!tc) { showToast("T.C. Kimlik numarası giriniz."); return; }
+      const history = JSON.parse(localStorage.getItem('hacamatAcuHistory') || '[]');
+      const found = history.find(item => item.patientId === tc);
+      if(found) {
+        loadHistoryObject(found);
+        showToast(`${found.patientName} kaydı yüklendi.`);
+      } else {
+        showToast("Kayıt bulunamadı.");
+      }
+    };
+
+    function updateHistoryUI() {
+      const history = JSON.parse(localStorage.getItem('hacamatAcuHistory') || '[]');
+      const list = $('#historyList');
+      list.innerHTML = history.length === 0 ? '<p class="text-center text-slate-400 py-12 text-sm">Henüz kayıtlı seans bulunmamaktadır.</p>' : '';
+      
+      history.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = "p-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex justify-between items-center history-card group cursor-pointer";
+        div.innerHTML = `
+          <div class="flex-grow" onclick="loadHistoryItem(${index})">
+            <div class="flex items-center gap-2">
+              <p class="font-bold text-slate-800 text-sm">${item.patientName}</p>
+              ${item.patientId ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">TC: ${item.patientId}</span>` : ''}
+            </div>
+            <div class="flex items-center gap-3 mt-1 text-xs text-slate-500">
+              <span>Tarih: ${item.sessionDate || 'Belirtilmedi'}</span>
+              <span>•</span>
+              <span class="text-cyan-700 font-semibold">${item.points ? item.points.length : 0} Nokta</span>
+            </div>
+          </div>
+          <button onclick="deleteHistoryItem(event, ${index})" class="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Sil">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        `;
+        list.appendChild(div);
+      });
+      lucide.createIcons();
+    }
+
+    function loadHistoryObject(item) {
+      if(!item) return;
+      $('#patientName').value = item.patientName || '';
+      $('#patientId').value = item.patientId || '';
+      $('#clinicalNotes').value = item.notes || '';
+      $('#homeAdvice').value = item.advice || '';
+      if(item.cuppingPlanText) {
+        const cups = item.cuppingPlanText.match(/[A-Z]+\d+/g) || [];
+        updateCuppingPlanDisplay(cups);
+      }
+      pointsBody.innerHTML = '';
+      if(item.points && item.points.length > 0) {
+        item.points.forEach(p => addPointRow(p));
+      } else {
+        addPointRow();
+      }
+    }
+
+    window.loadHistoryItem = function(index) {
+      const history = JSON.parse(localStorage.getItem('hacamatAcuHistory') || '[]');
+      loadHistoryObject(history[index]);
+      switchTab('appView', $('#navBtnApp'));
+      showToast("Kayıt forma aktarıldı.");
+    };
+
+    window.deleteHistoryItem = function(event, index) {
+      event.stopPropagation();
+      let history = JSON.parse(localStorage.getItem('hacamatAcuHistory') || '[]');
+      history.splice(index, 1);
+      localStorage.setItem('hacamatAcuHistory', JSON.stringify(history));
+      updateHistoryUI();
+      showToast("Kayıt silindi.");
+    };
+
+    function renderLibrary(searchText = '') {
+      const grid = $('#libGrid');
+      grid.innerHTML = '';
+
+      Object.keys(POINTS_DATABASE).forEach(code => {
+        const p = POINTS_DATABASE[code];
+        if (searchText && !code.includes(searchText.toUpperCase()) && !p.name.toUpperCase().includes(searchText.toUpperCase())) return;
+
+        const card = document.createElement('div');
+        card.className = "bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all space-y-2 flex flex-col justify-between";
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-extrabold text-slate-800">${code} - ${p.name}</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 bg-cyan-50 text-cyan-700 rounded-full">${p.meridian}</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-mono mt-0.5">${p.pinyin}</p>
+            <p class="text-xs text-slate-600 mt-2 leading-relaxed">${p.location}</p>
+          </div>
+          <div class="pt-2 border-t border-slate-100 flex items-center justify-end">
+            <button onclick="addPointRow({code: '${code}'}); showToast('${code} reçeteye eklendi.');" class="p-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 rounded-lg text-xs font-bold transition-colors">
+              + Reçeteye Ekle
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    $('#libFilterInput').addEventListener('input', (e) => {
+      renderLibrary(e.target.value);
+    });
+
+    let timerSeconds = 20 * 60;
+    let activeSessionTimer = null;
+
+    function playChimeSound() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const freqs = [369.99, 554.37, 739.99];
+        const now = ctx.currentTime;
+        freqs.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.2);
+          gain.gain.setValueAtTime(0.0001, now + idx * 0.2);
+          gain.gain.linearRampToValueAtTime(0.2, now + idx * 0.2 + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.2 + 2.5);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + idx * 0.2);
+          osc.stop(now + idx * 0.2 + 2.6);
+        });
+      } catch (e) { console.log(e); }
+    }
+
+    $('#btnTestSound').onclick = () => { playChimeSound(); showToast("Ses testi çalınıyor 🔔"); };
+
+    function startTimerAction() {
+      const selectedMins = parseInt($('#timerDurationSelectBottom').value, 10);
+      timerSeconds = selectedMins * 60;
+      $('#timerPatientDisplay').innerText = `Hasta: ${$('#patientName').value || 'Genel'}`;
+      $('#timerBar').classList.remove('hidden');
+      if (activeSessionTimer) clearInterval(activeSessionTimer);
+
+      activeSessionTimer = setInterval(() => {
+        timerSeconds--;
+        const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+        const s = (timerSeconds % 60).toString().padStart(2, '0');
+        $('#timerDisplay').innerText = `${m}:${s}`;
+        if (timerSeconds <= 0) {
+          clearInterval(activeSessionTimer);
+          playChimeSound();
+          showToast("Seans süresi tamamlandı!");
+        }
+      }, 1000);
+      showToast("Seans zamanlayıcı başlatıldı.");
+    }
+
+    $('#btnStartSessionTimerBottom').onclick = startTimerAction;
+
+    $('#btnPauseTimer').onclick = () => {
+      if (activeSessionTimer) {
+        clearInterval(activeSessionTimer);
+        activeSessionTimer = null;
+        $('#btnPauseTimer').innerText = 'Devam';
+      } else {
+        activeSessionTimer = setInterval(() => {
+          timerSeconds--;
+          const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+          const s = (timerSeconds % 60).toString().padStart(2, '0');
+          $('#timerDisplay').innerText = `${m}:${s}`;
+        }, 1000);
+        $('#btnPauseTimer').innerText = 'Duraklat';
+      }
+    };
+
+    $('#btnStopTimer').onclick = () => {
+      if (activeSessionTimer) clearInterval(activeSessionTimer);
+      $('#timerBar').classList.add('hidden');
+    };
+
+    window.onload = function() {
+      const dl = $('#chiefList');
+      Object.keys(TEMPLATES).forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        dl.appendChild(opt);
+      });
+      
+      addPointRow({ code: 'GB21' });
+      addPointRow({ code: 'DU14' });
+      addPointRow({ code: 'LI4' });
+      lucide.createIcons();
+    };
+  </script>
+</body>
+</html>

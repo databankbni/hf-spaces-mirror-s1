@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
 from .settings import settings
+
+SHANGHAI = ZoneInfo("Asia/Shanghai")
+HUB_DOWNLOAD_TIMEOUT_SECONDS = 20
 
 
 def _json_default(obj: Any):
@@ -54,13 +59,17 @@ class DatasetStore:
             try:
                 from huggingface_hub import hf_hub_download
 
-                downloaded = hf_hub_download(
-                    repo_id=settings.hf_dataset_repo,
-                    repo_type="dataset",
-                    filename=rel_path,
-                    token=settings.hf_token,
-                    force_download=prefer_remote,
-                )
+                def _download() -> str:
+                    return hf_hub_download(
+                        repo_id=settings.hf_dataset_repo,
+                        repo_type="dataset",
+                        filename=rel_path,
+                        token=settings.hf_token,
+                        force_download=prefer_remote,
+                    )
+
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    downloaded = pool.submit(_download).result(timeout=HUB_DOWNLOAD_TIMEOUT_SECONDS)
                 data = json.loads(Path(downloaded).read_text(encoding="utf-8"))
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -120,7 +129,22 @@ class DatasetStore:
 
     @staticmethod
     def today_str() -> str:
-        return date.today().isoformat()
+        return datetime.now(SHANGHAI).date().isoformat()
+
+
+def shanghai_day(offset: int = 0) -> str:
+    return (datetime.now(SHANGHAI).date() + timedelta(days=offset)).isoformat()
+
+
+def packet_lookup_days(explicit_day: str | None = None) -> list[str]:
+    """Capture-date partitions to probe. Packets are filed by collection date."""
+    if explicit_day:
+        days = [explicit_day]
+        today = shanghai_day()
+        if explicit_day == today:
+            days.extend([shanghai_day(-1), shanghai_day(1)])
+        return list(dict.fromkeys(days))
+    return [shanghai_day(offset) for offset in (0, -1, 1)]
 
 
 store = DatasetStore()

@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoboProgram — Benchmark &amp; Simulation Atlas</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:           #f9f9f7;
+    --surface-1:      #fcfcfb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --grid:           #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6;  /* ours */
+    --series-2:       #eb6834;  /* baseline */
+    --good:           #0ca30c;
+    --critical:       #d03b3b;
+    --warning:        #fab219;
+    --code-bg:        #f2f1ed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page:           #0d0d0d;
+      --surface-1:      #1a1a19;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --grid:           #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-1:       #3987e5;
+      --series-2:       #d95926;
+      --code-bg:        #232322;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--text-primary);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 32px 20px 80px; }
+  header h1 { font-size: 26px; margin: 0 0 4px; }
+  header p.sub { color: var(--text-secondary); margin: 0 0 8px; max-width: 72ch; }
+  .stamp { color: var(--text-muted); font-size: 13px; }
+  section { margin-top: 40px; }
+  h2 { font-size: 19px; margin: 0 0 6px; }
+  h3 { font-size: 15.5px; margin: 22px 0 6px; }
+  p.lede { color: var(--text-secondary); margin: 0 0 14px; max-width: 78ch; }
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px; margin-top: 12px;
+  }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px; }
+  .tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .tile .num { font-size: 30px; font-weight: 650; }
+  .tile .lbl { color: var(--text-secondary); font-size: 13px; margin-top: 2px; }
+  .tblwrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--baseline); white-space: nowrap; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  td.mono, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; overflow-x: auto; font-size: 12.5px; line-height: 1.5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-primary);
+  }
+  .status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .live .dot   { background: var(--good); }
+  .live        { color: var(--good); }
+  .pruned .dot { background: var(--critical); }
+  .pruned      { color: var(--critical); }
+  .ext .dot    { background: var(--warning); }
+  .ext         { color: var(--text-secondary); }
+  .legend { display: flex; gap: 18px; align-items: center; font-size: 13px; color: var(--text-secondary); margin: 6px 0 4px; }
+  .legend .key { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .fig { margin: 0; }
+  .fig figcaption { color: var(--text-muted); font-size: 12.5px; margin-top: 8px; max-width: 90ch; }
+  svg text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .bar { cursor: default; }
+  #tip {
+    position: fixed; pointer-events: none; display: none; z-index: 10;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12.5px; color: var(--text-primary);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18); max-width: 320px;
+  }
+  #tip .t { font-weight: 650; margin-bottom: 2px; }
+  #tip .d { color: var(--text-secondary); }
+  .note { color: var(--text-secondary); font-size: 13.5px; }
+  .verdict { border-left: 3px solid var(--series-1); padding-left: 14px; }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>RoboProgram — Benchmark &amp; Simulation Atlas</h1>
+  <p class="sub">Every simulation/benchmark integration in the repo: what is live, what was pruned, where the minimal code lives, the command that runs each basic eval loop, and which lane carries the paper.</p>
+  <div class="stamp">Snapshot 2026-08-12 · main @ 21a5c98 · retired adapter source archived at commit <code>0025ea1</code></div>
+</header>
+
+<section>
+  <div class="tiles">
+    <div class="tile"><div class="num">3</div><div class="lbl">live adapters on main (libero · robocasa · real)</div></div>
+    <div class="tile"><div class="num">6</div><div class="lbl">adapters pruned 2026-08-04 (source at 0025ea1)</div></div>
+    <div class="tile"><div class="num">4</div><div class="lbl">external lanes (OAT harness · praxis bridge · TacEx · ManiFeel/RoTO)</div></div>
+    <div class="tile"><div class="num">78.5%</div><div class="lbl">headline: LIBERO 4-suite (81.7% fully autonomous)</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Live benchmarks (routable via <code>benchmark_adapters/registry.py</code>)</h2>
+  <p class="lede">Dispatch happens in exactly one place: <code>src/roboprog/benchmark_adapters/registry.py</code>, reached from <code>python -m roboprog.run</code>, <code>eval_suite.py</code>, and <code>eval_bench.py</code>.</p>
+  <div class="card tblwrap">
+    <table>
+      <tr><th>Benchmark</th><th>Status</th><th>Simulator</th><th>Adapter</th><th>Basic loop</th></tr>
+      <tr>
+        <td><b>LIBERO</b><br><span class="note">5 suites: spatial / object / goal / 10 / 90</span></td>
+        <td><span class="status live"><span class="dot"></span>LIVE</span></td>
+        <td>robosuite 1.4.1 / MuJoCo 3.9<br><span class="note">vendored at <code>benchmarks/LIBERO</code></span></td>
+        <td class="mono">src/roboprog/benchmark_adapters/libero/</td>
+        <td class="mono">python eval_suite.py --suite libero_object --res 256 --seeds 0,1,2 --tag gtseg</td>
+      </tr>
+      <tr>
+        <td><b>LIBERO · frozen OAT harness</b><br><span class="note">method-of-record protocol</span></td>
+        <td><span class="status live"><span class="dot"></span>LIVE</span></td>
+        <td>same MuJoCo, path-bound frozen runtime (CPU + OSMesa default)</td>
+        <td class="mono">scripts/method.py → configs/CURRENT_METHOD.json</td>
+        <td class="mono">python scripts/method.py eval executor --ckpt a.pt,b.pt --pool selection</td>
+      </tr>
+      <tr>
+        <td><b>RoboCasa</b><br><span class="note">kitchen pick-place, PandaOmron</span></td>
+        <td><span class="status live"><span class="dot"></span>LIVE</span></td>
+        <td>robosuite 1.5 / MuJoCo<br><span class="note">own venv (conflicts with main venv)</span></td>
+        <td class="mono">src/roboprog/benchmark_adapters/robocasa/</td>
+        <td class="mono">python eval_bench.py --benchmark robocasa --tasks PickPlaceCounterToSink --seeds 0,1,2</td>
+      </tr>
+      <tr>
+        <td><b>real</b><br><span class="note">FrankaPy + RealSense; mock-first</span></td>
+        <td><span class="status live"><span class="dot"></span>LIVE (mock)</span></td>
+        <td>none (hardware); mock backend default</td>
+        <td class="mono">src/roboprog/benchmark_adapters/real/</td>
+        <td class="mono">python -m roboprog.run real --task "pick up the red mug" --workflow agent --no-mocks --real-config real_live.json</td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>External lanes (not adapter-based)</h2>
+  <div class="card tblwrap">
+    <table>
+      <tr><th>Lane</th><th>Status</th><th>Simulator</th><th>Code</th><th>Basic loop</th></tr>
+      <tr>
+        <td><b>praxis-eval bridge</b><br><span class="note">OAT paper's own harness: MetaWorld MT50 + RoboMimic mt4</span></td>
+        <td><span class="status ext"><span class="dot"></span>BRANCH</span></td>
+        <td>MuJoCo (MetaWorld) / robosuite (RoboMimic)</td>
+        <td class="mono">branch praxis-eval-bridge: scripts/praxis_bridge/ (commits b31babf, 00e984a)</td>
+        <td class="mono">MUJOCO_GL=egl PYTHONPATH=src $PE scripts/praxis_bridge/eval_metaworld.py --ckpt s0.pt,s1.pt --tasks easy --n 10 --out outputs/mw_eval</td>
+      </tr>
+      <tr>
+        <td><b>TacEx tactile (peg-insert / GearMesh / NutThread)</b><br><span class="note">home of the dp / rdp baselines</span></td>
+        <td><span class="status live"><span class="dot"></span>LIVE</span></td>
+        <td>Isaac Lab (GPU tactile), 64–128 envs</td>
+        <td class="mono">scripts/tactile/tacex_*.py + tacex_v4/v5_study.sh</td>
+        <td class="mono">TACEX_STUDY_DIR=&lt;run&gt; ARCH=rdp bash scripts/tactile/tacex_v4_study.sh train_dprdp</td>
+      </tr>
+      <tr>
+        <td><b>ManiFeel / RoTO</b><br><span class="note">tactile-required benchmarks</span></td>
+        <td><span class="status ext"><span class="dot"></span>LIVE</span></td>
+        <td>ManiFeel offline (Zarr) / RoTO closed-loop (Isaac Sim)</td>
+        <td class="mono">scripts/tactile/asymmetry_*.{py,sh} · scripts/tactile/roto_*.{py,sh}</td>
+        <td class="mono">per-lane .sh drivers; own venvs (manifeel-replay-ebfa9e17, roto-venv)</td>
+      </tr>
+      <tr>
+        <td><b>Wan visual planner (G1)</b><br><span class="note">Wan2.2-TI2V-5B service</span></td>
+        <td><span class="status ext"><span class="dot"></span>BRANCH</span></td>
+        <td>video world-model service (no sim)</td>
+        <td class="mono">branch agent/wan-g1-bringup @ 4641e27 (unpushed)</td>
+        <td class="mono">pinned service + 81-frame gate; see prereg config on branch</td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Pruned integrations (commit <code>60f990c</code>, 2026-08-04)</h2>
+  <p class="lede">Directories still exist but are empty; a regression test (<code>tests/test_benchmark_registry.py</code>) enforces they stay unroutable. Full source recoverable at <code>0025ea1</code>.</p>
+  <div class="card tblwrap">
+    <table>
+      <tr><th>Benchmark</th><th>Simulator it wrapped</th><th>Why it ended</th></tr>
+      <tr><td><b>RoboTwin 2.0</b></td><td>SAPIEN, dual-arm aloha-agilex</td><td>ours floored 0–2/30 with in-domain data (grasp trigger structural); GPC DP hit 19/20 @ 200 demos on the same data</td></tr>
+      <tr><td><b>MolmoSpaces</b></td><td>MuJoCo 3.5, Franka-DROID</td><td>CEM-always lifted MS-Pick 36.7→63.3%, then lane closed</td></tr>
+      <tr><td><b>Isaac DROID (sim-evals)</b></td><td>Isaac Lab 2.2 / Isaac Sim 5.0</td><td>pilot 2/3 honest; not carried forward</td></tr>
+      <tr><td><b>SimplerEnv</b></td><td>SAPIEN (google_robot, widowx)</td><td>no result artifacts ever produced</td></tr>
+      <tr><td><b>TacSL / Taccel</b></td><td>IsaacGym Preview / Warp FEM</td><td>IsaacGym can't run on Blackwell; superseded by TacEx lane</td></tr>
+      <tr><td><b>Language-Table</b></td><td>Google push env</td><td>never merged (reverted 1b6b650)</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Where we stand vs the strongest comparable baseline</h2>
+  <div class="legend">
+    <span class="key"><span class="sw" style="background:var(--series-1)"></span>Ours — style-tokens S-OAT executor (LIBERO-OOD row: its class-id variant)</span>
+    <span class="key"><span class="sw" style="background:var(--series-2)"></span>Strongest baseline</span>
+  </div>
+  <div class="card">
+    <figure class="fig">
+      <svg id="chart" viewBox="0 0 980 470" width="100%" role="img" aria-label="Grouped bar chart comparing our method against the strongest baseline on five benchmarks"></svg>
+      <figcaption>
+        Success rate (%). Hover a bar for protocol details. LIBERO numbers satisfy the fair-comparison rule (same demos, same harness).
+        RoboMimic and RoboTwin are honest losses; LIBERO-OOD's baseline (π0 + goal steering) runs a different protocol — shown for scale, not as a matched comparison.
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<section>
+  <h2>dp / rdp baselines (important)</h2>
+  <p class="lede">Torch-only ports living in <code>scripts/tactile/</code> — <b>dp</b> = Diffusion Policy (ConditionalUnet1D, DDPM squaredcos 100 steps, DDIM sampling, To=2, Tp=16, EMA); <b>rdp</b> = Reactive Diffusion Policy (asymmetric action-chunk VAE tokenizer + latent diffusion; slow loop re-diffuses every Ta=8, fast loop re-decodes every step from tactile obs). Reference: <code>xiaoxiaoxh/reactive_diffusion_policy @ 824c5e8</code>.</p>
+  <div class="card">
+    <h3 style="margin-top:0">Files</h3>
+    <ul class="note">
+      <li><code>scripts/tactile/tacex_dprdp_model.py</code> — dp + rdp model definitions</li>
+      <li><code>scripts/tactile/tacex_dprdp_bc.py</code> — training driver (<code>--arch dp|rdp|dp_blind|dp_mono|dp_rw|…</code>)</li>
+      <li><code>scripts/tactile/tacex_dprdp_rollout.py</code> — closed-loop Isaac Lab eval with tactile-ablation condition</li>
+      <li><code>src/roboprog/learned/ddpm_action.py</code> — in-repo DP-style DDPM head on the bc3 trunk (for LIBERO/RoboCasa lanes)</li>
+    </ul>
+    <h3>Train (per-seed, per-tactile-tier)</h3>
+<pre>TRAIN_PY=/mnt/nvme1/haonan/robot_envs/roboprog-conda/bin/python
+TACEX_STUDY_DIR=&lt;run&gt; ARCH=dp  SEEDS_OVERRIDE="0 1 2" bash scripts/tactile/tacex_v4_study.sh train_dprdp
+TACEX_STUDY_DIR=&lt;run&gt; ARCH=rdp SEEDS_OVERRIDE="0 1 2" bash scripts/tactile/tacex_v4_study.sh train_dprdp
+# underlying:
+"$TRAIN_PY" scripts/tactile/tacex_dprdp_bc.py --arch rdp --seed 0 \
+    --data prof.npz corr.npz --tactile-data corr.npz --tactile-episodes 4 \
+    --out ckpt/rdp_t4_s0.pt</pre>
+    <h3>Eval (256 episodes/ckpt, live + tactile-ablated, watchdog-wrapped)</h3>
+<pre>TACEX_PY=/mnt/nvme1/haonan/robot_envs/tacex-venv/bin/python   # Isaac Lab venv
+TACEX_STUDY_DIR=&lt;run&gt; CKPTS="ckpt/dp_t4_s0.pt ckpt/rdp_t4_s0.pt" OUT=eval_dprdp GPU=0 \
+  bash scripts/tactile/tacex_v4_study.sh eval_dprdp
+# underlying:
+scripts/tactile/isaac_watchdog.sh "$RUNS/$OUT.json" 120 -- \
+  env OMNI_KIT_ACCEPT_EULA=YES CUDA_VISIBLE_DEVICES=0 timeout 28800 \
+  "$TACEX_PY" scripts/tactile/tacex_dprdp_rollout.py \
+  --task TacEx-Factory-PegInsert-Direct-v0 --ckpt &lt;ckpts...&gt; \
+  --num-envs 128 --episodes 256 --sensor force_hist --force-hist-k 8 \
+  --seed 1000 --out "$RUNS/$OUT.json"</pre>
+    <p class="note verdict"><b>Current verdict (v7, PR #128):</b> no tactile arm beats plain dp on PegInsert — dp is the unbeaten baseline there. One confirmed positive: GearMesh dp and rdp-t64 are anti-reliant 3/3 (−40 = 2.9σ, −65 = 4.9σ). Power note: per-cell session SD ≈ 6.6–6.8 episodes → ~14 seeds per arm needed to resolve 2.5pp; comparators must run in the same Isaac session.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Which benchmark for the paper?</h2>
+  <div class="card">
+    <ul>
+      <li><b>Primary: LIBERO 4-suite under the frozen OAT-harness protocol.</b> The headline result lives here — 78.5% (81.7% fully autonomous), beats OAT with OAT as a nearly-lossless special case (76.7% on OAT's exact inputs vs OAT's 56–62%), so the claim is architectural. Same demos, same harness → fair-comparison rule satisfied; frozen path-bound runtime → reproducible.</li>
+      <li><b>Secondary: MetaWorld MT50 via the praxis-eval bridge</b> — 33.6% on OAT's exact dataset vs their published 24.4%. The one data-fair cross-benchmark beat.</li>
+      <li><b>Honest boundaries to report:</b> RoboMimic mt4 45.0 vs 73.1 (precision-insertion gap), RoboTwin floor 0–2/30 with in-domain data (architecture fit, not data), LIBERO-OOD pooled 10.7% (grounding, not skill, is the bottleneck — motivates the visual-planner thesis).</li>
+      <li><b>Tactile campaign is a separate write-up:</b> tactile-required benchmarks do not produce tactile-reliant policies; dp unbeaten; GearMesh anti-reliance is the confirmed positive.</li>
+    </ul>
+  </div>
+</section>
+
+</div>
+<div id="tip"><div class="t"></div><div class="d"></div></div>
+
+<script>
+const DATA = [
+  { name: "LIBERO 4-suite", ours: 78.5, base: 62.0, baseName: "OAT reproduction",
+    tipOurs: "Style-tokens PC5 ensemble, 157/200 across goal/spatial/object/long; 81.7% fully autonomous (AR planner, no oracle). PR #95.",
+    tipBase: "OAT reproduction 56–62% (upper bound shown). Same demos, same harness — fair comparison." },
+  { name: "MetaWorld MT50", ours: 33.6, base: 24.4, baseName: "OAT (published)",
+    tipOurs: "praxis-eval bridge, trained on OAT's exact dataset (data-fair). Self-demo arm: 31.2%.",
+    tipBase: "OAT paper number on the same benchmark + dataset." },
+  { name: "RoboMimic mt4", ours: 45.0, base: 73.1, baseName: "OAT (published)",
+    tipOurs: "Trained on THEIR demos. Lift/Can ~90%, Square/ToolHang 0% — precision-insertion gap. Honest loss.",
+    tipBase: "OAT paper number. Their harness, their demos." },
+  { name: "RoboTwin (200 demos)", ours: 6.7, base: 95.0, baseName: "GPC Diffusion Policy",
+    tipOurs: "Best pooled 2/30 with in-domain data — grasp trigger is structural. Benchmark since pruned (source @ 0025ea1).",
+    tipBase: "GPC DP 19/20 at 200 demos on the same data. Attribution: encoder −45pp / policy-class −50pp." },
+  { name: "LIBERO-OOD pooled", ours: 10.7, base: 83.0, baseName: "π0 + goal steering",
+    tipOurs: "Class-id executor, pooled OOD 10.7% [7.7,14.7] even with a correct goal prior; object_ood 0/100. Grounding is the bottleneck.",
+    tipBase: "π0 with activation steering — DIFFERENT protocol; shown for scale, not a matched comparison." },
+];
+
+const svg = document.getElementById("chart");
+const NS = "http://www.w3.org/2000/svg";
+const W = 980, ML = 190, MR = 60, MT = 24, MB = 34;
+const plotW = W - ML - MR;
+const rowH = 78, barH = 20, gap = 4;
+const H = MT + DATA.length * rowH + MB;
+svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+const x = v => ML + (v / 100) * plotW;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  (parent || svg).appendChild(e); return e;
+}
+
+function draw() {
+  svg.innerHTML = "";
+  const ink = css("--text-primary"), mut = css("--text-muted"),
+        grid = css("--grid"), base = css("--baseline"),
+        s1 = css("--series-1"), s2 = css("--series-2");
+  for (let v = 0; v <= 100; v += 25) {
+    el("line", { x1: x(v), y1: MT, x2: x(v), y2: H - MB, stroke: v === 0 ? base : grid, "stroke-width": 1 });
+    const t = el("text", { x: x(v), y: H - MB + 18, "text-anchor": "middle", "font-size": 12, fill: mut });
+    t.textContent = v;
+  }
+  const xl = el("text", { x: x(50), y: H - 4, "text-anchor": "middle", "font-size": 12, fill: mut });
+  xl.textContent = "success rate (%)";
+
+  DATA.forEach((d, i) => {
+    const gy = MT + i * rowH + 12;
+    const lab = el("text", { x: ML - 12, y: gy + barH + gap / 2 + 4, "text-anchor": "end", "font-size": 13.5, "font-weight": 600, fill: ink });
+    lab.textContent = d.name;
+
+    [[d.ours, s1, "Ours", d.tipOurs, gy],
+     [d.base, s2, d.baseName, d.tipBase, gy + barH + gap]].forEach(([v, c, nm, tip, by]) => {
+      const w = Math.max(2, (v / 100) * plotW);
+      const b = el("rect", { class: "bar", x: ML, y: by, width: w, height: barH, fill: c, rx: 4 });
+      el("rect", { x: ML, y: by, width: Math.min(4, w / 2), height: barH, fill: c });
+      const vt = el("text", { x: ML + w + 8, y: by + barH / 2 + 4.5, "font-size": 12.5, fill: ink, "font-variant-numeric": "tabular-nums" });
+      vt.textContent = v.toFixed(1);
+      const hit = el("rect", { x: ML, y: by - 2, width: plotW, height: barH + 4, fill: "transparent", class: "bar" });
+      [b, hit].forEach(t => {
+        t.addEventListener("mousemove", ev => showTip(ev, `${nm} — ${v.toFixed(1)}%`, tip));
+        t.addEventListener("mouseleave", hideTip);
+      });
+    });
+  });
+}
+
+const tipEl = document.getElementById("tip");
+function showTip(ev, title, detail) {
+  tipEl.querySelector(".t").textContent = title;
+  tipEl.querySelector(".d").textContent = detail;
+  tipEl.style.display = "block";
+  const pad = 14, tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+  let lx = ev.clientX + pad, ly = ev.clientY + pad;
+  if (lx + tw > innerWidth - 8) lx = ev.clientX - tw - pad;
+  if (ly + th > innerHeight - 8) ly = ev.clientY - th - pad;
+  tipEl.style.left = lx + "px"; tipEl.style.top = ly + "px";
+}
+function hideTip() { tipEl.style.display = "none"; }
+
+draw();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+</script>
+</body>
+</html>

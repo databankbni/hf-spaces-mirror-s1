@@ -1,0 +1,1 @@
+FROM viren070/aiostreams:v2.33.2

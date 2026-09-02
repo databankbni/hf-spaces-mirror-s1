@@ -26,7 +26,28 @@ place -- all 37 ragas already carry 12 to 21 recordings, none is below quota,
 and they are the highest-scoring CMD classes (87.7% on that slice), while
 topping up already-healthy classes measured at +0.06 +- 0.10. The cost is the
 only fresh-YouTube probe available for these ragas.
+
+It happened anyway, once, by the side-effect route this file warns about.
+The 2026-08-09 resplit for model_v2_8 went through make_splits, which did
+not read this list, and all 67 recordings trained. The exception is bounded
+rather than permanent: the probe remains valid against model_v2_4 and
+model_v2_7, whose splits predate it; it is invalid against model_v2_8
+specifically; and make_splits now refuses these recordings a fold, so the
+next corpus build excludes them again and the probe resumes with the next
+model generation. Retraining v2_8 clean was considered and declined -- the
+measured gain of absorption is noise, but so is the cost to that one model,
+and the rebuild would have spent a week of GPU quota to move a number by
+less than its error bar. ABSORBED_SPLITS below is the record the guard
+tests read.
 """
+
+# splits files that assigned the probe folds before the guard existed, with
+# the decision recorded. Nothing may be added here without a dated reason.
+ABSORBED_SPLITS = {
+    "splits_model_v2_8.json":
+        "2026-08-09 resplit predates the make_splits guard; absorption "
+        "accepted for this model generation only, see the docstring",
+}
 
 YOUTUBE_PROBE = (
     "yt_anandabhairavi_anandabhairavi_ragam_alapana_carnatic_vocal_conc",

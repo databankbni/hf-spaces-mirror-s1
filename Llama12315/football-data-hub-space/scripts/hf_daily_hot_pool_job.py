@@ -103,7 +103,7 @@ def fetch_crow_roster() -> tuple[set[str], str]:
             errors.append(f"{url}:empty:{len(body)}")
         except Exception as exc:
             errors.append(f"{url}:{type(exc).__name__}")
-    raise RuntimeError("crow_roster_fetch_failed:" + ";".join(errors))
+    return set(), "crow_roster_empty:" + ";".join(errors)
 
 
 def crow_rows(source: dict[str, list[list[str] | None]], captured: datetime,
@@ -114,7 +114,7 @@ def crow_rows(source: dict[str, list[list[str] | None]], captured: datetime,
             continue
         match_id, league = row_value(row, 0), row_value(row, 2)
         home, away, clock = row_value(row, 5), row_value(row, 8), row_value(row, 11)
-        if match_id not in crow_ids or not league or not home or not away:
+        if (crow_ids and match_id not in crow_ids) or not league or not home or not away:
             continue
         start = datetime.fromisoformat(kickoff(row, captured.date().isoformat(), clock))
         output.append({

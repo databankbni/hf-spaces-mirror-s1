@@ -131,6 +131,17 @@ async def background_scan_batch_processing(bot: Bot, task: dict):
 
     task_id = str(uuid.uuid4())
     task_dir = os.path.join("temp", task_id)
+
+    # Пользователь нажал "⏹ Стоп" / отправил /stop — сканы, уже попавшие в очередь до этого
+    # момента, не запускаем в сшивку вовсе.
+    if state_manager.is_stop_requested(user_id):
+        try:
+            await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+        except Exception:
+            pass
+        shutil.rmtree(batch_dir, ignore_errors=True)
+        return
+
     state_manager.active_scan_batches.add(task_dir)
     try:
         os.makedirs(task_dir, exist_ok=True)

@@ -1,0 +1,229 @@
+name: Build ClimaFlora catalog v1.6 maximum-soil context
+
+on:
+  workflow_run:
+    workflows: ["Build ClimaFlora catalog v1.5 global-soil candidate"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful v1.5 workflow run id"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: build-catalog-v1.6
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          echo "install_dependencies" > .github/v1.6-current-step.txt
+          sudo apt-get update
+          sudo apt-get install -y zstd unzip
+          python -m pip install --disable-pip-version-check numpy rasterio
+
+      - name: Download v1.5 candidate artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: climaflora-global-plants-v1.5-candidate
+          path: v1.5-artifact
+          run-id: ${{ github.event.workflow_run.id || inputs.source_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Decompress v1.5 base
+        run: |
+          echo "decompress_v1_5" > .github/v1.6-current-step.txt
+          zstd -d -f v1.5-artifact/climaflora_global_plants_v1_5.sqlite.zst \
+            -o climaflora_global_plants_v1_5.sqlite
+          if [ -f v1.5-artifact/climaflora_global_plants_v1_5.sqlite.sha256 ]; then
+            expected="$(cut -d' ' -f1 v1.5-artifact/climaflora_global_plants_v1_5.sqlite.sha256)"
+            echo "${expected}  climaflora_global_plants_v1_5.sqlite" | sha256sum -c -
+          fi
+
+      - name: Download clean-room WGSRPD level-3 geometry
+        run: |
+          echo "download_wgsrpd" > .github/v1.6-current-step.txt
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors \
+            https://api.github.com/repos/floracodex/wgsrpd-geojson/releases/latest \
+            -o wgsrpd-release.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r = json.loads(Path('wgsrpd-release.json').read_text())
+          assets = r.get('assets') or []
+          candidates = [a for a in assets if str(a.get('browser_download_url','')).lower().endswith('.zip')]
+          if not candidates:
+              raise SystemExit('No ZIP asset found in latest floracodex/wgsrpd-geojson release')
+          a = candidates[0]
+          Path('wgsrpd-asset-url.txt').write_text(a['browser_download_url'] + '\n')
+          Path('wgsrpd-release-tag.txt').write_text(str(r.get('tag_name') or '') + '\n')
+          print({'tag': r.get('tag_name'), 'asset': a.get('name'), 'size': a.get('size')})
+          PY
+          curl --fail --location --retry 5 --retry-all-errors \
+            "$(cat wgsrpd-asset-url.txt)" -o wgsrpd-release.zip
+          sha256sum wgsrpd-release.zip | tee wgsrpd_release.sha256
+          mkdir -p wgsrpd
+          unzip -q wgsrpd-release.zip -d wgsrpd
+          level3="$(find wgsrpd -type f -name 'level3-all.geojson' | head -1)"
+          if [ -z "$level3" ]; then
+            echo "level3-all.geojson not found in release" >&2
+            find wgsrpd -type f | head -100
+            exit 1
+          fi
+          cp "$level3" wgsrpd_level3.geojson
+          sha256sum wgsrpd_level3.geojson | tee wgsrpd_level3.sha256
+          ls -lh wgsrpd_level3.geojson
+
+      - name: Download SoilGrids 1 km topsoil rasters
+        run: |
+          echo "download_soilgrids" > .github/v1.6-current-step.txt
+          set -euo pipefail
+          mkdir -p soilgrids
+          for var in phh2o cec clay sand cfvo soc nitrogen; do
+            file="${var}_5-15cm_mean_1000.tif"
+            base="https://files.isric.org/soilgrids/latest/data_aggregated/1000m/${var}"
+            curl --fail --location --retry 5 --retry-all-errors \
+              "${base}/${file}" -o "soilgrids/${file}"
+            expected="$(curl --fail --location --retry 5 "${base}/checksum.sha256.txt" | awk -v f="$file" '$2==f || $2=="*"f {print $1; exit}')"
+            if [ -z "$expected" ]; then
+              echo "No published SHA256 found for ${file}" >&2
+              exit 1
+            fi
+            echo "${expected}  soilgrids/${file}" | sha256sum -c -
+          done
+          sha256sum soilgrids/*.tif | tee soilgrids_sources.sha256
+
+      - name: Build v1.6 native-range soil context
+        run: |
+          echo "build_v1_6_prior" > .github/v1.6-current-step.txt
+          TDWG_SHA="$(cut -d' ' -f1 wgsrpd_level3.sha256)"
+          python .github/tools/build_tdwg_soil_prior_v1_6.py \
+            --base climaflora_global_plants_v1_5.sqlite \
+            --tdwg wgsrpd_level3.geojson \
+            --soil-dir soilgrids \
+            --tdwg-sha256 "$TDWG_SHA" \
+            --output climaflora_global_plants_v1_6.sqlite \
+            --report climaflora_global_plants_v1_6.report.json
+
+      - name: Validate v1.6 candidate
+        run: |
+          echo "validate_v1_6" > .github/v1.6-current-step.txt
+          python - <<'PY'
+          import json, sqlite3
+          from pathlib import Path
+          p = Path('climaflora_global_plants_v1_6.sqlite')
+          r = json.loads(Path('climaflora_global_plants_v1_6.report.json').read_text())
+          with sqlite3.connect(f'file:{p.resolve()}?mode=ro', uri=True) as con:
+              assert con.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+              meta = dict(con.execute('SELECT key,value FROM climaflora_catalog_metadata'))
+              assert meta.get('catalog_version') == '1.6.0'
+              assert meta.get('soil_geographic_prior_scoring_enabled') == 'false'
+              prior = con.execute('SELECT COUNT(*) FROM soil_geographic_prior').fetchone()[0]
+              scoring_rows = con.execute('SELECT COUNT(*) FROM soil_geographic_prior WHERE scoring_enabled<>0').fetchone()[0]
+              assert scoring_rows == 0
+          assert r['regions_with_soil_summary'] >= 300, r['regions_with_soil_summary']
+          assert prior >= 350000, prior
+          assert r['soil_any_context_taxa'] >= 350000
+          print(json.dumps(r, indent=2))
+          PY
+
+      - name: Compress v1.6 candidate
+        run: |
+          echo "compress_v1_6" > .github/v1.6-current-step.txt
+          rm -rf soilgrids wgsrpd v1.5-artifact climaflora_global_plants_v1_5.sqlite
+          zstd -T0 -19 -f climaflora_global_plants_v1_6.sqlite \
+            -o climaflora_global_plants_v1_6.sqlite.zst
+          sha256sum climaflora_global_plants_v1_6.sqlite \
+            | tee climaflora_global_plants_v1_6.sqlite.sha256
+          sha256sum climaflora_global_plants_v1_6.sqlite.zst \
+            | tee climaflora_global_plants_v1_6.sqlite.zst.sha256
+          ls -lh climaflora_global_plants_v1_6.sqlite*
+
+      - name: Upload v1.6 candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: climaflora-global-plants-v1.6-candidate
+          compression-level: 0
+          retention-days: 14
+          path: |
+            climaflora_global_plants_v1_6.sqlite.zst
+            climaflora_global_plants_v1_6.report.json
+            climaflora_global_plants_v1_6.sqlite.sha256
+            climaflora_global_plants_v1_6.sqlite.zst.sha256
+            wgsrpd_level3.sha256
+            wgsrpd_release.sha256
+            wgsrpd-release-tag.txt
+            soilgrids_sources.sha256
+
+      - name: Persist v1.6 build status
+        if: success()
+        run: |
+          echo "persist_success_status" > .github/v1.6-current-step.txt
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          r = json.loads(Path('climaflora_global_plants_v1_6.report.json').read_text())
+          status = {
+              'status': 'ready',
+              'run_id': os.environ.get('GITHUB_RUN_ID'),
+              'commit': os.environ.get('GITHUB_SHA'),
+              'catalog_version': r['catalog_version'],
+              'soil_preference_taxa_total': r['soil_preference_taxa_total'],
+              'soil_geographic_prior_taxa': r['soil_geographic_prior_taxa'],
+              'soil_any_context_taxa': r['soil_any_context_taxa'],
+              'soil_geographic_prior_coverage': r['soil_geographic_prior_coverage'],
+              'soil_any_context_coverage': r['soil_any_context_coverage'],
+              'variable_taxa': r['variable_taxa'],
+              'regions_with_soil_summary': r['regions_with_soil_summary'],
+              'native_links_total': r['native_links_total'],
+              'native_links_covered': r['native_links_covered'],
+              'scoring_enabled': r['scoring_enabled'],
+              'sqlite_bytes': r['sqlite_bytes'],
+              'sqlite_sha256': r['sqlite_sha256'],
+              'zst_sha256': Path('climaflora_global_plants_v1_6.sqlite.zst.sha256').read_text().split()[0],
+              'wgsrpd_level3_sha256': Path('wgsrpd_level3.sha256').read_text().split()[0],
+              'wgsrpd_release_tag': Path('wgsrpd-release-tag.txt').read_text().strip(),
+          }
+          Path('.github/catalog-v1.6-status.json').write_text(json.dumps(status, indent=2) + '\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/catalog-v1.6-status.json
+          git commit -m "Record ClimaFlora v1.6 maximum-soil candidate build" || exit 0
+          git push
+
+      - name: Persist failed build status
+        if: failure()
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          marker = Path('.github/v1.6-current-step.txt')
+          status = {
+              'status': 'failed',
+              'run_id': os.environ.get('GITHUB_RUN_ID'),
+              'commit': os.environ.get('GITHUB_SHA'),
+              'failed_step': marker.read_text().strip() if marker.exists() else 'unknown',
+          }
+          Path('.github/catalog-v1.6-status.json').write_text(json.dumps(status, indent=2) + '\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/catalog-v1.6-status.json
+          git commit -m "Record failed ClimaFlora v1.6 candidate build" || exit 0
+          git push

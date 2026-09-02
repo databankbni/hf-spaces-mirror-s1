@@ -244,8 +244,14 @@ class MLPredictor:
             return self._idx_cache["nifty"], self._idx_cache["vix"]
         nifty = vix = None
         try:
-            import yfinance as yf
-            raw = yf.download(["^NSEI", "^INDIAVIX"], period="1y", auto_adjust=True, progress=False)
+            # yf.download has no built-in timeout — a stalled Yahoo connection would
+            # otherwise block this request forever. _yf_download_timed bounds it (15s)
+            # via a worker thread the same way data_sources.py's own fetches are bounded.
+            from data_sources import _yf_download_timed
+            raw = _yf_download_timed(["^NSEI", "^INDIAVIX"], timeout=15, period="1y",
+                                     auto_adjust=True, progress=False)
+            if raw is None:
+                raise ValueError("index download timed out")
             nifty = raw["Close"]["^NSEI"].dropna()
             vix = raw["Close"]["^INDIAVIX"].dropna()
         except Exception:

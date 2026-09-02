@@ -1,0 +1,831 @@
+<div class="feature-frequency"></div>
+<style>
+  .feature-frequency {
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.5;
+  }
+
+  .feature-frequency .ff-loading {
+    text-align: center;
+    padding: 60px 20px;
+    font-size: 14px;
+  }
+
+  .feature-frequency .ff-spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border-color, #d2d2d7);
+    border-top-color: var(--primary-color, #6B5CE7);
+    border-radius: 50%;
+    animation: ff-spin 0.7s linear infinite;
+    margin-bottom: 12px;
+  }
+
+  @keyframes ff-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Controls bar */
+  .feature-frequency .ff-controls {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .feature-frequency .ff-control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .feature-frequency .ff-control-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Model toggle */
+  .feature-frequency .ff-model-tabs {
+    display: inline-flex;
+    border-radius: 8px;
+    padding: 2px;
+    border: 1px solid var(--border-color, #d2d2d7);
+    gap: 0;
+  }
+
+  .feature-frequency .ff-model-btn {
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+
+  .feature-frequency .ff-model-btn.active {
+    background: var(--primary-color, #6B5CE7);
+    color: #fff;
+    box-shadow: 0 1px 4px rgba(107,92,231,0.3);
+  }
+
+  /* Task checkboxes */
+  .feature-frequency .ff-task-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: center;
+  }
+
+  .feature-frequency .ff-task-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .feature-frequency .ff-task-check input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    border: 2px solid currentColor;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .feature-frequency .ff-task-check input[type="checkbox"]:checked {
+    background: currentColor;
+  }
+
+  .feature-frequency .ff-task-check input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 1.5px;
+    top: -0.5px;
+    width: 5px;
+    height: 8px;
+    border: solid #fff;
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+  }
+
+  /* Chart container */
+  .feature-frequency .ff-chart {
+    position: relative;
+    width: 100%;
+  }
+
+  .feature-frequency .ff-chart svg {
+    display: block;
+    width: 100%;
+  }
+
+  /* Tooltip */
+  .feature-frequency .ff-tooltip {
+    position: absolute;
+    pointer-events: none;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    border: 1px solid var(--border-color, #d2d2d7);
+    background: var(--surface-bg, #ffffff);
+    color: var(--text-color, #1d1d1f);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    z-index: 10;
+    max-width: 280px;
+    transform: translate(-9999px, -9999px);
+  }
+
+  .feature-frequency .ff-tooltip .tt-task {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 11px;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .feature-frequency .ff-tooltip .tt-desc {
+    font-style: italic;
+    margin-top: 4px;
+  }
+
+  .feature-frequency .ff-tooltip .tt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .feature-frequency .ff-tooltip .tt-label {
+    font-weight: 400;
+  }
+
+  .feature-frequency .ff-tooltip .tt-value {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Summary bar */
+  .feature-frequency .ff-summary {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 8px 0 0;
+    font-size: 12px;
+  }
+
+  .feature-frequency .ff-summary strong {
+    font-weight: 700;
+  }
+
+  /* Legend */
+  .feature-frequency .ff-legend {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-top: 4px;
+    font-size: 11px;
+  }
+
+  .feature-frequency .ff-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .feature-frequency .ff-legend-dot-filled {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #888;
+  }
+
+  .feature-frequency .ff-legend-dot-ring {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1.5px solid #888;
+    background: transparent;
+    box-sizing: border-box;
+  }
+
+  /* Error state */
+  .feature-frequency .ff-error {
+    text-align: center;
+    padding: 40px 20px;
+    color: #e15759;
+    font-size: 14px;
+  }
+
+  @media (max-width: 600px) {
+    .feature-frequency .ff-controls {
+      gap: 10px;
+    }
+    .feature-frequency .ff-task-checks {
+      gap: 2px 8px;
+    }
+  }
+</style>
+<script>
+(() => {
+  // Prevent multiple initializations
+  if (window.__ffFreqInit) return;
+  window.__ffFreqInit = true;
+
+  const ensureD3 = (cb) => {
+    if (window.d3 && typeof window.d3.select === 'function') return cb();
+    let s = document.getElementById('d3-cdn-script');
+    if (!s) {
+      s = document.createElement('script');
+      s.id = 'd3-cdn-script';
+      s.src = 'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js';
+      document.head.appendChild(s);
+    }
+    const onReady = () => { if (window.d3 && typeof window.d3.select === 'function') cb(); };
+    s.addEventListener('load', onReady, { once: true });
+    if (window.d3) onReady();
+  };
+
+  const bootstrap = () => {
+    const scriptEl = document.currentScript;
+    let container = scriptEl ? scriptEl.previousElementSibling : null;
+    if (!(container && container.classList && container.classList.contains('feature-frequency'))) {
+      const cs = Array.from(document.querySelectorAll('.feature-frequency'))
+        .filter(el => !(el.dataset && el.dataset.mounted === 'true'));
+      container = cs[cs.length - 1] || null;
+    }
+    if (!container) return;
+    if (container.dataset) {
+      if (container.dataset.mounted === 'true') return;
+      container.dataset.mounted = 'true';
+    }
+
+    const d3 = window.d3;
+
+    // Show loading
+    container.innerHTML = '<div class="ff-loading"><div class="ff-spinner"></div><div>Loading feature data...</div></div>';
+
+    // ---- Constants ----
+    const TASK_COLORS = {
+      mmlu: '#4e79a7', mmlupro: '#59a14f', simpleqa: '#f28e2b',
+      bbq_ambig: '#e15759', bbq_disambig: '#76b7b2',
+      harmbench: '#ff9da7', xstest: '#edc948', gsm8k: '#b07aa1'
+    };
+
+    const TASK_LABELS = {
+      mmlu: 'MMLU', mmlupro: 'MMLU-Pro', simpleqa: 'SimpleQA',
+      bbq_ambig: 'BBQ (Ambig)', bbq_disambig: 'BBQ (Disambig)',
+      harmbench: 'HarmBench', xstest: 'XSTest', gsm8k: 'GSM8K'
+    };
+
+    const DATA_PATHS = {
+      gemma: [
+        '/data/features_gemma_all.json',
+        './assets/data/features_gemma_all.json',
+        '../assets/data/features_gemma_all.json',
+        '../../assets/data/features_gemma_all.json'
+      ],
+      llama: [
+        '/data/features_llama_all.json',
+        './assets/data/features_llama_all.json',
+        '../assets/data/features_llama_all.json',
+        '../../assets/data/features_llama_all.json'
+      ]
+    };
+
+    // ---- Theme detection ----
+    const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
+    const palette = () => isDark()
+      ? { text: '#e0e0e0', axis: '#888', grid: '#333', muted: 'rgba(255,255,255,0.5)', tooltipBg: '#1a1d28', tooltipBorder: 'rgba(255,255,255,0.12)' }
+      : { text: '#333', axis: '#666', grid: '#eee', muted: 'rgba(0,0,0,0.45)', tooltipBg: '#fff', tooltipBorder: '#d2d2d7' };
+
+    // ---- State ----
+    let state = {
+      model: 'gemma',
+      activeTasks: new Set(['harmbench'])
+    };
+    let dataCache = {};
+
+    // ---- Data loading ----
+    async function fetchJSON(paths) {
+      for (const p of paths) {
+        try {
+          const r = await fetch(p, { cache: 'no-cache' });
+          if (r.ok) return await r.json();
+        } catch (e) { /* try next */ }
+      }
+      return null;
+    }
+
+    async function loadModel(key) {
+      if (dataCache[key]) return dataCache[key];
+      const data = await fetchJSON(DATA_PATHS[key]);
+      if (data) dataCache[key] = data;
+      return data;
+    }
+
+    // ---- Extract all features into flat array ----
+    function extractFeatures(data) {
+      if (!data || !data.tasks) return [];
+      const features = [];
+      const availableTasks = Object.keys(data.tasks);
+
+      for (const taskKey of availableTasks) {
+        if (!state.activeTasks.has(taskKey)) continue;
+        const taskData = data.tasks[taskKey];
+        if (!taskData.layers) continue;
+
+        for (const [layerKey, layerData] of Object.entries(taskData.layers)) {
+          const layer = parseInt(layerKey);
+
+          // Positive features
+          if (layerData.positive) {
+            for (const feat of layerData.positive) {
+              features.push({
+                ...feat,
+                task: taskKey,
+                layer,
+                polarity: 'positive'
+              });
+            }
+          }
+
+          // Negative features
+          if (layerData.negative) {
+            for (const feat of layerData.negative) {
+              features.push({
+                ...feat,
+                task: taskKey,
+                layer,
+                polarity: 'negative'
+              });
+            }
+          }
+        }
+      }
+      return features;
+    }
+
+    // ---- Compute summary stats ----
+    function computeSummary(features) {
+      if (features.length === 0) return { count: 0, avgFreq: 0, mostActiveLayer: '-' };
+      const avgFreq = d3.mean(features, d => d.frequency) || 0;
+      const layerCounts = d3.rollup(features, v => v.length, d => d.layer);
+      let maxCount = 0, mostActiveLayer = '-';
+      for (const [layer, count] of layerCounts) {
+        if (count > maxCount) { maxCount = count; mostActiveLayer = layer; }
+      }
+      return { count: features.length, avgFreq, mostActiveLayer };
+    }
+
+    // ---- Build UI ----
+    let svg, gRoot, gDots, gXAxis, gYAxis, gGrid, tooltip;
+    let chartDiv, summaryDiv;
+    const margin = { top: 16, right: 20, bottom: 44, left: 56 };
+    let width = 800, innerWidth, innerHeight;
+    const chartHeight = 350;
+
+    function buildUI() {
+      container.innerHTML = '';
+      const p = palette();
+
+      // Controls bar
+      const controls = document.createElement('div');
+      controls.className = 'ff-controls';
+
+      // Model toggle
+      const modelGroup = document.createElement('div');
+      modelGroup.className = 'ff-control-group';
+      const modelLabel = document.createElement('div');
+      modelLabel.className = 'ff-control-label';
+      modelLabel.textContent = 'Model';
+      modelLabel.style.color = p.muted;
+      modelGroup.appendChild(modelLabel);
+
+      const modelTabs = document.createElement('div');
+      modelTabs.className = 'ff-model-tabs';
+
+      ['gemma', 'llama'].forEach(m => {
+        const btn = document.createElement('button');
+        btn.className = 'ff-model-btn' + (state.model === m ? ' active' : '');
+        btn.textContent = m === 'gemma' ? 'Gemma-2 2B' : 'LLaMA-3.1 8B';
+        btn.style.color = state.model === m ? '#fff' : p.text;
+        btn.dataset.model = m;
+        btn.addEventListener('click', () => {
+          state.model = m;
+          modelTabs.querySelectorAll('.ff-model-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.model === m);
+            b.style.color = b.dataset.model === m ? '#fff' : palette().text;
+          });
+          render();
+        });
+        modelTabs.appendChild(btn);
+      });
+      modelGroup.appendChild(modelTabs);
+      controls.appendChild(modelGroup);
+
+      // Task checkboxes
+      const taskGroup = document.createElement('div');
+      taskGroup.className = 'ff-control-group';
+      const taskLabel = document.createElement('div');
+      taskLabel.className = 'ff-control-label';
+      taskLabel.textContent = 'Tasks';
+      taskLabel.style.color = p.muted;
+      taskGroup.appendChild(taskLabel);
+
+      const taskChecks = document.createElement('div');
+      taskChecks.className = 'ff-task-checks';
+
+      Object.keys(TASK_COLORS).forEach(t => {
+        const label = document.createElement('label');
+        label.className = 'ff-task-check';
+        label.style.color = TASK_COLORS[t];
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = state.activeTasks.has(t);
+        cb.addEventListener('change', () => {
+          if (cb.checked) state.activeTasks.add(t);
+          else state.activeTasks.delete(t);
+          render();
+        });
+
+        const span = document.createElement('span');
+        span.textContent = TASK_LABELS[t];
+
+        label.appendChild(cb);
+        label.appendChild(span);
+        taskChecks.appendChild(label);
+      });
+
+      taskGroup.appendChild(taskChecks);
+      controls.appendChild(taskGroup);
+      container.appendChild(controls);
+
+      // Chart container
+      chartDiv = document.createElement('div');
+      chartDiv.className = 'ff-chart';
+      container.appendChild(chartDiv);
+
+      // Create SVG
+      svg = d3.select(chartDiv).append('svg').attr('height', chartHeight);
+      gRoot = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+      gGrid = gRoot.append('g').attr('class', 'ff-grid');
+      gXAxis = gRoot.append('g').attr('class', 'ff-x-axis');
+      gYAxis = gRoot.append('g').attr('class', 'ff-y-axis');
+      gDots = gRoot.append('g').attr('class', 'ff-dots');
+
+      // X axis label
+      gRoot.append('text')
+        .attr('class', 'ff-x-label')
+        .attr('text-anchor', 'middle')
+        .style('font-size', '12px')
+        .style('font-weight', '600')
+        .text('Layer');
+
+      // Y axis label
+      gRoot.append('text')
+        .attr('class', 'ff-y-label')
+        .attr('text-anchor', 'middle')
+        .style('font-size', '12px')
+        .style('font-weight', '600')
+        .text('Feature Activation Frequency (%)');
+
+      // Tooltip
+      tooltip = document.createElement('div');
+      tooltip.className = 'ff-tooltip';
+      chartDiv.appendChild(tooltip);
+
+      // Legend
+      const legendDiv = document.createElement('div');
+      legendDiv.className = 'ff-legend';
+      legendDiv.style.color = p.muted;
+
+      const filledItem = document.createElement('span');
+      filledItem.className = 'ff-legend-item';
+      filledItem.innerHTML = '<span class="ff-legend-dot-filled"></span> Positive';
+      legendDiv.appendChild(filledItem);
+
+      const ringItem = document.createElement('span');
+      ringItem.className = 'ff-legend-item';
+      ringItem.innerHTML = '<span class="ff-legend-dot-ring"></span> Negative';
+      legendDiv.appendChild(ringItem);
+
+      const sizeItem = document.createElement('span');
+      sizeItem.className = 'ff-legend-item';
+      sizeItem.textContent = 'Dot size = |correlation|';
+      legendDiv.appendChild(sizeItem);
+
+      container.appendChild(legendDiv);
+
+      // Summary
+      summaryDiv = document.createElement('div');
+      summaryDiv.className = 'ff-summary';
+      container.appendChild(summaryDiv);
+    }
+
+    // ---- Render chart ----
+    function render() {
+      if (!svg) return;
+      const data = dataCache[state.model];
+      if (!data) return;
+
+      const p = palette();
+      const features = extractFeatures(data);
+      const summary = computeSummary(features);
+
+      // Update summary
+      summaryDiv.style.color = p.muted;
+      summaryDiv.innerHTML = `
+        <span><strong style="color:${p.text}">${summary.count}</strong> features shown</span>
+        <span>Avg frequency: <strong style="color:${p.text}">${summary.avgFreq.toFixed(1)}%</strong></span>
+        <span>Most active layer: <strong style="color:${p.text}">${summary.mostActiveLayer}</strong></span>
+      `;
+
+      // Update theme colors on controls
+      container.querySelectorAll('.ff-control-label').forEach(el => el.style.color = p.muted);
+      container.querySelectorAll('.ff-model-btn').forEach(btn => {
+        if (!btn.classList.contains('active')) btn.style.color = p.text;
+      });
+      container.querySelector('.ff-legend').style.color = p.muted;
+
+      // Dimensions
+      width = chartDiv.clientWidth || 800;
+      innerWidth = width - margin.left - margin.right;
+      innerHeight = chartHeight - margin.top - margin.bottom;
+
+      svg.attr('width', width);
+
+      // Determine layer range from data
+      const allLayers = [];
+      const tasksData = data.tasks;
+      for (const taskKey of Object.keys(tasksData)) {
+        const layers = tasksData[taskKey].layers;
+        if (layers) {
+          for (const k of Object.keys(layers)) allLayers.push(parseInt(k));
+        }
+      }
+      const layerExtent = d3.extent(allLayers);
+      const layerDomain = d3.range(layerExtent[0], layerExtent[1] + 1);
+
+      // Scales
+      const xScale = d3.scaleLinear()
+        .domain([layerExtent[0] - 0.5, layerExtent[1] + 0.5])
+        .range([0, innerWidth]);
+
+      const freqMax = features.length > 0 ? d3.max(features, d => d.frequency) : 100;
+      const yScale = d3.scaleLinear()
+        .domain([0, Math.min(105, (freqMax || 100) * 1.05)])
+        .range([innerHeight, 0])
+        .nice();
+
+      const corrExtent = features.length > 0
+        ? d3.extent(features, d => Math.abs(d.correlation))
+        : [0, 1];
+      const rScale = d3.scaleSqrt()
+        .domain([0, Math.max(corrExtent[1], 0.01)])
+        .range([2, 8]);
+
+      // Grid lines
+      const yTicks = yScale.ticks(6);
+      gGrid.selectAll('.ff-grid-line')
+        .data(yTicks, d => d)
+        .join('line')
+        .attr('class', 'ff-grid-line')
+        .attr('x1', 0)
+        .attr('x2', innerWidth)
+        .attr('y1', d => yScale(d))
+        .attr('y2', d => yScale(d))
+        .attr('stroke', p.grid)
+        .attr('stroke-width', 1);
+
+      // X axis
+      const xTickValues = layerDomain.filter((d, i) => {
+        if (layerDomain.length <= 16) return true;
+        return d % 2 === 1 || d === layerDomain[layerDomain.length - 1];
+      });
+      const xAxis = d3.axisBottom(xScale)
+        .tickValues(xTickValues)
+        .tickFormat(d => d)
+        .tickSize(4);
+
+      gXAxis
+        .attr('transform', `translate(0, ${innerHeight})`)
+        .call(xAxis);
+
+      gXAxis.select('.domain').attr('stroke', p.axis);
+      gXAxis.selectAll('line').attr('stroke', p.axis);
+      gXAxis.selectAll('text')
+        .style('fill', p.axis)
+        .style('font-size', '11px');
+
+      // Y axis
+      const yAxis = d3.axisLeft(yScale)
+        .ticks(6)
+        .tickSize(4);
+
+      gYAxis.call(yAxis);
+      gYAxis.select('.domain').attr('stroke', p.axis);
+      gYAxis.selectAll('line').attr('stroke', p.axis);
+      gYAxis.selectAll('text')
+        .style('fill', p.axis)
+        .style('font-size', '11px');
+
+      // Axis labels
+      gRoot.select('.ff-x-label')
+        .attr('x', innerWidth / 2)
+        .attr('y', innerHeight + 36)
+        .style('fill', p.text);
+
+      gRoot.select('.ff-y-label')
+        .attr('transform', `translate(${-40}, ${innerHeight / 2}) rotate(-90)`)
+        .style('fill', p.text);
+
+      // Jitter: use a seeded pseudo-random based on feature index + layer + task
+      function jitter(feat) {
+        const seed = feat.feature_index * 13 + feat.layer * 7 + feat.task.charCodeAt(0) * 3;
+        const pseudo = Math.sin(seed) * 10000;
+        return (pseudo - Math.floor(pseudo) - 0.5) * 0.6;  // range [-0.3, +0.3] layers
+      }
+
+      // Jitter on Y axis too (small amount to separate overlapping frequencies)
+      function jitterY(feat) {
+        const seed = feat.feature_index * 17 + feat.layer * 11 + feat.task.charCodeAt(1) * 5;
+        const pseudo = Math.sin(seed) * 10000;
+        const freqRange = yScale.domain()[1] - yScale.domain()[0];
+        return (pseudo - Math.floor(pseudo) - 0.5) * freqRange * 0.015;
+      }
+
+      // Dots
+      const dots = gDots.selectAll('.ff-dot')
+        .data(features, d => `${d.task}-${d.layer}-${d.feature_index}-${d.polarity}`);
+
+      dots.join(
+        enter => enter.append('circle')
+          .attr('class', 'ff-dot')
+          .attr('cx', d => xScale(d.layer + jitter(d)))
+          .attr('cy', d => yScale(d.frequency + jitterY(d)))
+          .attr('r', 0)
+          .attr('fill', d => d.polarity === 'positive' ? TASK_COLORS[d.task] : 'transparent')
+          .attr('stroke', d => TASK_COLORS[d.task])
+          .attr('stroke-width', d => d.polarity === 'positive' ? 0.5 : 1.8)
+          .attr('opacity', 0.7)
+          .style('cursor', 'pointer')
+          .call(enter => enter.transition().duration(400)
+            .attr('r', d => rScale(Math.abs(d.correlation))))
+          .on('mouseenter', handleMouseEnter)
+          .on('mousemove', handleMouseMove)
+          .on('mouseleave', handleMouseLeave),
+        update => update
+          .call(update => update.transition().duration(400)
+            .attr('cx', d => xScale(d.layer + jitter(d)))
+            .attr('cy', d => yScale(d.frequency + jitterY(d)))
+            .attr('r', d => rScale(Math.abs(d.correlation)))
+            .attr('fill', d => d.polarity === 'positive' ? TASK_COLORS[d.task] : 'transparent')
+            .attr('stroke', d => TASK_COLORS[d.task])
+            .attr('stroke-width', d => d.polarity === 'positive' ? 0.5 : 1.8)
+            .attr('opacity', 0.7)),
+        exit => exit.transition().duration(300)
+          .attr('r', 0)
+          .attr('opacity', 0)
+          .remove()
+      );
+    }
+
+    // ---- Tooltip handlers ----
+    function handleMouseEnter(evt, d) {
+      const p = palette();
+      d3.select(this)
+        .transition().duration(150)
+        .attr('opacity', 1)
+        .attr('r', function() {
+          const corrExtent = [0, 0.5];
+          return d3.scaleSqrt().domain(corrExtent).range([2, 8])(Math.abs(d.correlation)) + 3;
+        });
+
+      const taskColor = TASK_COLORS[d.task];
+      tooltip.innerHTML = `
+        <div class="tt-task" style="background:${taskColor}">${TASK_LABELS[d.task]}</div>
+        <div style="margin-top:2px;font-weight:600;">Layer ${d.layer} &middot; #${d.feature_index} &middot; ${d.polarity === 'positive' ? 'Positive' : 'Negative'}</div>
+        <div class="tt-row"><span class="tt-label">Frequency</span><span class="tt-value">${d.frequency.toFixed(1)}%</span></div>
+        <div class="tt-row"><span class="tt-label">Correlation</span><span class="tt-value">${d.correlation.toFixed(4)}</span></div>
+        <div class="tt-row"><span class="tt-label">Coefficient</span><span class="tt-value">${d.coefficient.toFixed(4)}</span></div>
+        ${d.description ? `<div class="tt-desc">${d.description}</div>` : ''}
+      `;
+      tooltip.style.opacity = '1';
+      tooltip.style.background = p.tooltipBg;
+      tooltip.style.borderColor = p.tooltipBorder;
+      tooltip.style.color = p.text;
+      positionTooltip(evt);
+    }
+
+    function handleMouseMove(evt) {
+      positionTooltip(evt);
+    }
+
+    function handleMouseLeave(evt, d) {
+      const corrExtent = dataCache[state.model]
+        ? d3.extent(extractFeatures(dataCache[state.model]), f => Math.abs(f.correlation))
+        : [0, 0.5];
+      const rScale = d3.scaleSqrt()
+        .domain([0, Math.max(corrExtent[1], 0.01)])
+        .range([2, 8]);
+
+      d3.select(this)
+        .transition().duration(150)
+        .attr('opacity', 0.7)
+        .attr('r', rScale(Math.abs(d.correlation)));
+
+      tooltip.style.opacity = '0';
+      setTimeout(() => { tooltip.style.transform = 'translate(-9999px, -9999px)'; }, 120);
+    }
+
+    function positionTooltip(evt) {
+      const pt = d3.pointer(evt, chartDiv);
+      const tipW = tooltip.offsetWidth || 200;
+      const tipH = tooltip.offsetHeight || 80;
+      const cW = chartDiv.clientWidth;
+      let x = pt[0] + 14, y = pt[1] - tipH - 8;
+      if (x + tipW > cW) x = pt[0] - tipW - 14;
+      if (y < 0) y = pt[1] + 16;
+      tooltip.style.transform = `translate(${x}px, ${y}px)`;
+    }
+
+    // ---- Initialize ----
+    async function init() {
+      const [gemmaData, llamaData] = await Promise.all([
+        loadModel('gemma'),
+        loadModel('llama')
+      ]);
+
+      if (!gemmaData && !llamaData) {
+        container.innerHTML = '<div class="ff-error">Failed to load feature data. Ensure the JSON files are available.</div>';
+        return;
+      }
+
+      // If gemma not available, default to llama
+      if (!gemmaData && llamaData) {
+        state.model = 'llama';
+      }
+
+      // Adjust active tasks based on available data
+      const currentData = dataCache[state.model];
+      if (currentData) {
+        const availableTasks = new Set(Object.keys(currentData.tasks));
+        state.activeTasks = new Set([...state.activeTasks].filter(t => availableTasks.has(t)));
+      }
+
+      buildUI();
+      render();
+
+      // Resize observer
+      if (window.ResizeObserver) {
+        const ro = new ResizeObserver(() => render());
+        ro.observe(container);
+      } else {
+        window.addEventListener('resize', render);
+      }
+
+      // Theme observer
+      const mo = new MutationObserver((muts) => {
+        for (const m of muts) {
+          if (m.attributeName === 'data-theme') {
+            render();
+            break;
+          }
+        }
+      });
+      mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    }
+
+    ensureD3(init);
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
+  } else {
+    bootstrap();
+  }
+})();
+</script>

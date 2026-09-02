@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web Desktop</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif}
+body{overflow:hidden;background:#1a1a2e;height:100vh;width:100vw}
+#desktop{position:fixed;top:0;left:0;right:0;bottom:48px;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);overflow:hidden}
+.icon{position:absolute;width:80px;text-align:center;cursor:pointer;color:#fff;user-select:none;padding:8px;border-radius:8px;transition:background .2s}
+.icon:hover{background:rgba(255,255,255,.15)}
+.icon span{font-size:12px;display:block;text-shadow:1px 1px 2px #000}
+.icon .em{font-size:36px}
+.window{position:absolute;min-width:300px;min-height:200px;background:#2d2d44;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.4);display:none;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.1)}
+.window.active{box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px #4a9eff}
+.win-bar{height:36px;background:#1a1a2e;display:flex;align-items:center;padding:0 12px;cursor:move;user-select:none;border-bottom:1px solid rgba(255,255,255,.05)}
+.win-title{color:#fff;font-size:13px;flex:1}
+.win-btn{width:12px;height:12px;border-radius:50%;cursor:pointer;margin-left:6px;border:none}
+.win-btn.close{background:#ff5f57}
+.win-btn.min{background:#febc2e}
+.win-btn.max{background:#28c840}
+.win-content{flex:1;overflow:auto;background:#1e1e36;position:relative}
+.win-content iframe{width:100%;height:100%;border:none}
+#taskbar{position:fixed;bottom:0;left:0;right:0;height:48px;background:rgba(15,12,41,.95);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;padding:0 12px;gap:8px;z-index:9999}
+#start-btn{width:40px;height:40px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#667eea,#764ba2);border:none;font-size:20px;transition:transform .2s}
+#start-btn:hover{transform:scale(1.1)}
+.task-item{height:40px;min-width:40px;padding:0 12px;border-radius:8px;background:rgba(255,255,255,.05);cursor:pointer;display:flex;align-items:center;gap:6px;color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.05);transition:background .2s}
+.task-item:hover{background:rgba(255,255,255,.15)}
+.task-item.active{background:rgba(74,158,255,.3);border-color:#4a9eff}
+#clock{color:rgba(255,255,255,.7);font-size:12px;margin-right:auto;padding:0 12px;text-align:center}
+#start-menu{position:fixed;bottom:48px;left:12px;width:320px;background:rgba(15,12,41,.98);backdrop-filter:blur(20px);border-radius:12px;border:1px solid rgba(255,255,255,.08);padding:16px;display:none;z-index:10000;box-shadow:0 -8px 32px rgba(0,0,0,.4)}
+#start-menu.show{display:block}
+.start-search{width:100%;padding:8px 12px;border-radius:8px;border:none;background:rgba(255,255,255,.08);color:#fff;margin-bottom:12px;font-size:13px;outline:none}
+.start-search::placeholder{color:rgba(255,255,255,.3)}
+.start-apps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.start-app{display:flex;flex-direction:column;align-items:center;padding:10px 4px;border-radius:8px;cursor:pointer;transition:background .2s}
+.start-app:hover{background:rgba(255,255,255,.1)}
+.start-app span{color:#fff;font-size:11px;margin-top:4px}
+.start-app .emoji{font-size:28px}
+.term-body{background:#0c0c14;color:#0f0;font-family:'Courier New',monospace;font-size:13px;padding:12px;height:100%;overflow:auto;white-space:pre-wrap;word-break:break-all}
+.term-input{background:transparent;border:none;color:#0f0;font-family:'Courier New',monospace;font-size:13px;outline:none;width:80%}
+.edit-area{flex:1;background:#1e1e36;color:#e0e0e0;border:none;padding:12px;font-family:'Courier New',monospace;font-size:13px;outline:none;resize:none;width:100%;height:100%}
+.browser-bar{padding:8px;background:#1a1a2e;display:flex;gap:8px}
+.browser-url{flex:1;padding:6px 12px;border-radius:6px;border:none;background:rgba(255,255,255,.08);color:#fff;font-size:12px;outline:none}
+.browser-go{padding:6px 16px;border-radius:6px;border:none;cursor:pointer;background:#4a9eff;color:#fff;font-size:12px}
+#login{position:fixed;inset:0;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);display:flex;align-items:center;justify-content:center;z-index:100000;flex-direction:column;gap:16px}
+#login .avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:36px}
+#login .name{color:#fff;font-size:18px}
+#login button{padding:8px 32px;border-radius:8px;border:none;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:14px}
+#login .time{color:rgba(255,255,255,.5);font-size:48px;margin-bottom:20px}
+</style>
+</head>
+<body>
+<div id="login">
+<div class="time" id="ltime"></div>
+<div class="avatar">🖥️</div>
+<div class="name">Web Desktop</div>
+<button onclick="login()">دخول</button>
+</div>
+<div id="desktop">
+<div class="icon" style="top:20px;left:20px" ondblclick="openApp('terminal')"><div class="em">📊</div><span>Terminal</span></div>
+<div class="icon" style="top:20px;left:110px" ondblclick="openApp('browser')"><div class="em">🌐</div><span>Browser</span></div>
+<div class="icon" style="top:20px;left:200px" ondblclick="openApp('editor')"><div class="em">📝</div><span>Editor</span></div>
+<div class="icon" style="top:20px;left:290px" ondblclick="openApp('webvm')"><div class="em">🐧</div><span>Linux</span></div>
+<div class="icon" style="top:20px;left:380px" ondblclick="openApp('files')"><div class="em">📁</div><span>Files</span></div>
+<div class="icon" style="top:20px;left:470px" ondblclick="openApp('settings')"><div class="em">⚙️</div><span>Settings</span></div>
+<div class="icon" style="top:20px;left:560px" ondblclick="openApp('calc')"><div class="em">🧮</div><span>Calculator</span></div>
+<div class="icon" style="top:20px;left:650px" ondblclick="openApp('paint')"><div class="em">🎨</div><span>Paint</span></div>
+</div>
+<div id="taskbar">
+<button id="start-btn" onclick="toggleStart()">🚀</button>
+<div id="task-items"></div>
+<div id="clock"></div>
+</div>
+<div id="start-menu">
+<input class="start-search" placeholder="بحث..." onkeyup="filterApps(this.value)">
+<div class="start-apps">
+<div class="start-app" onclick="openApp('terminal');toggleStart()"><span class="emoji">📊</span><span>Terminal</span></div>
+<div class="start-app" onclick="openApp('browser');toggleStart()"><span class="emoji">🌐</span><span>Browser</span></div>
+<div class="start-app" onclick="openApp('editor');toggleStart()"><span class="emoji">📝</span><span>Editor</span></div>
+<div class="start-app" onclick="openApp('webvm');toggleStart()"><span class="emoji">🐧</span><span>Linux</span></div>
+<div class="start-app" onclick="openApp('files');toggleStart()"><span class="emoji">📁</span><span>Files</span></div>
+<div class="start-app" onclick="openApp('settings');toggleStart()"><span class="emoji">⚙️</span><span>Settings</span></div>
+<div class="start-app" onclick="openApp('calc');toggleStart()"><span class="emoji">🧮</span><span>Calculator</span></div>
+<div class="start-app" onclick="openApp('paint');toggleStart()"><span class="emoji">🎨</span><span>Paint</span></div>
+</div>
+</div>
+<script>
+var z=100,wins={};
+function updateClock(){var n=new Date();var t=n.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});var d=n.toLocaleDateString('ar-EG');document.getElementById('clock').innerHTML=t+'<br>'+d;var l=document.getElementById('ltime');if(l)l.textContent=t}
+setInterval(updateClock,1000);updateClock();
+function login(){document.getElementById('login').style.display='none'}
+function toggleStart(){document.getElementById('start-menu').classList.toggle('show')}
+document.addEventListener('click',function(e){var sm=document.getElementById('start-menu');var sb=document.getElementById('start-btn');if(!sm.contains(e.target)&&!sb.contains(e.target))sm.classList.remove('show')});
+function filterApps(q){document.querySelectorAll('.start-app').forEach(function(a){a.style.display=a.textContent.includes(q)?'':'none'})}
+function openApp(type){
+var id='win-'+type+'-'+Date.now();
+var cfg={terminal:{t:'Terminal',w:600,h:400},browser:{t:'Browser',w:800,h:500},editor:{t:'Text Editor',w:600,h:450},webvm:{t:'Linux',w:800,h:500},files:{t:'File Manager',w:500,h:400},settings:{t:'Settings',w:450,h:350},calc:{t:'Calculator',w:300,h:400},paint:{t:'Paint',w:600,h:450}};
+var c=cfg[type];if(!c)return;
+var win=document.createElement('div');win.className='window active';win.id=id;
+win.style.width=c.w+'px';win.style.height=c.h+'px';
+win.style.left=(50+Math.random()*100)+'px';win.style.top=(30+Math.random()*50)+'px';
+win.style.zIndex=++z;win.style.display='flex';
+var content='';
+if(type==='terminal')content='<div class="term-body" id="tb-'+id+'">Web Desktop Terminal v1.0\nType "help" for commands.\n\n$ <input class="term-input" id="ti-'+id+'" autofocus></div>';
+else if(type==='browser')content='<div class="browser-bar"><input class="browser-url" id="bu-'+id+'" value="https://duckduckgo.com" placeholder="URL..."><button class="browser-go" onclick="navBrowser(\''+id+'\')">Go</button></div><div style="flex:1;position:relative"><iframe id="bf-'+id+'" src="https://duckduckgo.com" style="width:100%;height:100%;border:none"></iframe></div>';
+else if(type==='editor')content='<textarea class="edit-area" placeholder="اكتب هنا..."></textarea>';
+else if(type==='webvm')content='<iframe src="https://webvm.io" style="width:100%;height:100%;border:none" allow="cross-origin-isolated"></iframe>';
+else if(type==='files')content='<div style="padding:16px;color:#fff"><h3>📁 File Manager</h3><br><p>التخزين المحلي:</p><div id="st-'+id+'">جاري الفحص...</div><br><input type="file" id="fu-'+id+'" multiple><br><br><div id="fl-'+id+'"></div></div>';
+else if(type==='settings')content='<div style="padding:20px;color:#fff"><h3>⚙️ Settings</h3><br><p>الخلفية:</p><div style="display:flex;gap:8px;margin:8px 0"><button onclick="chgBg(\'#0f0c29,#302b63,#24243e\')" style="padding:8px;border:none;border-radius:6px;cursor:pointer;background:linear-gradient(135deg,#0f0c29,#302b63)">داكن</button><button onclick="chgBg(\'#1e3a5f,#1565c0,#0d47a1\')" style="padding:8px;border:none;border-radius:6px;cursor:pointer;background:linear-gradient(135deg,#1e3a5f,#1565c0)">أزرق</button><button onclick="chgBg(\'#2d1b3d,#6a1b9a,#4a148c\')" style="padding:8px;border:none;border-radius:6px;cursor:pointer;background:linear-gradient(135deg,#2d1b3d,#6a1b9a)">بنفسجي</button><button onclick="chgBg(\'#1a3a1a,#2e7d32,#1b5e20\')" style="padding:8px;border:none;border-radius:6px;cursor:pointer;background:linear-gradient(135deg,#1a3a1a,#2e7d32)">أخضر</button></div><br><p>الدقة: '+window.innerWidth+'x'+window.innerHeight+'</p><p>النظام: Web Desktop v1.0</p><p>المنصة: Hugging Face Spaces</p></div>';
+else if(type==='calc')content='<div style="padding:12px"><div id="cd-'+id+'" style="background:#1a1a2e;color:#0f0;padding:12px;border-radius:8px;text-align:right;font-size:24px;margin-bottom:8px;min-height:40px" data-expr="">0</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">'+calcBtns(id,'C,#ff5f57,del,#rgba255,%,#rgba255,/,#4a9eff,7,#r,8,#r,9,#r,*,#4a9eff,4,#r,5,#r,6,#r,-,#4a9eff,1,#r,2,#r,3,#r,+,#4a9eff,0,#r2,.,#r,=,#28c840')+'</div></div>';
+else if(type==='paint')content='<div style="height:100%;display:flex;flex-direction:column"><div style="padding:4px;background:#1a1a2e;display:flex;gap:4px;align-items:center"><input type="color" id="pc-'+id+'" value="#ff0000"><input type="range" id="ps-'+id+'" min="1" max="30" value="3"><button onclick="clrPaint(\''+id+'\')" style="padding:4px 12px;cursor:pointer;border:none;border-radius:4px;background:#ff5f57;color:#fff">مسح</button></div><canvas id="cv-'+id+'" style="flex:1;background:#fff;cursor:crosshair"></canvas></div>';
+win.innerHTML='<div class="win-bar" onmousedown="startDrag(event,\''+id+'\')"><span class="win-title">'+c.t+'</span><button class="win-btn min" onclick="minWin(\''+id+'\')"></button><button class="win-btn max" onclick="maxWin(\''+id+'\')"></button><button class="win-btn close" onclick="closeWin(\''+id+'\')"></button></div><div class="win-content">'+content+'</div>';
+document.body.appendChild(win);wins[id]=win;setActive(id);addTask(id,c.t);
+setTimeout(function(){initApp(id,type)},100);
+}
+function calcBtns(id,spec){
+var parts=spec.split(',');var html='';var i=0;
+while(i<parts.length){var label=parts[i++];var color=parts[i++];var span=parts[i++];
+var bg=color==='#r'?'rgba(255,255,255,0.08)':color==='#r2'?'rgba(255,255,255,0.08)':color==='#rgba255'?'rgba(255,255,255,0.1)':color;
+var s=span==='#r2'?'grid-column:span 2':'';
+html+='<button onclick="calcKey(\''+id+'\',\''+label+'\')" style="padding:12px;border:none;border-radius:6px;background:'+bg+';color:#fff;cursor:pointer;'+s+'">'+(label==='del'?'⌫':label==='/ '?'÷':label==='*'?'×':label)+'</button>';
+}
+return html;
+}
+function initApp(id,type){
+if(type==='terminal'){var inp=document.getElementById('ti-'+id);if(inp)inp.addEventListener('keydown',function(e){if(e.key==='Enter'){var tb=document.getElementById('tb-'+id);var cmd=inp.value;tb.innerHTML+='\n$ '+cmd+'\n';tb.innerHTML+=runCmd(cmd);inp.value='';tb.scrollTop=tb.scrollHeight}})}
+else if(type==='paint'){var cv=document.getElementById('cv-'+id);if(cv){cv.width=cv.offsetWidth;cv.height=cv.offsetHeight;var ctx=cv.getContext('2d');var dr=false;cv.addEventListener('mousedown',function(e){dr=true;ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY)});cv.addEventListener('mousemove',function(e){if(!dr)return;ctx.strokeStyle=document.getElementById('pc-'+id).value;ctx.lineWidth=document.getElementById('ps-'+id).value;ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke()});cv.addEventListener('mouseup',function(){dr=false})}}
+else if(type==='files'){if(navigator.storage&&navigator.storage.estimate){navigator.storage.estimate().then(function(e){var el=document.getElementById('st-'+id);if(el)el.textContent=(e.usage/1048576).toFixed(1)+' MB / '+(e.quota/1048576).toFixed(0)+' MB'})}}
+}
+function runCmd(c){c=c.trim().toLowerCase();if(c==='help')return'Commands: help, ls, pwd, date, whoami, neofetch, echo';if(c==='ls')return'desktop  documents  downloads\nmusic  pictures  videos';if(c==='pwd')return'/home/user';if(c==='date')return new Date().toString();if(c==='whoami')return'user';if(c==='neofetch')return'     ___      \n    /   \\     user@desktop\n   | HF |     OS: Web Desktop v1.0\n    \\___/     Shell: websh\n             Space: Hugging Face';if(c.startsWith('echo '))return c.slice(5);return'command not found: '+c}
+function clrPaint(id){var cv=document.getElementById('cv-'+id);if(cv){cv.getContext('2d').clearRect(0,0,cv.width,cv.height)}}
+function calcKey(id,k){var d=document.getElementById('cd-'+id);if(!d)return;if(k==='C'){d.dataset.expr='';d.textContent='0';return}if(k==='del'){d.dataset.expr=d.dataset.expr.slice(0,-1);d.textContent=d.dataset.expr||'0';return}if(k==='='){try{d.textContent=eval(d.dataset.expr);d.dataset.expr=d.textContent}catch(e){d.textContent='Error'}return}d.dataset.expr+=k;d.textContent=d.dataset.expr}
+function navBrowser(id){var u=document.getElementById('bu-'+id).value;if(!u.startsWith('http'))u='https://'+u;document.getElementById('bf-'+id).src=u}
+function chgBg(c){document.getElementById('desktop').style.background='linear-gradient(135deg,'+c+')'}
+var dd={};
+function startDrag(e,id){setActive(id);var w=document.getElementById(id);dd={id:id,sx:e.clientX,sy:e.clientY,l:parseInt(w.style.left),t:parseInt(w.style.top)};document.addEventListener('mousemove',onDrag);document.addEventListener('mouseup',stopDrag)}
+function onDrag(e){if(!dd.id)return;var w=document.getElementById(dd.id);w.style.left=(dd.l+e.clientX-dd.sx)+'px';w.style.top=Math.max(0,dd.t+e.clientY-dd.sy)+'px'}
+function stopDrag(){dd={};document.removeEventListener('mousemove',onDrag);document.removeEventListener('mouseup',stopDrag)}
+function setActive(id){document.querySelectorAll('.window').forEach(function(w){w.classList.remove('active')});var w=document.getElementById(id);if(w){w.classList.add('active');w.style.zIndex=++z}document.querySelectorAll('.task-item').forEach(function(t){t.classList.remove('active')});var t=document.getElementById('task-'+id);if(t)t.classList.add('active')}
+function closeWin(id){var w=document.getElementById(id);if(w)w.remove();var t=document.getElementById('task-'+id);if(t)t.remove();delete wins[id]}
+function minWin(id){var w=document.getElementById(id);if(w)w.style.display='none'}
+function maxWin(id){var w=document.getElementById(id);if(!w)return;if(w.dataset.max==='1'){w.style.width=w.dataset.w;w.style.height=w.dataset.h;w.dataset.max='0'}else{w.dataset.w=w.style.width;w.dataset.h=w.style.height;w.style.width='100%';w.style.height='calc(100% - 48px)';w.style.left='0';w.style.top='0';w.dataset.max='1'}}
+function addTask(id,title){var t=document.createElement('div');t.className='task-item active';t.id='task-'+id;t.innerHTML='<span>'+title+'</span>';t.onclick=function(){var w=document.getElementById(id);if(w.style.display==='none'){w.style.display='flex';setActive(id)}else{w.style.display='none'}};document.getElementById('task-items').appendChild(t)}
+</script>
+</body>
+</html>

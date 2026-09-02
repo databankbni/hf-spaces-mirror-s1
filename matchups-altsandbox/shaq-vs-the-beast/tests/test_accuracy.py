@@ -425,3 +425,67 @@ class TestNightlyLookback:
                     if f"{d.isoformat()}-NYY-BOS" not in already]
 
         assert ungraded == [end], "only the previous day is simulated"
+
+
+class TestGradingIsReproducible:
+    """The record grades what the app showed, or it isn't a record of anything.
+
+    This ran its own n=1500 unseeded simulation while the cards ran n=2000
+    seed=7 — a different sample size and a different draw, so a game's grade
+    moved by up to half a point between scorings and no two agreed. Measured on
+    one game: the card said .4894 and three gradings said .4890, .4957, .4939.
+    """
+
+    def test_it_grades_at_the_slate_s_sample_size_and_seed(self, monkeypatch):
+        from thebeast.simcache import SLATE_N, SLATE_SEED
+
+        seen: dict = {}
+
+        def capture(game_id, repo, **kwargs):
+            seen.update(kwargs)
+            raise RuntimeError("stop here — the parameters are the assertion")
+
+        monkeypatch.setattr("thebeast.simcache.simulate_cached", capture)
+        monkeypatch.setattr("thebeast.pipeline.ensure_lineups",
+                            lambda *a, **k: None)
+        monkeypatch.setattr(accuracy, "fetch_actual",
+                            lambda repo, gid: {"home_runs": 5, "away_runs": 3,
+                                               "status": "Final"})
+
+        class Repo:
+            def get_accuracy_game(self, gid):
+                return None
+
+        with pytest.raises(RuntimeError):
+            accuracy.score_and_store(Repo(), "2026-06-30-CWS-BAL",
+                                     season=2026, park_season=2023)
+        assert seen["n"] == SLATE_N, "same sample size as the card"
+        assert seen["seed"] == SLATE_SEED, "seeded, so a re-score reproduces"
+
+    def test_it_reads_the_shared_cache_rather_than_re_running(self, monkeypatch):
+        """Every graded game used to cost a fresh Monte Carlo even when the run
+        was already in hand."""
+        monkeypatch.setattr("thebeast.pipeline.simulate_matchup",
+                            lambda *a, **k: pytest.fail("re-ran instead of reading"))
+        monkeypatch.setattr("thebeast.simcache.simulate_cached",
+                            lambda *a, **k: (_ for _ in ()).throw(
+                                RuntimeError("reached the cache")))
+        monkeypatch.setattr("thebeast.pipeline.ensure_lineups", lambda *a, **k: None)
+        monkeypatch.setattr(accuracy, "fetch_actual",
+                            lambda repo, gid: {"home_runs": 5, "away_runs": 3,
+                                               "status": "Final"})
+
+        class Repo:
+            def get_accuracy_game(self, gid):
+                return None
+
+        with pytest.raises(RuntimeError, match="reached the cache"):
+            accuracy.score_and_store(Repo(), "2026-06-30-CWS-BAL",
+                                     season=2026, park_season=2023)
+
+    def test_new_rows_carry_the_grading_method(self):
+        """Rows without it were scored the old way and aren't comparable. They
+        are left alone: a graded record is a log of what was claimed and when,
+        and re-running them now would replay them against today's lineups and
+        statlines rather than the ones in force when the game was played."""
+        assert accuracy.GRADING_METHOD >= 2

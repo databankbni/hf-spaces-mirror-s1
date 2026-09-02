@@ -863,11 +863,17 @@ function _renderOneTfCell(tf, d, pick) {
   const premarketBadge = d.intraday_premarket
     ? `<div class="tf-final-call" title="Pre-market preview — a pre-open directional lean built before NSE opens at 09:15 IST. Refreshes live once the session starts.">🌅 Pre-market</div>`
     : '';
+  // Target hit → the live price reached the previous intraday target, so the call was
+  // re-evaluated for a fresh target off the new price level (not a stale/passed target).
+  const reevalBadge = (tf === 'INTRADAY' && d.intraday_reevaluated)
+    ? `<div class="tf-final-call tf-reeval" title="The live price reached the previous intraday target${d.prev_target ? ' (₹' + num(d.prev_target) + ')' : ''} — re-evaluated for a fresh target${d.reeval_time ? ' at ' + d.reeval_time + ' IST' : ''}.">🎯 target hit · re-evaluated${d.reeval_time ? ' · ' + d.reeval_time : ''}</div>`
+    : '';
   return `<div class="tf-cell${isBestTf ? ' tf-cell--best' : ''}${d.intraday_final_call ? ' tf-cell--final' : ''}" id="tf-${safeId}-${tf}" data-ai-dir="${_aiDirAttr}">
     ${isBestTf ? '<span class="best-tf-badge">Best Bet</span>' : ''}
     <div class="tf-label">${tf === 'INTRADAY' ? 'Today' : tf}</div>
     ${finalCallBadge}
     ${premarketBadge}
+    ${reevalBadge}
     <div class="tf-return" style="color:${isNoTrade ? 'var(--text-muted)' : retColor(d.midpoint||0)}">${retLabel}</div>
     ${noTradeDetail}
     ${priceRange}
@@ -890,7 +896,7 @@ function _renderOneTfCell(tf, d, pick) {
 // rate-limited) is re-fetched after a short delay — single TF only, so it catches the
 // provider reset WITHOUT re-bursting the whole watchlist the way a full reload would.
 async function _fetchAndUpdateTfCell(ticker, tf, pick, attempt = 0, opts = {}) {
-  const { silent = false } = opts;
+  const { silent = false, force = false } = opts;
   const safeId = ticker.replace(/[^a-zA-Z0-9]/g, '_');
   const cell = document.getElementById('tf-' + safeId + '-' + tf);
   if (!cell) return;
@@ -912,10 +918,19 @@ async function _fetchAndUpdateTfCell(ticker, tf, pick, attempt = 0, opts = {}) {
   }
 
   try {
-    const res = await fetch('/api/watchlist-pick/' + encodeURIComponent(ticker) + '/' + tf, {cache: 'no-store'});
+    // force → append ?refresh=1 so the server bypasses its 15-min INTRADAY cache and re-runs the AI.
+    const _url = '/api/watchlist-pick/' + encodeURIComponent(ticker) + '/' + tf + (force ? '?refresh=1' : '');
+    const res = await fetch(_url, {cache: 'no-store'});
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || `Server error ${res.status}`);
     const tfData = data.data || {};
+    // Silent auto-refresh must never replace an already-good forecast with a transient
+    // AI-unavailable/timeout placeholder — keep the current cell and retry on the next tick.
+    const _silentReason = tfData.no_trade_reason;
+    if (silent && (_silentReason === 'timeout' || _silentReason === 'ai_unavailable')) {
+      if (attempt < _AI_RETRY_MAX) setTimeout(() => _fetchAndUpdateTfCell(ticker, tf, pick, attempt + 1, opts), 60000);
+      return;
+    }
     // Update cache so trade modal and retry button use fresh TF data
     const cached = _predictionCache.get(ticker);
     if (cached && cached.pick) cached.pick.timeframes[tf] = tfData;
@@ -1022,7 +1037,14 @@ function _renderMlRow(tf, ml) {
   // For display we tighten it toward the MEDIAN (q50): halve the width on each side, centered
   // on the most-likely move. Backend keeps the full q10/q90 (backtests/validation read those).
   const q = ml.quantiles || {};
-  const medPct = dir === 'BULLISH' ? q.up_q50 : dir === 'BEARISH' ? q.down_q50 : ml.midpoint;
+  // Center on the SAME expected move the headline target uses (from expected_target_price), NOT
+  // the raw q50 — the raw median is uncapped/unscaled (INTRADAY scales it by ~0.42 + caps it), so
+  // centering on it pushed the tightened low bound ABOVE the target, making Target read below the
+  // range. Deriving medPct from expected_target_price keeps the target inside the shown band.
+  const medFromTarget = (ml.expected_target_price && ml.current_price && ml.current_price > 0)
+    ? (ml.expected_target_price / ml.current_price - 1) * 100 : null;
+  const medPct = medFromTarget != null ? medFromTarget
+    : (dir === 'BULLISH' ? q.up_q50 : dir === 'BEARISH' ? q.down_q50 : ml.midpoint);
   let nLo = ml.predicted_return_lo, nHi = ml.predicted_return_hi;
   if (medPct != null && nLo != null && nHi != null) {
     const lo = Math.min(nLo, nHi), hi = Math.max(nLo, nHi);
@@ -1061,6 +1083,10 @@ function _renderMlRow(tf, ml) {
   // target isn't mistaken for a fresh entry (the "price already passed" case).
   const gone = (tf === 'INTRADAY' && ml.intraday && ml.intraday.already_gone)
     ? '<span class="tf-ml-note tf-ml-gone" title="The modeled intraday high has already been reached this session — little/no headroom left">high reached</span>' : '';
+  // Target hit → the live price reached the previous ML target, so the model was re-evaluated
+  // for a fresh target off the new price level (mirrors the AI "target hit → re-evaluate").
+  const reeval = (tf === 'INTRADAY' && ml.reevaluated)
+    ? `<span class="tf-ml-note tf-ml-reeval" title="The live price reached the previous ML target${ml.prev_target ? ' (₹' + num(ml.prev_target) + ')' : ''} — re-evaluated for a fresh target${ml.reeval_time ? ' at ' + ml.reeval_time + ' IST' : ''}">🎯 re-evaluated</span>` : '';
   // NEUTRAL / range-bound: no buy price and no directional edge — make it explicit that this
   // is not a trade (the "ML says no price" case) with a clear "no trade" tag.
   const hold = (ml.range_bound || dir === 'NEUTRAL')
@@ -1075,7 +1101,7 @@ function _renderMlRow(tf, ml) {
   const lowHist = ml.low_history
     ? `<span class="tf-ml-note tf-ml-gone" title="Only ${ml.low_history_bars || '<250'} trading days of history (recently listed / IPO) — outside the model's training range, so this is extrapolated. Treat as low-confidence.">⚠ limited history</span>` : '';
   const dirClass = dir.replace(/\s+/g, '-');
-  const dirHtml = `<div class="tf-dir-row"><span class="dir-dot dir-dot-${dirClass}"></span><span class="tf-dir" style="color:${color};font-weight:600" title="${basisTip}">${arrow} ${dirLabel}${note}${gone}${hold}${hiConv}${lowHist}${basisChip}</span></div>`;
+  const dirHtml = `<div class="tf-dir-row"><span class="dir-dot dir-dot-${dirClass}"></span><span class="tf-dir" style="color:${color};font-weight:600" title="${basisTip}">${arrow} ${dirLabel}${note}${gone}${reeval}${hold}${hiConv}${lowHist}${basisChip}</span></div>`;
   // Line 4: calibrated confidence — same bar visual as the AI confidence bar, labeled "ML conf".
   let conf = (ml.confidence || '').toUpperCase();
   if (!conf && ml.confidence_prob != null) {
@@ -1612,14 +1638,14 @@ function _renderTop5CardsInto(cardsEl, idPrefix, picks, bannerHtml = '') {
 // stocks/ranking but repaints each INTRADAY cell with a fresh prediction (no spinner flash).
 // Deduped per ticker so the ~4s streaming polls + sort toggles don't re-fetch repeatedly.
 const _top5IntradayLastRefresh = new Map();  // ticker -> epoch ms of last silent INTRADAY refresh
-function _refreshTop5Intraday(picks, minGapMs = 60000) {
+function _refreshTop5Intraday(picks, minGapMs = 60000, force = false) {
   if (!_isMarketHoursIST()) return;
   (picks || []).forEach(p => {
     if (!p || !p.ticker) return;
     const last = _top5IntradayLastRefresh.get(p.ticker) || 0;
     if (Date.now() - last < minGapMs) return;
     _top5IntradayLastRefresh.set(p.ticker, Date.now());
-    _fetchAndUpdateTfCell(p.ticker, 'INTRADAY', p, 0, { silent: true });
+    _fetchAndUpdateTfCell(p.ticker, 'INTRADAY', p, 0, { silent: true, force });
   });
 }
 
@@ -1956,27 +1982,93 @@ function _isMarketHoursIST() {
   return mins >= 9 * 60 + 15 && mins <= 15 * 60 + 30;
 }
 
-setInterval(() => {
+// Watchlist INTRADAY: repaint each card's INTRADAY AI cell in place every 5 min during market
+// hours (silent — no spinner flash). force=true re-runs the AI (bypasses the 15-min server
+// cache) so the forecast actually updates instead of being served stale from cache.
+function _refreshWatchlistIntraday(force = false) {
   if (!_isMarketHoursIST()) return;
-  // Warm the server-side INTRADAY cache for each loaded watchlist ticker.
-  // The next time the user manually refreshes the watchlist card, the response
-  // will come from the warm server cache instead of triggering a fresh prediction.
-  const cards = document.querySelectorAll('#wl-list [data-ticker]');
-  cards.forEach(card => {
+  document.querySelectorAll('#wl-list [data-ticker]').forEach(card => {
     const ticker = card.dataset.ticker;
     if (!ticker) return;
-    fetch(`/api/watchlist-pick/${encodeURIComponent(ticker)}/INTRADAY`, { cache: 'no-store' })
-      .catch(() => {});
+    const pick = _predictionCache.get(ticker)?.pick;
+    if (!pick) return;
+    _fetchAndUpdateTfCell(ticker, 'INTRADAY', pick, 0, { silent: true, force });
   });
-}, 3 * 60 * 1000);
+}
+setInterval(() => _refreshWatchlistIntraday(true), 5 * 60 * 1000);
 
-// Top picks: same day-cached stocks, but auto-refresh each pick's INTRADAY cell in place every
-// 3 min during market hours (silent — no spinner flash). Uses _lastTop5.picks so it follows
-// whichever top-pick grid is currently rendered (dashboard / top-picks view).
+// Re-run the INTRADAY AI the moment a watchlist stock's live price crosses its predicted target
+// (bull: price ≥ target, bear: price ≤ target) — a spent target means the old forecast is stale.
+// Polls live price every 60s during market hours; fires at most once per (ticker, target) so a
+// price sitting beyond target doesn't re-burst AI calls (the fresh forecast sets a new target).
+const _intradayTargetCrossKey = new Map();  // ticker -> the target ₹ that last triggered a refresh
+const _mlTargetCrossKey = new Map();        // ticker -> the ML target ₹ that last triggered an ML refresh
+// Re-run INTRADAY AI for one ticker if its live price has crossed the predicted target.
+async function _intradayCrossOne(ticker, pick) {
+  // One live-price fetch drives both the AI and the ML target-cross checks.
+  let price = null;
+  try {
+    const r = await fetch(`/api/live-price/${encodeURIComponent(ticker)}`, { cache: 'no-store' });
+    const d = await r.json();
+    price = d && d.price;
+  } catch (e) { return; }  // live-price hiccup — try again next tick
+  if (!price) return;
+
+  // AI INTRADAY target-cross → force a fresh AI call (the fresh forecast sets a new target).
+  const af = pick?.timeframes?.INTRADAY?.ai_forecast;
+  if (af && (af.direction === 'BULLISH' || af.direction === 'BEARISH')) {
+    const hi = af.target_price_hi, lo = af.target_price_lo;
+    if (hi && lo && hi > 0 && lo > 0) {
+      const target = af.direction === 'BULLISH' ? Math.max(hi, lo) : Math.min(hi, lo);
+      const crossed = af.direction === 'BULLISH' ? price >= target : price <= target;
+      if (crossed && _intradayTargetCrossKey.get(ticker) !== String(target)) {
+        _intradayTargetCrossKey.set(ticker, String(target));  // once per (ticker, target)
+        _fetchAndUpdateTfCell(ticker, 'INTRADAY', pick, 0, { silent: true, force: true });
+      }
+    }
+  }
+
+  // ML INTRADAY target-cross → force a fresh ML fetch (independent of the AI call above).
+  const mlTf = (_mlCache.get(ticker) || {}).tfs?.INTRADAY;
+  if (mlTf && (mlTf.direction === 'BULLISH' || mlTf.direction === 'BEARISH')) {
+    const mlTgt = mlTf.expected_target_price;
+    if (mlTgt && mlTgt > 0) {
+      const mlCrossed = mlTf.direction === 'BULLISH' ? price >= mlTgt : price <= mlTgt;
+      if (mlCrossed && _mlTargetCrossKey.get(ticker) !== String(mlTgt)) {
+        _mlTargetCrossKey.set(ticker, String(mlTgt));  // once per (ticker, ML target)
+        _fetchAndFillMl(ticker, true, ['INTRADAY']);
+      }
+    }
+  }
+}
+// Poll live price every 60s during market hours and fire the cross check for BOTH watchlist
+// cards (pick from _predictionCache) and top picks (pick from _lastTop5.picks).
+async function _checkIntradayTargetCross() {
+  if (!_isMarketHoursIST()) return;
+  const seen = new Set();
+  for (const card of document.querySelectorAll('#wl-list [data-ticker]')) {
+    const ticker = card.dataset.ticker;
+    if (!ticker || seen.has(ticker)) continue;
+    seen.add(ticker);
+    const pick = _predictionCache.get(ticker)?.pick;
+    if (pick) _intradayCrossOne(ticker, pick);
+  }
+  for (const p of (_lastTop5.picks || [])) {
+    if (!p || !p.ticker || seen.has(p.ticker)) continue;
+    seen.add(p.ticker);
+    _intradayCrossOne(p.ticker, p);
+  }
+}
+setInterval(_checkIntradayTargetCross, 60 * 1000);
+
+// Top picks: same day-cached stocks, but re-run each pick's INTRADAY AI in place every 5 min
+// during market hours (silent — no spinner flash), forcing a fresh AI call that bypasses the
+// 15-min server cache. Uses _lastTop5.picks so it follows whichever grid is rendered
+// (dashboard / top-picks view).
 setInterval(() => {
   if (!_isMarketHoursIST()) return;
-  _refreshTop5Intraday(_lastTop5.picks);  // 60s per-ticker dedupe guards against render collisions
-}, 3 * 60 * 1000);
+  _refreshTop5Intraday(_lastTop5.picks, 60000, true);  // 60s per-ticker dedupe guards render collisions
+}, 5 * 60 * 1000);
 
 // INTRADAY ML must refresh at least every 5 min (no long-lived cache). Force-refetch the ML
 // forecast for every ticker currently rendered (watchlist + top picks — all live in _mlCache)
@@ -2001,12 +2093,9 @@ document.addEventListener('visibilitychange', () => {
   if (Date.now() - _lastVisibilityRefresh < 15000) return;  // debounce rapid tab-switch flicker
   _lastVisibilityRefresh = Date.now();
 
-  document.querySelectorAll('#wl-list [data-ticker]').forEach(card => {
-    const ticker = card.dataset.ticker;
-    if (!ticker) return;
-    fetch(`/api/watchlist-pick/${encodeURIComponent(ticker)}/INTRADAY`, { cache: 'no-store' }).catch(() => {});
-  });
-  _refreshTop5Intraday(_lastTop5.picks);
+  _refreshWatchlistIntraday(true);
+  _checkIntradayTargetCross();
+  _refreshTop5Intraday(_lastTop5.picks, 60000, true);
   for (const ticker of _mlCache.keys()) _fetchAndFillMl(ticker, true, ['INTRADAY']);
 });
 

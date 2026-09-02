@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f3a68">
+  <title>Resultados — CURVAS IDF</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="contenedor">
+    <header>
+      <a href="{{ url_for('index') }}" class="volver">← Nuevo análisis</a>
+      <h1>Resultados — CURVAS IDF</h1>
+    </header>
+
+    <section class="resumen">
+      <p><b>Proyecto:</b> {{ R.proyecto.nombre_proyecto }} — <b>Ing.:</b> {{ R.proyecto.ingeniero }}
+         — <b>Ubicación:</b> {{ R.proyecto.ubicacion }}</p>
+      <p><b>Tipo de obra:</b> {{ R.tipo_obra.nombre }} — <b>T diseño:</b> {{ R.T_diseno }} años
+         ({{ R.tipo_obra.norma }})</p>
+      <p><b>Sitio:</b> ({{ "%.6f"|format(R.lat) }}, {{ "%.6f"|format(R.lon) }})
+         — <b>Estación:</b> {{ R.estacion.codigo }} {{ R.estacion.nombre }} ({{ "%.1f"|format(R.dist_km) }} km)</p>
+    </section>
+
+    <a class="botonazo" href="{{ pdf_url }}" download>📄 Descargar informe PDF completo</a>
+
+    <h2>1. Fuentes de datos</h2>
+    {% if not R.series_satelitales %}
+      <p class="ayuda"><b>Series satelitales no disponibles:</b> las APIs
+        de CHIRPS, NASA POWER y Open-Meteo no respondieron durante este
+        análisis. El cálculo usa la serie de la estación de referencia
+        más cercana. Reintentar la corrida en unos minutos suele
+        solucionarlo cuando es un problema transitorio.</p>
+    {% else %}
+    <div class="scroll-x"><table class="datos">
+      <thead><tr><th>Fuente satelital</th><th>Estado</th><th>n</th><th>Nota</th></tr></thead>
+      <tbody>
+        {% for s in R.series_satelitales %}
+          <tr><td>{{ s.fuente }}</td><td>{{ 'API real' if s.exitosa else 'sintético' }}</td>
+              <td>{{ s.n_anios }}</td><td>{{ s.nota }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+
+    <h2>2. Series y correlación</h2>
+    <img class="grafico" src="{{ url_for('reportes', sesion_id=sesion_id, archivo='02_series_satelitales.png') }}" alt="Series satelitales">
+    <img class="grafico" src="{{ url_for('reportes', sesion_id=sesion_id, archivo='03_correlacion.png') }}" alt="Correlación">
+    <div class="scroll-x"><table class="datos">
+      <thead><tr><th>Fuente</th><th>r</th><th>R²</th><th>RMSE</th><th>NSE</th></tr></thead>
+      <tbody>
+        {% for m in R.decision.metricas %}
+          <tr><td>{{ m.fuente }}</td><td>{{ "%.3f"|format(m.pearson_r) }}</td>
+              <td>{{ "%.3f"|format(m.r2) }}</td><td>{{ "%.2f"|format(m.rmse_mm) }}</td>
+              <td>{{ "%.3f"|format(m.nash_sutcliffe) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="formula">Fuente adoptada: {{ R.decision.fuente_adoptada }}</p>
+    <p class="ayuda">{{ R.decision.justificacion }}</p>
+    {% endif %}
+
+    <h2>3. Frecuencias</h2>
+    <div class="scroll-x"><table class="datos">
+      <thead><tr><th>Distribución</th><th>KS p-valor</th><th>RMSE</th><th>AIC</th></tr></thead>
+      <tbody>
+        {% for a in R.ajustes %}
+          <tr><td>{{ a.nombre }}</td><td>{{ "%.4f"|format(a.ks_pvalor) }}</td>
+              <td>{{ "%.2f"|format(a.rmse_cuantiles) }}</td><td>{{ "%.1f"|format(a.aic) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="formula">Mejor ajuste: {{ R.mejor_ajuste.nombre }}</p>
+    <img class="grafico" src="{{ url_for('reportes', sesion_id=sesion_id, archivo='04_ajustes.png') }}" alt="Ajustes">
+
+    <h2>4. Cuantiles P24max (T)</h2>
+    <div class="scroll-x"><table class="datos">
+      <thead><tr><th>T (años)</th><th>Prob. no exc.</th><th>P24max (mm)</th></tr></thead>
+      <tbody>
+        {% for q in cuantiles %}
+          <tr><td>{{ q.T_anios }}</td><td>{{ "%.5f"|format(q.prob_no_exc) }}</td>
+              <td>{{ "%.2f"|format(q.p24_mm) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+
+    <h2>5. Modelos IDF</h2>
+    <div class="scroll-x"><table class="datos">
+      <thead><tr><th>Modelo</th><th>Ecuación</th><th>R²</th></tr></thead>
+      <tbody>
+        {% for m in R.modelos %}
+          <tr><td>{{ m.nombre }}</td><td>{{ m.ecuacion }}</td><td>{{ "%.4f"|format(m.r2) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="formula">Modelo recomendado ({{ R.resolucion_datos }}):
+      {{ R.modelo_recomendado.nombre }} (R² = {{ "%.4f"|format(R.modelo_recomendado.r2) }})</p>
+    <p class="ayuda">{{ R.justificacion_modelo }}</p>
+    <img class="grafico" src="{{ url_for('reportes', sesion_id=sesion_id, archivo='05_modelos_idf.png') }}" alt="Modelos IDF">
+
+    <h2>6. Tiempo de concentración</h2>
+    <p class="ayuda">Morfología sintética: A = {{ "%.1f"|format(R.morfologia.area_km2) }} km²,
+      L = {{ "%.2f"|format(R.morfologia.long_cauce_km) }} km,
+      S = {{ "%.2f"|format(R.morfologia.pendiente_pct) }}%.</p>
+    <p class="formula">Tc adoptado = {{ "%.1f"|format(R.tc_adoptado.tc_min) }} min
+      ({{ "%.2f"|format(R.tc_adoptado.tc_horas) }} h)</p>
+    <img class="grafico" src="{{ url_for('reportes', sesion_id=sesion_id, archivo='07_tiempo_concentracion.png') }}" alt="Tc">
+
+    <h2>7. Hietogramas (T = {{ R.T_diseno }} años)</h2>
+    <img class="grafico" src="{{ url_for('reportes', sesion_id=sesion_id, archivo='08_hietogramas.png') }}" alt="Hietogramas">
+
+    <h2>8. HEC-HMS</h2>
+    <div class="scroll-x"><table class="datos">
+      <tr><th>Área</th><td>{{ "%.2f"|format(R.hechms.area_km2) }} km²</td></tr>
+      <tr><th>Tc</th><td>{{ "%.1f"|format(R.hechms.tc_min) }} min</td></tr>
+      <tr><th>Lag (0.6·Tc)</th><td>{{ "%.1f"|format(R.hechms.lag_min) }} min</td></tr>
+      <tr><th>Transformación</th><td>{{ R.hechms.metodo_transformacion }}</td></tr>
+      <tr><th>Pérdidas</th><td>{{ R.hechms.metodo_perdidas }} (CN={{ "%.0f"|format(R.hechms.cn) }})</td></tr>
+    </table></div>
+
+    <h2>Archivos</h2>
+    <ul>
+      <li><a href="{{ pdf_url }}" download>informe_curvas_idf.pdf</a></li>
+      <li><a href="{{ url_for('reportes', sesion_id=sesion_id, archivo='cuantiles_p24.csv') }}" download>cuantiles_p24.csv</a></li>
+      <li><a href="{{ url_for('reportes', sesion_id=sesion_id, archivo='idf_tabla_larga.csv') }}" download>idf_tabla_larga.csv</a></li>
+      <li><a href="{{ url_for('reportes', sesion_id=sesion_id, archivo='hietograma_bloques.csv') }}" download>hietograma_bloques.csv</a></li>
+    </ul>
+
+    <a href="{{ url_for('index') }}" class="primario boton-bloque">Nuevo análisis</a>
+  </main>
+</body>
+</html>

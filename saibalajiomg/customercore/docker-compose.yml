@@ -1,0 +1,158 @@
+version: "3.8"
+
+# ============================================================
+# CustomerCore Local Infrastructure Stack
+# Start:  docker compose up -d
+# Stop:   docker compose down
+# Logs:   docker compose logs -f <service>
+# ============================================================
+
+networks:
+  customercore:
+    driver: bridge
+
+volumes:
+  redpanda_data:
+  minio_data:
+  chroma_data:
+  redis_data:
+
+services:
+
+  # ----------------------------------------------------------
+  # REDPANDA — Kafka-compatible streaming broker
+  # Replaces Kafka with no JVM, no ZooKeeper, single binary
+  # Broker listens on: localhost:9092 (internal: 29092)
+  # ----------------------------------------------------------
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    container_name: customercore_redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:29092,external://0.0.0.0:9092
+      - --advertise-kafka-addr internal://redpanda:29092,external://localhost:9092
+      - --pandaproxy-addr internal://0.0.0.0:28082,external://0.0.0.0:8082
+      - --advertise-pandaproxy-addr internal://redpanda:28082,external://localhost:8082
+      - --schema-registry-addr internal://0.0.0.0:28081,external://0.0.0.0:8081
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --mode dev-container
+      - --smp 1
+      - --default-log-level=warn
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    networks:
+      - customercore
+    ports:
+      - "9092:9092"    # Kafka API — Python producers connect here
+      - "8081:8081"    # Schema Registry
+      - "8082:8082"    # HTTP Proxy (Pandaproxy)
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy|true' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ----------------------------------------------------------
+  # REDPANDA CONSOLE — Visual web dashboard for Redpanda
+  # Browse topics, inspect messages, debug producers
+  # Dashboard: http://localhost:8080
+  # ----------------------------------------------------------
+  console:
+    image: docker.redpanda.com/redpandadata/console:latest
+    container_name: customercore_console
+    environment:
+      CONFIG_FILEPATH: /tmp/redpanda-console-config.yaml
+    entrypoint: /bin/sh
+    command: >
+      -c 'printf "kafka:\n  brokers: [\"redpanda:29092\"]\n" > /tmp/redpanda-console-config.yaml && /app/console'
+    networks:
+      - customercore
+    ports:
+      - "8080:8080"    # Web dashboard
+    depends_on:
+      - redpanda
+
+  # ----------------------------------------------------------
+  # MINIO — S3-compatible local object storage
+  # Stores Apache Iceberg Parquet data files
+  # Console: http://localhost:9001 (admin/password: minioadmin)
+  # API:     http://localhost:9000
+  # ----------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: customercore_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    networks:
+      - customercore
+    ports:
+      - "9000:9000"    # S3 API
+      - "9001:9001"    # MinIO web console
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ----------------------------------------------------------
+  # CHROMADB — Vector database for RAG retrieval
+  # Stores BGE-M3 embeddings of support tickets and KB articles
+  # API: http://localhost:8000
+  # ----------------------------------------------------------
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: customercore_chromadb
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - customercore
+    ports:
+      - "8000:8000"    # ChromaDB HTTP API
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ALLOW_RESET=TRUE
+
+  # ----------------------------------------------------------
+  # REDIS — In-memory cache and rate limiter
+  # L1 exact-match semantic cache + per-tenant rate limiting
+  # ----------------------------------------------------------
+  redis:
+    image: redis:alpine
+    container_name: customercore_redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - customercore
+    ports:
+      - "6379:6379"    # Redis default port
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------
+  # OPENTELEMETRY COLLECTOR — Central telemetry pipeline
+  # Scrapes Prometheus metrics from FastAPI /metrics endpoint
+  # Forwards to Grafana Cloud (metrics, logs, traces)
+  # ----------------------------------------------------------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: customercore_otel
+    volumes:
+      - ./infra/otel-collector.yaml:/etc/otelcol-contrib/config.yaml
+    networks:
+      - customercore
+    ports:
+      - "4317:4317"    # OTLP gRPC receiver
+      - "4318:4318"    # OTLP HTTP receiver
+      - "8888:8888"    # OTel internal metrics
+    depends_on:
+      - redpanda

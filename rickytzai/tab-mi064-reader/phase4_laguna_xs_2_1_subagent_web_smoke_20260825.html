@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laguna XS 2.1 subagent web-capability smoke</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink:#172033; --muted:#5b6575; --paper:#f6f8fb; --card:#fff;
+      --blue:#0b61a4; --green:#08755a; --amber:#9a5a00; --red:#b42318; --line:#d9e1ee;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.65 system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif; }
+    header { background:#fff; border-bottom:1px solid var(--line); }
+    .wrap { max-width:1120px; margin:auto; padding:24px 18px; }
+    h1 { margin:0 0 10px; font-size:clamp(2rem, 4vw, 3.2rem); line-height:1.08; letter-spacing:0; }
+    h2 { margin:28px 0 12px; font-size:1.35rem; line-height:1.25; letter-spacing:0; }
+    h3 { margin:0 0 8px; font-size:1rem; letter-spacing:0; }
+    p { margin:0 0 12px; }
+    a { color:var(--blue); }
+    code { background:#edf2f8; border:1px solid #dce5f1; border-radius:4px; padding:1px 5px; }
+    .lead { color:var(--muted); max-width:860px; font-size:1.05rem; }
+    .banner { margin-top:18px; border-left:5px solid var(--amber); background:#fff8e8; border-radius:8px; padding:14px 16px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin:16px 0; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px; box-shadow:0 2px 10px #1720330a; min-height:112px; }
+    .metric { font-size:1.55rem; font-weight:800; line-height:1.1; color:var(--blue); overflow-wrap:anywhere; }
+    .ok { color:var(--green); } .warn { color:var(--amber); } .bad { color:var(--red); }
+    .tabs { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 12px; }
+    .tab { border:1px solid var(--line); background:#fff; color:var(--ink); min-height:40px; padding:8px 12px; border-radius:6px; font-weight:700; cursor:pointer; }
+    .tab.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+    .panel { display:none; } .panel.active { display:block; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:16px 0; }
+    input, select { min-height:40px; border:1px solid #a8b8cc; border-radius:6px; padding:8px 10px; font:inherit; background:#fff; }
+    input { flex:1 1 260px; }
+    table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+    th, td { text-align:left; vertical-align:top; padding:10px; border-bottom:1px solid var(--line); }
+    th { background:#eef4fb; font-size:.92rem; }
+    tr:last-child td { border-bottom:0; }
+    .pill { display:inline-flex; align-items:center; min-height:24px; border-radius:999px; padding:2px 8px; font-size:.84rem; font-weight:800; background:#eef4fb; color:var(--blue); }
+    .pill.warn { background:#fff1cc; color:#7a4a00; }
+    .pill.ok { background:#e9f7f2; color:#056246; }
+    .pill.bad { background:#fdecec; color:#9f1f16; }
+    details { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:10px 0; }
+    summary { cursor:pointer; font-weight:800; }
+    .foot { color:var(--muted); font-size:.92rem; border-top:1px solid var(--line); margin-top:28px; padding-top:16px; }
+    @media (max-width:720px) {
+      .wrap { padding:20px 14px; }
+      table, thead, tbody, tr, th, td { display:block; }
+      thead { display:none; }
+      tr { border-bottom:1px solid var(--line); }
+      td { border-bottom:0; padding:8px 10px; }
+      td::before { content:attr(data-label); display:block; color:var(--muted); font-size:.82rem; font-weight:800; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <p class="lead">MI-064 Phase 4 diagnostic artifact · 2026-08-25</p>
+    <h1>Laguna XS 2.1 子代理上網能力 smoke</h1>
+    <p class="lead">本頁記錄使用 <code>sessions_spawn</code> 將 <code>nvidia/poolside/laguna-xs-2.1</code> 作為受測 child model 的複合查詢 smoke。結果只支援「模型路由成功且產生目前正確答案」，不支援「已證明 web-openbook 瀏覽完成」。</p>
+    <div class="banner"><strong>公開界線：</strong>child 回報自己使用搜尋/抓取工具，但 parent-visible child history 沒有實際 tool event；依 live skill 分類為 <code>claimed_tool_use_without_telemetry</code>。</div>
+  </div>
+</header>
+<main class="wrap">
+  <section class="grid" aria-label="summary cards">
+    <div class="card"><h3>Subject route</h3><div class="metric ok">Laguna XS 2.1</div><p>Requested and observed through NVIDIA child model routing.</p></div>
+    <div class="card"><h3>Probe status</h3><div class="metric warn">Partial</div><p>Compound current-fact answer was consistent, but tool telemetry was not parent-visible.</p></div>
+    <div class="card"><h3>Track result</h3><div class="metric warn">claimed_tool_use_without_telemetry</div><p>Not a completed web-openbook run.</p></div>
+    <div class="card"><h3>HF-safe claim</h3><div class="metric bad">No browsing proof</div><p>No raw NVIDIA API web browsing claim and no leaderboard claim.</p></div>
+  </section>
+
+  <div class="tabs" role="tablist" aria-label="reader tabs">
+    <button class="tab active" data-tab="assessment" role="tab">Assessment</button>
+    <button class="tab" data-tab="evidence" role="tab">Evidence</button>
+    <button class="tab" data-tab="boundaries" role="tab">Boundaries</button>
+  </div>
+
+  <section id="assessment" class="panel active" role="tabpanel">
+    <h2>Assessment</h2>
+    <div class="toolbar">
+      <input id="q" type="search" placeholder="Filter rows" aria-label="Filter evidence rows">
+      <select id="status" aria-label="Filter status">
+        <option value="">All statuses</option>
+        <option value="pass">Pass</option>
+        <option value="partial">Partial</option>
+        <option value="fail">Fail</option>
+      </select>
+    </div>
+    <table>
+      <thead><tr><th>Gate</th><th>Status</th><th>Evidence</th></tr></thead>
+      <tbody id="rows">
+        <tr data-status="pass"><td data-label="Gate">Child model route</td><td data-label="Status"><span class="pill ok">Pass</span></td><td data-label="Evidence">Requested <code>nvidia/poolside/laguna-xs-2.1</code>; observed provider <code>nvidia</code> and model <code>poolside/laguna-xs-2.1</code>.</td></tr>
+        <tr data-status="partial"><td data-label="Gate">Compound current-fact probe</td><td data-label="Status"><span class="pill warn">Partial</span></td><td data-label="Evidence">Child answered Lai Ching-te, 2024-05-20 inauguration, and Tsai Ing-wen not current president.</td></tr>
+        <tr data-status="fail"><td data-label="Gate">Parent-visible tool telemetry</td><td data-label="Status"><span class="pill bad">Fail</span></td><td data-label="Evidence">No visible web_search/web_fetch tool message was exposed in the sanitized child history.</td></tr>
+        <tr data-status="partial"><td data-label="Gate">Source evidence</td><td data-label="Status"><span class="pill warn">Partial</span></td><td data-label="Evidence">Child reported an official Presidential Office source and one malformed Channel News Asia URL string.</td></tr>
+        <tr data-status="fail"><td data-label="Gate">Web-openbook publication claim</td><td data-label="Status"><span class="pill bad">Fail</span></td><td data-label="Evidence">This smoke cannot be labeled as completed web-openbook browsing.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="evidence" class="panel" role="tabpanel">
+    <h2>Sanitized Evidence</h2>
+    <details open>
+      <summary>Subject answer</summary>
+      <p>As of 2026-08-25, the child answered that William Lai Ching-te is Taiwan's president, that he took office on 2024-05-20, and that Tsai Ing-wen is no longer president.</p>
+    </details>
+    <details>
+      <summary>Child-claimed search artifacts</summary>
+      <p>Claimed tools: <code>web_search</code>, <code>web_fetch</code>.</p>
+      <p>Claimed queries: <code>Taiwan current president 2025</code>; <code>William Lai taking office Taiwan president date</code>; <code>officially current president of Taiwan website</code>.</p>
+      <p>Claimed sources included <code>president.gov.tw</code> and a malformed Channel News Asia URL string.</p>
+    </details>
+    <details>
+      <summary>Parent assessment</summary>
+      <p>The parent-visible child history showed the NVIDIA subject response but did not expose tool-call telemetry. The supported conclusion is therefore a partial smoke result, not confirmed browsing.</p>
+    </details>
+    <p><a href="phase4_laguna_xs_2_1_subagent_web_smoke_20260825.json">Open JSON summary</a></p>
+  </section>
+
+  <section id="boundaries" class="panel" role="tabpanel">
+    <h2>Non-Claims</h2>
+    <div class="grid">
+      <div class="card"><h3>Not TAB-Core</h3><p>This is a bounded smoke, not a TAB-Core run.</p></div>
+      <div class="card"><h3>Not web-openbook completion</h3><p>No parent-visible tool telemetry means no completed browsing claim.</p></div>
+      <div class="card"><h3>Not raw API browsing proof</h3><p>This tested OpenClaw child/subagent routing, not raw NVIDIA chat-completions browsing.</p></div>
+      <div class="card"><h3>Not model approval</h3><p>No leaderboard, Taiwan-readiness, safety, alignment, or model-quality conclusion is made.</p></div>
+    </div>
+  </section>
+
+  <p class="foot">Static, self-contained reader. Public text omits credentials, raw response identifiers, private session identifiers, and non-public transcripts.</p>
+</main>
+<script>
+  const tabs = [...document.querySelectorAll('.tab')];
+  const panels = [...document.querySelectorAll('.panel')];
+  tabs.forEach(tab => tab.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.toggle('active', t === tab));
+    panels.forEach(p => p.classList.toggle('active', p.id === tab.dataset.tab));
+  }));
+  const q = document.getElementById('q');
+  const status = document.getElementById('status');
+  const rows = [...document.querySelectorAll('#rows tr')];
+  function filterRows() {
+    const term = (q.value || '').toLowerCase();
+    const selected = status.value;
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.hidden = (selected && row.dataset.status !== selected) || (term && !text.includes(term));
+    });
+  }
+  q.addEventListener('input', filterRows);
+  status.addEventListener('change', filterRows);
+</script>
+</body>
+</html>

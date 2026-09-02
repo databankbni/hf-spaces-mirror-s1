@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Report Genius AI — v2 Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1b3a5c; --navy-lt: #274d7a; --gold: #c8a020; --bg: #f0f3f8;
+      --card: #fff; --border: #d4dce8; --text: #1a2332; --muted: #5a6a7e;
+      --success: #1a7f4b; --warn: #c85a00; --danger: #c0392b; --radius: 10px;
+    }
+    body { font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+    header { background: var(--navy); color: #fff; padding: 0 1.5rem; height: 58px; display: flex; align-items: center; gap: 1rem; }
+    header h1 { font-size: 1.05rem; font-weight: 700; }
+    header span { color: var(--gold); }
+    header .spacer { flex: 1; }
+    header .badge { font-size: .75rem; background: rgba(255,255,255,.12); padding: .2rem .7rem; border-radius: 999px; }
+    main { max-width: 960px; margin: 1.5rem auto; padding: 0 1rem 3rem; }
+    .steps { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+    .step { padding: .35rem .9rem; border-radius: 999px; font-size: .78rem; font-weight: 600; background: #dde4ef; color: var(--muted); }
+    .step.active { background: var(--navy); color: #fff; }
+    .step.done { background: #d4edda; color: var(--success); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1rem; overflow: hidden; box-shadow: 0 2px 8px rgba(27,58,92,.06); }
+    .card-head { background: linear-gradient(135deg, var(--navy), var(--navy-lt)); color: #fff; padding: .9rem 1.1rem; }
+    .card-head h2 { font-size: .95rem; }
+    .card-head p { font-size: .78rem; opacity: .75; margin-top: .15rem; }
+    .card-body { padding: 1.1rem; }
+    label { display: block; font-size: .82rem; font-weight: 600; margin-bottom: .3rem; }
+    input, textarea, select { width: 100%; padding: .55rem .75rem; border: 1.5px solid var(--border); border-radius: 7px; font: inherit; }
+    textarea { min-height: 140px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+    @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+    .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .55rem 1.1rem; border: none; border-radius: 7px; font-size: .85rem; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: var(--navy); color: #fff; }
+    .btn-gold { background: var(--gold); color: var(--navy); }
+    .btn-outline { background: #fff; border: 1.5px solid var(--border); color: var(--navy); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .hint { font-size: .76rem; color: var(--muted); margin-top: .25rem; }
+    .pill-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .4rem; }
+    .pill { padding: .35rem .85rem; border-radius: 999px; border: 1.5px solid var(--border); background: #fff; cursor: pointer; font-size: .8rem; font-weight: 600; }
+    .pill.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .status-ok { color: var(--success); font-weight: 600; }
+    .status-bad { color: var(--danger); font-weight: 600; }
+    .file-list { list-style: none; font-size: .82rem; margin-top: .5rem; }
+    .file-list li { padding: .35rem 0; border-bottom: 1px solid var(--border); }
+    .section-item { border: 1px solid var(--border); border-radius: 8px; margin-bottom: .6rem; }
+    .section-head { padding: .65rem .8rem; display: flex; align-items: center; gap: .6rem; cursor: pointer; background: #fafbfd; }
+    .section-code { background: var(--navy); color: #fff; font-size: .72rem; font-weight: 700; padding: .15rem .45rem; border-radius: 4px; }
+    .section-body { display: none; padding: .8rem; border-top: 1px solid var(--border); }
+    .section-body.open { display: block; }
+    .photo-grid { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+    .photo-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; border: 2px solid var(--border); cursor: pointer; }
+    .photo-thumb.selected { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+    .preview-section { border-left: 3px solid var(--navy); padding: .6rem .8rem; margin-bottom: .7rem; background: #fafbfd; }
+    .preview-section.flagged { border-left-color: var(--warn); }
+    .preview-meta { font-size: .74rem; color: var(--muted); margin-top: .35rem; }
+    .preview-text { font-size: .84rem; margin-top: .4rem; white-space: pre-wrap; }
+    .overlay { position: fixed; inset: 0; background: rgba(27,58,92,.55); display: flex; align-items: center; justify-content: center; z-index: 200; }
+    .login-box { background: #fff; border-radius: var(--radius); padding: 1.5rem; width: min(380px, 92vw); box-shadow: 0 8px 32px rgba(0,0,0,.2); }
+    .login-box h2 { color: var(--navy); margin-bottom: .8rem; }
+    .login-box .form-group { margin-bottom: .75rem; }
+    .error { background: #fdeaea; color: var(--danger); padding: .6rem .8rem; border-radius: 6px; font-size: .82rem; margin-top: .6rem; }
+    .hidden { display: none !important; }
+    .actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .8rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Report <span>Genius</span> AI</h1>
+    <div class="badge">v2 demo — past-report mapping</div>
+    <div class="spacer"></div>
+    <div class="badge" id="tenant-badge"></div>
+    <button class="btn btn-outline" id="btn-logout" style="color:#fff;border-color:rgba(255,255,255,.3);background:transparent">Log out</button>
+  </header>
+
+  <div class="overlay" id="login-overlay">
+    <div class="login-box">
+      <h2>Sign in</h2>
+      <p class="hint">Demo: tenant <strong>default</strong> — register once with any password (6+ chars), or use your account.</p>
+      <div class="form-group">
+        <label>Tenant ID</label>
+        <input id="login-tenant" value="default" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input id="login-password" type="password" autocomplete="current-password" />
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="btn-login">Log in</button>
+        <button class="btn btn-outline" id="btn-register">Register</button>
+      </div>
+      <div class="error hidden" id="login-error"></div>
+    </div>
+  </div>
+
+  <main id="app" class="hidden">
+    <div class="steps">
+      <div class="step active" data-step="1">1 · Setup</div>
+      <div class="step" data-step="2">2 · Notes</div>
+      <div class="step" data-step="3">3 · Photos</div>
+      <div class="step" data-step="4">4 · Preview & export</div>
+    </div>
+
+    <!-- Step 1: Setup -->
+    <section class="card" id="panel-setup">
+      <div class="card-head"><h2>System & past reports</h2><p>Upload completed surveys — content is mapped from these (REFERENCE RAG only).</p></div>
+      <div class="card-body">
+        <p id="health-line">Checking health…</p>
+        <ul class="file-list" id="reference-list"></ul>
+        <div class="form-group" style="margin-top:1rem">
+          <label>Property type bucket</label>
+          <select id="upload-property-type">
+            <option value="house" selected>House</option>
+            <option value="flat">Flat</option>
+          </select>
+          <p class="hint">Uploads are scoped to this bucket; generation only retrieves matching reports.</p>
+        </div>
+        <div class="form-group" style="margin-top:1rem">
+          <label>Upload past report (PDF or DOCX)</label>
+          <input type="file" id="reference-file" accept=".pdf,.docx,.doc,.docm" multiple />
+          <p class="hint">PII in past reports is scrubbed at ingest. Re-upload to refresh paragraph attribution.</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="btn-upload-ref">Upload selected</button>
+          <button class="btn btn-outline" id="btn-refresh-ref">Refresh list</button>
+        </div>
+        <div class="error hidden" id="setup-error"></div>
+      </div>
+    </section>
+
+    <!-- Step 2: Notes -->
+    <section class="card" id="panel-notes">
+      <div class="card-head"><h2>Surveyor notes</h2><p>Messy field notes — mapped onto full paragraphs from your past reports.</p></div>
+      <div class="card-body">
+        <div class="row">
+          <div class="form-group">
+            <label>Property type (past-report retrieval)</label>
+            <select id="property-type">
+              <option value="house" selected>House</option>
+              <option value="flat">Flat</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tenure</label>
+            <input id="tenure" value="freehold" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:.8rem">
+          <label>Field notes</label>
+          <textarea id="raw-notes" placeholder="E2: slate tile slipped south slope&#10;D1: chimney mortar open"></textarea>
+          <p class="hint">Use section codes from your template (e.g. E2, D1) or free text — orphan lines are routed by topic.</p>
+        </div>
+        <div class="form-group">
+          <label>AI involvement</label>
+          <div class="pill-row" id="interference-pills">
+            <button type="button" class="pill" data-level="minimum">Minimum — map notes onto past paragraph</button>
+            <button type="button" class="pill active" data-level="medium">Medium — proofread & expand</button>
+            <button type="button" class="pill" data-level="maximum">Maximum — richest section</button>
+          </div>
+        </div>
+        <button class="btn btn-gold" id="btn-start-draft">Start report draft (for photos)</button>
+        <p class="hint" id="draft-id-line"></p>
+      </div>
+    </section>
+
+    <!-- Step 3: Photos -->
+    <section class="card" id="panel-photos">
+      <div class="card-head"><h2>Section photos</h2><p>Up to 5 per section stored; tick up to 2 for AI vision analysis.</p></div>
+      <div class="card-body">
+        <p class="hint" id="sections-loading">Load schema after login…</p>
+        <div id="sections-root"></div>
+      </div>
+    </section>
+
+    <!-- Step 4: Preview -->
+    <section class="card" id="panel-preview">
+      <div class="card-head"><h2>Preview & download</h2><p>Review mapped text, sources, and flags before export.</p></div>
+      <div class="card-body">
+        <div class="actions">
+          <button class="btn btn-primary" id="btn-preview">Generate preview</button>
+          <button class="btn btn-gold" id="btn-download">Download DOCX</button>
+        </div>
+        <p class="hint" id="preview-summary" style="margin-top:.8rem"></p>
+        <div id="preview-root" style="margin-top:1rem"></div>
+        <div class="error hidden" id="preview-error"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      token: null,
+      tenantId: null,
+      draftId: null,
+      interferenceLevel: 'medium',
+      sections: [],
+      photoLimits: { max: 5, ai: 2 },
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function authHeaders(json = true) {
+      const h = { Authorization: `Bearer ${state.token}` };
+      if (json) h['Content-Type'] = 'application/json';
+      return h;
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, opts);
+      if (res.status === 401) { logout(); throw new Error('Session expired — log in again.'); }
+      if (res.status === 204) return null;
+      if (!res.ok) {
+        let detail = res.statusText;
+        try { const j = await res.json(); detail = j.detail || JSON.stringify(j); } catch (_) {}
+        throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      }
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) return res.json();
+      return res.blob();
+    }
+
+    function showError(el, msg) {
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    function applyAuth(data) {
+      state.token = data.access_token;
+      state.tenantId = data.tenant_id;
+      localStorage.setItem('rics_v2_auth', JSON.stringify({
+        access_token: data.access_token,
+        tenant_id: data.tenant_id,
+        expires_at: data.expires_at,
+      }));
+      $('login-overlay').classList.add('hidden');
+      $('app').classList.remove('hidden');
+      $('tenant-badge').textContent = data.tenant_id;
+      bootApp();
+    }
+
+    function logout() {
+      state.token = null;
+      localStorage.removeItem('rics_v2_auth');
+      $('login-overlay').classList.remove('hidden');
+      $('app').classList.add('hidden');
+    }
+
+    async function tryRestoreSession() {
+      const raw = localStorage.getItem('rics_v2_auth');
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw);
+        state.token = saved.access_token;
+        state.tenantId = saved.tenant_id;
+        const me = await api('/auth/me', { headers: authHeaders() });
+        applyAuth({ access_token: state.token, tenant_id: me.tenant_id, expires_at: saved.expires_at });
+      } catch (_) {
+        logout();
+      }
+    }
+
+    async function authAction(register) {
+      $('login-error').classList.add('hidden');
+      const tenant_id = $('login-tenant').value.trim();
+      const password = $('login-password').value;
+      const path = register ? '/auth/register' : '/auth/login';
+      try {
+        const data = await api(path, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ tenant_id, password }),
+        });
+        applyAuth(data);
+      } catch (e) {
+        showError($('login-error'), e.message);
+      }
+    }
+
+    async function loadHealth() {
+      const h = await api('/health', { headers: {} });
+      const ok = h.status === 'ok' && h.reference_ready;
+      $('health-line').innerHTML = ok
+        ? `<span class="status-ok">Ready</span> — ${h.startup?.sections || '?'} template sections, ${h.reference_faiss_count} reference chunks`
+        : `<span class="status-bad">Not ready</span> — upload at least one past report. Master: ${h.master_faiss_count} chunks, Reference: ${h.reference_faiss_count} chunks`;
+      markStep(1, h.reference_ready);
+    }
+
+    async function loadReferences() {
+      const data = await api('/api/upload/reference/status', { headers: authHeaders() });
+      const ul = $('reference-list');
+      ul.innerHTML = '';
+      if (!data.reference_documents?.length) {
+        ul.innerHTML = '<li><em>No past reports ingested yet.</em></li>';
+      } else {
+        data.reference_documents.forEach((name) => {
+          const li = document.createElement('li');
+          li.textContent = `${name} (${data.reference_chunk_count} chunks total)`;
+          ul.appendChild(li);
+        });
+      }
+      markStep(1, data.ready_for_generation);
+    }
+
+    async function uploadReferences() {
+      $('setup-error').classList.add('hidden');
+      const files = $('reference-file').files;
+      if (!files.length) { showError($('setup-error'), 'Choose at least one file.'); return; }
+      const propertyType = ($('upload-property-type') && $('upload-property-type').value) || 'house';
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('property_type', propertyType);
+        await api('/api/upload/reference', { method: 'POST', headers: { Authorization: `Bearer ${state.token}` }, body: fd });
+      }
+      $('reference-file').value = '';
+      await loadReferences();
+      await loadHealth();
+    }
+
+    async function loadSchema() {
+      const schema = await api('/api/schema', { headers: authHeaders() });
+      state.sections = (schema.sections || []).sort((a, b) => a.order - b.order);
+      $('sections-loading').classList.add('hidden');
+      renderSections();
+    }
+
+    function renderSections() {
+      const root = $('sections-root');
+      root.innerHTML = '';
+      state.sections.forEach((sec) => {
+        const item = document.createElement('div');
+        item.className = 'section-item';
+        item.innerHTML = `
+          <div class="section-head" data-id="${sec.id}">
+            <span class="section-code">${sec.id}</span>
+            <strong>${sec.title}</strong>
+          </div>
+          <div class="section-body" id="body-${sec.id}">
+            <input type="file" accept="image/*" multiple data-section="${sec.id}" class="photo-input" />
+            <div class="photo-grid" id="photos-${sec.id}"></div>
+            <p class="hint">Click thumbnails to select for AI (max ${state.photoLimits.ai}).</p>
+          </div>`;
+        root.appendChild(item);
+        item.querySelector('.section-head').addEventListener('click', () => {
+          item.querySelector('.section-body').classList.toggle('open');
+        });
+        item.querySelector('.photo-input').addEventListener('change', (e) => uploadPhotos(sec.id, e.target.files));
+      });
+    }
+
+    async function startDraft() {
+      const data = await api('/api/report/drafts', { method: 'POST', headers: authHeaders() });
+      state.draftId = data.draft_id;
+      state.photoLimits = { max: data.max_photos_per_section, ai: data.max_photos_for_ai };
+      $('draft-id-line').textContent = `Draft ID: ${state.draftId}`;
+      markStep(2, true);
+    }
+
+    function photoUrl(url) {
+      return `${url}?access_token=${encodeURIComponent(state.token)}`;
+    }
+
+    async function refreshPhotos(sectionId) {
+      if (!state.draftId) return;
+      const data = await api(`/api/report/drafts/${state.draftId}/sections/${sectionId}/photos`, { headers: authHeaders() });
+      const grid = $(`photos-${sectionId}`);
+      grid.innerHTML = '';
+      (data.photos || []).forEach((p) => {
+        const img = document.createElement('img');
+        img.className = 'photo-thumb' + (p.selected_for_ai ? ' selected' : '');
+        img.src = photoUrl(p.url);
+        img.title = p.filename;
+        img.dataset.id = p.photo_id;
+        img.addEventListener('click', () => toggleAiPhoto(sectionId, p.photo_id, data.photos));
+        grid.appendChild(img);
+      });
+      if (data.photos?.length) markStep(3, true);
+    }
+
+    async function uploadPhotos(sectionId, files) {
+      if (!state.draftId) { await startDraft(); }
+      if (!files?.length) return;
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f);
+      await api(`/api/report/drafts/${state.draftId}/sections/${sectionId}/photos`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${state.token}` },
+        body: fd,
+      });
+      await refreshPhotos(sectionId);
+    }
+
+    async function toggleAiPhoto(sectionId, photoId, photos) {
+      const selected = photos.filter((p) => p.selected_for_ai).map((p) => p.photo_id);
+      const idx = selected.indexOf(photoId);
+      if (idx >= 0) selected.splice(idx, 1);
+      else {
+        if (selected.length >= state.photoLimits.ai) {
+          alert(`Max ${state.photoLimits.ai} photos for AI vision.`);
+          return;
+        }
+        selected.push(photoId);
+      }
+      await api(`/api/report/drafts/${state.draftId}/sections/${sectionId}/photos/ai-selection`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ photo_ids: selected }),
+      });
+      await refreshPhotos(sectionId);
+    }
+
+    function buildPayload() {
+      return {
+        raw_notes: $('raw-notes').value,
+        property_type: $('property-type').value.trim(),
+        tenure: $('tenure').value.trim(),
+        interference_level: state.interferenceLevel,
+        report_draft_id: state.draftId,
+        include_footer: true,
+      };
+    }
+
+    async function runPreview() {
+      $('preview-error').classList.add('hidden');
+      $('preview-root').innerHTML = '<p class="hint">Generating preview…</p>';
+      try {
+        const data = await api('/api/report/preview', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify(buildPayload()),
+        });
+        $('preview-summary').textContent =
+          `${data.sections_mapped} sections OK · ${data.sections_needing_review} need review` +
+          (data.manual_review_required ? ' · Manual review recommended' : '');
+        const root = $('preview-root');
+        root.innerHTML = '';
+        (data.sections || []).forEach((s) => {
+          if (s.status === 'empty') return;
+          const div = document.createElement('div');
+          div.className = 'preview-section' + (s.status !== 'OK' ? ' flagged' : '');
+          const sources = (s.reference_sources || []).map((r) =>
+            `Past report "${r.report_filename}", section ${r.section_id}${r.section_title ? ' (' + r.section_title + ')' : ''}${r.paragraph_index ? ', paragraph ' + r.paragraph_index : ''}`
+          ).join('; ');
+          div.innerHTML = `
+            <strong>${s.section_id} — ${s.title}</strong>
+            <span class="preview-meta">Status: ${s.status}${sources ? ' · Source: ' + sources : ''}</span>
+            <div class="preview-text">${escapeHtml(s.text || '')}</div>`;
+          root.appendChild(div);
+        });
+        markStep(4, true);
+      } catch (e) {
+        showError($('preview-error'), e.message);
+      }
+    }
+
+    async function downloadDocx() {
+      $('preview-error').classList.add('hidden');
+      try {
+        const blob = await api('/api/report/generate', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify(buildPayload()),
+        });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'survey_report_draft.docx';
+        a.click();
+        markStep(4, true);
+      } catch (e) {
+        showError($('preview-error'), e.message);
+      }
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function markStep(n, done) {
+      document.querySelectorAll('.step').forEach((el) => {
+        const sn = +el.dataset.step;
+        el.classList.toggle('active', sn === n);
+        el.classList.toggle('done', sn < n || (sn === n && done));
+      });
+    }
+
+    async function bootApp() {
+      try {
+        await loadHealth();
+        await loadReferences();
+        await loadSchema();
+      } catch (e) {
+        showError($('setup-error'), e.message);
+      }
+    }
+
+    document.querySelectorAll('#interference-pills .pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#interference-pills .pill').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.interferenceLevel = btn.dataset.level;
+      });
+    });
+
+    $('btn-login').addEventListener('click', () => authAction(false));
+    $('btn-register').addEventListener('click', () => authAction(true));
+    $('btn-logout').addEventListener('click', logout);
+    $('btn-upload-ref').addEventListener('click', uploadReferences);
+    $('btn-refresh-ref').addEventListener('click', loadReferences);
+    $('btn-start-draft').addEventListener('click', startDraft);
+    $('btn-preview').addEventListener('click', runPreview);
+    $('btn-download').addEventListener('click', downloadDocx);
+
+    tryRestoreSession();
+  </script>
+</body>
+</html>

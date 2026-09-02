@@ -4,14 +4,16 @@ import { siHuggingface } from 'simple-icons/icons';
 
 const HF_DATASET_URL = 'https://huggingface.co/datasets/DAG-UPB/TS-Arena-Archive';
 
-const CITATION = `@misc{meyer2026tsarenaliveforecast,
+const CITATION = `@inproceedings{meyer2026tsarena,
   title={TS-Arena -- A Live Forecast Pre-Registration Platform},
   author={Marcel Meyer and Sascha Kaltenpoth and Henrik Albers and Kevin Zalipski and Oliver Müller},
+  booktitle={Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining V.2},
+  series={KDD '26},
+  pages={9558--9568},
   year={2026},
-  eprint={2512.20761},
-  archivePrefix={arXiv},
-  primaryClass={cs.LG},
-  url={https://arxiv.org/abs/2512.20761},
+  publisher={Association for Computing Machinery},
+  doi={10.1145/3770855.3817515},
+  url={https://doi.org/10.1145/3770855.3817515},
 }`;
 
 export default function BacktestingArchivePage() {
@@ -89,13 +91,13 @@ export default function BacktestingArchivePage() {
             <code>{CITATION}</code>
           </pre>
           <a
-            href="https://arxiv.org/abs/2512.20761"
+            href="https://doi.org/10.1145/3770855.3817515"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
           >
             <BookOpen className="w-4 h-4" />
-            Read on arXiv
+            Read in the ACM Digital Library
           </a>
         </div>
       </div>

@@ -1,0 +1,1483 @@
+<div class="corrsteer-hero" id="corrsteer-hero-container">
+  <canvas id="corrsteer-hero-canvas"></canvas>
+  <div class="hero-tokens" id="hero-tokens"></div>
+  <div class="hero-hint" id="hero-hint">Try clicking layers to steer real-time generation</div>
+</div>
+
+<style>
+  .corrsteer-hero {
+    width: 100%;
+    height: 450px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+  }
+  .corrsteer-hero canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    position: relative;
+    z-index: 1;
+  }
+  .corrsteer-hero canvas:active {
+    cursor: grabbing;
+  }
+  .hero-tokens {
+    position: absolute;
+    left: 82%;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: left 0.3s ease;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .hero-token {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(107, 92, 231, 0.15);
+    color: rgba(107, 78, 196, 0.9);
+    border: 1px solid rgba(107, 92, 231, 0.1);
+    white-space: pre;
+    line-height: 1.3;
+    animation: tokenPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    opacity: 0;
+  }
+  .hero-token.out {
+    animation: tokenOut 0.2s ease-in forwards;
+  }
+  @keyframes tokenPop {
+    0% { opacity: 0; transform: scale(0.3); }
+    60% { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes tokenOut {
+    to { opacity: 0; transform: translateX(16px) scale(0.7); }
+  }
+  [data-theme="dark"] .hero-token {
+    background: rgba(155, 126, 240, 0.18);
+    color: rgba(184, 154, 255, 0.9);
+    border-color: rgba(155, 126, 240, 0.12);
+  }
+  .hero-hint {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 15px;
+    color: rgba(0,0,0,0.4);
+    pointer-events: none;
+    z-index: 3;
+    white-space: nowrap;
+    transition: opacity 0.5s;
+  }
+  [data-theme="dark"] .hero-hint {
+    color: rgba(255,255,255,0.3);
+  }
+  @media (max-width: 768px) {
+    .corrsteer-hero { height: 320px; }
+    .hero-token { max-width: 60px; overflow: hidden; text-overflow: ellipsis; }
+    .hero-token { font-size: 9px; }
+    .hero-hint { font-size: 10px; }
+  }
+  @media (max-width: 480px) {
+    .corrsteer-hero { height: 260px; }
+    .hero-token { font-size: 8px; padding: 1px 4px; max-width: 50px; overflow: hidden; text-overflow: ellipsis; }
+    .hero-hint { display: none; }
+  }
+</style>
+
+<script>
+(function() {
+  'use strict';
+
+  // ---- Theme detection ----
+  function getTheme() {
+    var attr = document.documentElement.getAttribute('data-theme');
+    return attr === 'dark' ? 'dark' : 'light';
+  }
+
+  // ---- Color palettes (bg matches page --page-bg) ----
+  var PALETTE = {
+    light: {
+      bg:             0xffffff,
+      layerColor:     0x5b4ba5,
+      layerOpacity:   0.25,
+      layerEdge:      0x6b5bb5,
+      particleMuted:  0x8b8fa5,
+      particleActive: 0x6b4ec4,
+      particleGlow:   0x7c5ce6,
+      targetZone:     0x6b4ec4,
+      fogColor:       0xffffff,
+      fogNear:        30,
+      fogFar:         90,
+      ambientLight:   0xffffff,
+      dirLight:       0xffffff,
+      gridColor:      0xc8ccd5,
+      blending:       'normal'
+    },
+    dark: {
+      bg:             0x0f1115,
+      layerColor:     0xe0d8ff,
+      layerOpacity:   0.45,
+      layerEdge:      0xf0e8ff,
+      particleMuted:  0x4b5563,
+      particleActive: 0x9b7ef0,
+      particleGlow:   0xb89aff,
+      targetZone:     0x9b7ef0,
+      fogColor:       0x0f1115,
+      fogNear:        24,
+      fogFar:         60,
+      ambientLight:   0x334155,
+      dirLight:       0xcdd5e0,
+      gridColor:      0x1e2735,
+      blending:       'additive'
+    }
+  };
+
+  function getBlending(THREE) {
+    return currentPalette.blending === 'additive' ? THREE.AdditiveBlending : THREE.NormalBlending;
+  }
+
+  var container, canvas, renderer, scene, camera, clock;
+  var layerMeshes = [];
+  var layerEdgeMeshes = [];
+  var particleSystem, glowParticleSystem;
+  var targetZoneMesh;
+  var gridLines;
+  var animFrameId = null;
+  var currentPalette;
+  var isInitialized = false;
+
+  // ---- Mouse interaction state ----
+  var mouseNDC = { x: 0, y: 0 };
+  var mouseWorld = { x: 0, y: 0, z: 0 };
+  var isMouseOver = false;
+  var isMouseDown = false;
+  var mouseInfluenceRadius = 3.0;
+  var raycaster, mousePlane;
+
+  // Particle state arrays
+  var NUM_PARTICLES = 400;
+  var NUM_GLOW = 120;
+  var particlePositions, particleVelocities, particlePhases, particleLifetimes;
+  var glowPositions, glowVelocities, glowPhases, glowLifetimes, glowActivation;
+  var particleSizes, glowSizes, particleAlphas, glowAlphas;
+
+  // ---- Steering interaction state ----
+  var STEER_COLORS = [
+    { r: 0.95, g: 0.25, b: 0.25 },  // red
+    { r: 0.20, g: 0.75, b: 0.90 },  // cyan
+    { r: 0.95, g: 0.65, b: 0.10 },  // orange
+    { r: 0.25, g: 0.85, b: 0.40 },  // green
+    { r: 0.20, g: 0.45, b: 0.90 },  // blue
+    { r: 0.95, g: 0.90, b: 0.20 },  // yellow
+    { r: 0.15, g: 0.85, b: 0.75 },  // teal
+    { r: 0.90, g: 0.35, b: 0.55 },  // magenta
+  ];
+  var steerColorIdx = 0;
+  var layerColorMap = {}; // layerIdx → color, so same layer always gets same color
+  var NUM_STEER = 200;
+  var PARTICLES_PER_BLOB = 6;
+  var steerParticleSystem;
+  var steerPositions, steerVelocities, steerColors, steerAlphas, steerSizes, steerLifetimes;
+  var steerActive = new Uint8Array(NUM_STEER);
+  var steerBlobs = []; // { cx, cy, cz, vx, color, particleIndices, life, tokenSpawned }
+  var steerNeedsFlush = false;
+
+  // Scene dimensions
+  var SCENE_WIDTH = 14;
+  var SCENE_HEIGHT = 5;
+  var SCENE_DEPTH = 4;
+  var NUM_LAYERS = 8;
+  var LAYER_SPACING = SCENE_WIDTH / (NUM_LAYERS + 1);
+
+  // ---- Initialization ----
+  function init() {
+    container = document.getElementById('corrsteer-hero-container');
+    canvas = document.getElementById('corrsteer-hero-canvas');
+    if (!container || !canvas) return;
+
+    currentPalette = PALETTE[getTheme()];
+
+    var THREE = window.THREE;
+    var w = container.clientWidth;
+    var h = container.clientHeight;
+
+    // Renderer
+    renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      antialias: true,
+      alpha: false
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(w, h);
+    renderer.setClearColor(currentPalette.bg, 1);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+
+    // Scene
+    scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(currentPalette.fogColor, currentPalette.fogNear, currentPalette.fogFar);
+
+    // Camera
+    camera = new THREE.PerspectiveCamera(32, w / h, 0.1, 100);
+    camera.position.set(0, 0, 20);
+    camera.lookAt(0, 0, 0);
+
+    clock = new THREE.Clock();
+
+    // Lights
+    var ambientLight = new THREE.AmbientLight(currentPalette.ambientLight, 0.6);
+    ambientLight.name = 'ambient';
+    scene.add(ambientLight);
+
+    var dirLight = new THREE.DirectionalLight(currentPalette.dirLight, 0.8);
+    dirLight.position.set(5, 8, 6);
+    dirLight.name = 'dirLight';
+    scene.add(dirLight);
+
+    var pointLight = new THREE.PointLight(currentPalette.particleGlow, 0.4, 20);
+    pointLight.position.set(3, 2, 0);
+    pointLight.name = 'pointLight';
+    scene.add(pointLight);
+
+    // Build scene elements
+    createTransformerLayers(THREE);
+    createParticles(THREE);
+    createGlowParticles(THREE);
+    createSteerParticles(THREE);
+    createTargetZone(THREE);
+    createGridLines(THREE);
+    createCircuits(THREE);
+
+    // Raycaster + invisible plane for mouse-to-world projection
+    raycaster = new THREE.Raycaster();
+    mousePlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+
+    // Mouse / touch listeners
+    canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('mouseenter', function() { isMouseOver = true; });
+    canvas.addEventListener('mouseleave', function() { isMouseOver = false; });
+    canvas.addEventListener('mousedown', function() { isMouseDown = true; });
+    canvas.addEventListener('mouseup', function() { isMouseDown = false; });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: true });
+    canvas.addEventListener('touchstart', function(e) {
+      isMouseOver = true; isMouseDown = true;
+      onTouchMove(e);
+    }, { passive: true });
+    canvas.addEventListener('touchend', function() { isMouseOver = false; isMouseDown = false; });
+    canvas.addEventListener('click', onCanvasClick);
+    canvas.style.cursor = 'pointer';
+
+    isInitialized = true;
+
+    // Start loop
+    animate();
+
+    // Start token generation overlay
+    startTokenAnimation();
+
+    // Resize observer
+    var ro = new ResizeObserver(function() { onResize(); });
+    ro.observe(container);
+
+    // Theme observer
+    var mo = new MutationObserver(function(mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        if (mutations[i].attributeName === 'data-theme') {
+          updateTheme();
+          break;
+        }
+      }
+    });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  }
+
+  // ---- Transformer layers ----
+  function createTransformerLayers(THREE) {
+    var layerW = 0.15;
+    var layerH = 3.2;
+    var layerD = 2.8;
+
+    for (var i = 0; i < NUM_LAYERS; i++) {
+      var x = -SCENE_WIDTH / 2 + LAYER_SPACING * (i + 1);
+
+      // Main translucent layer — 3D BoxGeometry
+      var geom = new THREE.BoxGeometry(layerW, layerH, layerD);
+      var mat = new THREE.MeshPhysicalMaterial({
+        color: currentPalette.layerColor,
+        transparent: true,
+        opacity: currentPalette.layerOpacity,
+        roughness: 0.2,
+        metalness: 0.1,
+        transmission: 0.6,
+        thickness: 0.5,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      var mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(x, 0, 0);
+      scene.add(mesh);
+      layerMeshes.push(mesh);
+
+      // Edge wireframe
+      var edgeGeom = new THREE.EdgesGeometry(geom);
+      var edgeMat = new THREE.LineBasicMaterial({
+        color: currentPalette.layerEdge,
+        transparent: true,
+        opacity: 0.25,
+        linewidth: 1
+      });
+      var edgeMesh = new THREE.LineSegments(edgeGeom, edgeMat);
+      edgeMesh.position.copy(mesh.position);
+      scene.add(edgeMesh);
+      layerEdgeMeshes.push(edgeMesh);
+    }
+  }
+
+  // ---- Muted particles (non-correlated) ----
+  function createParticles(THREE) {
+    var positions = new Float32Array(NUM_PARTICLES * 3);
+    var sizes = new Float32Array(NUM_PARTICLES);
+    var alphas = new Float32Array(NUM_PARTICLES);
+
+    particlePositions = new Float32Array(NUM_PARTICLES * 3);
+    particleVelocities = new Float32Array(NUM_PARTICLES * 3);
+    particlePhases = new Float32Array(NUM_PARTICLES);
+    particleLifetimes = new Float32Array(NUM_PARTICLES);
+    particleSizes = sizes;
+    particleAlphas = alphas;
+
+    for (var i = 0; i < NUM_PARTICLES; i++) {
+      resetParticle(i, true);
+      positions[i * 3]     = particlePositions[i * 3];
+      positions[i * 3 + 1] = particlePositions[i * 3 + 1];
+      positions[i * 3 + 2] = particlePositions[i * 3 + 2];
+      sizes[i] = 2.5 + Math.random() * 2.5;
+      alphas[i] = 0.4 + Math.random() * 0.4;
+    }
+
+    var geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geom.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    geom.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
+
+    var mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(currentPalette.particleMuted) },
+        uPixelRatio: { value: renderer.getPixelRatio() }
+      },
+      vertexShader: [
+        'attribute float size;',
+        'attribute float alpha;',
+        'varying float vAlpha;',
+        'uniform float uPixelRatio;',
+        'void main() {',
+        '  vAlpha = alpha;',
+        '  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);',
+        '  gl_PointSize = size * uPixelRatio * (200.0 / -mvPosition.z);',
+        '  gl_Position = projectionMatrix * mvPosition;',
+        '}'
+      ].join('\n'),
+      fragmentShader: [
+        'uniform vec3 uColor;',
+        'varying float vAlpha;',
+        'void main() {',
+        '  float dist = length(gl_PointCoord - vec2(0.5));',
+        '  if (dist > 0.5) discard;',
+        '  float strength = 1.0 - smoothstep(0.0, 0.5, dist);',
+        '  strength = pow(strength, 1.5);',
+        '  gl_FragColor = vec4(uColor, vAlpha * strength);',
+        '}'
+      ].join('\n'),
+      transparent: true,
+      depthWrite: false,
+      blending: getBlending(THREE)
+    });
+
+    particleSystem = new THREE.Points(geom, mat);
+    scene.add(particleSystem);
+  }
+
+  function resetParticle(i, randomX) {
+    var xStart = randomX
+      ? -SCENE_WIDTH / 2 - 1 + Math.random() * (SCENE_WIDTH + 2)
+      : -SCENE_WIDTH / 2 - 1 - Math.random() * 2;
+    particlePositions[i * 3]     = xStart;
+    particlePositions[i * 3 + 1] = (Math.random() - 0.5) * SCENE_HEIGHT * 0.6;
+    particlePositions[i * 3 + 2] = (Math.random() - 0.5) * SCENE_DEPTH * 0.8;
+    particleVelocities[i * 3]     = 0.3 + Math.random() * 0.6;
+    particleVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.05;
+    particleVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.03;
+    particlePhases[i] = Math.random() * Math.PI * 2;
+    particleLifetimes[i] = 0;
+  }
+
+  // ---- Glow particles (correlated features) ----
+  function createGlowParticles(THREE) {
+    var positions = new Float32Array(NUM_GLOW * 3);
+    var sizes = new Float32Array(NUM_GLOW);
+    var alphas = new Float32Array(NUM_GLOW);
+
+    glowPositions = new Float32Array(NUM_GLOW * 3);
+    glowVelocities = new Float32Array(NUM_GLOW * 3);
+    glowPhases = new Float32Array(NUM_GLOW);
+    glowLifetimes = new Float32Array(NUM_GLOW);
+    glowActivation = new Float32Array(NUM_GLOW);
+    glowSizes = sizes;
+    glowAlphas = alphas;
+
+    for (var i = 0; i < NUM_GLOW; i++) {
+      resetGlowParticle(i, true);
+      positions[i * 3]     = glowPositions[i * 3];
+      positions[i * 3 + 1] = glowPositions[i * 3 + 1];
+      positions[i * 3 + 2] = glowPositions[i * 3 + 2];
+      sizes[i] = 3.5 + Math.random() * 3.0;
+      alphas[i] = 0.6 + Math.random() * 0.4;
+    }
+
+    var geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geom.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    geom.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
+
+    var mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(currentPalette.particleActive) },
+        uGlowColor: { value: new THREE.Color(currentPalette.particleGlow) },
+        uPixelRatio: { value: renderer.getPixelRatio() }
+      },
+      vertexShader: [
+        'attribute float size;',
+        'attribute float alpha;',
+        'varying float vAlpha;',
+        'varying float vSize;',
+        'uniform float uPixelRatio;',
+        'void main() {',
+        '  vAlpha = alpha;',
+        '  vSize = size;',
+        '  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);',
+        '  gl_PointSize = size * uPixelRatio * (200.0 / -mvPosition.z);',
+        '  gl_Position = projectionMatrix * mvPosition;',
+        '}'
+      ].join('\n'),
+      fragmentShader: [
+        'uniform vec3 uColor;',
+        'uniform vec3 uGlowColor;',
+        'varying float vAlpha;',
+        'varying float vSize;',
+        'void main() {',
+        '  float dist = length(gl_PointCoord - vec2(0.5));',
+        '  if (dist > 0.5) discard;',
+        '  float core = 1.0 - smoothstep(0.0, 0.15, dist);',
+        '  float mid = 1.0 - smoothstep(0.0, 0.3, dist);',
+        '  mid = pow(mid, 2.0);',
+        '  float halo = 1.0 - smoothstep(0.0, 0.5, dist);',
+        '  halo = pow(halo, 3.0);',
+        '  vec3 color = mix(uColor, uGlowColor, core * 0.7 + mid * 0.3);',
+        '  color = mix(color, vec3(1.0), core * 0.3);',
+        '  float alpha = vAlpha * (core * 1.0 + mid * 0.6 + halo * 0.3);',
+        '  gl_FragColor = vec4(color, alpha);',
+        '}'
+      ].join('\n'),
+      transparent: true,
+      depthWrite: false,
+      blending: getBlending(THREE)
+    });
+
+    glowParticleSystem = new THREE.Points(geom, mat);
+    scene.add(glowParticleSystem);
+  }
+
+  function resetGlowParticle(i, randomX) {
+    var xStart = randomX
+      ? -SCENE_WIDTH / 2 - 1 + Math.random() * (SCENE_WIDTH + 2)
+      : -SCENE_WIDTH / 2 - 1 - Math.random() * 2;
+    glowPositions[i * 3]     = xStart;
+    glowPositions[i * 3 + 1] = (Math.random() - 0.5) * SCENE_HEIGHT * 0.5;
+    glowPositions[i * 3 + 2] = (Math.random() - 0.5) * SCENE_DEPTH * 0.6;
+    glowVelocities[i * 3]     = 0.4 + Math.random() * 0.5;
+    glowVelocities[i * 3 + 1] = 0;
+    glowVelocities[i * 3 + 2] = 0;
+    glowPhases[i] = Math.random() * Math.PI * 2;
+    glowLifetimes[i] = 0;
+    glowActivation[i] = 0;
+  }
+
+  // ---- Steering particles (colored, spawned on layer click) ----
+  function createSteerParticles(THREE) {
+    var positions = new Float32Array(NUM_STEER * 3);
+    var colors = new Float32Array(NUM_STEER * 3);
+    var sizes = new Float32Array(NUM_STEER);
+    var alphas = new Float32Array(NUM_STEER);
+
+    steerPositions = new Float32Array(NUM_STEER * 3);
+    steerVelocities = new Float32Array(NUM_STEER * 3);
+    steerColors = colors;
+    steerSizes = sizes;
+    steerAlphas = alphas;
+    steerLifetimes = new Float32Array(NUM_STEER);
+    steerActive = new Uint8Array(NUM_STEER);
+
+    var geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geom.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    geom.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
+
+    var mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uPixelRatio: { value: renderer.getPixelRatio() }
+      },
+      vertexShader: [
+        'attribute float size;',
+        'attribute float alpha;',
+        'attribute vec3 color;',
+        'varying float vAlpha;',
+        'varying vec3 vColor;',
+        'uniform float uPixelRatio;',
+        'void main() {',
+        '  vAlpha = alpha;',
+        '  vColor = color;',
+        '  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);',
+        '  gl_PointSize = size * uPixelRatio * (200.0 / -mvPosition.z);',
+        '  gl_Position = projectionMatrix * mvPosition;',
+        '}'
+      ].join('\n'),
+      fragmentShader: [
+        'varying float vAlpha;',
+        'varying vec3 vColor;',
+        'void main() {',
+        '  float dist = length(gl_PointCoord - vec2(0.5));',
+        '  if (dist > 0.5) discard;',
+        '  float core = 1.0 - smoothstep(0.0, 0.2, dist);',
+        '  float halo = 1.0 - smoothstep(0.0, 0.5, dist);',
+        '  halo = pow(halo, 2.0);',
+        '  vec3 col = mix(vColor, vec3(1.0), core * 0.4);',
+        '  gl_FragColor = vec4(col, vAlpha * (core + halo * 0.4));',
+        '}'
+      ].join('\n'),
+      transparent: true,
+      depthWrite: false,
+      blending: getBlending(THREE)
+    });
+
+    steerParticleSystem = new THREE.Points(geom, mat);
+    steerParticleSystem.frustumCulled = false;
+    scene.add(steerParticleSystem);
+  }
+
+  function spawnSteerBlob(layerIdx, color, hitY, hitZ) {
+    var lx = layerMeshes[layerIdx].position.x;
+    var cy = hitY != null ? hitY : 0;
+    var cz = hitZ != null ? hitZ : 0;
+    var indices = [];
+    for (var i = 0; i < NUM_STEER && indices.length < PARTICLES_PER_BLOB; i++) {
+      if (steerActive[i]) continue;
+      steerActive[i] = 1;
+      indices.push(i);
+    }
+    // If not enough free slots, recycle oldest blob
+    while (indices.length < PARTICLES_PER_BLOB && steerBlobs.length > 0) {
+      var old = steerBlobs.shift();
+      for (var q = 0; q < old.particleIndices.length; q++) {
+        var pi = old.particleIndices[q];
+        steerActive[pi] = 0;
+        if (indices.length < PARTICLES_PER_BLOB) {
+          steerActive[pi] = 1;
+          indices.push(pi);
+        }
+      }
+    }
+    for (var j = 0; j < indices.length; j++) {
+      var i = indices[j];
+      steerPositions[i * 3] = lx + (Math.random() - 0.5) * 0.3;
+      steerPositions[i * 3 + 1] = cy + (Math.random() - 0.5) * 0.3;
+      steerPositions[i * 3 + 2] = cz + (Math.random() - 0.5) * 0.3;
+      steerColors[i * 3] = color.r;
+      steerColors[i * 3 + 1] = color.g;
+      steerColors[i * 3 + 2] = color.b;
+      steerSizes[i] = 4.0 + Math.random() * 2.0;
+      steerAlphas[i] = 0.9;
+      steerLifetimes[i] = 0;
+    }
+    if (indices.length > 0) {
+      steerBlobs.push({
+        cx: lx, cy: cy, cz: cz,
+        vx: 1.2 + Math.random() * 0.4,
+        color: color,
+        particleIndices: indices,
+        life: 0,
+        tokenSpawned: false
+      });
+    }
+  }
+
+  function updateSteerParticles(dt, time) {
+    if (!steerParticleSystem) return;
+    var posAttr = steerParticleSystem.geometry.getAttribute('position');
+    var colorAttr = steerParticleSystem.geometry.getAttribute('color');
+    var sizeAttr = steerParticleSystem.geometry.getAttribute('size');
+    var alphaAttr = steerParticleSystem.geometry.getAttribute('alpha');
+    var xMax = SCENE_WIDTH / 2 + 2;
+    var lastLayerX = layerMeshes[NUM_LAYERS - 1].position.x - 1.0;
+    var tokenZoneX = lastLayerX + 2.5;
+
+    // Update each blob
+    for (var b = steerBlobs.length - 1; b >= 0; b--) {
+      var blob = steerBlobs[b];
+      blob.life += dt;
+
+      // Move blob center rightward
+      blob.cx += blob.vx * dt;
+      blob.cy += Math.sin(time * 1.5 + b * 2.0) * 0.003;
+      blob.cz += Math.cos(time * 1.0 + b * 3.0) * 0.002;
+
+      // Converge Y toward layer bounds (±1.6) when spawned outside
+      var layerHalfH = 1.6;
+      if (blob.cy > layerHalfH) {
+        blob.cy += (layerHalfH - blob.cy) * dt * 2.0;
+      } else if (blob.cy < -layerHalfH) {
+        blob.cy += (-layerHalfH - blob.cy) * dt * 2.0;
+      }
+
+      // Converge Y/Z after last layer
+      if (blob.cx > lastLayerX) {
+        var converge = Math.min(1.0, (blob.cx - lastLayerX) / 2.0);
+        converge = converge * converge;
+        blob.cy += (0 - blob.cy) * converge * dt * 3.0;
+        blob.cz += (0 - blob.cz) * converge * dt * 3.0;
+      }
+
+      // Spawn token when blob reaches token zone
+      if (blob.cx > tokenZoneX && !blob.tokenSpawned) {
+        blob.tokenSpawned = true;
+        addSteerToken(blob.color);
+      }
+
+      // Disappear immediately after token spawned
+      if (blob.tokenSpawned) {
+        for (var q = 0; q < blob.particleIndices.length; q++) {
+          steerActive[blob.particleIndices[q]] = 0;
+          alphaAttr.array[blob.particleIndices[q]] = 0;
+        }
+        steerBlobs.splice(b, 1);
+        continue;
+      }
+      var blobAlpha = 1.0;
+
+      // Update particles orbiting blob center
+      var allDead = true;
+      for (var p = 0; p < blob.particleIndices.length; p++) {
+        var i = blob.particleIndices[p];
+        var angle = time * 2.0 + p * (Math.PI * 2 / blob.particleIndices.length);
+        var orbitR = 0.15 + 0.05 * Math.sin(time * 3.0 + p);
+        steerPositions[i * 3] = blob.cx + Math.cos(angle) * orbitR * 0.5;
+        steerPositions[i * 3 + 1] = blob.cy + Math.sin(angle) * orbitR;
+        steerPositions[i * 3 + 2] = blob.cz + Math.cos(angle * 0.7 + p) * orbitR * 0.3;
+
+        var pAlpha = blobAlpha * (0.7 + 0.3 * Math.sin(time * 4.0 + p));
+        alphaAttr.array[i] = Math.max(0, pAlpha);
+        sizeAttr.array[i] = 4.0 + 2.0 * Math.sin(time * 2.0 + p * 1.5);
+        if (pAlpha > 0) allDead = false;
+
+        posAttr.array[i * 3] = steerPositions[i * 3];
+        posAttr.array[i * 3 + 1] = steerPositions[i * 3 + 1];
+        posAttr.array[i * 3 + 2] = steerPositions[i * 3 + 2];
+      }
+
+      // Remove blob when fully faded
+      if (allDead || blob.cx > xMax) {
+        for (var q = 0; q < blob.particleIndices.length; q++) {
+          steerActive[blob.particleIndices[q]] = 0;
+          alphaAttr.array[blob.particleIndices[q]] = 0;
+        }
+        steerBlobs.splice(b, 1);
+      }
+    }
+
+    if (steerBlobs.length > 0 || steerNeedsFlush) {
+      posAttr.needsUpdate = true;
+      colorAttr.needsUpdate = true;
+      sizeAttr.needsUpdate = true;
+      alphaAttr.needsUpdate = true;
+      steerNeedsFlush = steerBlobs.length > 0;
+    }
+  }
+
+  // Custom click color (distinct from layer steer colors)
+  var CUSTOM_CLICK_COLOR = { r: 0.95, g: 0.85, b: 0.25 }; // bright yellow
+
+  function onCanvasClick(e) {
+    if (!raycaster || !camera) return;
+    var rect = canvas.getBoundingClientRect();
+    var nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    var ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    var THREE = window.THREE;
+    raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
+    // Check intersection with layer meshes
+    var hits = raycaster.intersectObjects(layerMeshes);
+    if (hits.length > 0) {
+      var hitLayer = layerMeshes.indexOf(hits[0].object);
+      if (hitLayer >= 0) {
+        // Same layer always gets the same color
+        if (!(hitLayer in layerColorMap)) {
+          layerColorMap[hitLayer] = STEER_COLORS[steerColorIdx % STEER_COLORS.length];
+          steerColorIdx++;
+        }
+        var hitPt = hits[0].point;
+        spawnSteerBlob(hitLayer, layerColorMap[hitLayer], hitPt.y, hitPt.z);
+        return;
+      }
+    }
+    // No layer hit — spawn from nearest layer with that layer's color
+    var target = new THREE.Vector3();
+    raycaster.ray.intersectPlane(mousePlane, target);
+    if (!target) return;
+    var bestLayer = 0;
+    var bestDist = Infinity;
+    for (var i = 0; i < NUM_LAYERS; i++) {
+      var d = Math.abs(layerMeshes[i].position.x - target.x);
+      if (d < bestDist) { bestDist = d; bestLayer = i; }
+    }
+    if (!(bestLayer in layerColorMap)) {
+      layerColorMap[bestLayer] = STEER_COLORS[steerColorIdx % STEER_COLORS.length];
+      steerColorIdx++;
+    }
+    spawnSteerBlob(bestLayer, layerColorMap[bestLayer], target.y, target.z);
+  }
+
+  // ---- Target zone (upper right) ----
+  function createTargetZone(THREE) {
+    // Target zone removed — was a distracting circle in top-right
+  }
+
+  // ---- Subtle grid lines ----
+  function createGridLines(THREE) {
+    var gridGroup = new THREE.Group();
+    var mat = new THREE.LineBasicMaterial({
+      color: currentPalette.gridColor,
+      transparent: true,
+      opacity: 0.15
+    });
+
+    for (var z = -3; z <= 3; z += 1) {
+      var pts = [
+        new THREE.Vector3(-SCENE_WIDTH / 2 - 2, -SCENE_HEIGHT / 2, z),
+        new THREE.Vector3(SCENE_WIDTH / 2 + 2, -SCENE_HEIGHT / 2, z)
+      ];
+      var geom = new THREE.BufferGeometry().setFromPoints(pts);
+      gridGroup.add(new THREE.Line(geom, mat));
+    }
+    for (var x = -8; x <= 8; x += 2) {
+      var pts2 = [
+        new THREE.Vector3(x, -SCENE_HEIGHT / 2, -3),
+        new THREE.Vector3(x, -SCENE_HEIGHT / 2, 3)
+      ];
+      var geom2 = new THREE.BufferGeometry().setFromPoints(pts2);
+      gridGroup.add(new THREE.Line(geom2, mat));
+    }
+
+    gridLines = gridGroup;
+    scene.add(gridGroup);
+  }
+
+  // ---- Circuit connections (sparse activation flashes between glow particles) ----
+  var NUM_CIRCUITS = 15;
+  var circuitMesh;
+  var circuitState = [];
+  var CIRCUIT_WIDTH = 0.04;
+
+  function createCircuits(THREE) {
+    var numVerts = NUM_CIRCUITS * 4;
+    var numIdx = NUM_CIRCUITS * 6;
+    var positions = new Float32Array(numVerts * 3);
+    var alphas = new Float32Array(numVerts);
+    var colors = new Float32Array(numVerts * 3);
+    var indices = new Uint16Array(numIdx);
+
+    for (var i = 0; i < NUM_CIRCUITS; i++) {
+      circuitState.push({
+        fromIdx: -1, toIdx: -1,
+        life: 0, maxLife: 0,
+        cooldown: Math.random() * 2.0,
+        active: false,
+        color: null
+      });
+      var vi = i * 4;
+      var ii = i * 6;
+      indices[ii]     = vi;     indices[ii + 1] = vi + 1; indices[ii + 2] = vi + 2;
+      indices[ii + 3] = vi + 2; indices[ii + 4] = vi + 1; indices[ii + 5] = vi + 3;
+    }
+
+    var geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geom.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
+    geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geom.setIndex(new THREE.BufferAttribute(indices, 1));
+
+    var mat = new THREE.ShaderMaterial({
+      vertexShader: [
+        'attribute float alpha;',
+        'attribute vec3 color;',
+        'varying float vAlpha;',
+        'varying vec3 vColor;',
+        'void main() {',
+        '  vAlpha = alpha;',
+        '  vColor = color;',
+        '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+      ].join('\n'),
+      fragmentShader: [
+        'varying float vAlpha;',
+        'varying vec3 vColor;',
+        'void main() {',
+        '  vec3 col = mix(vColor, vec3(1.0), vAlpha * 0.3);',
+        '  gl_FragColor = vec4(col, vAlpha * 0.85);',
+        '}'
+      ].join('\n'),
+      transparent: true,
+      depthWrite: false,
+      blending: getBlending(THREE),
+      side: THREE.DoubleSide
+    });
+
+    circuitMesh = new THREE.Mesh(geom, mat);
+    scene.add(circuitMesh);
+  }
+
+  function findNearbyGlowPair() {
+    // Only spark when glow particles are precisely at adjacent layer positions
+    var layerIdx = Math.floor(Math.random() * (NUM_LAYERS - 1));
+    var lxA = layerMeshes[layerIdx].position.x;
+    var lxB = layerMeshes[layerIdx + 1].position.x;
+    var threshold = 0.15; // must be inside the layer
+
+    var poolA = [], poolB = [];
+    for (var i = 0; i < NUM_GLOW; i++) {
+      var px = glowPositions[i * 3];
+      if (Math.abs(px - lxA) < threshold) poolA.push(i);
+      else if (Math.abs(px - lxB) < threshold) poolB.push(i);
+    }
+    if (poolA.length === 0 || poolB.length === 0) return null;
+
+    var bestA = poolA[0], bestActA = glowActivation[poolA[0]];
+    for (var j = 1; j < poolA.length; j++) {
+      if (glowActivation[poolA[j]] > bestActA) {
+        bestActA = glowActivation[poolA[j]];
+        bestA = poolA[j];
+      }
+    }
+    var bestB = poolB[0], bestActB = glowActivation[poolB[0]];
+    for (var k = 1; k < poolB.length; k++) {
+      if (glowActivation[poolB[k]] > bestActB) {
+        bestActB = glowActivation[poolB[k]];
+        bestB = poolB[k];
+      }
+    }
+    return [bestA, bestB];
+  }
+
+  // For colored circuits: store world positions directly instead of glow indices
+  function fireCircuit(idx) {
+    var c = circuitState[idx];
+    c.color = null;
+    c.customFrom = null;
+    c.customTo = null;
+
+    // Colored spark: connect a steer blob particle to a glow particle at adjacent layer
+    for (var b = 0; b < steerBlobs.length; b++) {
+      var blob = steerBlobs[b];
+      var bx = blob.cx;
+      for (var L = 0; L < NUM_LAYERS; L++) {
+        var lx = layerMeshes[L].position.x;
+        if (Math.abs(bx - lx) > 0.15) continue;
+        // Pick a steer particle from this blob as endpoint A
+        var si = blob.particleIndices[Math.floor(Math.random() * blob.particleIndices.length)];
+        // Find glow particle at adjacent layer as endpoint B
+        var adj = (L < NUM_LAYERS - 1) ? L + 1 : L - 1;
+        var lxAdj = layerMeshes[adj].position.x;
+        var pB = -1;
+        for (var i = 0; i < NUM_GLOW; i++) {
+          if (Math.abs(glowPositions[i * 3] - lxAdj) < 0.15) { pB = i; break; }
+        }
+        if (pB >= 0) {
+          // Use steer particle position as "from", glow as "to"
+          c.customFrom = { x: steerPositions[si * 3], y: steerPositions[si * 3 + 1], z: steerPositions[si * 3 + 2] };
+          c.fromIdx = -1; c.toIdx = pB;
+          c.life = 0; c.maxLife = 0.08 + Math.random() * 0.15;
+          c.active = true;
+          c.color = blob.color;
+          return true;
+        }
+      }
+    }
+
+    // Default: purple sparks between glow particles at layer positions
+    var pair = findNearbyGlowPair();
+    if (!pair) return false;
+    c.fromIdx = pair[0]; c.toIdx = pair[1];
+    c.life = 0; c.maxLife = 0.08 + Math.random() * 0.2;
+    c.active = true;
+    return true;
+  }
+
+  function updateCircuits(dt, time) {
+    if (!circuitMesh) return;
+    var posAttr = circuitMesh.geometry.getAttribute('position');
+    var alphaAttr = circuitMesh.geometry.getAttribute('alpha');
+    var colorAttr = circuitMesh.geometry.getAttribute('color');
+
+    // Default glow color from palette
+    var defR = ((currentPalette.particleGlow >> 16) & 255) / 255;
+    var defG = ((currentPalette.particleGlow >> 8) & 255) / 255;
+    var defB = (currentPalette.particleGlow & 255) / 255;
+
+    for (var i = 0; i < NUM_CIRCUITS; i++) {
+      var c = circuitState[i];
+      var vi = i * 4;
+
+      if (!c.active) {
+        c.cooldown -= dt;
+        if (c.cooldown <= 0) {
+          if (!fireCircuit(i)) {
+            c.cooldown = 0.5 + Math.random() * 1.0;
+            for (var k = 0; k < 4; k++) alphaAttr.array[vi + k] = 0;
+            continue;
+          }
+        } else {
+          c.cooldown -= isMouseOver ? dt * 2 : 0;
+          for (var k = 0; k < 4; k++) alphaAttr.array[vi + k] = 0;
+          continue;
+        }
+      }
+
+      c.life += dt;
+      if (c.life >= c.maxLife) {
+        c.active = false;
+        c.cooldown = 0.2 + Math.random() * 2.0;
+        for (var k2 = 0; k2 < 4; k2++) alphaAttr.array[vi + k2] = 0;
+        continue;
+      }
+
+      var t = c.life / c.maxLife;
+      var envelope = t < 0.05 ? t / 0.05 : Math.pow(1.0 - t, 2.0);
+      envelope = Math.max(0, Math.min(1, envelope));
+
+      var ax, ay, az;
+      if (c.customFrom) {
+        ax = c.customFrom.x; ay = c.customFrom.y; az = c.customFrom.z;
+      } else {
+        ax = glowPositions[c.fromIdx * 3];
+        ay = glowPositions[c.fromIdx * 3 + 1];
+        az = glowPositions[c.fromIdx * 3 + 2];
+      }
+      var bx = glowPositions[c.toIdx * 3];
+      var by = glowPositions[c.toIdx * 3 + 1];
+      var bz = glowPositions[c.toIdx * 3 + 2];
+
+      var dx = bx - ax, dy = by - ay, dz = bz - az;
+      var len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (len < 0.01) { len = 1; dx = 1; dy = 0; dz = 0; }
+
+      var nx = -dy / len, ny = dx / len;
+      var w = CIRCUIT_WIDTH * (0.5 + envelope * 0.5);
+
+      posAttr.array[vi * 3]     = ax - nx * w;
+      posAttr.array[vi * 3 + 1] = ay - ny * w;
+      posAttr.array[vi * 3 + 2] = az;
+      posAttr.array[(vi+1) * 3]     = ax + nx * w;
+      posAttr.array[(vi+1) * 3 + 1] = ay + ny * w;
+      posAttr.array[(vi+1) * 3 + 2] = az;
+      posAttr.array[(vi+2) * 3]     = bx - nx * w;
+      posAttr.array[(vi+2) * 3 + 1] = by - ny * w;
+      posAttr.array[(vi+2) * 3 + 2] = bz;
+      posAttr.array[(vi+3) * 3]     = bx + nx * w;
+      posAttr.array[(vi+3) * 3 + 1] = by + ny * w;
+      posAttr.array[(vi+3) * 3 + 2] = bz;
+
+      // Per-vertex color: blob color or default glow
+      var cr = defR, cg = defG, cb = defB;
+      if (c.color) { cr = c.color.r; cg = c.color.g; cb = c.color.b; }
+      for (var k3 = 0; k3 < 4; k3++) {
+        alphaAttr.array[vi + k3] = envelope;
+        colorAttr.array[(vi + k3) * 3]     = cr;
+        colorAttr.array[(vi + k3) * 3 + 1] = cg;
+        colorAttr.array[(vi + k3) * 3 + 2] = cb;
+      }
+    }
+
+    posAttr.needsUpdate = true;
+    alphaAttr.needsUpdate = true;
+    colorAttr.needsUpdate = true;
+  }
+
+  // ---- Particle update ----
+  function updateParticles(dt, time) {
+    if (!particleSystem) return;
+    var posAttr = particleSystem.geometry.getAttribute('position');
+    var sizeAttr = particleSystem.geometry.getAttribute('size');
+    var alphaAttr = particleSystem.geometry.getAttribute('alpha');
+    var xMax = SCENE_WIDTH / 2 + 2;
+
+    for (var i = 0; i < NUM_PARTICLES; i++) {
+      particleLifetimes[i] += dt;
+
+      particlePositions[i * 3]     += particleVelocities[i * 3] * dt;
+      particlePositions[i * 3 + 1] += particleVelocities[i * 3 + 1] * dt;
+      particlePositions[i * 3 + 2] += particleVelocities[i * 3 + 2] * dt;
+
+      particlePositions[i * 3 + 1] += Math.sin(time * 0.8 + particlePhases[i]) * 0.002;
+
+      var x = particlePositions[i * 3];
+      for (var L = 0; L < NUM_LAYERS; L++) {
+        var lx = layerMeshes[L].position.x;
+        var distToLayer = Math.abs(x - lx);
+        if (distToLayer < 0.3) {
+          var influence = 1.0 - distToLayer / 0.3;
+          particlePositions[i * 3 + 1] += Math.sin(time * 3 + particlePhases[i] + L) * 0.003 * influence;
+          sizeAttr.array[i] = 2.0 + influence * 1.5;
+          alphaAttr.array[i] = 0.3 + influence * 0.2;
+        }
+      }
+
+      // Mouse: muted particles repel from cursor
+      if (isMouseOver) {
+        var dx = particlePositions[i * 3] - mouseWorld.x;
+        var dy = particlePositions[i * 3 + 1] - mouseWorld.y;
+        var distMouse = Math.sqrt(dx * dx + dy * dy);
+        if (distMouse < mouseInfluenceRadius && distMouse > 0.01) {
+          var repelForce = (1.0 - distMouse / mouseInfluenceRadius);
+          repelForce = repelForce * repelForce * 0.15 * dt;
+          particlePositions[i * 3]     += (dx / distMouse) * repelForce;
+          particlePositions[i * 3 + 1] += (dy / distMouse) * repelForce;
+          alphaAttr.array[i] = Math.max(0.15, alphaAttr.array[i] - repelForce * 2);
+        }
+      }
+
+      if (particlePositions[i * 3] > xMax) {
+        resetParticle(i, false);
+      }
+
+      posAttr.array[i * 3]     = particlePositions[i * 3];
+      posAttr.array[i * 3 + 1] = particlePositions[i * 3 + 1];
+      posAttr.array[i * 3 + 2] = particlePositions[i * 3 + 2];
+    }
+
+    posAttr.needsUpdate = true;
+    sizeAttr.needsUpdate = true;
+    alphaAttr.needsUpdate = true;
+  }
+
+  function updateGlowParticles(dt, time) {
+    if (!glowParticleSystem) return;
+    var posAttr = glowParticleSystem.geometry.getAttribute('position');
+    var sizeAttr = glowParticleSystem.geometry.getAttribute('size');
+    var alphaAttr = glowParticleSystem.geometry.getAttribute('alpha');
+    var xMax = SCENE_WIDTH / 2 + 2;
+    var halfW = SCENE_WIDTH / 2;
+
+    for (var i = 0; i < NUM_GLOW; i++) {
+      glowLifetimes[i] += dt;
+
+      var x = glowPositions[i * 3];
+      var progress = (x + halfW) / SCENE_WIDTH;
+
+      glowPositions[i * 3] += glowVelocities[i * 3] * dt;
+
+      // Decay activation every frame so it doesn't accumulate forever
+      glowActivation[i] *= (1.0 - dt * 2.0);
+
+      for (var L = 0; L < NUM_LAYERS; L++) {
+        var lx = layerMeshes[L].position.x;
+        var distToLayer = Math.abs(x - lx);
+        if (distToLayer < 0.25) {
+          var activationBoost = (1.0 - distToLayer / 0.25) * dt * 3.0;
+          glowActivation[i] = Math.min(1.0, glowActivation[i] + activationBoost);
+        }
+      }
+
+      // Set size/alpha from activation (computed fresh each frame, no accumulation)
+      sizeAttr.array[i] = 3.5 + glowActivation[i] * 8.0;
+      alphaAttr.array[i] = 0.6 + glowActivation[i] * 0.4;
+
+      // HORIZONTAL flow: gentle vertical wobble, no diagonal rise
+      glowPositions[i * 3 + 1] += Math.sin(time * 1.2 + glowPhases[i]) * 0.002;
+      glowPositions[i * 3 + 2] += Math.cos(time * 0.9 + glowPhases[i]) * 0.001;
+
+      // Mouse: glow particles ATTRACT toward cursor
+      if (isMouseOver) {
+        var dx = mouseWorld.x - glowPositions[i * 3];
+        var dy2 = mouseWorld.y - glowPositions[i * 3 + 1];
+        var distMouse = Math.sqrt(dx * dx + dy2 * dy2);
+        if (distMouse < mouseInfluenceRadius * 1.5 && distMouse > 0.01) {
+          var attractForce = (1.0 - distMouse / (mouseInfluenceRadius * 1.5));
+          attractForce = attractForce * attractForce;
+          var strength = isMouseDown ? 0.4 : 0.12;
+          glowPositions[i * 3]     += (dx / distMouse) * attractForce * strength * dt;
+          glowPositions[i * 3 + 1] += (dy2 / distMouse) * attractForce * strength * dt;
+          sizeAttr.array[i] += attractForce * 4.0;
+          alphaAttr.array[i] = Math.min(1.0, alphaAttr.array[i] + attractForce * 0.2);
+          if (isMouseDown) {
+            glowActivation[i] = Math.min(1.0, glowActivation[i] + attractForce * dt * 2.0);
+          }
+        }
+      }
+
+      // Converge Y/Z toward center after last layer (particles cluster)
+      var lastLayerX = layerMeshes[NUM_LAYERS - 1].position.x - 1.0;
+      if (x > lastLayerX) {
+        var toFocalY = 0 - glowPositions[i * 3 + 1];
+        var toFocalZ = 0 - glowPositions[i * 3 + 2];
+        var converge = Math.min(1.0, (x - lastLayerX) / 2.0);
+        converge = converge * converge;
+        glowPositions[i * 3 + 1] += toFocalY * converge * dt * 2.5;
+        glowPositions[i * 3 + 2] += toFocalZ * converge * dt * 2.5;
+        // Fade near right edge (absorbed into token)
+        var distToEdge = xMax - glowPositions[i * 3];
+        if (distToEdge < 0.8) {
+          var fade = distToEdge / 0.8;
+          sizeAttr.array[i] *= fade;
+          alphaAttr.array[i] *= fade;
+        }
+      }
+
+      var pulse = 0.85 + 0.15 * Math.sin(time * 2.5 + glowPhases[i]);
+      alphaAttr.array[i] *= pulse;
+
+      if (glowPositions[i * 3] > xMax) {
+        resetGlowParticle(i, false);
+      }
+
+      posAttr.array[i * 3]     = glowPositions[i * 3];
+      posAttr.array[i * 3 + 1] = glowPositions[i * 3 + 1];
+      posAttr.array[i * 3 + 2] = glowPositions[i * 3 + 2];
+    }
+
+    posAttr.needsUpdate = true;
+    sizeAttr.needsUpdate = true;
+    alphaAttr.needsUpdate = true;
+  }
+
+  // ---- Layer animation ----
+  function updateLayers(time) {
+    for (var i = 0; i < NUM_LAYERS; i++) {
+      var mesh = layerMeshes[i];
+      var edge = layerEdgeMeshes[i];
+
+      var breathe = 1.0 + Math.sin(time * 0.6) * 0.02;
+
+      // Mouse proximity highlight
+      var layerHighlight = 0;
+      if (isMouseOver) {
+        var dxLayer = Math.abs(mouseWorld.x - mesh.position.x);
+        if (dxLayer < 2.0) {
+          layerHighlight = 1.0 - dxLayer / 2.0;
+        }
+      }
+
+      var hoverScale = 1.0 + layerHighlight * 0.05;
+      mesh.scale.set(hoverScale, breathe * hoverScale, breathe * hoverScale);
+      edge.scale.copy(mesh.scale);
+
+      mesh.material.opacity = currentPalette.layerOpacity + layerHighlight * 0.08;
+
+      // HORIZONTAL highlight — no i*0.9 phase offset
+      var edgePulse = 0.2 + 0.1 * Math.sin(time * 1.2) + layerHighlight * 0.35;
+      edge.material.opacity = edgePulse;
+    }
+  }
+
+  // ---- Mouse handlers ----
+  function onMouseMove(e) {
+    var rect = canvas.getBoundingClientRect();
+    mouseNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouseNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    updateMouseWorld();
+  }
+
+  function onTouchMove(e) {
+    if (!e.touches.length) return;
+    var rect = canvas.getBoundingClientRect();
+    mouseNDC.x = ((e.touches[0].clientX - rect.left) / rect.width) * 2 - 1;
+    mouseNDC.y = -((e.touches[0].clientY - rect.top) / rect.height) * 2 + 1;
+    updateMouseWorld();
+  }
+
+  function updateMouseWorld() {
+    if (!raycaster || !camera) return;
+    var THREE = window.THREE;
+    var ndcVec = new THREE.Vector3(mouseNDC.x, mouseNDC.y, 0.5);
+    raycaster.setFromCamera(ndcVec, camera);
+    var target = new THREE.Vector3();
+    raycaster.ray.intersectPlane(mousePlane, target);
+    if (target) {
+      mouseWorld.x = target.x;
+      mouseWorld.y = target.y;
+      mouseWorld.z = target.z;
+    }
+  }
+
+  // ---- Camera: slow orbit + mouse parallax ----
+  var camCurrent = { x: 0, y: 0, z: 20 };
+  var CAM_RADIUS = 20;
+
+  function updateCamera(time) {
+    var targetX, targetY, targetZ;
+
+    if (isMouseOver) {
+      targetX = mouseNDC.x * 1.0;
+      targetY = mouseNDC.y * 0.3;
+      targetZ = CAM_RADIUS;
+    } else {
+      // Gentle slow rotation — small angle so layers stay mostly frontal
+      var angle = time * 0.08;
+      targetX = Math.sin(angle) * 2.5;
+      targetY = Math.sin(time * 0.05) * 0.3;
+      targetZ = CAM_RADIUS;
+    }
+
+    var lerpSpeed = isMouseOver ? 0.05 : 0.02;
+    camCurrent.x += (targetX - camCurrent.x) * lerpSpeed;
+    camCurrent.y += (targetY - camCurrent.y) * lerpSpeed;
+    camCurrent.z += (targetZ - camCurrent.z) * lerpSpeed;
+
+    camera.position.set(camCurrent.x, camCurrent.y, camCurrent.z);
+    camera.lookAt(0, 0, 0);
+  }
+
+  // ---- Position token overlay at 3D convergence point ----
+  function updateTokenPosition() {
+    if (!camera || !container || !tokenContainer) return;
+    var THREE = window.THREE;
+    if (!THREE) return;
+    var lastLayerX = layerMeshes[NUM_LAYERS - 1].position.x;
+    var convergePt = new THREE.Vector3(lastLayerX + 0.5, 0, 0);
+    convergePt.project(camera);
+    var pctLeft = (convergePt.x * 0.5 + 0.5) * 100;
+    tokenContainer.style.left = pctLeft + '%';
+  }
+
+  // ---- Main animation loop ----
+  function animate() {
+    animFrameId = requestAnimationFrame(animate);
+    if (!isInitialized) return;
+
+    var dt = Math.min(clock.getDelta(), 0.05);
+    var time = clock.getElapsedTime();
+
+    updateCamera(time);
+    updateLayers(time);
+    updateParticles(dt, time);
+    updateGlowParticles(dt, time);
+    updateCircuits(dt, time);
+    updateSteerParticles(dt, time);
+    updateTokenPosition();
+
+    renderer.render(scene, camera);
+  }
+
+  // ---- Resize handler ----
+  function onResize() {
+    if (!renderer || !camera || !container) return;
+    var w = container.clientWidth;
+    var h = container.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+
+    // Scale down particle sizes on mobile
+    var pr = renderer.getPixelRatio();
+    var scale = w < 768 ? 0.6 : 1.0;
+    var adjusted = pr * scale;
+    if (particleSystem) particleSystem.material.uniforms.uPixelRatio.value = adjusted;
+    if (glowParticleSystem) glowParticleSystem.material.uniforms.uPixelRatio.value = adjusted;
+    if (steerParticleSystem) steerParticleSystem.material.uniforms.uPixelRatio.value = adjusted;
+  }
+
+  // ---- Theme update ----
+  function updateTheme() {
+    currentPalette = PALETTE[getTheme()];
+    if (!renderer) return;
+
+    var THREE = window.THREE;
+    var blend = getBlending(THREE);
+
+    renderer.setClearColor(currentPalette.bg, 1);
+    scene.fog.color.set(currentPalette.fogColor);
+    scene.fog.near = currentPalette.fogNear;
+    scene.fog.far = currentPalette.fogFar;
+
+    scene.getObjectByName('ambient').color.set(currentPalette.ambientLight);
+    scene.getObjectByName('dirLight').color.set(currentPalette.dirLight);
+    scene.getObjectByName('pointLight').color.set(currentPalette.particleGlow);
+
+    for (var i = 0; i < layerMeshes.length; i++) {
+      layerMeshes[i].material.color.set(currentPalette.layerColor);
+      layerMeshes[i].material.opacity = currentPalette.layerOpacity;
+      layerEdgeMeshes[i].material.color.set(currentPalette.layerEdge);
+    }
+
+    if (particleSystem) {
+      particleSystem.material.uniforms.uColor.value.set(currentPalette.particleMuted);
+      particleSystem.material.blending = blend;
+      particleSystem.material.needsUpdate = true;
+    }
+    if (glowParticleSystem) {
+      glowParticleSystem.material.uniforms.uColor.value.set(currentPalette.particleActive);
+      glowParticleSystem.material.uniforms.uGlowColor.value.set(currentPalette.particleGlow);
+      glowParticleSystem.material.blending = blend;
+      glowParticleSystem.material.needsUpdate = true;
+    }
+
+
+    if (circuitMesh) {
+      circuitMesh.material.blending = blend;
+      circuitMesh.material.needsUpdate = true;
+    }
+    if (steerParticleSystem) {
+      steerParticleSystem.material.blending = blend;
+      steerParticleSystem.material.needsUpdate = true;
+    }
+    if (gridLines) {
+      gridLines.children.forEach(function(line) {
+        line.material.color.set(currentPalette.gridColor);
+      });
+    }
+  }
+
+  // ---- Token generation visualization (single-line stream) ----
+  var tokenPool = [];
+  var tokenContainer = null;
+  var tokenPoolIdx = 0;
+  var MAX_TOKENS = 5;
+
+  function buildTokenPool() {
+    // Grab article text from the page DOM
+    var main = document.querySelector('main');
+    if (!main) return;
+    var paragraphs = main.querySelectorAll('p, li');
+    var texts = [];
+    for (var i = 0; i < paragraphs.length; i++) {
+      var t = paragraphs[i].textContent.trim();
+      if (t.length > 20) texts.push(t);
+    }
+    // Tokenize into word-level tokens
+    for (var j = 0; j < texts.length; j++) {
+      var words = texts[j].split(/(\s+)/);
+      for (var k = 0; k < words.length; k++) {
+        var w = words[k];
+        if (w.trim().length > 0) tokenPool.push(w.trim());
+      }
+    }
+    // No shuffle — keep article order
+  }
+
+  function startTokenAnimation() {
+    tokenContainer = document.getElementById('hero-tokens');
+    if (!tokenContainer) return;
+    buildTokenPool();
+    if (tokenPool.length === 0) return;
+    tokenPoolIdx = 0;
+    scheduleNextToken();
+  }
+
+  function scheduleNextToken() {
+    var delay = 200 + Math.random() * 200;
+    setTimeout(addNextToken, delay);
+  }
+
+  function addNextToken() {
+    if (!tokenContainer || tokenPool.length === 0) return;
+
+    // Remove oldest (rightmost)
+    while (tokenContainer.children.length >= MAX_TOKENS) {
+      var oldest = tokenContainer.children[tokenContainer.children.length - 1];
+      oldest.classList.add('out');
+      (function(el) {
+        setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 200);
+      })(oldest);
+      break;
+    }
+
+    var span = document.createElement('span');
+    span.className = 'hero-token';
+    span.textContent = tokenPool[tokenPoolIdx];
+    if (tokenContainer.firstChild) {
+      tokenContainer.insertBefore(span, tokenContainer.firstChild);
+    } else {
+      tokenContainer.appendChild(span);
+    }
+
+    tokenPoolIdx = (tokenPoolIdx + 1) % tokenPool.length;
+    scheduleNextToken();
+  }
+
+  function addSteerToken(color) {
+    if (!tokenContainer) return;
+    // Remove oldest if at max
+    while (tokenContainer.children.length >= MAX_TOKENS) {
+      var oldest = tokenContainer.children[tokenContainer.children.length - 1];
+      oldest.classList.add('out');
+      (function(el) {
+        setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 200);
+      })(oldest);
+      break;
+    }
+    var span = document.createElement('span');
+    span.className = 'hero-token';
+    var word = tokenPool.length > 0 ? tokenPool[tokenPoolIdx] : 'steer';
+    span.textContent = word;
+    if (tokenPool.length > 0) tokenPoolIdx = (tokenPoolIdx + 1) % tokenPool.length;
+    var cr = Math.round(color.r * 255);
+    var cg = Math.round(color.g * 255);
+    var cb = Math.round(color.b * 255);
+    span.style.color = 'rgba(' + cr + ',' + cg + ',' + cb + ',0.9)';
+    span.style.background = 'rgba(' + cr + ',' + cg + ',' + cb + ',0.15)';
+    span.style.borderColor = 'rgba(' + cr + ',' + cg + ',' + cb + ',0.2)';
+    if (tokenContainer.firstChild) {
+      tokenContainer.insertBefore(span, tokenContainer.firstChild);
+    } else {
+      tokenContainer.appendChild(span);
+    }
+  }
+
+  // ---- Bootstrap: load Three.js r143 ----
+  function bootstrap() {
+    if (window.THREE) {
+      init();
+      return;
+    }
+    var s = document.getElementById('three-cdn-core');
+    if (s) {
+      // Script tag exists but THREE not yet loaded — wait for it
+      s.addEventListener('load', function() { if (window.THREE) init(); }, { once: true });
+      return;
+    }
+    s = document.createElement('script');
+    s.id = 'three-cdn-core';
+    s.src = 'https://cdn.jsdelivr.net/npm/three@0.143.0/build/three.min.js';
+    s.onload = function() { init(); };
+    s.onerror = function() {
+      // Hide canvas on error instead of showing blank
+      var c = document.getElementById('corrsteer-hero-container');
+      if (c) c.style.display = 'none';
+    };
+    document.head.appendChild(s);
+  }
+
+  // Start
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
+  } else {
+    bootstrap();
+  }
+})();
+</script>

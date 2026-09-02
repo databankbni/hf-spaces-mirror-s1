@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Held-out TacEx Wipe comparison of DP, RDP, and slow-fast late fusion.">
+  <link rel="icon" href="data:,">
+  <title>TacEx Wipe | Held-out replay and policy rollouts</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">TacEx Wipe evidence dashboard</div>
+    <h1>DP, RDP, and slow-fast late fusion</h1>
+    <p class="lede">Held-out post-shift replay and matched Isaac Lab rollouts for sustained
+      contact under tactile-data scarcity. Ours combines separate slow proprioceptive and
+      fast tactile representations through rank-8 FiLM before one action decoder.</p>
+    <div class="protocol" aria-label="Evaluation protocol">
+      <span>3 training seeds</span><span>75 held-out replay episodes</span>
+      <span>onboard proprio + force history</span><span>8 tactile labels per checkpoint</span>
+    </div>
+  </header>
+
+  <section class="replay" aria-labelledby="replay-title">
+    <div class="section-head">
+      <div><div class="kicker">TacEx-Wipe-Scarce-Replay-v1 · held-out confirmation</div><h2 id="replay-title">Post-shift expert-action replay</h2></div>
+      <div class="status fail">Frozen ordering rejected</div>
+    </div>
+    <p class="metric-note">Action MSE over eight frames after the tactile shift. Lower is better; intervals are 95% hierarchical bootstrap CIs.</p>
+    <div class="score-grid replay-score-grid">
+      <article class="score ours">
+        <div class="method">Ours</div><div class="value">0.0179</div>
+        <div class="fraction">post-shift action MSE</div><div class="ci">95% CI [0.0139, 0.0228]</div>
+        <div class="metric-bar" aria-hidden="true"><span style="width: 10%"></span></div>
+      </article>
+      <article class="score dp">
+        <div class="method">DP</div><div class="value">0.1332</div>
+        <div class="fraction">post-shift action MSE</div><div class="ci">95% CI [0.1005, 0.1670]</div>
+        <div class="metric-bar" aria-hidden="true"><span style="width: 73%"></span></div>
+      </article>
+      <article class="score rdp">
+        <div class="method">RDP</div><div class="value">0.1457</div>
+        <div class="fraction">post-shift action MSE</div><div class="ci">95% CI [0.1087, 0.1830]</div>
+        <div class="metric-bar" aria-hidden="true"><span style="width: 80%"></span></div>
+      </article>
+    </div>
+    <p class="verdict"><b>Held-out order:</b> Ours &gt; DP &gt; RDP. The preregistered Ours &gt; RDP &gt; DP hypothesis failed and was not retuned.</p>
+
+    <div class="analysis-grid">
+      <article class="analysis-panel">
+        <div class="panel-label">Paired negative-MSE effects</div>
+        <div class="effect-list">
+          <div class="effect-row"><span>Ours - RDP</span><strong class="positive">+0.1278</strong><small>[+0.0872, +0.1681] · 3/3 seeds</small></div>
+          <div class="effect-row"><span>RDP - DP</span><strong class="negative">-0.0125</strong><small>[-0.0677, +0.0424] · 1/3 seeds</small></div>
+        </div>
+      </article>
+      <article class="analysis-panel">
+        <div class="panel-label">Causal corrective episodes</div>
+        <div class="response-list">
+          <div class="response-row rdp-row"><span>RDP</span><div class="response-track"><i style="width: 54.7%"></i></div><div class="response-value"><strong>54.7%</strong><small>[43.4, 65.4]</small></div></div>
+          <div class="response-row ours-row"><span>Ours</span><div class="response-track"><i style="width: 37.3%"></i></div><div class="response-value"><strong>37.3%</strong><small>[27.3, 48.6]</small></div></div>
+          <div class="response-row dp-row"><span>DP</span><div class="response-track"><i style="width: 0%"></i></div><div class="response-value"><strong>0.0%</strong><small>[0.0, 4.9]</small></div></div>
+        </div>
+        <p class="panel-note">RDP reacts more correctly to the shift than Ours. Any-response rates are 100%, 100%, and 0%, respectively.</p>
+      </article>
+    </div>
+    <p class="caveat">This is offline paired action replay, not closed-loop task success. Ours best imitates the recorded expert actions; RDP has the stronger tactile-correction mechanism read.</p>
+    <div class="artifact-links" aria-label="Frozen replay artifacts">
+      <a href="data/tacex_causal_replay_v1/RESULTS.md">Full result</a>
+      <a href="data/tacex_causal_replay_v1/freeze.json">Frozen protocol</a>
+      <a href="data/tacex_causal_replay_v1/analysis.json">Analysis JSON</a>
+      <a href="data/tacex_causal_replay_v1/heldout.json">Episode output</a>
+    </div>
+  </section>
+
+  <section aria-labelledby="headline-title">
+    <div class="section-head">
+      <div><div class="kicker">Earlier matched closed-loop study · 8 tactile labels</div><h2 id="headline-title">Disturbed Wipe success</h2></div>
+      <div class="status">Directional, not statistically resolved</div>
+    </div>
+    <div class="score-grid">
+      <article class="score ours"><div class="method">Ours</div><div class="value">43.2%</div><div class="fraction">166 / 384</div><div class="ci">95% CI [38.4, 48.2]</div></article>
+      <article class="score rdp"><div class="method">RDP</div><div class="value">43.0%</div><div class="fraction">165 / 384</div><div class="ci">95% CI [38.1, 48.0]</div></article>
+      <article class="score dp"><div class="method">DP</div><div class="value">41.7%</div><div class="fraction">160 / 384</div><div class="ci">95% CI [36.8, 46.7]</div></article>
+    </div>
+    <p class="caveat">Ours - RDP: +0.26 percentage points, paired hierarchical-bootstrap
+      95% CI [-10.94, +11.98]. Ours - DP: +1.56 points [-7.55, +10.94].</p>
+  </section>
+
+  <section aria-labelledby="video-title">
+    <div class="section-head">
+      <div><div class="kicker">Matched initial state</div><h2 id="video-title">Task and policy rollouts</h2></div>
+      <div class="view-key"><b>left:</b> front &nbsp; <b>right:</b> wrist</div>
+    </div>
+    <figure class="comparison-video">
+      <video controls muted loop playsinline preload="metadata" poster="media/wipe_comparison_poster.jpg">
+        <source src="media/wipe_dp_rdp_ours.mp4" type="video/mp4">
+      </video>
+      <figcaption>Synchronized 11.96 s comparison. The blue surface shifts laterally during contact.
+        All three recorded camera-index-1 episodes reach success; use the pooled table, not these clips,
+        for quantitative comparison.</figcaption>
+    </figure>
+    <div class="video-grid">
+      <article class="video-card">
+        <div class="video-label"><b>DP</b><span>open-loop action queue</span></div>
+        <video controls muted loop playsinline preload="metadata" poster="media/wipe_dp_poster.jpg">
+          <source src="media/wipe_dp_t8_s0.mp4" type="video/mp4">
+        </video>
+      </article>
+      <article class="video-card">
+        <div class="video-label"><b>RDP</b><span>slow latent, tactile re-decode</span></div>
+        <video controls muted loop playsinline preload="metadata" poster="media/wipe_rdp_poster.jpg">
+          <source src="media/wipe_rdp_t8_s0.mp4" type="video/mp4">
+        </video>
+      </article>
+      <article class="video-card">
+        <div class="video-label"><b>Ours</b><span>slow-fast late representation fusion</span></div>
+        <video controls muted loop playsinline preload="metadata" poster="media/wipe_ours_poster.jpg">
+          <source src="media/wipe_ours_t8_s0.mp4" type="video/mp4">
+        </video>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="ratio-title">
+    <div class="section-head">
+      <div><div class="kicker">Same checkpoints and reset stream</div><h2 id="ratio-title">Robustness to tactile-data ratio</h2></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tactile labels</th><th>Ours</th><th>RDP</th><th>DP</th><th>Ours tactile reliance</th></tr></thead>
+        <tbody>
+          <tr><td>103</td><td><b>41.9%</b> <small>[37.1, 46.9]</small></td><td>45.3% <small>[40.4, 50.3]</small></td><td>45.3% <small>[40.4, 50.3]</small></td><td class="positive">+3.91 pp</td></tr>
+          <tr><td>32</td><td><b>40.4%</b> <small>[35.6, 45.3]</small></td><td>44.5% <small>[39.6, 49.5]</small></td><td>41.7% <small>[36.8, 46.7]</small></td><td class="positive">+3.13 pp</td></tr>
+          <tr class="focus"><td>8</td><td><b>43.2%</b> <small>[38.4, 48.2]</small></td><td>43.0% <small>[38.1, 48.0]</small></td><td>41.7% <small>[36.8, 46.7]</small></td><td class="positive">+5.99 pp</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="delta-grid">
+      <article><span>Ours</span><strong class="positive">+1.30 pp</strong><small>8-label minus 103-label success</small></article>
+      <article><span>RDP</span><strong>-2.34 pp</strong><small>8-label minus 103-label success</small></article>
+      <article><span>DP</span><strong>-3.65 pp</strong><small>8-label minus 103-label success</small></article>
+    </div>
+    <p class="caveat">Ours has the best point-estimate scarcity change and positive pooled
+      live-minus-tactile-null success at every tier. The robustness contrasts have intervals
+      crossing zero; RDP remains above Ours at 103 and 32 labels.</p>
+  </section>
+
+  <section aria-labelledby="causal-title">
+    <div class="section-head">
+      <div><div class="kicker">TacEx-Wipe-Causal-Response-v1</div><h2 id="causal-title">Does touch change the action inside a chunk?</h2></div>
+      <div class="status pass">Mechanism endpoint passed</div>
+    </div>
+    <div class="causal-grid">
+      <article><div class="method">RDP</div><div class="value">94.5%</div><div class="fraction">726 / 768 actions changed</div></article>
+      <article><div class="method">DP</div><div class="value">0.0%</div><div class="fraction">0 / 768 actions changed</div></article>
+      <article><div class="method">Effect</div><div class="value">+94.53 pp</div><div class="fraction">95% CI [+92.84, +96.09]</div></article>
+    </div>
+    <p class="caveat">This architecture-aligned counterfactual holds the slow plan fixed and
+      replaces post-shift tactile frames with the last pre-shift frame. It establishes RDP's
+      fast sensory pathway, not task superiority. Final Wipe success on that stream is RDP
+      323/768 versus DP 325/768. Ours was not evaluated on this DP/RDP-only diagnostic.</p>
+  </section>
+
+  <footer>
+    <a href="data/tacex_causal_replay_v1/RESULTS.md">Frozen replay result</a>
+    <a href="https://huggingface.co/datasets/aaa1234zzz/roboprog-tacex-asymmetry/tree/main/wipe">Data, manifests, and frozen reports</a>
+    <span>Simulator: Isaac Lab / TacEx</span><span>Control: 24 Hz</span><span>Updated 2026-08-14</span>
+  </footer>
+</main>
+</body>
+</html>

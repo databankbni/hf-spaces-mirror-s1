@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f3a68">
+  <title>Caudales mínimos — HYDROFRA</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .badge { display:inline-block; padding:2px 8px; border-radius:3px;
+             font-size:.78em; font-weight:600; margin-left:6px; }
+    .badge.done { background:#27ae60; color:#fff; }
+    .badge.todo { background:#e67e22; color:#fff; }
+    .badge.skip { background:#7f8c8d; color:#fff; }
+    .nota { background:#fff8e1; border-left:4px solid #f39c12;
+            padding:1em 1.2em; border-radius:4px; margin:1.4em 0; }
+    .nota h3 { margin-top:0; color:#b8770e; }
+    ul.bloques { list-style:none; padding:0; }
+    ul.bloques li { padding:.6em .8em; border-bottom:1px solid #e3e8ee; }
+  </style>
+</head>
+<body>
+  <main class="contenedor">
+    <header>
+      <a href="{{ url_for('index') }}" class="volver">← Volver al inicio</a>
+      <h1>Análisis de caudales mínimos</h1>
+      <p class="lead">Plan del informe — proyecto: {{ proyecto.nombre_proyecto }}</p>
+    </header>
+
+    <section>
+      <h2>Datos recibidos</h2>
+      <table class="resumen">
+        <tr><th>Proyecto</th><td>{{ proyecto.nombre_proyecto }}</td></tr>
+        <tr><th>Ingeniero</th><td>{{ proyecto.ingeniero }}</td></tr>
+        <tr><th>Ubicación</th><td>{{ proyecto.ubicacion }}</td></tr>
+        <tr><th>Coordenadas</th>
+            <td>Lat = {{ "%.6f"|format(lat) }}°,
+                Lon = {{ "%.6f"|format(lon) }}°</td></tr>
+        <tr><th>Tipo de aprovechamiento</th><td>{{ uso }}</td></tr>
+        <tr><th>Años de serie</th><td>{{ anios }}</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Análisis seleccionados</h2>
+      <ul class="bloques">
+        <li>Curva de duración de caudales (FDC) + percentiles
+          {% if analisis['FDC'] %}<span class="badge todo">en desarrollo</span>
+          {% else %}<span class="badge skip">no seleccionado</span>{% endif %}
+        </li>
+        <li>Análisis de frecuencia de mínimos (Q7,10 / Q30,10)
+          {% if analisis['Frecuencia mínimos'] %}<span class="badge todo">en desarrollo</span>
+          {% else %}<span class="badge skip">no seleccionado</span>{% endif %}
+        </li>
+        <li>Caudales ecológicos (Tennant, Tessman, Q90, Smakhtin)
+          {% if analisis['Ecológicos'] %}<span class="badge todo">en desarrollo</span>
+          {% else %}<span class="badge skip">no seleccionado</span>{% endif %}
+        </li>
+        <li>Curva de recesión + caudal base (Maillet/Boussinesq)
+          {% if analisis['Recesión'] %}<span class="badge todo">en desarrollo</span>
+          {% else %}<span class="badge skip">no seleccionado</span>{% endif %}
+        </li>
+        <li>Análisis espacial de cambio climático (CMIP6, Bolivia)
+          {% if analisis['Cambio climático'] %}<span class="badge todo">en desarrollo</span>
+          {% else %}<span class="badge skip">no seleccionado</span>{% endif %}
+        </li>
+      </ul>
+    </section>
+
+    <div class="nota">
+      <h3>⚙ Esta sección está en desarrollo</h3>
+      <p>
+        La pestaña <b>Caudales mínimos</b> es nueva. Formulario, navegación
+        y validación ya están operativos. El motor de cálculo se está
+        implementando por etapas, partiendo de información de
+        <b>SENAMHI Bolivia</b>, las fuentes nacionales de caudales del
+        <b>Balance Hídrico Superficial de Bolivia (MMAyA)</b> y modelos
+        de cambio climático <b>CMIP6 NEX-GDDP</b> y <b>CORDEX-SAM</b>.
+      </p>
+
+      <h4>Fuentes de datos base</h4>
+      <ul>
+        <li><b>SENAMHI Bolivia</b> — estaciones meteorológicas e
+            hidrométricas (BHN) de referencia y aforos mensuales del
+            catálogo nacional.</li>
+        <li><b>Balance Hídrico Superficial de Bolivia (BHSB, MMAyA 2017)</b>
+            — caudales medios mensuales por sub-cuenca, usados como
+            referencia regional para validar el balance modelado.</li>
+        <li><b>GRDC — Global Runoff Data Centre</b> — caudales medios
+            diarios históricos en estaciones internacionales (Mamoré,
+            Beni, Pilcomayo).</li>
+        <li><b>CHIRPS v2.0</b> — precipitación diaria de 5 km usada como
+            forzante del balance hídrico (1981–presente).</li>
+        <li><b>ERA5-Land</b> — temperatura, radiación y viento para el
+            cómputo de la evapotranspiración Hargreaves / Penman-Monteith.</li>
+        <li><b>HydroBASINS / HydroRIVERS Bolivia</b> — sub-cuencas y red
+            de drenaje (reuso del polígono MERIT Hydro de la pestaña de
+            caudales máximos).</li>
+      </ul>
+
+      <h4>Modelos de cambio climático</h4>
+      <ul>
+        <li><b>NEX-GDDP-CMIP6</b> — proyecciones a 25 km de 35 modelos
+            GCM bajo los escenarios SSP1-2.6, SSP2-4.5, SSP3-7.0 y
+            SSP5-8.5.</li>
+        <li><b>CORDEX-SAM</b> — downscaling dinámico a 50 km para
+            Sudamérica (RCA4 / REMO calibrados para los Andes).</li>
+        <li><b>Atlas de Cambio Climático Bolivia (MMAyA)</b> —
+            tendencias nacionales por departamento a 2030 / 2050 / 2080
+            como contraste de los GCM globales.</li>
+      </ul>
+
+      <h4>Etapas de implementación</h4>
+      <ol>
+        <li><b>Etapa 1.</b> Curva de duración de caudales (FDC) y
+            percentiles Q5, Q10, Q50, Q90, Q95 y Q99 sobre la serie
+            adoptada (aforo SENAMHI o balance CHIRPS·ERA5 cuando no hay
+            estación de caudales cercana).</li>
+        <li><b>Etapa 2.</b> Análisis de frecuencia de mínimos por
+            distribuciones Weibull, LogNormal y Pearson III invertidas
+            para obtener Q7,10 y Q30,10.</li>
+        <li><b>Etapa 3.</b> Caudales ecológicos por los métodos
+            Tennant/Montana, Tessman, Q90 ambiental y Smakhtin.</li>
+        <li><b>Etapa 4.</b> Curva de recesión del hidrograma con la
+            constante <i>k</i> de Maillet y Boussinesq, y caudal base
+            por filtro de Lyne-Hollick.</li>
+        <li><b>Etapa 5.</b> Análisis espacial del efecto del cambio
+            climático sobre los caudales mínimos en Bolivia, cruzando
+            CMIP6 NEX-GDDP y CORDEX-SAM a los horizontes 2050 y 2080
+            con la cuenca de interés.</li>
+      </ol>
+
+      <p>
+        El PDF final integrará los cinco bloques con el mismo formato
+        cartográfico, el encabezado y pie de HYDROFRA y el mismo nivel
+        de protección que el informe de caudales máximos.
+      </p>
+    </div>
+
+    <p>
+      <a href="{{ url_for('index') }}" class="botonazo">
+        ← Volver al inicio
+      </a>
+    </p>
+  </main>
+</body>
+</html>

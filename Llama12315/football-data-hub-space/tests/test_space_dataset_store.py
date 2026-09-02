@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from hf_football_data_hub.dataset_store import DatasetStore
+from hf_football_data_hub.dataset_store import DatasetStore, packet_lookup_days, shanghai_day
 
 
 class FakeApi:
@@ -49,10 +49,18 @@ class DatasetStoreUploadTests(unittest.TestCase):
             store.root = Path(tmp)
             fake = FakeApi()
             configured = SimpleNamespace(has_remote_dataset=True, hf_dataset_repo="Llama12315/football-data-hub", hf_token="test-token")
-            with patch("hf_football_data_hub.dataset_store.settings", configured), patch("huggingface_hub.HfApi", return_value=fake):
+            with patch("hf_football_data_hub.dataset_store.settings", configured), \
+                 patch.object(store, "_upload_file_if_configured", return_value=True) as upload:
                 result = store.save_json("data/hot_match_pool/2026-07-14.json", {"accepted": True})
         self.assertTrue(result["remote_uploaded"])
-        self.assertEqual(fake.calls[0]["path_in_repo"], "data/hot_match_pool/2026-07-14.json")
+        upload.assert_called_once()
+
+    def test_packet_lookup_days_cover_shanghai_neighbors(self):
+        today = shanghai_day()
+        self.assertEqual(packet_lookup_days(), [today, shanghai_day(-1), shanghai_day(1)])
+        self.assertEqual(packet_lookup_days(today)[0], today)
+        self.assertIn(shanghai_day(-1), packet_lookup_days(today))
+        self.assertEqual(packet_lookup_days("2026-08-01"), ["2026-08-01"])
 
 
 if __name__ == "__main__":

@@ -145,7 +145,7 @@ _TOP5_MAX_PRICE = float(os.getenv("TOP5_MAX_PRICE", "5000") or "5000")
 # thin, wide-spread order books rather than real tradeable momentum, so they kept rising to the
 # top while being unreliable to hit any predicted intraday range. Env TOP5_MIN_PRICE overrides;
 # set 0 to disable the floor.
-_TOP5_MIN_PRICE = float(os.getenv("TOP5_MIN_PRICE", "20") or "20")
+_TOP5_MIN_PRICE = float(os.getenv("TOP5_MIN_PRICE", "100") or "100")
 
 # Sector diversity: cap how many final picks may come from any one mapped NSE sector so a single
 # hot sector can't fill the whole list. Stocks with no sector mapping (most mid/small-caps) are

@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
 
+import { createLogger } from '@/src/lib/logger';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_DASH_BOARD_API_URL || '';
 const API_KEY = process.env.NEXT_PUBLIC_DASH_BOARD_API_KEY || '';
+
+const log = createLogger('/api/v1/rounds/[roundId]/series');
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ roundId: string }> }
 ) {
   const { roundId } = await params;
-  const url = `${API_BASE_URL}/api/v1/rounds/${roundId}/series`;
-  
-  console.log('Calling external API:', url);
-  
+  const path = `/api/v1/rounds/${roundId}/series`;
+  const url = `${API_BASE_URL}${path}`;
+
+  log.debug(`upstream GET ${path}`);
+
   try {
     const response = await fetch(url, {
       headers: {
@@ -29,7 +34,7 @@ export async function GET(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching round series:', error);
+    log.error('failed to fetch round series', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

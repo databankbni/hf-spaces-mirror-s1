@@ -100,7 +100,6 @@ def log(msg):
 
 def get_period_key(symbol, strategy, direction, tf):
     now = datetime.datetime.now(US_TZ)
-    
     if tf == '1d' or tf == '1h' or tf == '4h' or tf == '2h' or tf == '3h' or tf == '30m' or tf == '15m' or tf == '5m' or tf == '10m':
         period_key = f"{symbol}_{strategy}_{direction}_{tf}_{now.strftime('%Y-%m-%d')}"
     elif tf == '1wk' or tf == 'wk' or tf.startswith('1wk_'):
@@ -255,19 +254,37 @@ class DataManager:
         state.progress = "🔄 Resampling..."
         for s in SYMBOLS:
             try:
+                # 10m 处理：移除会引起新版Pandas报错的 offset='0T'
                 if s in self.micro_data and '5m' in self.micro_data[s]:
                     df = self.micro_data[s]['5m']
                     if not df.empty:
                         logic = {'open':'first', 'high':'max', 'low':'min', 'close':'last', 'volume':'sum'}
-                        self.micro_data[s]['10m'] = df.resample('10T', offset='0T').agg(logic).dropna()
+                        self.micro_data[s]['10m'] = df.resample('10min').agg(logic).dropna()
+                
+                # 4H 处理核心修复：使用更健壮的分组计算，完美避开 resample offset 带来的隐式崩溃
                 if s in self.hourly_data:
                     df = self.hourly_data[s]
                     if not df.empty:
                         logic = {'open':'first', 'high':'max', 'low':'min', 'close':'last', 'volume':'sum'}
                         self.hourly_data.setdefault(s + '_synth', {})
-                        for h in [2,3,4]:
-                            self.hourly_data[s + '_synth'][f'{h}h'] = df.resample(f'{h}H', offset='30T').agg(logic).dropna()
-            except Exception:
+                        
+                        temp = df.copy()
+                        temp['date_only'] = temp.index.date
+                        
+                        for h in [2, 3, 4]:
+                            # 按照每天的数据进行分块，完美还原4小时交易逻辑，绝不跨夜合并
+                            temp['chunk'] = temp.groupby('date_only').cumcount() // h
+                            grp = temp.groupby(['date_only', 'chunk'])
+                            res = grp.agg(logic)
+                            
+                            # 把时间戳还原成该K线块的最后一根柱子的时间
+                            idx_series = grp.apply(lambda x: x.index[-1])
+                            res.index = pd.DatetimeIndex(idx_series)
+                            
+                            self.hourly_data[s + '_synth'][f'{h}h'] = res
+            except Exception as e:
+                # 添加打印以便排查，防止再次静默崩溃
+                log(f"⚠️ Resample Warning [{s}]: {e}")
                 continue
 
 # ==========================================
@@ -279,44 +296,28 @@ class IndicatorEngine:
         if df is None:
             return df
         df = df.copy()
-        df['UP1'] = df['high'].ewm(span=26, adjust=False).mean()
-        df['DW1'] = df['low'].ewm(span=26, adjust=False).mean()
-        df['UP2'] = df['high'].ewm(span=89, adjust=False).mean()
-        df['DW2'] = df['low'].ewm(span=89, adjust=False).mean()
+        
+        # 梯形指标（DW1, DW2等）严格保持89根限制
+        if len(df) >= 89:
+            df['UP1'] = df['high'].ewm(span=26, adjust=False).mean()
+            df['DW1'] = df['low'].ewm(span=26, adjust=False).mean()
+            df['UP2'] = df['high'].ewm(span=89, adjust=False).mean()
+            df['DW2'] = df['low'].ewm(span=89, adjust=False).mean()
+        else:
+            df['UP1'] = 0.0
+            df['DW1'] = 0.0
+            df['UP2'] = 0.0
+            df['DW2'] = 0.0
         return df
 
     @staticmethod
     def calc_macd_cd_strict(df, realtime_price=None):
-        # 🟢 【修改1】：解除 50 根长度拦截，对齐 TradingView（仅要求基础 5 根防止报错）
-        if df is None or len(df) < 5:
+        # ！！！此处完全恢复 V1 的指标运算逻辑！！！（未做任何更改，保持原版抄底逻辑）
+        if df is None or len(df) < 50:
             return df, False, False
-        
-        df = df.copy()
-        
-        # 🟢 【修改2】：TradingView 实时价格追加逻辑（避免覆盖历史真实收盘价）
         if realtime_price is not None:
-            last_dt = df.index[-1]
-            now_tz = datetime.datetime.now(US_TZ)
-            
-            is_new_bar = False
-            if len(df) >= 2:
-                # 判断当前时间跨度是否超过上一根K线的周期 (0.9 为容差缓冲)
-                delta_seconds = (now_tz - last_dt).total_seconds()
-                interval_seconds = (last_dt - df.index[-2]).total_seconds()
-                if delta_seconds > interval_seconds * 0.9: 
-                    is_new_bar = True
-                    
-            if is_new_bar:
-                new_row = df.iloc[-1:].copy()
-                if len(df) >= 2:
-                    new_row.index = [last_dt + (last_dt - df.index[-2])]
-                else:
-                    new_row.index = [now_tz]
-                new_row['close'] = realtime_price
-                df = pd.concat([df, new_row])
-            else:
-                df.iloc[-1, df.columns.get_loc('close')] = realtime_price
-
+            df = df.copy()
+            df.iloc[-1, df.columns.get_loc('close')] = realtime_price
         close = df['close']
         ema12 = close.ewm(span=12, adjust=False).mean()
         ema26 = close.ewm(span=26, adjust=False).mean()
@@ -324,6 +325,7 @@ class IndicatorEngine:
         dea = dif.ewm(span=9, adjust=False).mean()
         m = (dif - dea) * 2
 
+        df = df.copy()
         df['D'] = dif
         df['A'] = dea
         df['M'] = m
@@ -486,10 +488,12 @@ class StrategyAnalyzer:
                 ladders = {}
 
                 for tf, df in raw_tfs.items():
-                    # 🟢 【修改3】：解除 50 根长度拦截，完全对齐 TradingView
-                    if len(df) < 5:
-                        continue
-                        
+                    if tf == '3mo':
+                        if len(df) < 2:
+                            continue
+                    else:
+                        if len(df) < 50:
+                            continue
                     if tf in ['1d', '1wk', '1mo', '3mo'] and not self._is_data_fresh(df, tf):
                         continue
 
@@ -644,7 +648,7 @@ class StrategyAnalyzer:
     def _record_signal(self, symbol, type_, tf):
         now = datetime.datetime.now(US_TZ)
         state.signal_history.append({'time': now, 'symbol': symbol, 'type': type_, 'tf': tf})
-        cutoff = now - datetime.timedelta(hours=4)
+        cutoff = now - datetime.timedelta(hours=12)
         state.signal_history = [x for x in state.signal_history if x['time'] > cutoff]
 
     def _check_resonance(self, symbol, alerts):
@@ -726,7 +730,7 @@ def send_discord_alerts(alerts):
 def background_task():
     dm = DataManager()
     sa = StrategyAnalyzer()
-    log("🔵 US Monitor Start (TradingView 复刻版)")
+    log("🔵 US Monitor Start (彻底修复4H时间缺口)")
     while True:
         try:
             if dm.is_market_open():
@@ -761,7 +765,7 @@ def get_dash():
     return status, "\n".join(list(state.logs)), df
 
 with gr.Blocks(title="US Quant Pro") as demo:
-    gr.Markdown("# 🇺🇸 美股量化 (TradingView 算法同步版)")
+    gr.Markdown("# 🇺🇸 美股量化 (彻底修复4H数据，原版抄底逻辑)")
     status_box = gr.Textbox(label="Status", interactive=False)
     with gr.Row():
         log_box = gr.TextArea(label="Logs", lines=20, max_lines=20, interactive=False)
@@ -769,4 +773,4 @@ with gr.Blocks(title="US Quant Pro") as demo:
     gr.Timer(2).tick(get_dash, outputs=[status_box, log_box, alert_table])
 
 if __name__ == "__main__":
-    demo.queue().launch(server_name="0.0.0.0", server_port=7860)
+    demo.queue().launch()

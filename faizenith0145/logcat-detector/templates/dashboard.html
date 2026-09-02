@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Real-Time</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="dashboard-body" 
+      id="dashboard-data" 
+      data-bug-count="{{ recent_logs | length if recent_logs else 0 }}" 
+      data-bug-stats='{{ bug_stats | tojson | safe if bug_stats else "{}" }}'>
+
+    <div class="dashboard-container">
+        
+        <nav class="navbar" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 20px;">
+            <a href="#" class="navbar-brand" style="font-weight: bold; font-size: 1.2rem; text-decoration: none; color: #1e293b;">🤖 Logcat AI Monitor</a>
+            <div class="nav-links">
+                <a href="/dashboard" class="active" style="margin-right: 15px; text-decoration: none; font-weight: bold; color: #2563eb;">🔴 Live Dashboard</a>
+                <a href="/history" style="text-decoration: none; color: #64748b;">📜 Histori Analisis</a>
+            </div>
+        </nav>
+        
+        <div class="dashboard-header">
+            <h1>Pemantauan Logcat Real-Time (AI Monitor)</h1>
+        </div>
+        
+        <div class="dashboard-grid">
+            <div class="card">
+                <h3>Ringkasan Aliran Log</h3>
+                <div class="stats-container">
+                    <div class="stat-box">
+                        <p>Total Log Diterima</p>
+                        <h2 id="total-log">0</h2>
+                    </div>
+                    <div class="stat-box">
+                        <p>Total Bug Terdeteksi</p>
+                        <h2 id="total-bug">0</h2>
+                    </div>
+                    <div class="stat-box" style="background-color: #f0fdf4; border: 1px solid #bbf7d0;">
+                        <p style="color: #16a34a;">AI Engine Active</p>
+                        <h3 class="ai-model-name" style="color: #15803d; margin-top: 10px; font-size: 1.2rem;">{{ model_info.algorithm }}</h3>
+                        <p class="ai-model-score" style="margin-top: 5px; font-weight: bold; color: #059669;">F1-Score: {{ model_info.accuracy }}</p>
+
+                        <div style="margin-top: 12px;">
+                            <label for="model-selector" style="font-size: 0.8rem; color: #64748b;">Pilih Model Klasifikasi:</label>
+                            <select id="model-selector" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 4px;">
+                                <option value="svm" {% if active_model == 'svm' %}selected{% endif %}>SVM (Support Vector Machine)</option>
+                                <option value="rf" {% if active_model == 'rf' %}selected{% endif %}>Random Forest</option>
+                                <option value="pac" {% if active_model == 'pac' %}selected{% endif %}>PAC (Passive Aggressive)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Sebaran Kategori Error Live</h3>
+                <canvas id="errorChart" height="100"></canvas>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="table-header">
+                <h3>Diagnosis Klasifikasi AI Real-Time</h3>
+                <div class="status-indicator">
+                    <span class="dot pulse"></span> SINKRONISASI REAL-TIME (AKTIF)
+                </div>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Waktu</th>
+                        <th>Teks Logcat Mentah (Live Stream)</th>
+                        <th>Model</th>
+                        <th>Prediksi Kategori (AI)</th>
+                        <th>Rekomendasi (Solusi AI)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    </tbody>
+            </table>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h3>Perbandingan Matriks Evaluasi Algoritma</h3>
+            <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 15px;">Berikut adalah visualisasi perbandingan performa model berdasarkan hasil pengujian klasifikasi logcat.</p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center;">
+                <div>
+                    <h4 style="text-align: center; margin-bottom: 10px; color: #1e293b;">Grafik Akurasi (%)</h4>
+                    <canvas id="comparisonChart" height="180"></canvas>
+                </div>
+                
+                <div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Algoritma</th>
+                                <th>Accuracy</th>
+                                <th>Precision</th>
+                                <th>Recall</th>
+                                <th>F1-Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="font-weight: bold; color: #2563eb;">SVM (Support Vector Machine)</td>
+                                <td>78.47%</td>
+                                <td>86.09%</td>
+                                <td>78.47%</td>
+                                <td>79.65%</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold; color: #16a34a;">Random Forest Classifier</td>
+                                <td>83.02%</td>
+                                <td>89.56%</td>
+                                <td>83.02%</td>
+                                <td>84.15%</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold; color: #ea580c;">PAC (Passive Aggressive)</td>
+                                <td>78.36%</td>
+                                <td>83.43%</td>
+                                <td>78.36%</td>
+                                <td>78.26%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px; margin-bottom: 30px;">
+            <h3>Visualisasi Confusion Matrix</h3>
+            <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 20px;">Matriks evaluasi untuk mengukur prediksi benar vs salah dari masing-masing algoritma.</p>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center;">
+                <div style="border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; background-color: #f8fafc;">
+                    <h4 style="color: #2563eb; margin-bottom: 10px;">Confusion Matrix SVM</h4>
+                    <img src="{{ url_for('static', filename='image/cm_svm.png') }}" alt="Confusion Matrix SVM" style="width: 100%; border-radius: 5px; border: 1px solid #cbd5e1;">
+                </div>
+                
+                <div style="border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; background-color: #f8fafc;">
+                    <h4 style="color: #16a34a; margin-bottom: 10px;">Confusion Matrix Random Forest</h4>
+                    <img src="{{ url_for('static', filename='image/cm_rf.png') }}" alt="Confusion Matrix Random Forest" style="width: 100%; border-radius: 5px; border: 1px solid #cbd5e1;">
+                </div>
+                
+                <div style="border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; background-color: #f8fafc;">
+                    <h4 style="color: #ea580c; margin-bottom: 10px;">Confusion Matrix PAC</h4>
+                    <img src="{{ url_for('static', filename='image/cm_pac.png') }}" alt="Confusion Matrix PAC" style="width: 100%; border-radius: 5px; border: 1px solid #cbd5e1;">
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        var socket = io();
+
+        // Metadata model dikirim dari Flask, dipakai untuk update tampilan
+        // saat dropdown diganti tanpa perlu reload halaman.
+        const modelMeta = {{ model_meta | tojson | safe }};
+        const modelSelector = document.getElementById('model-selector');
+        const modelNameEl = document.querySelector('.ai-model-name');
+        const modelScoreEl = document.querySelector('.ai-model-score');
+
+        function updateModelDisplay(key) {
+            const meta = modelMeta[key];
+            if (!meta) return;
+            modelNameEl.textContent = meta.name;
+            modelScoreEl.textContent = 'F1-Score: ' + meta.f1;
+        }
+
+        // =========================================================================
+        // 1. STATE: MODEL YANG SEDANG DIPILIH (dipakai untuk FILTER tampilan)
+        // =========================================================================
+        // Log yang tersimpan tetap SEMUA model (biar tidak hilang), tapi yang
+        // DITAMPILKAN (tabel, grafik, total) cuma yang cocok dengan model aktif.
+        let currentModelKey = "{{ active_model }}";
+        let historyLocal = JSON.parse(localStorage.getItem('ai_log_history')) || [];
+        const tbody = document.getElementById('table-body');
+        const BUG_CATEGORIES = ['crash', 'anr', 'memory_leak', 'permission_denial', 'network_error', 'battery_low', 'lag', 'thread_error', 'media_error', 'usage_stats'];
+
+        function filteredHistory(key) {
+            return historyLocal.filter(item => (item.model_used || '-') === key);
+        }
+
+        function computeBugStats(list) {
+            const stats = {};
+            BUG_CATEGORIES.forEach(c => stats[c] = 0);
+            list.forEach(item => {
+                const cat = item.prediksi_kategori || 'Unknown';
+                stats[cat] = (stats[cat] || 0) + 1;
+            });
+            return stats;
+        }
+
+        function buildRow(data, rowId) {
+            const logText = data.raw_logcat || '';
+            const logTextFull = data.raw_logcat_full || '';
+            const timestamp = data.waktu_str || '';
+            const recommendation = data.solusi_ai || '-';
+            const modelUsed = data.model_used || '-';
+            const category = data.prediksi_kategori || 'Unknown';
+            const detailBlock = (logTextFull && logTextFull !== logText)
+                ? `<details style="margin-top: 6px;"><summary style="cursor:pointer; color:#2563eb; font-size:0.78rem;">Lihat log lengkap</summary><div style="max-height: 150px; max-width: 400px; overflow-y: auto; overflow-x: auto; white-space: pre-wrap; background-color: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: monospace; margin-top: 4px;">${logTextFull}</div></details>`
+                : '';
+            return `
+                <tr>
+                    <td style="color: #94a3b8; font-family: monospace; vertical-align: top; padding-top: 12px;">#${rowId}</td>
+                    <td style="font-weight: 500; vertical-align: top; padding-top: 12px;">${timestamp}</td>
+                    <td style="color: #64748b; font-size: 0.85rem;">
+                        <div style="background-color: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: monospace; word-break: break-word;">${logText}</div>
+                        ${detailBlock}
+                    </td>
+                    <td style="vertical-align: top; padding-top: 12px;"><span class="badge">${modelUsed.toUpperCase()}</span></td>
+                    <td style="vertical-align: top; padding-top: 12px;"><span class="badge">${category.toUpperCase()}</span></td>
+                    <td style="font-size: 0.85rem; color: #0d9488; font-weight: bold; vertical-align: top; padding-top: 12px; white-space: pre-line; max-width: 320px;">${recommendation}</td>
+                </tr>
+            `;
+        }
+
+        // Render ulang SELURUH tampilan (tabel + total + grafik) berdasarkan model aktif
+        function refreshView(key) {
+            const list = filteredHistory(key); // sudah urut terbaru dulu (unshift)
+
+            tbody.innerHTML = '';
+            list.slice(0, 50).forEach((data, index) => {
+                const rowId = list.length - index;
+                tbody.insertAdjacentHTML('beforeend', buildRow(data, rowId));
+            });
+
+            document.getElementById('total-log').innerText = list.length * 14;
+            document.getElementById('total-bug').innerText = list.length;
+
+            const stats = computeBugStats(list);
+            errorChart.data.labels = Object.keys(stats);
+            errorChart.data.datasets[0].data = Object.values(stats);
+            errorChart.update();
+        }
+
+        // Saat dropdown diganti: beri tahu server model aktif barunya,
+        // lalu filter ulang tampilan (tabel, grafik, total) ke model itu saja.
+        modelSelector.addEventListener('change', function () {
+            const key = this.value;
+            fetch('/set_model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_key: key })
+            })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.status !== 'success') {
+                        alert('Gagal mengganti model: ' + res.message);
+                        return;
+                    }
+                    updateModelDisplay(key);
+                    currentModelKey = key;
+                    refreshView(currentModelKey);
+                })
+                .catch(() => alert('Gagal terhubung ke server saat mengganti model.'));
+        });
+
+        // Kalau ada client/browser lain yang mengganti model, dashboard ini ikut sinkron
+        socket.on('model_changed', function (data) {
+            modelSelector.value = data.model_key;
+            currentModelKey = data.model_key;
+            updateModelDisplay(data.model_key);
+            refreshView(currentModelKey);
+        });
+
+        // =========================================================================
+        // 2. RENDER GRAFIK AWAL (kosong dulu, diisi refreshView di bawah)
+        // =========================================================================
+        const ctx = document.getElementById('errorChart').getContext('2d');
+        const errorChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: BUG_CATEGORIES,
+                datasets: [{
+                    label: 'Jumlah Error',
+                    data: BUG_CATEGORIES.map(() => 0),
+                    backgroundColor: '#2563eb',
+                    borderRadius: 5
+                }]
+            },
+            options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+        });
+
+        // Tampilkan data awal sesuai model yang aktif saat halaman dibuka
+        refreshView(currentModelKey);
+
+        const ctxCompare = document.getElementById('comparisonChart').getContext('2d');
+        const comparisonChart = new Chart(ctxCompare, {
+            type: 'bar',
+            data: {
+                labels: ['SVM', 'Random Forest', 'PAC'],
+                datasets: [{
+                    label: 'Akurasi (%)',
+                    data: [78.47, 83.02, 78.36], 
+                    backgroundColor: ['#2563eb', '#16a34a', '#ea580c'],
+                    borderRadius: 6,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { callback: function(value) { return value + "%"; } }
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // =========================================================================
+        // 3. MENDENGARKAN DATA REAL-TIME BARU DARI FLASK
+        // =========================================================================
+        socket.on('new_exception', function(data) {
+            if (!data) return;
+
+            // Simpan SEMUA log ke local storage & memori, apapun modelnya,
+            // supaya tidak hilang saat nanti user ganti pilihan model.
+            historyLocal.unshift(data);
+            localStorage.setItem('ai_log_history', JSON.stringify(historyLocal));
+
+            // Tapi yang ditampilkan di layar HANYA kalau cocok dengan model
+            // yang sedang aktif dipilih. Log dari model lain baru muncul
+            // begitu user pindah ke pilihan model itu (refreshView).
+            if ((data.model_used || '-') !== currentModelKey) {
+                return;
+            }
+
+            refreshView(currentModelKey);
+        });
+</script>
+</body>
+</html>

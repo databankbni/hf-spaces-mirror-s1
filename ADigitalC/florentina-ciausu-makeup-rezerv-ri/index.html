@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Florentina Ciaușu Make-up - Rezervări</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: #0a0a0a;
+    color: #f5f0e6;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    padding: 60px 20px 40px;
+    background: linear-gradient(180deg, #141414 0%, #0a0a0a 100%);
+    border-bottom: 1px solid #2a2a2a;
+  }
+
+  header .tagline {
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    font-size: 13px;
+    color: #c9a86a;
+    margin-bottom: 12px;
+  }
+
+  header h1 {
+    font-size: 2.8rem;
+    font-weight: normal;
+    letter-spacing: 2px;
+    color: #f5f0e6;
+  }
+
+  header h1 span { color: #c9a86a; }
+
+  header p {
+    margin-top: 14px;
+    color: #9a948a;
+    font-style: italic;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Container */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+
+  /* Cards */
+  .card {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 30px;
+  }
+
+  .card h2 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #c9a86a;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #2a2a2a;
+    padding-bottom: 12px;
+  }
+
+  /* Availability grid */
+  .days-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+
+  .day-card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .day-card:hover { border-color: #c9a86a; transform: translateY(-2px); }
+  .day-card.selected { border-color: #c9a86a; background: #1f1a10; }
+
+  .day-card .day-name {
+    font-size: 1rem;
+    color: #f5f0e6;
+    margin-bottom: 4px;
+  }
+
+  .day-card .day-date {
+    font-size: 0.8rem;
+    color: #9a948a;
+    margin-bottom: 10px;
+  }
+
+  .day-card .spots {
+    font-size: 0.85rem;
+    color: #c9a86a;
+  }
+
+  .day-card .spots.full { color: #b3544a; }
+  .day-card.disabled { opacity: 0.45; cursor: not-allowed; }
+  .day-card.disabled:hover { border-color: #2a2a2a; transform: none; }
+
+  /* Form */
+  .form-group {
+    margin-bottom: 18px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 0.9rem;
+    color: #c9a86a;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+
+  .form-group input,
+  .form-group select {
+    width: 100%;
+    padding: 12px 14px;
+    background: #0f0f0f;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    color: #f5f0e6;
+    font-size: 1rem;
+    font-family: inherit;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: #c9a86a;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  button {
+    width: 100%;
+    padding: 15px;
+    background: #c9a86a;
+    color: #0a0a0a;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    font-family: inherit;
+    font-weight: bold;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 8px;
+  }
+
+  button:hover { background: #d8b87a; }
+  button:disabled { background: #4a4a4a; color: #8a8a8a; cursor: not-allowed; }
+
+  /* Message */
+  #message {
+    margin-top: 20px;
+    padding: 14px;
+    border-radius: 8px;
+    text-align: center;
+    display: none;
+    font-size: 0.95rem;
+  }
+
+  #message.success { background: #1a2a1a; border: 1px solid #3a5a3a; color: #9ad49a; display: block; }
+  #message.error { background: #2a1a1a; border: 1px solid #5a3a3a; color: #d49a9a; display: block; }
+
+  /* My bookings */
+  .booking-item {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .booking-item .info { font-size: 0.95rem; }
+  .booking-item .info strong { color: #c9a86a; }
+
+  .cancel-btn {
+    width: auto;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    background: #3a3a3a;
+    color: #e0dcd0;
+    margin: 0;
+  }
+
+  .cancel-btn:hover { background: #b3544a; }
+
+  .empty {
+    color: #9a948a;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+  }
+
+  footer {
+    text-align: center;
+    padding: 30px;
+    color: #6a645a;
+    font-size: 0.85rem;
+    border-top: 1px solid #2a2a2a;
+  }
+
+  footer a { color: #c9a86a; text-decoration: none; }
+
+  @media (max-width: 600px) {
+    header h1 { font-size: 2rem; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="tagline">Studio de Machiaj</div>
+  <h1>Florentina <span>Ciaușu</span> Make-up</h1>
+  <p>Rezervă-ți locul pentru o experiență de machiaj profesională. Rezervările se fac doar sâmbăta și duminica. Alege luna, ziua, ora și confirmă pe baza emailului tău.</p>
+</header>
+
+<div class="container">
+
+  <!-- Disponibilitate -->
+  <div class="card">
+    <h2>📅 Locuri disponibile</h2>
+    <div class="form-group">
+      <label for="monthSelect">Alege luna</label>
+      <select id="monthSelect"></select>
+    </div>
+    <div class="days-grid" id="daysGrid"></div>
+  </div>
+
+  <!-- Formular rezervare -->
+  <div class="card">
+    <h2>✨ Fă o rezervare</h2>
+    <form id="bookingForm">
+      <div class="form-group">
+        <label for="name">Nume complet</label>
+        <input type="text" id="name" placeholder="ex: Maria Popescu" required>
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="ex: maria@email.com" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="phone">Telefon</label>
+          <input type="tel" id="phone" placeholder="ex: 07xx xxx xxx" required>
+        </div>
+        <div class="form-group">
+          <label for="service">Tip de serviciu</label>
+          <select id="service" required>
+            <option value="Machiaj de seara">Machiaj de seară</option>
+            <option value="Machiaj mireasa">Machiaj mireasă</option>
+            <option value="Machiaj business">Machiaj business</option>
+            <option value="Machiaj ocazie speciala">Machiaj ocazie specială</option>
+            <option value="Machiaj photoshoot">Machiaj photoshoot</option>
+            <option value="Consultanta / machiaj personal">Consultantă / machiaj personal</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="day">Ziua</label>
+          <select id="day" required></select>
+        </div>
+        <div class="form-group">
+          <label for="time">Ora</label>
+          <select id="time" required></select>
+        </div>
+      </div>
+      <button type="submit" id="submitBtn">Confirmă rezervarea</button>
+    </form>
+    <div id="message"></div>
+  </div>
+
+  <!-- Rezervările mele -->
+  <div class="card">
+    <h2>🗓️ Rezervările mele</h2>
+    <div class="form-group">
+      <label for="checkEmail">Verifică rezervările pe email</label>
+      <input type="email" id="checkEmail" placeholder="Introdu emailul tău">
+    </div>
+    <button type="button" id="checkBtn" style="margin-bottom:20px;">Vezi rezervările</button>
+    <div id="myBookings"></div>
+  </div>
+
+</div>
+
+<footer>
+  © 2026 Florentina Ciaușu Make-up · <a href="https://www.florentina-makeup.ro">florentina-makeup.ro</a> · Rezervări pe bază de email
+</footer>
+
+<script>
+  // Shim: oferă un localStorage sigur în memorie dacă cel real e blocat (sandbox/preview)
+  (function () {
+    try {
+      var t = window.localStorage;
+      if (t) { t.setItem('__t', '1'); t.removeItem('__t'); return; }
+    } catch (e) { /* blocat - continuăm cu fallback */ }
+    var store = {};
+    var mock = {
+      getItem: function (k) { return k in store ? store[k] : null; },
+      setItem: function (k, v) { store[k] = String(v); },
+      removeItem: function (k) { delete store[k]; },
+      clear: function () { store = {}; },
+      key: function (i) { return Object.keys(store)[i] || null; },
+      get length() { return Object.keys(store).length; }
+    };
+    try {
+      Object.defineProperty(window, 'localStorage', { value: mock, configurable: true, writable: true });
+    } catch (e) { window.localStorage = mock; }
+  })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+  // ================= CONFIGURARE EMAILJS (completați cu datele voastre) =================
+  const EMAILJS_PUBLIC_KEY = 'YOUR_PUBLIC_KEY';
+  const EMAILJS_SERVICE_ID = 'YOUR_SERVICE_ID';
+  const EMAILJS_TEMPLATE_OWNER_ID = 'TEMPLATE_OWNER_ID';
+  const EMAILJS_TEMPLATE_CLIENT_ID = 'TEMPLATE_CLIENT_ID';
+  // =====================================================================================
+
+  // ---------- Date & disponibilitate ----------
+  const TOTAL_SPOTS_PER_DAY = 8;
+
+  function getYearWeekends(year) {
+    const days = [];
+    const start = new Date(year, 0, 1); // 1 ianuarie
+    const end = new Date(year, 11, 31); // 31 decembrie
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dow = d.getDay(); // 0 = duminică, 6 = sâmbătă
+      if (dow !== 0 && dow !== 6) continue;
+      days.push({
+        key: d.toISOString().split('T')[0],
+        label: d.toLocaleDateString('ro-RO', { weekday: 'long' }),
+        date: d.toLocaleDateString('ro-RO', { day: 'numeric', month: 'long' }),
+        spots: TOTAL_SPOTS_PER_DAY
+      });
+    }
+    return days;
+  }
+
+  let days = getYearWeekends(2026);
+  let bookings = [];
+  let selectedMonth = null;
+
+  // ---------- Populare select lună ----------
+  function renderMonthSelect() {
+    const sel = document.getElementById('monthSelect');
+    sel.innerHTML = '';
+    const months = {};
+    days.forEach(day => {
+      const key = day.key.substring(0, 7); // YYYY-MM
+      if (!months[key]) {
+        const d = new Date(day.key + 'T00:00:00');
+        months[key] = {
+          key: key,
+          label: d.toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' })
+        };
+      }
+    });
+    Object.values(months).forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.key;
+      opt.textContent = m.label;
+      sel.appendChild(opt);
+    });
+    const first = Object.values(months)[0];
+    if (first) {
+      selectedMonth = first.key;
+      sel.value = first.key;
+    }
+  }
+
+  // ---------- Randare zilele lunii selectate ----------
+  function renderDays() {
+    const grid = document.getElementById('daysGrid');
+    grid.innerHTML = '';
+    const monthDays = days.filter(d => d.key.substring(0, 7) === selectedMonth);
+    monthDays.forEach(day => {
+      const el = document.createElement('div');
+      el.className = 'day-card' + (day.spots <= 0 ? ' disabled' : '');
+      el.innerHTML = `
+        <div class="day-name">${day.label}</div>
+        <div class="day-date">${day.date}</div>
+        <div class="spots">${day.spots > 0 ? day.spots + ' locuri libere' : 'Complet'}</div>
+      `;
+      grid.appendChild(el);
+    });
+  }
+
+  document.getElementById('monthSelect').addEventListener('change', function() {
+    selectedMonth = this.value;
+    renderDays();
+  });
+
+  // ---------- Populare select zi ----------
+  function renderDaySelect() {
+    const sel = document.getElementById('day');
+    sel.innerHTML = '';
+    days.forEach(day => {
+      const opt = document.createElement('option');
+      opt.value = day.key;
+      opt.textContent = day.label + ', ' + day.date + ' (' + day.spots + ' locuri)';
+      opt.disabled = day.spots <= 0;
+      sel.appendChild(opt);
+    });
+  }
+
+  // ---------- Populare select ora ----------
+  function renderTimeSelect() {
+    const sel = document.getElementById('time');
+    sel.innerHTML = '';
+    const times = ['09:00','10:30','12:00','13:30','15:00','16:30','18:00'];
+    times.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      sel.appendChild(opt);
+    });
+  }
+
+  // ---------- Mesaje ----------
+  function showMessage(text, type) {
+    const m = document.getElementById('message');
+    m.textContent = text;
+    m.className = type;
+    setTimeout(() => { m.className = ''; m.textContent = ''; }, 5000);
+  }
+
+  // ---------- Rezervare ----------
+  function makeBooking(name, email, phone, service, dayKey, time) {
+    const day = days.find(d => d.key === dayKey);
+    if (!day || day.spots <= 0) {
+      showMessage('Din păcate, nu mai sunt locuri disponibile pentru această zi.', 'error');
+      return false;
+    }
+    const duplicate = bookings.find(b => b.email === email && b.day === dayKey && b.time === time);
+    if (duplicate) {
+      showMessage('Aveți deja o rezervare pentru această zi și oră.', 'error');
+      return false;
+    }
+    day.spots--;
+    bookings.push({ name, email, phone, service, day: dayKey, time, id: Date.now() });
+    renderDays();
+    renderDaySelect();
+    return true;
+  }
+
+  // ---------- Email către Florentina (notificare) + client (confirmare) ----------
+  function sendEmails(name, clientEmail, clientPhone, service, dayKey, time) {
+    if (EMAILJS_PUBLIC_KEY.startsWith('YOUR_')) {
+      console.log('EmailJS nu este configurat încă. Rezervarea a fost salvată local.');
+      return;
+    }
+
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+
+    const day = days.find(d => d.key === dayKey);
+    const dayText = day ? day.label + ', ' + day.date : dayKey;
+
+    const params = {
+      client_name: name,
+      client_email: clientEmail,
+      client_phone: clientPhone,
+      service: service,
+      booking_day: dayText,
+      booking_time: time,
+      site_name: 'Florentina Ciaușu Make-up'
+    };
+
+    // 1) Notificare către Florentina (adresa ta se pune în Template 1)
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_OWNER_ID, params)
+      .then(() => console.log('Notificare trimisă către Florentina.'))
+      .catch(err => console.error('Eroare notificare Florentina:', err));
+
+    // 2) Confirmare automată către client (Template 2 trimite către {{client_email}})
+    const clientParams = Object.assign({}, params, { to_email: clientEmail });
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_CLIENT_ID, clientParams)
+      .then(() => console.log('Confirmare trimisă clientului: ' + clientEmail))
+      .catch(err => console.error('Eroare confirmare client:', err));
+  }
+
+  // ---------- Formular ----------
+  document.getElementById('bookingForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const service = document.getElementById('service').value;
+    const dayKey = document.getElementById('day').value;
+    const time = document.getElementById('time').value;
+
+    if (!name || !email || !phone || !dayKey) {
+      showMessage('Te rugăm să completezi toate câmpurile.', 'error');
+      return;
+    }
+
+    if (makeBooking(name, email, phone, service, dayKey, time)) {
+      showMessage('✅ Rezervare confirmată la Florentina Ciaușu Make-up! Detaliile au fost trimise la ' + email + '. Vizitează www.florentina-makeup.ro', 'success');
+      document.getElementById('bookingForm').reset();
+      document.getElementById('checkEmail').value = email;
+      renderMyBookings(email);
+      sendEmails(name, email, phone, service, dayKey, time);
+    }
+  });
+
+  // ---------- Rezervările mele ----------
+  function renderMyBookings(email) {
+    const container = document.getElementById('myBookings');
+    const list = bookings.filter(b => b.email === email);
+
+    if (list.length === 0) {
+      container.innerHTML = '<div class="empty">Nu ai nicio rezervare pentru acest email.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    list.forEach(b => {
+      const day = days.find(d => d.key === b.day);
+      const item = document.createElement('div');
+      item.className = 'booking-item';
+      item.innerHTML = `
+        <div class="info">
+          <strong>${b.name}</strong> · ${b.service || 'Machiaj'} · ${day ? day.label + ', ' + day.date : b.day} la ora ${b.time}
+          <div style="font-size:0.85rem; color:#9a948a; margin-top:4px;">
+            📞 ${b.phone || '—'} &nbsp;|&nbsp; 📧 ${b.email}
+          </div>
+        </div>
+        <button class="cancel-btn" data-id="${b.id}">Anulează</button>
+      `;
+      container.appendChild(item);
+    });
+
+    container.querySelectorAll('.cancel-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const id = Number(this.dataset.id);
+        const booking = bookings.find(x => x.id === id);
+        if (booking) {
+          const day = days.find(d => d.key === booking.day);
+          if (day) day.spots++;
+          bookings = bookings.filter(x => x.id !== id);
+          renderDays();
+          renderDaySelect();
+          renderMyBookings(email);
+          showMessage('Rezervarea a fost anulată.', 'success');
+        }
+      });
+    });
+  }
+
+  document.getElementById('checkBtn').addEventListener('click', function() {
+    const email = document.getElementById('checkEmail').value.trim();
+    if (!email) {
+      showMessage('Introdu un email pentru a vedea rezervările.', 'error');
+      return;
+    }
+    renderMyBookings(email);
+  });
+
+  renderMonthSelect();
+  renderDays();
+  renderDaySelect();
+  renderTimeSelect();
+</script>
+
+</body>
+</html>
+</parameter>
+</invoke>
+</helmet>
+</function_results>
+<script data-huggingchat-badge="script">
+(function () {
+	try {
+		if (document.querySelector("[data-huggingchat-badge]:not(script)")) return;
+		var host = document.createElement("div");
+		host.setAttribute("data-huggingchat-badge", "");
+		var styles = [["all","initial"],["position","fixed"],["right","12px"],["bottom","12px"],["z-index","2147483647"],["display","block"],["visibility","visible"],["opacity","1"],["pointer-events","auto"],["width","auto"],["height","auto"],["margin","0"],["padding","0"],["max-width","none"],["max-height","none"],["transform","none"],["filter","none"],["clip-path","none"],["color-scheme","light"]];
+		for (var i = 0; i < styles.length; i++) {
+			host.style.setProperty(styles[i][0], styles[i][1], "important");
+		}
+		host.attachShadow({ mode: "closed" }).innerHTML = "<style>\n:host { all: initial; }\na {\n  display: flex;\n  align-items: center;\n  gap: 5px;\n  box-sizing: border-box;\n  height: 26px;\n  padding: 0 9px 0 7px;\n  border-radius: 999px;\n  border: 1px solid rgba(0, 0, 0, 0.07);\n  background: rgba(255, 255, 255, 0.92);\n  -webkit-backdrop-filter: saturate(180%) blur(8px);\n  backdrop-filter: saturate(180%) blur(8px);\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);\n  color: #111827;\n  font: 500 11px/1 ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  letter-spacing: 0.01em;\n  text-decoration: none;\n  white-space: nowrap;\n  opacity: 0.72;\n  transition: opacity 0.15s ease, transform 0.15s ease;\n}\na:hover, a:focus-visible { opacity: 1; transform: translateY(-1px); }\nsvg { width: 14px; height: 14px; flex: none; }\n@media print { a { display: none; } }\n<\/style><a href=\"https://huggingface.co/chat\" target=\"_blank\" rel=\"noopener noreferrer nofollow\"><svg viewBox=\"0 0 32 32\" fill=\"none\" aria-hidden=\"true\"><path d=\"M16.0006 25.9992C13.8266 25.999 11.7118 25.2901 9.97686 23.9799C8.2419 22.6698 6.98127 20.8298 6.38599 18.7388C5.79071 16.6478 5.89323 14.4198 6.678 12.3923C7.46278 10.3648 8.88705 8.64837 10.735 7.50308C12.5829 6.35779 14.7538 5.84606 16.9187 6.04544C19.0837 6.24481 21.1246 7.14442 22.7323 8.60795C24.34 10.0715 25.4268 12.0192 25.8281 14.1559C26.2293 16.2926 25.9232 18.5019 24.9561 20.449C24.7703 20.8042 24.7223 21.2155 24.8211 21.604L25.4211 23.8316C25.4803 24.0518 25.4805 24.2837 25.4216 24.5039C25.3627 24.7242 25.2468 24.925 25.0856 25.0862C24.9244 25.2474 24.7235 25.3633 24.5033 25.4222C24.283 25.4811 24.0512 25.4809 23.831 25.4217L21.6034 24.8217C21.2172 24.7248 20.809 24.7729 20.4558 24.9567C19.0683 25.6467 17.5457 26.0068 16.0006 26.0068V25.9992Z\" fill=\"currentColor\"/><path d=\"M9.62598 16.0013C9.62598 15.3799 10.1294 14.8765 10.7508 14.8765C11.3721 14.8765 11.8756 15.3799 11.8756 16.0013C11.8756 17.0953 12.3102 18.1448 13.0838 18.9184C13.8574 19.692 14.9069 20.1266 16.001 20.1267C17.095 20.1267 18.1445 19.692 18.9181 18.9184C19.6918 18.1448 20.1264 17.0953 20.1264 16.0013C20.1264 15.3799 20.6299 14.8765 21.2512 14.8765C21.8725 14.8765 22.3759 15.3799 22.3759 16.0013C22.3759 17.6921 21.7046 19.3137 20.509 20.5093C19.3134 21.7049 17.6918 22.3762 16.001 22.3762C14.3102 22.3762 12.6885 21.7049 11.4929 20.5093C10.2974 19.3137 9.62598 17.6921 9.62598 16.0013Z\" fill=\"#fff\"/><\/svg><span>Made with HuggingChat<\/span><\/a>";
+		function attach() {
+			var parent = document.body || document.documentElement;
+			if (parent && host.parentNode !== parent) parent.appendChild(host);
+		}
+		attach();
+		// Artifacts that rewrite document.body wholesale would drop the badge.
+		if (document.body && typeof MutationObserver === "function") {
+			new MutationObserver(attach).observe(document.body, { childList: true });
+		} else {
+			document.addEventListener("DOMContentLoaded", attach);
+		}
+	} catch (e) {}
+})();
+</script>

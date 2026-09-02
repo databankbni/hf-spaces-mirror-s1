@@ -25,7 +25,16 @@ from predictions.predict_single import CKBSingleSamplePredictor
 
 MODEL_DIR = Path(__file__).resolve().parent / "predictions"
 SHAP_CACHE_DIR = Path(tempfile.gettempdir()) / "ckb_space_shap"
+SUPPLEMENTARY_IMAGE_DIR = Path(__file__).resolve().parent / "assets" / "supplementary"
 SHAP_CACHE_TTL_SECONDS = 60 * 60
+SHAP_LIGHT_CANVAS_MARKER = "ckb-force-plot-light-canvas"
+SHAP_LIGHT_CANVAS_HEAD = f"""
+<meta name="color-scheme" content="light">
+<style id="{SHAP_LIGHT_CANVAS_MARKER}">
+  html {{ background: #ffffff !important; color-scheme: only light !important; }}
+  body {{ min-height: 100%; margin: 0; background: #ffffff !important; color: #111827 !important; color-scheme: only light !important; }}
+</style>
+"""
 
 FEATURES = [
     "sex",
@@ -128,24 +137,24 @@ INTEGER_FEATURES = {
 # Display text is deliberately human-readable; the paired values remain the
 # frozen numeric encodings expected by the trained model.
 CATEGORICAL_CHOICES = {
-    "sex": [("Male / \u7537", 0), ("Female / \u5973", 1)],
-    "edu_level": [("Low / \u4f4e", 1), ("Intermediate / \u4e2d", 2), ("High / \u9ad8", 3)],
+    "sex": [("Male", 0), ("Female", 1)],
+    "edu_level": [("Low", 1), ("Intermediate", 2), ("High", 3)],
     "marital_status": [
-        ("Other observed status / \u5176\u4ed6\u89c2\u5bdf\u72b6\u6001", 0),
-        ("Married or partnered / \u5df2\u5a5a\u6216\u6709\u4f34\u4fa3", 1),
+        ("Other observed status", 0),
+        ("Married or partnered", 1),
     ],
-    "work": [("No / \u5426", 0), ("Yes / \u662f", 1)],
-    "retire": [("No / \u5426", 0), ("Yes / \u662f", 1)],
-    "smoking": [("No / \u5426", 0), ("Yes / \u662f", 1)],
-    "alcohol": [("No / \u5426", 0), ("Yes / \u662f", 1)],
-    "bp_drugs": [("No / \u5426", 0), ("Yes / \u662f", 1)],
+    "work": [("No", 0), ("Yes", 1)],
+    "retire": [("No", 0), ("Yes", 1)],
+    "smoking": [("No", 0), ("Yes", 1)],
+    "alcohol": [("No", 0), ("Yes", 1)],
+    "bp_drugs": [("No", 0), ("Yes", 1)],
     "self_health": [
-        ("Very good or excellent / \u5f88\u597d\u6216\u4f18\u79c0", 1),
-        ("Good / \u597d", 2),
-        ("Fair or regular / \u4e00\u822c", 3),
-        ("Poor or very poor / \u5dee\u6216\u5f88\u5dee", 4),
+        ("Very good or excellent", 1),
+        ("Good", 2),
+        ("Fair or regular", 3),
+        ("Poor or very poor", 4),
     ],
-    "chronic_pain": [("No / \u5426", 0), ("Yes / \u662f", 1)],
+    "chronic_pain": [("No", 0), ("Yes", 1)],
 }
 
 EXAMPLE_VALUES = {
@@ -191,27 +200,169 @@ DEFAULT_EN_FEATURE_LABELS = {
     "chronic_pain": "Chronic pain",
 }
 
-DEFAULT_EN_FEATURE_HELP = {
-    "sex": "Choose the description that matches the study definition.",
-    "age": "Enter completed years.",
-    "edu_level": "Choose the description that matches the study definition.",
-    "marital_status": "Choose the description that matches the study definition.",
-    "work": "Choose the description that matches the study definition.",
-    "retire": "Choose the description that matches the study definition.",
-    "hh_size": "Number of people in the household.",
-    "smoking": "Choose the description that matches the study definition.",
-    "alcohol": "Choose the description that matches the study definition.",
-    "height_cm": "Continuous value in centimetres.",
-    "weight_kg": "Continuous value in kilograms.",
-    "waist_cm": "Continuous value in centimetres.",
-    "sbp_mmhg": "Continuous value in mmHg.",
-    "dbp_mmhg": "Continuous value in mmHg.",
-    "bp_drugs": "Choose the description that matches the study definition.",
-    "self_health": "Choose the description that matches the study definition.",
-    "chronic_pain": "Choose the description that matches the study definition.",
-}
+DEFAULT_EN_FEATURE_HELP = {feature: "" for feature in FEATURES}
 
 TABLE_COLUMNS_EN = ["Code", "Outcome", "Probability", "Frozen threshold", "Risk decision"]
+
+
+# Presentation-only labels and cumulative-incidence reference values supplied
+# for the public demo. They do not participate in model inference or risk
+# classification, which always uses the frozen per-outcome Youden threshold.
+OUTCOME_PRESENTATION = {
+    "A00_B99": {
+        "en": "Infectious and parasitic diseases",
+        "zh": "感染性疾病",
+        "model_en": "MLP",
+        "model_zh": "MLP",
+        "low_5": 0.7,
+        "low_10": 1.9,
+        "high_5": 1.5,
+        "high_10": 4.6,
+    },
+    "C00_D48": {
+        "en": "Neoplasms",
+        "zh": "肿瘤",
+        "model_en": "MLP",
+        "model_zh": "MLP",
+        "low_5": 1.9,
+        "low_10": 4.8,
+        "high_5": 4.3,
+        "high_10": 9.5,
+    },
+    "E00_E90": {
+        "en": "Endocrine and metabolic diseases",
+        "zh": "内分泌代谢疾病",
+        "model_en": "MLP",
+        "model_zh": "MLP",
+        "low_5": 1.2,
+        "low_10": 3.6,
+        "high_5": 5.2,
+        "high_10": 12.4,
+    },
+    "F00_F99": {
+        "en": "Mental and behavioural disorders",
+        "zh": "精神和行为障碍",
+        "model_en": "Random Forest",
+        "model_zh": "随机森林",
+        "low_5": 0.2,
+        "low_10": 0.5,
+        "high_5": 0.6,
+        "high_10": 1.3,
+    },
+    "G00_G99": {
+        "en": "Diseases of the nervous system",
+        "zh": "神经系统疾病",
+        "model_en": "MLP",
+        "model_zh": "MLP",
+        "low_5": 0.6,
+        "low_10": 2.7,
+        "high_5": 2.5,
+        "high_10": 7.7,
+    },
+    "H00_H95": {
+        "en": "Diseases of the eye and ear",
+        "zh": "眼耳疾病",
+        "model_en": "Random Forest",
+        "model_zh": "随机森林",
+        "low_5": 0.6,
+        "low_10": 2.4,
+        "high_5": 2.6,
+        "high_10": 8.9,
+    },
+    "I00_I99": {
+        "en": "Diseases of the circulatory system",
+        "zh": "循环系统疾病",
+        "model_en": "MLP",
+        "model_zh": "MLP",
+        "low_5": 2.6,
+        "low_10": 9.9,
+        "high_5": 16.1,
+        "high_10": 38.1,
+    },
+    "J00_J99": {
+        "en": "Diseases of the respiratory system",
+        "zh": "呼吸系统疾病",
+        "model_en": "MLP",
+        "model_zh": "MLP",
+        "low_5": 2.0,
+        "low_10": 6.4,
+        "high_5": 5.9,
+        "high_10": 18.6,
+    },
+    "K00_K93": {
+        "en": "Diseases of the digestive system",
+        "zh": "消化系统疾病",
+        "model_en": "MLP",
+        "model_zh": "MLP",
+        "low_5": 3.1,
+        "low_10": 9.2,
+        "high_5": 5.6,
+        "high_10": 16.0,
+    },
+    "L00_L99": {
+        "en": "Diseases of the skin",
+        "zh": "皮肤病",
+        "model_en": "Random Forest",
+        "model_zh": "随机森林",
+        "low_5": 0.1,
+        "low_10": 0.5,
+        "high_5": 0.3,
+        "high_10": 1.2,
+    },
+    "M00_M99": {
+        "en": "Musculoskeletal diseases",
+        "zh": "肌肉骨骼疾病",
+        "model_en": "MLP",
+        "model_zh": "MLP",
+        "low_5": 1.2,
+        "low_10": 5.5,
+        "high_5": 2.5,
+        "high_10": 11.0,
+    },
+    "N00_N99": {
+        "en": "Diseases of the genitourinary system",
+        "zh": "泌尿生殖系统疾病",
+        "model_en": "MLP",
+        "model_zh": "MLP",
+        "low_5": 1.6,
+        "low_10": 4.6,
+        "high_5": 3.2,
+        "high_10": 9.2,
+    },
+    "death": {
+        "en": "All-cause death",
+        "zh": "全因死亡",
+        "model_en": "MLP",
+        "model_zh": "MLP",
+        "low_5": 0.9,
+        "low_10": 2.4,
+        "high_5": 8.0,
+        "high_10": 20.2,
+    },
+}
+
+# Keep Chinese presentation copy in unicode escapes so it remains intact when
+# the Space is edited from Windows shells with different console code pages.
+_OUTCOME_ZH = {
+    "A00_B99": "\u611f\u67d3\u6027\u75be\u75c5",
+    "C00_D48": "\u80bf\u7624",
+    "E00_E90": "\u5185\u5206\u6ccc\u4ee3\u8c22\u75be\u75c5",
+    "F00_F99": "\u7cbe\u795e\u548c\u884c\u4e3a\u969c\u788d",
+    "G00_G99": "\u795e\u7ecf\u7cfb\u7edf\u75be\u75c5",
+    "H00_H95": "\u773c\u8033\u75be\u75c5",
+    "I00_I99": "\u5faa\u73af\u7cfb\u7edf\u75be\u75c5",
+    "J00_J99": "\u547c\u5438\u7cfb\u7edf\u75be\u75c5",
+    "K00_K93": "\u6d88\u5316\u7cfb\u7edf\u75be\u75c5",
+    "L00_L99": "\u76ae\u80a4\u75c5",
+    "M00_M99": "\u808c\u8089\u9aa8\u9abc\u75be\u75c5",
+    "N00_N99": "\u6ccc\u5c3f\u751f\u6b96\u7cfb\u7edf\u75be\u75c5",
+    "death": "\u5168\u56e0\u6b7b\u4ea1",
+}
+for _outcome_code, _outcome_name_zh in _OUTCOME_ZH.items():
+    OUTCOME_PRESENTATION[_outcome_code]["zh"] = _outcome_name_zh
+OUTCOME_PRESENTATION["F00_F99"]["model_zh"] = "\u968f\u673a\u68ee\u6797"
+OUTCOME_PRESENTATION["H00_H95"]["model_zh"] = "\u968f\u673a\u68ee\u6797"
+OUTCOME_PRESENTATION["L00_L99"]["model_zh"] = "\u968f\u673a\u68ee\u6797"
 
 
 CUSTOM_CSS = """
@@ -242,6 +393,8 @@ CUSTOM_CSS = """
   --ckb-radius-sm: 10px;
   --ckb-motion-fast: 180ms;
   --ckb-motion-base: 280ms;
+  --ckb-layer-field: 10;
+  --ckb-layer-dropdown: 40;
 }
 
 .gradio-container {
@@ -250,6 +403,7 @@ CUSTOM_CSS = """
     radial-gradient(circle at 90% 9%, rgb(224 242 254 / 0.95), transparent 25rem),
     var(--ckb-blue-50);
   color: var(--ckb-slate-950);
+  color-scheme: light !important;
   font-family: Aptos, "Segoe UI", "Microsoft YaHei UI", "Noto Sans SC", sans-serif;
 }
 
@@ -435,11 +589,15 @@ CUSTOM_CSS = """
 
 .ckb-language-bar {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: flex-end;
   margin: -4px 0 14px;
 }
 
-.ckb-language-switch {
+.ckb-language-switch,
+.ckb-theme-switch {
   display: inline-flex;
   gap: 4px;
   padding: 4px;
@@ -449,7 +607,8 @@ CUSTOM_CSS = """
   box-shadow: var(--ckb-shadow-sm);
 }
 
-.ckb-language-switch button {
+.ckb-language-switch button,
+.ckb-theme-switch button {
   min-width: 74px;
   min-height: 36px;
   padding: 7px 12px;
@@ -464,10 +623,15 @@ CUSTOM_CSS = """
   transition: background var(--ckb-motion-fast) ease, color var(--ckb-motion-fast) ease, transform var(--ckb-motion-fast) ease;
 }
 
-.ckb-language-switch button:hover { background: var(--ckb-blue-50); color: var(--ckb-blue-900); }
-.ckb-language-switch button:active { transform: scale(0.98); }
-.ckb-language-switch button[aria-pressed="true"] { background: var(--ckb-blue-900); color: var(--ckb-white); }
-.ckb-language-switch button:focus-visible { outline: 3px solid rgb(2 132 199 / 0.32); outline-offset: 2px; }
+.ckb-theme-switch button { min-width: 58px; }
+.ckb-language-switch button:hover,
+.ckb-theme-switch button:hover { background: var(--ckb-blue-50); color: var(--ckb-blue-900); }
+.ckb-language-switch button:active,
+.ckb-theme-switch button:active { transform: scale(0.98); }
+.ckb-language-switch button[aria-pressed="true"],
+.ckb-theme-switch button[aria-pressed="true"] { background: var(--ckb-blue-900); color: var(--ckb-white); }
+.ckb-language-switch button:focus-visible,
+.ckb-theme-switch button:focus-visible { outline: 3px solid rgb(2 132 199 / 0.32); outline-offset: 2px; }
 
 .ckb-status {
   display: flex;
@@ -773,7 +937,200 @@ CUSTOM_CSS = """
 .ckb-footer-note { margin: 20px 0 0; color: var(--ckb-slate-600); font-size: 0.82rem; line-height: 1.6; }
 .ckb-footer-note code { padding: 2px 5px; border-radius: 5px; background: var(--ckb-slate-100); color: var(--ckb-blue-900); }
 
-.ckb-hero, .ckb-trust-card, .ckb-panel, .ckb-results { will-change: transform, opacity; }
+.ckb-hero, .ckb-trust-card, .ckb-panel, .ckb-results { will-change: auto; }
+
+/* The hero now carries one concise model statement; the old labels and count
+   tiles remain in the DOM only so legacy locale initialisation stays stable. */
+.ckb-eyebrow, .ckb-hero__meta, .ckb-trust-row { display: none !important; }
+.ckb-hero { min-height: 230px; display: grid; align-items: center; }
+.ckb-hero p { max-width: 66ch; }
+.ckb-section-heading > div > p, .ckb-coding-note { display: none !important; }
+
+/* Gradio renders dropdown lists in a popover. Keeping animated ancestors
+   transform-free and elevating the portal fixes the offset seen in the form. */
+#ckb-shell .ckb-form-card .block,
+#ckb-shell .ckb-form-card .wrap { position: relative; overflow: visible !important; }
+#ckb-shell .ckb-form-card .block { z-index: 0; }
+#ckb-shell .ckb-form-card .block:focus-within { z-index: var(--ckb-layer-field); }
+body .secondary-wrap,
+body [role="listbox"] { z-index: var(--ckb-layer-dropdown) !important; }
+#ckb-shell .ckb-form-card button,
+#ckb-shell .ckb-form-card [role="combobox"] { min-height: 48px; border-radius: var(--ckb-radius-sm); }
+#ckb-shell,
+#outcome-table,
+#outcome-table .html-container,
+#shap-result,
+#shap-result .wrap,
+#shap-result .form,
+#shap-result .html-container,
+#shap-gallery,
+#shap-gallery .wrap,
+#shap-gallery .html-container,
+.ckb-image-gallery,
+.ckb-image-card,
+.ckb-image-card__force { color-scheme: light !important; }
+.ckb-image-frame,
+.ckb-reference-figure,
+.ckb-cluster-profile-figure { color-scheme: only light !important; }
+#shap-result .wrap,
+#shap-result .form,
+#shap-result .html-container,
+#shap-gallery,
+#shap-gallery .wrap,
+#shap-gallery .html-container { background: var(--ckb-white) !important; color: var(--ckb-slate-950) !important; }
+#ckb-shell .ckb-panel .ckb-section-heading,
+#ckb-shell .ckb-panel .ckb-section-heading h2,
+#ckb-shell .ckb-panel .ckb-section-heading p,
+#ckb-shell .ckb-status,
+#ckb-shell .ckb-status strong,
+#ckb-shell .ckb-results-header,
+#ckb-shell .ckb-results-header h2,
+#ckb-shell .ckb-result-placeholder,
+#ckb-shell .ckb-footer-note { color: var(--ckb-slate-950) !important; }
+#ckb-shell .ckb-panel .ckb-section-heading .ckb-section-kicker,
+#ckb-shell .ckb-results-header .ckb-section-kicker { color: var(--ckb-blue-700) !important; }
+#ckb-shell .ckb-status { color: var(--ckb-slate-700) !important; }
+#ckb-shell .ckb-status span,
+#ckb-shell .ckb-status strong { color: inherit !important; }
+#ckb-shell .ckb-result-placeholder,
+#ckb-shell .ckb-footer-note { color: var(--ckb-slate-600) !important; }
+#ckb-shell .ckb-footer-note code { color: var(--ckb-blue-900) !important; }
+#ckb-shell .ckb-form-card,
+#ckb-shell .ckb-form-card > .styler,
+#ckb-shell .ckb-form-card .form,
+#ckb-shell .ckb-form-card .container { background: var(--ckb-white) !important; color: var(--ckb-slate-950) !important; }
+#ckb-shell .ckb-form-card .block { background: transparent !important; border-color: transparent !important; }
+#ckb-shell .ckb-form-card .wrap,
+#ckb-shell .ckb-form-card .wrap-inner,
+#ckb-shell .ckb-form-card .secondary-wrap { background: var(--ckb-white) !important; border-color: var(--ckb-slate-200) !important; color: var(--ckb-slate-950) !important; }
+#ckb-shell .ckb-form-card .form-card__index { color: var(--ckb-blue-900) !important; }
+#ckb-shell .ckb-form-card h3 { color: var(--ckb-slate-950) !important; }
+#ckb-shell .ckb-form-card p { color: var(--ckb-slate-600) !important; }
+#ckb-shell .ckb-form-card [data-testid="block-info"],
+#ckb-shell .ckb-form-card label { color: var(--ckb-slate-700) !important; }
+body .options[role="listbox"] { border: 1px solid var(--ckb-slate-200) !important; border-radius: var(--ckb-radius-sm) !important; background: var(--ckb-white) !important; box-shadow: var(--ckb-shadow-md) !important; }
+body .options[role="listbox"] [role="option"] { background: var(--ckb-white) !important; color: var(--ckb-slate-950) !important; }
+body .options[role="listbox"] [role="option"]:hover,
+body .options[role="listbox"] [role="option"][aria-selected="true"] { background: var(--ckb-blue-50) !important; color: var(--ckb-blue-950) !important; }
+
+.ckb-outcome-table { margin-top: 18px; overflow: hidden; border: 1px solid var(--ckb-slate-200); border-radius: var(--ckb-radius-md); background: var(--ckb-white); box-shadow: var(--ckb-shadow-sm); }
+.ckb-outcome-table__header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding: 18px 20px 15px; border-bottom: 1px solid var(--ckb-slate-100); background: linear-gradient(112deg, var(--ckb-blue-50), var(--ckb-white)); }
+.ckb-outcome-table__header h3 { margin: 5px 0 0; color: var(--ckb-slate-950); font-size: 1.08rem; }
+.ckb-outcome-table__header > p { max-width: 50ch; margin: 0; color: var(--ckb-slate-600); font-size: 0.8rem; line-height: 1.45; text-align: right; }
+.ckb-outcome-table__scroll { overflow-x: auto; }
+.ckb-outcome-table table { width: 100%; min-width: 720px; border-collapse: collapse; }
+.ckb-outcome-table th, .ckb-outcome-table td { padding: 12px 14px; border-bottom: 1px solid var(--ckb-slate-100); text-align: left; }
+.ckb-outcome-table th { color: var(--ckb-blue-900); background: rgb(240 249 255 / 0.72); font-size: 0.76rem; font-weight: 850; letter-spacing: 0.025em; }
+.ckb-outcome-table td { color: var(--ckb-slate-700); font-size: 0.84rem; vertical-align: middle; }
+.ckb-outcome-table tbody tr:last-child td { border-bottom: 0; }
+.ckb-outcome-table tbody tr:hover { background: var(--ckb-blue-50); }
+.ckb-outcome-table__code { color: var(--ckb-slate-950) !important; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ckb-outcome-table__decision { display: inline-flex; padding: 5px 8px; border-radius: 999px; background: var(--ckb-green-100); color: var(--ckb-green-700); font-size: 0.75rem; font-weight: 800; white-space: nowrap; }
+.ckb-outcome-table__decision--high { background: var(--ckb-amber-100); color: var(--ckb-amber-700); }
+
+.ckb-image-placeholder { display: grid; min-height: 108px; place-items: center; padding: 20px; color: var(--ckb-slate-600); text-align: center; }
+.ckb-image-gallery { padding: 2px; }
+.ckb-image-gallery__header { margin: 0 0 20px; }
+.ckb-image-gallery__header h3 { margin: 6px 0 0; color: var(--ckb-slate-950); font-size: 1.2rem; }
+.ckb-image-gallery__header p { max-width: 74ch; margin: 6px 0 0; color: var(--ckb-slate-600); font-size: 0.84rem; line-height: 1.5; }
+.ckb-image-section + .ckb-image-section { margin-top: 22px; }
+.ckb-image-section__header { margin: 0 0 10px; }
+.ckb-image-section__header h4 { margin: 0; color: var(--ckb-blue-900); font-size: 0.9rem; font-weight: 850; }
+.ckb-image-grid { display: grid; gap: 14px; }
+.ckb-image-grid--clusters { grid-template-columns: 1fr; }
+.ckb-image-grid--outcomes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ckb-image-card { min-width: 0; overflow: hidden; border: 1px solid var(--ckb-slate-200); border-radius: var(--ckb-radius-sm); background: var(--ckb-white); box-shadow: var(--ckb-shadow-sm); }
+.ckb-image-card--selected { border-color: var(--ckb-blue-600); box-shadow: 0 0 0 2px rgb(2 132 199 / 0.14), var(--ckb-shadow-sm); }
+.ckb-image-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 13px 10px; border-bottom: 1px solid var(--ckb-slate-100); background: linear-gradient(112deg, var(--ckb-blue-50), var(--ckb-white)); }
+.ckb-image-card__kind { margin: 0; color: var(--ckb-blue-700); font-size: 0.7rem; font-weight: 850; letter-spacing: 0.06em; text-transform: uppercase; }
+.ckb-image-card h4 { margin: 4px 0 0; color: var(--ckb-slate-950); font-size: 0.9rem; line-height: 1.35; }
+.ckb-image-card__badge { flex: 0 0 auto; max-width: 50%; padding: 5px 8px; border-radius: 999px; background: var(--ckb-blue-100); color: var(--ckb-blue-900); font-size: 0.7rem; font-weight: 800; line-height: 1.2; text-align: center; }
+.ckb-image-card__badge--high { background: var(--ckb-amber-100); color: var(--ckb-amber-700); }
+.ckb-image-frame { display: block; width: 100%; height: 218px; border: 0; background: var(--ckb-white); }
+.ckb-image-card__context { display: grid; grid-template-columns: minmax(205px, 0.9fr) minmax(0, 1.1fr); gap: 12px; align-items: stretch; padding: 12px; background: #fbfdff; }
+.ckb-image-card__curve { min-width: 0; padding: 3px; border: 1px solid var(--ckb-slate-100); border-radius: 8px; background: var(--ckb-white); }
+.ckb-reference-figure { display: block; width: 100%; height: 100%; min-height: 184px; object-fit: contain; border-radius: 6px; background: var(--ckb-white); }
+.ckb-cluster-profile-figure { display: block; width: 100%; max-height: 230px; object-fit: contain; padding: 10px 12px; background: var(--ckb-white); }
+.ckb-image-card__force { border-top: 1px solid var(--ckb-slate-100); background: var(--ckb-white); }
+.ckb-risk-curve { display: block; width: 100%; height: auto; }
+.ckb-risk-curve__grid path { fill: none; stroke: #dbeafe; stroke-width: 1; }
+.ckb-risk-curve__low, .ckb-risk-curve__high { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
+.ckb-risk-curve__low { stroke: #0d9488; }
+.ckb-risk-curve__high { stroke: #d97706; }
+.ckb-risk-curve__legend text, .ckb-risk-curve__axis { fill: var(--ckb-slate-600); font-size: 10px; font-family: ui-sans-serif, system-ui, sans-serif; }
+.ckb-risk-curve__point--low circle { fill: #0d9488; }.ckb-risk-curve__point--low text { fill: #0f766e; }.ckb-risk-curve__point--high circle { fill: #d97706; }.ckb-risk-curve__point--high text { fill: #b45309; }
+.ckb-risk-curve__point text { font-size: 10px; font-weight: 800; font-family: ui-sans-serif, system-ui, sans-serif; }
+.ckb-image-card__explanation { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.ckb-image-card__explanation p { margin: 0; color: var(--ckb-slate-600); font-size: 0.78rem; line-height: 1.55; }
+.ckb-image-card__explanation .ckb-image-card__risk { margin-bottom: 7px; color: var(--ckb-blue-900); font-size: 0.76rem; font-weight: 850; }
+
+/* Theme selection is explicit: the page never follows the browser/system theme. */
+html[data-ckb-theme="light"] .gradio-container { color-scheme: light !important; }
+#ckb-shell[data-theme="dark"] {
+  --ckb-blue-950: #082f49;
+  --ckb-blue-900: #0c4a6e;
+  --ckb-blue-700: #7dd3fc;
+  --ckb-blue-600: #38bdf8;
+  --ckb-blue-100: #153b58;
+  --ckb-blue-50: #0f1d31;
+  --ckb-cyan-100: #164e63;
+  --ckb-green-700: #bbf7d0;
+  --ckb-green-600: #4ade80;
+  --ckb-green-100: #14532d;
+  --ckb-amber-700: #fcd34d;
+  --ckb-amber-100: #78350f;
+  --ckb-slate-950: #f8fafc;
+  --ckb-slate-700: #e2e8f0;
+  --ckb-slate-600: #cbd5e1;
+  --ckb-slate-400: #94a3b8;
+  --ckb-slate-200: #334155;
+  --ckb-slate-100: #1e293b;
+  --ckb-white: #111827;
+  --ckb-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.32);
+  --ckb-shadow-md: 0 16px 40px rgb(0 0 0 / 0.34);
+  color-scheme: dark !important;
+}
+html[data-ckb-theme="dark"] .gradio-container {
+  background:
+    radial-gradient(circle at 10% 0%, rgb(8 47 73 / 0.76), transparent 24rem),
+    radial-gradient(circle at 90% 9%, rgb(15 35 57 / 0.9), transparent 25rem),
+    #020617;
+  color: #f8fafc;
+  color-scheme: dark !important;
+}
+html[data-ckb-theme="dark"] #ckb-shell,
+html[data-ckb-theme="dark"] #outcome-table,
+html[data-ckb-theme="dark"] #shap-result,
+html[data-ckb-theme="dark"] #shap-gallery,
+html[data-ckb-theme="dark"] .ckb-image-gallery,
+html[data-ckb-theme="dark"] .ckb-image-card,
+html[data-ckb-theme="dark"] .ckb-image-card__force { color-scheme: dark !important; }
+html[data-ckb-theme="dark"] #ckb-shell .ckb-panel,
+html[data-ckb-theme="dark"] #ckb-shell .ckb-results { background: rgb(15 23 42 / 0.94); border-color: var(--ckb-slate-200); }
+html[data-ckb-theme="dark"] #ckb-shell .ckb-status--ready { background: #102a1c; border-color: #166534; }
+html[data-ckb-theme="dark"] #ckb-shell .ckb-status--warning { background: #422006; border-color: #92400e; }
+html[data-ckb-theme="dark"] #ckb-shell .ckb-result-metrics div { background: #172033; }
+html[data-ckb-theme="dark"] #ckb-shell .ckb-image-card__context { background: #111c2d; }
+html[data-ckb-theme="dark"] #ckb-shell .ckb-language-switch,
+html[data-ckb-theme="dark"] #ckb-shell .ckb-theme-switch { background: #111827; border-color: var(--ckb-slate-200); }
+html[data-ckb-theme="dark"] #ckb-shell .ckb-language-switch button[aria-pressed="true"],
+html[data-ckb-theme="dark"] #ckb-shell .ckb-theme-switch button[aria-pressed="true"],
+html[data-ckb-theme="dark"] #ckb-shell #predict-button,
+html[data-ckb-theme="dark"] #ckb-shell #shap-result > button { color: #ffffff !important; }
+html[data-ckb-theme="dark"] #ckb-shell .ckb-hero,
+html[data-ckb-theme="dark"] #ckb-shell .ckb-hero h1,
+html[data-ckb-theme="dark"] #ckb-shell .ckb-hero p {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+html[data-ckb-theme="dark"] #ckb-shell #shap-result > button.open { color: #e0f2fe !important; }
+html[data-ckb-theme="dark"] #ckb-shell .ckb-image-frame,
+html[data-ckb-theme="dark"] #ckb-shell .ckb-reference-figure,
+html[data-ckb-theme="dark"] #ckb-shell .ckb-cluster-profile-figure { background: #ffffff !important; color-scheme: only light !important; }
+html[data-ckb-theme="dark"] body .options[role="listbox"] { border-color: #334155 !important; background: #111827 !important; }
+html[data-ckb-theme="dark"] body .options[role="listbox"] [role="option"] { background: #111827 !important; color: #f8fafc !important; }
+html[data-ckb-theme="dark"] body .options[role="listbox"] [role="option"]:hover,
+html[data-ckb-theme="dark"] body .options[role="listbox"] [role="option"][aria-selected="true"] { background: #0f2f4a !important; color: #f8fafc !important; }
 
 @media (max-width: 820px) {
   #ckb-shell { padding: 14px 12px 36px; }
@@ -784,6 +1141,8 @@ CUSTOM_CSS = """
   .ckb-risk-row { grid-template-columns: 104px minmax(90px, 1fr) 48px; gap: 8px; }
   .ckb-shap-grid { grid-template-columns: 1fr; }
   .ckb-shap-card--cluster { grid-column: auto; }
+  .ckb-image-grid--clusters { grid-template-columns: 1fr; }
+  .ckb-image-grid--outcomes { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {
@@ -795,6 +1154,11 @@ CUSTOM_CSS = """
   .ckb-result-card__header, .ckb-risk-visual__header { display: block; }
   .ckb-result-badge, .ckb-legend { margin-top: 10px; }
   .ckb-shap-frame { height: 360px; }
+  .ckb-outcome-table__header { display: block; }
+  .ckb-outcome-table__header > p { margin-top: 7px; text-align: left; }
+  .ckb-image-grid--clusters { grid-template-columns: 1fr; }
+  .ckb-image-frame { height: 210px; }
+  .ckb-image-card__context { grid-template-columns: 1fr; }
   .ckb-actions { align-items: stretch; }
   #predict-button, #reset-button { width: 100%; }
   .ckb-privacy-copy { flex-basis: 100%; }
@@ -831,7 +1195,9 @@ HEAD = """
           .from(hero, { y: 18, autoAlpha: 0 })
           .from(cards, { y: 14, scale: 0.98, autoAlpha: 0, stagger: 0.07, ease: 'back.out(1.35)' }, '-=0.18')
           .from(panel, { y: 16, autoAlpha: 0 }, '-=0.20')
-          .from(results, { y: 12, autoAlpha: 0 }, '-=0.24');
+          .from(results, { y: 12, autoAlpha: 0 }, '-=0.24')
+          // A transformed ancestor makes Gradio's fixed dropdown portal drift.
+          .set([hero, cards, panel, results], { clearProps: 'transform,opacity,visibility' });
         return () => timeline.kill();
       });
     };
@@ -995,11 +1361,82 @@ HEAD = """
     self_health: '\u8bf7\u9009\u62e9\u4e0e\u7814\u7a76\u5b9a\u4e49\u76f8\u7b26\u7684\u6587\u5b57\u9009\u9879\u3002', chronic_pain: '\u8bf7\u9009\u62e9\u4e0e\u7814\u7a76\u5b9a\u4e49\u76f8\u7b26\u7684\u6587\u5b57\u9009\u9879\u3002'
   });
 
+  // Keep the visible UI concise. The frozen numeric representation stays in
+  // the component value and is never exposed as 0/1/2/3/4 to visitors.
+  Object.assign(copy.en, {
+    hero: 'One complete input returns a frozen K=3 cluster assignment and probabilities for 13 outcomes. The model was developed using the China Kadoorie Biobank.',
+    inputBody: '',
+    coding: '',
+    outputTitle: 'Prediction results',
+    themeLabel: 'Colour theme',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    shapExpand: 'Show image results',
+    shapCollapse: 'Hide image results',
+    shapKicker: 'IMAGE RESULTS',
+    shapTitle: 'Assigned cluster explanation and 13 outcome panels',
+    shapDescription: 'Each outcome panel places its cumulative-risk reference and brief interpretation above the related SHAP force plot.',
+    shapCluster: 'Assigned cluster explanation',
+    shapOutcome: 'Outcome risk explanations',
+    shapPlaceholder: 'Run a prediction to generate image results.'
+  });
+  Object.assign(copy.zh, {
+    hero: '\u4e00\u6b21\u5b8c\u6574\u8f93\u5165\uff0c\u8fd4\u56de\u51bb\u7ed3 K=3 \u805a\u7c7b\u5206\u914d\u4e0e 13 \u9879\u7ed3\u5c40\u98ce\u9669\u6982\u7387\u3002\u6a21\u578b\u57fa\u4e8e China Kadoorie Biobank \u5f00\u53d1\u3002',
+    inputBody: '',
+    coding: '',
+    outputTitle: '\u9884\u6d4b\u7ed3\u679c',
+    themeLabel: '\u9875\u9762\u4e3b\u9898',
+    themeLight: '\u6d45\u8272',
+    themeDark: '\u6df1\u8272',
+    shapExpand: '\u5c55\u5f00\u67e5\u770b\u56fe\u7247\u7ed3\u679c',
+    shapCollapse: '\u6536\u8d77\u56fe\u7247\u7ed3\u679c',
+    shapKicker: '\u56fe\u7247\u7ed3\u679c',
+    shapTitle: '\u5df2\u5206\u914d\u805a\u7c7b\u89e3\u91ca\u4e0e 13 \u9879\u7ed3\u5c40\u98ce\u9669\u9762\u677f',
+    shapDescription: '\u6bcf\u4e2a\u7ed3\u5c40\u9762\u677f\u5747\u5c06\u7d2f\u79ef\u98ce\u9669\u53c2\u8003\u548c\u7b80\u77ed\u89e3\u8bfb\u7f6e\u4e8e\u76f8\u5173 SHAP \u529b\u56fe\u4e0a\u65b9\u3002',
+    shapCluster: '\u5df2\u5206\u914d\u805a\u7c7b\u89e3\u91ca',
+    shapOutcome: '\u7ed3\u5c40\u98ce\u9669\u89e3\u91ca',
+    shapPlaceholder: '\u8fd0\u884c\u9884\u6d4b\u540e\u751f\u6210\u56fe\u7247\u7ed3\u679c\u3002'
+  });
+
+  const dropdownCopy = {
+    'Male': { en: 'Male', zh: '\u7537' }, 'Female': { en: 'Female', zh: '\u5973' },
+    'Low': { en: 'Low', zh: '\u4f4e' }, 'Intermediate': { en: 'Intermediate', zh: '\u4e2d' }, 'High': { en: 'High', zh: '\u9ad8' },
+    'Other observed status': { en: 'Other observed status', zh: '\u5176\u4ed6\u89c2\u5bdf\u72b6\u6001' },
+    'Married or partnered': { en: 'Married or partnered', zh: '\u5df2\u5a5a\u6216\u6709\u4f34\u4fa3' },
+    'No': { en: 'No', zh: '\u5426' }, 'Yes': { en: 'Yes', zh: '\u662f' },
+    'Very good or excellent': { en: 'Very good or excellent', zh: '\u975e\u5e38\u597d\u6216\u6781\u597d' },
+    'Good': { en: 'Good', zh: '\u597d' }, 'Fair or regular': { en: 'Fair or regular', zh: '\u4e00\u822c' },
+    'Poor or very poor': { en: 'Poor or very poor', zh: '\u5dee\u6216\u5f88\u5dee' }
+  };
+
   const setText = (node, value) => {
     if (node && node.textContent !== value) node.textContent = value;
   };
   const setHtml = (node, value) => {
     if (node && node.innerHTML !== value) node.innerHTML = value;
+  };
+  const translateDynamicContent = (root, language) => {
+    const textKey = language === 'zh' ? 'localeZh' : 'localeEn';
+    const ariaKey = language === 'zh' ? 'ariaZh' : 'ariaEn';
+    root.querySelectorAll('[data-locale-en]').forEach((node) => setText(node, node.dataset[textKey] || ''));
+    root.querySelectorAll('[data-aria-en]').forEach((node) => {
+      const value = node.dataset[ariaKey];
+      if (value) node.setAttribute('aria-label', value);
+    });
+  };
+  const dropdownEntry = (value) => {
+    const normalized = String(value || '').replace(/^[✓✔]\\s*/, '').trim();
+    return Object.values(dropdownCopy).find((entry) => entry.en === normalized || entry.zh === normalized);
+  };
+  const translateDropdownText = (root, language) => {
+    root.querySelectorAll('.ckb-form-card input').forEach((input) => {
+      const entry = dropdownEntry(input.value);
+      if (entry) input.value = entry[language];
+    });
+    document.querySelectorAll('[role="option"]').forEach((option) => {
+      const entry = dropdownEntry(option.textContent);
+      if (entry) option.textContent = entry[language];
+    });
   };
 
   const initLocale = () => {
@@ -1028,11 +1465,21 @@ HEAD = """
     };
     let language = 'en';
     try { language = localStorage.getItem('ckb-language') === 'zh' ? 'zh' : 'en'; } catch (_) { /* Default to English. */ }
+    let theme = 'light';
+    try { theme = localStorage.getItem('ckb-theme') === 'dark' ? 'dark' : 'light'; } catch (_) { /* Theme is page-controlled and defaults to light. */ }
 
     const bar = document.createElement('div');
     bar.className = 'ckb-language-bar';
-    bar.innerHTML = '<div class="ckb-language-switch" role="group" aria-label="Language selector"><button type="button" data-language="en">English</button><button type="button" data-language="zh">\u4e2d\u6587</button></div>';
+    bar.innerHTML = '<div class="ckb-language-switch" role="group" aria-label="Language selector"><button type="button" data-language="en">English</button><button type="button" data-language="zh">\u4e2d\u6587</button></div><div class="ckb-theme-switch" role="group" data-theme-switch="true" aria-label="Colour theme"><button type="button" data-theme="light">Light</button><button type="button" data-theme="dark">Dark</button></div>';
     trustRow.insertAdjacentElement('afterend', bar);
+
+    const applyTheme = () => {
+      root.dataset.theme = theme;
+      document.documentElement.dataset.ckbTheme = theme;
+      root.querySelectorAll('[data-theme]').forEach((button) => {
+        button.setAttribute('aria-pressed', String(button.dataset.theme === theme));
+      });
+    };
 
     const applyLanguage = () => {
       const text = copy[language];
@@ -1040,6 +1487,10 @@ HEAD = """
       root.querySelectorAll('[data-language]').forEach((button) => {
         button.setAttribute('aria-pressed', String(button.dataset.language === language));
       });
+      const themeSwitch = root.querySelector('[data-theme-switch]');
+      if (themeSwitch) themeSwitch.setAttribute('aria-label', text.themeLabel);
+      setText(root.querySelector('[data-theme="light"]'), text.themeLight);
+      setText(root.querySelector('[data-theme="dark"]'), text.themeDark);
       setText(root.querySelector('.ckb-skip'), language === 'en' ? 'Skip to prediction inputs' : '\u8df3\u8f6c\u5230\u9884\u6d4b\u8f93\u5165');
       const eyebrow = root.querySelector('.ckb-eyebrow');
       if (eyebrow) setText(eyebrow.lastChild, text.eyebrow);
@@ -1064,9 +1515,9 @@ HEAD = """
         const component = root.querySelector(`#field-${field}`);
         if (!component) return;
         setText(component.querySelector('[data-testid="block-info"]'), fields[language].labels[field]);
-        setText(component.querySelector('.info-text'), fields[language].help[field]);
         component.querySelector('input')?.setAttribute('aria-label', fields[language].labels[field]);
       });
+      translateDropdownText(root, language);
       setText(root.querySelector('#predict-button'), text.run);
       setText(root.querySelector('#reset-button'), text.reset);
       const privacy = root.querySelector('.ckb-privacy-copy');
@@ -1115,18 +1566,36 @@ HEAD = """
         setText(node, node.dataset.shapKind === 'cluster' ? text.shapCluster : text.shapOutcome);
       });
       root.querySelectorAll('.ckb-shap-placeholder').forEach((node) => setText(node, text.shapPlaceholder));
+      setText(root.querySelector('[data-image-kicker]'), text.shapKicker);
+      setText(root.querySelector('[data-image-title]'), text.shapTitle);
+      setText(root.querySelector('[data-image-description]'), text.shapDescription);
+      setText(root.querySelector('[data-image-cluster-title]'), text.shapCluster);
+      setText(root.querySelector('[data-image-outcome-title]'), text.shapOutcome);
+      root.querySelectorAll('.ckb-image-placeholder').forEach((node) => setText(node, text.shapPlaceholder));
+      translateDynamicContent(root, language);
       const jsonButton = root.querySelector('#raw-result > button');
       if (jsonButton) setText(jsonButton, text.json);
       setHtml(root.querySelector('.ckb-footer-note'), text.footer);
     };
 
     bar.addEventListener('click', (event) => {
+      const themeButton = event.target.closest('button[data-theme]');
+      if (themeButton) {
+        theme = themeButton.dataset.theme === 'dark' ? 'dark' : 'light';
+        try { localStorage.setItem('ckb-theme', theme); } catch (_) { /* Preference remains for this page. */ }
+        applyTheme();
+        return;
+      }
       const button = event.target.closest('button[data-language]');
       if (!button) return;
       language = button.dataset.language === 'zh' ? 'zh' : 'en';
       try { localStorage.setItem('ckb-language', language); } catch (_) { /* Preference remains for this page. */ }
       applyLanguage();
     });
+    document.addEventListener('click', () => {
+      requestAnimationFrame(() => translateDropdownText(root, language));
+    }, true);
+    applyTheme();
     applyLanguage();
     let scheduled = false;
     const observer = new MutationObserver(() => {
@@ -1177,9 +1646,27 @@ def _clean_expired_shap_reports() -> None:
             continue
 
 
+def _ensure_light_shap_canvas(plot_path: str) -> None:
+    """Keep generated SHAP HTML legible when the host browser uses dark mode."""
+    path = Path(plot_path)
+    try:
+        document = path.read_text(encoding="utf-8")
+        if SHAP_LIGHT_CANVAS_MARKER in document:
+            return
+        if "</head>" not in document:
+            return
+        path.write_text(
+            document.replace("</head>", SHAP_LIGHT_CANVAS_HEAD + "</head>", 1),
+            encoding="utf-8",
+        )
+    except (OSError, UnicodeError):
+        return
+
+
 def _shap_force_plot_card(kind: str, title: str, plot_path: str, *, cluster: bool = False) -> str:
     """Embed one trusted, locally-generated SHAP HTML force plot by temporary URL."""
     card_class = " ckb-shap-card--cluster" if cluster else ""
+    _ensure_light_shap_canvas(plot_path)
     plot_url = "/gradio_api/file=" + quote(Path(plot_path).resolve().as_posix(), safe="/")
     return f"""
     <article class="ckb-shap-card{card_class}">
@@ -1238,6 +1725,189 @@ def _shap_force_gallery(result: dict[str, Any]) -> str:
     """ + "".join(cards) + "</div></section>"
 
 
+def _locale_attrs(en: str, zh: str) -> str:
+    """Return safe text attributes used by the language switcher."""
+    return (
+        f'data-locale-en="{html.escape(en, quote=True)}" '
+        f'data-locale-zh="{html.escape(zh, quote=True)}"'
+    )
+
+
+def _outcome_presentation(code: str, outcome: dict[str, Any]) -> dict[str, Any]:
+    """Get display-only reference data without influencing inference."""
+    fallback_name = str(outcome.get("outcome", code))
+    return OUTCOME_PRESENTATION.get(
+        code,
+        {
+            "en": fallback_name,
+            "zh": fallback_name,
+            "model_en": "Model",
+            "model_zh": "模型",
+            "low_5": 0.0,
+            "low_10": 0.0,
+            "high_5": 0.0,
+            "high_10": 0.0,
+        },
+    )
+
+
+def _force_plot_frame(title_en: str, title_zh: str, plot_path: str) -> str:
+    """Embed one trusted locally-generated SHAP force plot."""
+    _ensure_light_shap_canvas(plot_path)
+    plot_url = "/gradio_api/file=" + quote(Path(plot_path).resolve().as_posix(), safe="/")
+    aria_en = title_en + " SHAP force plot"
+    aria_zh = title_zh + " SHAP 力图"
+    return f"""
+      <iframe class="ckb-image-frame" title="{html.escape(aria_en, quote=True)}"
+        data-aria-en="{html.escape(aria_en, quote=True)}"
+        data-aria-zh="{html.escape(aria_zh, quote=True)}"
+        loading="lazy" sandbox="allow-scripts" src="{plot_url}"></iframe>
+    """
+
+
+def _supplementary_image_url(path: Path) -> str:
+    """Return a temporary Gradio file URL for a bundled static figure."""
+    return "/gradio_api/file=" + quote(path.resolve().as_posix(), safe="/")
+
+
+def _risk_reference_figure(
+    code: str,
+    presentation: dict[str, Any],
+    *,
+    is_high_risk: bool,
+) -> str:
+    """Show the supplied low/high cumulative-risk figure for this outcome."""
+    risk_key = "high" if is_high_risk else "low"
+    risk_en, risk_zh = ("High risk", "高风险") if is_high_risk else ("Low risk", "低风险")
+    figure_path = SUPPLEMENTARY_IMAGE_DIR / f"{code}_{risk_key}.png"
+    if not figure_path.is_file():
+        return _cumulative_risk_svg(code, presentation)
+    display_code = code.replace("_", "–")
+    alt_en = f"{display_code} cumulative risk curve with the {risk_en.lower()} trajectory emphasised"
+    alt_zh = f"{display_code} 累积风险曲线，突出显示{risk_zh}轨迹"
+    return f"""
+    <img class="ckb-reference-figure" src="{_supplementary_image_url(figure_path)}"
+      loading="lazy" alt="{html.escape(alt_en, quote=True)}"
+      data-aria-en="{html.escape(alt_en, quote=True)}"
+      data-aria-zh="{html.escape(alt_zh, quote=True)}" />
+    """
+
+
+def _cluster_profile_figure(label: str) -> str:
+    """Show the supplied C1/C2/C3 cluster-profile illustration."""
+    figure_path = SUPPLEMENTARY_IMAGE_DIR / f"{label}.png"
+    title_en, title_zh = f"Cluster {label} risk profile map", f"聚类 {label} 风险概览图"
+    if not figure_path.is_file():
+        return '<div class="ckb-image-placeholder">Cluster profile illustration is unavailable.</div>'
+    return f"""
+    <img class="ckb-cluster-profile-figure" src="{_supplementary_image_url(figure_path)}"
+      loading="lazy" alt="{html.escape(title_en, quote=True)}"
+      data-aria-en="{html.escape(title_en, quote=True)}"
+      data-aria-zh="{html.escape(title_zh, quote=True)}" />
+    """
+
+
+def _cumulative_risk_svg(code: str, presentation: dict[str, Any]) -> str:
+    """Create a compact native risk curve from the supplied reference values."""
+    low_5, low_10 = float(presentation["low_5"]), float(presentation["low_10"])
+    high_5, high_10 = float(presentation["high_5"]), float(presentation["high_10"])
+    chart_max = max(low_5, low_10, high_5, high_10, 1.0) * 1.18
+
+    def y(value: float) -> float:
+        return 137 - (value / chart_max * 90)
+
+    low_y5, low_y10, high_y5, high_y10 = y(low_5), y(low_10), y(high_5), y(high_10)
+    label_en = f"{code.replace('_', '–')} cumulative-risk reference curves"
+    label_zh = f"{code.replace('_', '–')} 累积风险参考曲线"
+    return f"""
+    <svg class="ckb-risk-curve" viewBox="0 0 350 178" role="img"
+      aria-label="{html.escape(label_en, quote=True)}"
+      data-aria-en="{html.escape(label_en, quote=True)}"
+      data-aria-zh="{html.escape(label_zh, quote=True)}">
+      <g class="ckb-risk-curve__grid" aria-hidden="true"><path d="M40 40H320M40 89H320M40 137H320M40 22V137H320" /></g>
+      <g class="ckb-risk-curve__legend" aria-hidden="true">
+        <line x1="43" y1="12" x2="65" y2="12" class="ckb-risk-curve__low" />
+        <text x="71" y="16" {_locale_attrs('Low-risk reference', '低风险参考')}>Low-risk reference</text>
+        <line x1="191" y1="12" x2="213" y2="12" class="ckb-risk-curve__high" />
+        <text x="219" y="16" {_locale_attrs('High-risk reference', '高风险参考')}>High-risk reference</text>
+      </g>
+      <polyline points="40,137 155,{low_y5:.1f} 280,{low_y10:.1f}" class="ckb-risk-curve__low" />
+      <polyline points="40,137 155,{high_y5:.1f} 280,{high_y10:.1f}" class="ckb-risk-curve__high" />
+      <g class="ckb-risk-curve__point ckb-risk-curve__point--low"><circle cx="155" cy="{low_y5:.1f}" r="4.5" /><circle cx="280" cy="{low_y10:.1f}" r="4.5" /><text x="155" y="{low_y5 - 10:.1f}" text-anchor="middle">{low_5:.1f}%</text><text x="280" y="{low_y10 - 10:.1f}" text-anchor="middle">{low_10:.1f}%</text></g>
+      <g class="ckb-risk-curve__point ckb-risk-curve__point--high"><circle cx="155" cy="{high_y5:.1f}" r="4.5" /><circle cx="280" cy="{high_y10:.1f}" r="4.5" /><text x="155" y="{high_y5 - 10:.1f}" text-anchor="middle">{high_5:.1f}%</text><text x="280" y="{high_y10 - 10:.1f}" text-anchor="middle">{high_10:.1f}%</text></g>
+      <text x="40" y="163" class="ckb-risk-curve__axis" {_locale_attrs('0 years', '0年')}>0 years</text><text x="140" y="163" class="ckb-risk-curve__axis" {_locale_attrs('5 years', '5年')}>5 years</text><text x="260" y="163" class="ckb-risk-curve__axis" {_locale_attrs('10 years', '10年')}>10 years</text>
+    </svg>
+    """
+
+
+def _outcome_image_card(code: str, outcome: dict[str, Any], plot_path: str) -> str:
+    """Render a compact outcome card with context above its SHAP force plot."""
+    presentation = _outcome_presentation(code, outcome)
+    probability = max(0.0, min(1.0, float(outcome["probability"])))
+    threshold = max(0.0, min(1.0, float(outcome["youden_threshold"])))
+    is_high_risk = probability >= threshold
+    risk_en, risk_zh = ("High risk", "\u9ad8\u98ce\u9669") if is_high_risk else ("Low risk", "\u4f4e\u98ce\u9669")
+    decision_en = "at or above" if is_high_risk else "below"
+    decision_zh = "\u8fbe\u5230\u6216\u9ad8\u4e8e" if is_high_risk else "\u4f4e\u4e8e"
+    explanation_en = (
+        f"Predicted probability is {probability * 100:.1f}%, "
+        f"{decision_en} the frozen threshold of {threshold * 100:.1f}%. Reference cumulative incidence: "
+        f"low-risk {presentation['low_5']:.1f}% at 5 years and {presentation['low_10']:.1f}% at 10 years; "
+        f"high-risk {presentation['high_5']:.1f}% and {presentation['high_10']:.1f}%."
+    )
+    explanation_zh = (
+        f"\u9884\u6d4b\u6982\u7387\u4e3a {probability * 100:.1f}%\uff0c{decision_zh}\u51bb\u7ed3\u9608\u503c "
+        f"{threshold * 100:.1f}%\u3002\u53c2\u8003\u7d2f\u79ef\u53d1\u751f\u7387\uff1a\u4f4e\u98ce\u9669\u7ec4 5 \u5e74 {presentation['low_5']:.1f}%\u300110 \u5e74 "
+        f"{presentation['low_10']:.1f}%\uff1b\u9ad8\u98ce\u9669\u7ec4\u5206\u522b\u4e3a {presentation['high_5']:.1f}% \u548c {presentation['high_10']:.1f}%\u3002"
+    )
+    display_code = code.replace("_", "\u2013")
+    title_en, title_zh = str(presentation["en"]), str(presentation["zh"])
+    return f"""
+    <article class="ckb-image-card ckb-image-card--outcome">
+      <header class="ckb-image-card__header"><div><p class="ckb-image-card__kind" {_locale_attrs('Outcome risk panel', '\u7ed3\u5c40\u98ce\u9669\u9762\u677f')}>Outcome risk panel</p><h4>{html.escape(display_code)} · <span {_locale_attrs(title_en, title_zh)}>{html.escape(title_en)}</span></h4></div><span class="ckb-image-card__badge {'ckb-image-card__badge--high' if is_high_risk else ''}" {_locale_attrs(risk_en, risk_zh)}>{risk_en}</span></header>
+      <div class="ckb-image-card__context"><div class="ckb-image-card__curve">{_risk_reference_figure(code, presentation, is_high_risk=is_high_risk)}</div><div class="ckb-image-card__explanation"><p class="ckb-image-card__risk" {_locale_attrs(risk_en, risk_zh)}>{risk_en}</p><p {_locale_attrs(explanation_en, explanation_zh)}>{html.escape(explanation_en)}</p></div></div>
+      <div class="ckb-image-card__force">{_force_plot_frame(display_code + ' ' + title_en, display_code + ' ' + title_zh, plot_path)}</div>
+    </article>
+    """
+
+
+def _cluster_image_card(label: str, plot_path: str) -> str:
+    """Render only the assigned cluster profile and its matching SHAP force plot."""
+    title_en, title_zh = f"Cluster {label}", f"\u805a\u7c7b {label}"
+    state_en, state_zh = "Assigned cluster", "\u672c\u6b21\u5206\u914d"
+    return f"""
+    <article class="ckb-image-card ckb-image-card--cluster ckb-image-card--selected">
+      <header class="ckb-image-card__header"><div><p class="ckb-image-card__kind" {_locale_attrs('Cluster attribution', '\u805a\u7c7b\u5f52\u56e0')}>Cluster attribution</p><h4 {_locale_attrs(title_en, title_zh)}>{title_en}</h4></div><span class="ckb-image-card__badge" {_locale_attrs(state_en, state_zh)}>{state_en}</span></header>
+      {_cluster_profile_figure(label)}
+      <div class="ckb-image-card__force">{_force_plot_frame(title_en, title_zh, plot_path)}</div>
+    </article>
+    """
+
+
+def _image_results_gallery(result: dict[str, Any]) -> str:
+    """Create the assigned-cluster and 13-outcome image-result panels."""
+    try:
+        force_plots = result["force_plots"]
+        cluster = result["cluster"]
+        selected_label = str(cluster.get("cluster_label") or cluster["provisional_cluster_label"])
+        cluster_cards = [_cluster_image_card(selected_label, force_plots["cluster"][selected_label])]
+        outcome_cards = [
+            _outcome_image_card(code, outcome, force_plots[code])
+            for code, outcome in result["outcomes"].items()
+        ]
+    except (KeyError, OSError, TypeError):
+        return '<div class="ckb-image-placeholder" data-locale-en="Image results could not be rendered for this request." data-locale-zh="本次请求无法生成图片结果。">Image results could not be rendered for this request.</div>'
+
+    return """
+    <section class="ckb-image-gallery" aria-live="polite">
+      <header class="ckb-image-gallery__header"><div class="ckb-section-kicker" data-image-kicker="true">IMAGE RESULTS</div><h3 data-image-title="true">Assigned cluster explanation and 13 outcome panels</h3><p data-image-description="true">Each outcome panel places its cumulative-risk reference and brief interpretation above the related SHAP force plot.</p></header>
+      <section class="ckb-image-section" aria-labelledby="cluster-image-title"><div class="ckb-image-section__header"><h4 id="cluster-image-title" data-image-cluster-title="true">Assigned cluster explanation</h4></div><div class="ckb-image-grid ckb-image-grid--clusters">
+    """ + "".join(cluster_cards) + """
+      </div></section>
+      <section class="ckb-image-section" aria-labelledby="outcome-image-title"><div class="ckb-image-section__header"><h4 id="outcome-image-title" data-image-outcome-title="true">Outcome risk explanations</h4></div><div class="ckb-image-grid ckb-image-grid--outcomes">
+    """ + "".join(outcome_cards) + "</div></section></section>"
+
+
 def run_prediction(
     features: dict[str, float],
     sample_id: str | None = None,
@@ -1258,7 +1928,7 @@ def run_prediction(
                     make_force_plots=True,
                     sample_id=sample_id,
                 )
-                result["_shap_force_gallery_html"] = _shap_force_gallery(result)
+                result["_shap_force_gallery_html"] = _image_results_gallery(result)
             except Exception:
                 shutil.rmtree(output_dir, ignore_errors=True)
                 raise
@@ -1343,6 +2013,35 @@ def _outcome_table(result: dict[str, Any]) -> pd.DataFrame:
     return pd.DataFrame(rows).set_axis(TABLE_COLUMNS_EN, axis="columns")
 
 
+def _outcome_table_html(result: dict[str, Any]) -> str:
+    """Render the outcome table as fully bilingual native HTML."""
+    rows: list[str] = []
+    for code, outcome in result["outcomes"].items():
+        presentation = _outcome_presentation(code, outcome)
+        probability = max(0.0, min(1.0, float(outcome["probability"])))
+        threshold = max(0.0, min(1.0, float(outcome["youden_threshold"])))
+        is_high_risk = probability >= threshold
+        risk_en, risk_zh = ("At or above threshold", "达到或高于阈值") if is_high_risk else ("Below threshold", "低于阈值")
+        rows.append(
+            f"""
+            <tr>
+              <td class="ckb-outcome-table__code">{html.escape(code.replace('_', '–'))}</td>
+              <td><span {_locale_attrs(str(presentation['en']), str(presentation['zh']))}>{html.escape(str(presentation['en']))}</span></td>
+              <td>{probability * 100:.1f}%</td>
+              <td>{threshold * 100:.1f}%</td>
+              <td><span class="ckb-outcome-table__decision{' ckb-outcome-table__decision--high' if is_high_risk else ''}" {_locale_attrs(risk_en, risk_zh)}>{risk_en}</span></td>
+            </tr>
+            """
+        )
+    return """
+    <section class="ckb-outcome-table" aria-live="polite">
+      <div class="ckb-outcome-table__header"><div><p class="ckb-section-kicker" data-outcome-table-kicker="true" data-locale-en="OUTCOME PREDICTIONS" data-locale-zh="结局预测">OUTCOME PREDICTIONS</p><h3 data-outcome-table-title="true" data-locale-en="Outcome prediction details" data-locale-zh="结局预测明细">Outcome prediction details</h3></div><p data-outcome-table-description="true" data-locale-en="Risk class is determined by the frozen threshold for each outcome." data-locale-zh="风险判定根据每项结局的冻结阈值确定。">Risk class is determined by the frozen threshold for each outcome.</p></div>
+      <div class="ckb-outcome-table__scroll"><table><thead><tr>
+        <th data-locale-en="Code" data-locale-zh="代码">Code</th><th data-locale-en="Outcome" data-locale-zh="结局">Outcome</th><th data-locale-en="Probability" data-locale-zh="概率">Probability</th><th data-locale-en="Frozen threshold" data-locale-zh="冻结阈值">Frozen threshold</th><th data-locale-en="Risk decision" data-locale-zh="风险判定">Risk decision</th>
+      </tr></thead><tbody>
+    """ + "".join(rows) + "</tbody></table></div></section>"
+
+
 def _cluster_card(cluster: dict[str, Any]) -> str:
     label = str(cluster.get("cluster_label") or cluster["provisional_cluster_label"])
     assigned = cluster["classification_status"] == "assigned"
@@ -1409,7 +2108,7 @@ def _risk_visual(result: dict[str, Any]) -> str:
 
 def predict_for_demo(
     *values: float | int | None,
-) -> tuple[str, pd.DataFrame, str, dict[str, Any], str]:
+) -> tuple[str, str, str, dict[str, Any], str]:
     missing = [
         FEATURE_LABELS[feature]
         for feature, value in zip(FEATURES, values, strict=True)
@@ -1430,11 +2129,11 @@ def predict_for_demo(
     )
     shap_gallery = result.pop(
         "_shap_force_gallery_html",
-        '<div class="ckb-shap-placeholder">SHAP force plots are unavailable for this request.</div>',
+        '<div class="ckb-image-placeholder" data-locale-en="Image results are unavailable for this request." data-locale-zh="本次请求暂无图片结果。">Image results are unavailable for this request.</div>',
     )
     return (
         _cluster_card(result["cluster"]),
-        _outcome_table(result),
+        _outcome_table_html(result),
         _risk_visual(result),
         result,
         shap_gallery,
@@ -1521,7 +2220,6 @@ with gr.Blocks(
                             for feature in group_features:
                                 component_kwargs = {
                                     "label": DEFAULT_EN_FEATURE_LABELS[feature],
-                                    "info": DEFAULT_EN_FEATURE_HELP[feature],
                                     "value": EXAMPLE_VALUES[feature],
                                     "elem_id": f"field-{feature}",
                                 }
@@ -1570,16 +2268,13 @@ with gr.Blocks(
                 '<div class="ckb-result-placeholder">概率分布图将在预测完成后出现。</div>',
                 elem_id="risk-visual",
             )
-            outcome_output = gr.Dataframe(
-                headers=TABLE_COLUMNS_EN,
-                value=pd.DataFrame(columns=TABLE_COLUMNS_EN),
-                interactive=False,
-                label="结局预测明细",
+            outcome_output = gr.HTML(
+                '<div class="ckb-image-placeholder" data-locale-en="Run a prediction to generate outcome details." data-locale-zh="运行预测后生成结局明细。">Run a prediction to generate outcome details.</div>',
                 elem_id="outcome-table",
             )
-            with gr.Accordion("Show 14 SHAP force plots", open=False, elem_id="shap-result"):
+            with gr.Accordion("Show image results (16)", open=False, elem_id="shap-result"):
                 shap_output = gr.HTML(
-                    '<div class="ckb-shap-placeholder">Run a prediction to generate 14 SHAP force plots.</div>',
+                    '<div class="ckb-image-placeholder" data-locale-en="Run a prediction to generate image results." data-locale-zh="运行预测后生成图片结果。">Run a prediction to generate image results.</div>',
                     elem_id="shap-gallery",
                 )
             with gr.Accordion("查看完整 JSON 响应", open=False, elem_id="raw-result"):
@@ -1622,5 +2317,5 @@ if __name__ == "__main__":
     demo.launch(
         css=CUSTOM_CSS,
         head=HEAD,
-        allowed_paths=[str(SHAP_CACHE_DIR)],
+        allowed_paths=[str(SHAP_CACHE_DIR), str(SUPPLEMENTARY_IMAGE_DIR)],
     )

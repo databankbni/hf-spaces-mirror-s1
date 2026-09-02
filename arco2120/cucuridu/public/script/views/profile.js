@@ -1,0 +1,119 @@
+const getInfo = async () => {
+    try {
+        const response = await fetch('/generateInfo', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Errore nella richiesta: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(`Oop, qualcosa è andato storto: ${error.message}`);
+    }
+};
+
+document.addEventListener("DOMContentLoaded", async () => {
+    const possibleStanzaId = fromBackEnd["stanza"] || "";
+    const displayPfp = document.getElementById("displayPfp");
+    const displayName = document.getElementById("displayName");
+    const pfpPanel = document.getElementById("selectPfp");
+    const btn_randomize = document.getElementById("randomize");
+    const btn_confirm = document.getElementById("confirm");
+    const profile = document.getElementById("profile");
+    const pfpSelections = document.querySelectorAll(".pfp_selection");
+    const randomUsername = document.getElementById("randomUsername");
+    const usernamePanel = document.getElementById("selectUsername");
+    const btn_confirmUsername = document.getElementById("confirmUsername");
+    const editUsername = document.getElementById("changeNameBtn");
+    const editBoxUsername = document.getElementById("customUsername");
+
+    const exitBtnName = document.getElementById("exitBtnName");
+    const exitBtnPfp = document.getElementById("exitBtnPfp");
+
+    async function getNewInfos () {
+        let infos = await getInfo();
+
+        if (infos) {
+            displayPfp.src = infos.pfp;
+            displayName.innerText = infos.nome;
+        }
+    }
+
+    await getNewInfos();
+    let doing = false;
+
+    pfpSelections.forEach(pfp => {
+        pfp.addEventListener("click", () => {
+            displayPfp.src = pfp.src;
+            pfpPanel.dispatchEvent(hidePanel);
+            profile.dispatchEvent(showPanel);
+        });
+    });
+
+
+    randomUsername.addEventListener("click", async () => {
+        displayName.textContent = (await getInfo())["nome"];
+        editBoxUsername.value = displayName.innerText;
+    });
+
+    displayPfp.addEventListener("click", () => {
+       profile.dispatchEvent(hidePanel);
+       pfpPanel.dispatchEvent(showPanel);
+       document.querySelectorAll(".pfp_selected").forEach(pfp => pfp.classList.remove("pfp_selected"));
+       const thePfp = document.getElementById("pfp_" + (() => {
+           const id = displayPfp.src.split("/");
+           return id[id.length - 1].split(".")[0];
+       })());
+       thePfp.classList.add("pfp_selected");
+       thePfp.scrollIntoView({
+           block: "center",
+           inline: "center"
+       });
+    });
+
+    editUsername.addEventListener("click", () => {
+        editBoxUsername.value = displayName.innerText;
+        profile.dispatchEvent(hidePanel);
+        usernamePanel.dispatchEvent(showPanel);
+    });
+
+    exitBtnName.addEventListener("click", () => {
+        usernamePanel.dispatchEvent(hidePanel);
+        profile.dispatchEvent(showPanel);
+    })
+
+    exitBtnPfp.addEventListener("click", () => {
+        pfpPanel.dispatchEvent(hidePanel);
+        profile.dispatchEvent(showPanel);
+    })
+
+    btn_confirmUsername.addEventListener("click", () => {
+        if(!editBoxUsername.value || editBoxUsername.value === "") {
+            alert("Possibilmente un nome sensato");
+            return;
+        }
+        displayName.textContent = editBoxUsername.value;
+        editBoxUsername.value = "";
+        usernamePanel.dispatchEvent(hidePanel);
+        profile.dispatchEvent(showPanel);
+    });
+
+    btn_randomize.addEventListener("click", async () => {
+        if(doing) return;
+        doing = true;
+        await getNewInfos();
+        doing = false;
+    });
+
+
+
+    btn_confirm.addEventListener("click", () => possibleStanzaId !== "" ?
+        navigateWithLoading("/partecipaStanza?pfp=" + encodeURIComponent(displayPfp.src) + "&nome=" + encodeURIComponent(displayName.textContent) + "&stanza=" + encodeURIComponent(possibleStanzaId)) :
+        navigateWithLoading("/creaStanza?pfp=" + encodeURIComponent(displayPfp.src) + "&nome=" + encodeURIComponent(displayName.textContent)));
+
+    document.dispatchEvent(unloadScreen);
+});

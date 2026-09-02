@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔐 مفتاح الرعب</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui;background:#0a0a1a;color:#fff;min-height:100vh}
+.container{max-width:480px;margin:0 auto;padding:20px;text-align:center}
+.header{padding:30px 0}
+.header h1{font-size:32px;color:#ff4444;text-shadow:0 0 20px rgba(255,68,68,0.5)}
+.header p{color:#888;margin-top:10px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:20px 0}
+.stat{background:rgba(255,255,255,0.05);border-radius:16px;padding:20px;border:1px solid rgba(255,255,255,0.1)}
+.stat-label{font-size:12px;color:#888}
+.stat-value{font-size:26px;font-weight:bold;color:#ff4444;margin-top:5px}
+.clicker{margin:40px 0;position:relative}
+.key-btn{width:180px;height:180px;border-radius:50%;border:none;background:radial-gradient(circle at 30% 30%,#ff4444,#880000);box-shadow:0 0 50px rgba(255,68,68,0.4),inset 0 -10px 30px rgba(0,0,0,0.5);font-size:60px;cursor:pointer;transition:transform 0.1s;user-select:none}
+.key-btn:active{transform:scale(0.9)}
+.energy-bar{width:100%;height:18px;background:rgba(255,255,255,0.1);border-radius:10px;overflow:hidden;margin:20px 0}
+.energy-fill{height:100%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:10px;transition:width 0.3s}
+.menu{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}
+.menu-btn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:15px;color:#fff;font-size:14px;cursor:pointer}
+.menu-btn:hover{background:rgba(255,255,255,0.15)}
+.floating{position:absolute;color:#ff4444;font-weight:bold;font-size:22px;pointer-events:none;animation:up 1s ease-out forwards}
+@keyframes up{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-100px)}}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:1000;justify-content:center;align-items:center;padding:20px}
+.modal-box{background:#1a1a2e;border-radius:20px;padding:25px;max-width:400px;width:100%;border:1px solid rgba(255,255,255,0.1)}
+.modal h2{color:#ff4444;margin-bottom:15px}
+input{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);color:#fff;margin:10px 0;font-size:16px}
+.w-btn{width:100%;padding:14px;border-radius:10px;border:none;background:linear-gradient(90deg,#ff4444,#ff8800);color:#fff;font-size:16px;font-weight:bold;cursor:pointer;margin-top:10px}
+.close{float:left;font-size:24px;cursor:pointer;color:#888}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.9);color:#fff;padding:12px 24px;border-radius:25px;font-size:14px;z-index:2000;display:none}
+.leader-item{display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid rgba(255,255,255,0.05)}
+.leader-item.me{background:rgba(255,68,68,0.1);border-radius:8px}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+<h1>🔐 مفتاح الرعب</h1>
+<p>اضغط على المفتاح وجمع نقاط!</p>
+</div>
+<div class="stats">
+<div class="stat"><div class="stat-label">💀 نقاطك</div><div class="stat-value" id="score">0</div></div>
+<div class="stat"><div class="stat-label">⚡ طاقة</div><div class="stat-value" id="enTxt">100/100</div></div>
+</div>
+<div class="energy-bar"><div class="energy-fill" id="enBar" style="width:100%"></div></div>
+<div class="clicker" id="clickArea"><button class="key-btn" onclick="clickKey(event)">🔐</button></div>
+<div class="stats">
+<div class="stat"><div class="stat-label">🎚️ مستوى</div><div class="stat-value" id="lvl">1</div></div>
+<div class="stat"><div class="stat-label">👥 دعوات</div><div class="stat-value" id="refs">0</div></div>
+</div>
+<div class="menu">
+<button class="menu-btn" onclick="openM('withdraw')" style="background:rgba(255,68,68,0.2)">💸 سحب</button>
+<button class="menu-btn" onclick="openM('invite')">👥 دعوة</button>
+<button class="menu-btn" onclick="openM('top')">🏆 المتصدرين</button>
+<button class="menu-btn" onclick="openM('wallet')">👛 المحفظة</button>
+</div>
+</div>
+
+<div class="modal" id="m-withdraw"><div class="modal-box"><span class="close" onclick="closeM()">×</span><h2>💸 سحب النقاط</h2><p style="color:#888;margin-bottom:10px">1000 نقطة = 0.01 TON</p><input id="wAddr" placeholder="عنوان محفظة TON" dir="ltr"><input id="wAmt" type="number" placeholder="عدد النقاط" min="1000"><button class="w-btn" onclick="withdraw()">🚀 طلب سحب</button><p style="color:#666;font-size:12px;margin-top:10px">السحب يدوي - يصل خلال 24 ساعة</p></div></div>
+
+<div class="modal" id="m-invite"><div class="modal-box"><span class="close" onclick="closeM()">×</span><h2>👥 دعوة أصدقاء</h2><p style="color:#888;margin:10px 0">لكل صديق: +500 نقطة!</p><div style="background:rgba(255,68,68,0.1);border:1px solid #ff4444;border-radius:12px;padding:15px;text-align:center"><p style="font-size:12px;color:#888">رابطك:</p><p id="refLink" style="font-size:11px;word-break:break-all;color:#ff4444">جاري...</p><button class="menu-btn" style="margin-top:10px" onclick="copyRef()">📋 نسخ</button></div></div></div>
+
+<div class="modal" id="m-top"><div class="modal-box"><span class="close" onclick="closeM()">×</span><h2>🏆 المتصدرين</h2><div id="topList" style="margin-top:15px"><p style="color:#888">جاري...</p></div></div></div>
+
+<div class="modal" id="m-wallet"><div class="modal-box"><span class="close" onclick="closeM()">×</span><h2>👛 محفظتي</h2><p style="color:#888;margin-top:10px">حالة الربط:</p><p id="wStat" style="color:#ff4444;margin:10px 0">غير مربوطة</p><button class="w-btn" onclick="setWallet()">🔗 ربط محفظة</button></div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let uid='user_'+Math.random().toString(36).substr(2,9);
+let data={score:0,energy:100,max:100,level:1,refs:0,wallet:'',clicks:0};
+let last=0;
+
+function load(){
+ let k='keygame_'+uid;
+ let s=localStorage.getItem(k);
+ if(s)data=JSON.parse(s);
+ checkRef();
+ update();
+}
+function save(){localStorage.setItem('keygame_'+uid,JSON.stringify(data))}
+
+function checkRef(){
+ let p=new URLSearchParams(location.search).get('ref');
+ if(p&&p!==uid&&!data.refBy){data.refBy=p;data.score+=500;save();show('🎁 +500 من دعوة!')}
+}
+
+function clickKey(e){
+ let n=Date.now();if(n-last<150)return;last=n;
+ if(data.energy<=0){show('⚡ انتهت الطاقة!');return}
+ data.energy--;data.clicks++;
+ let pts=data.level;data.score+=pts;
+ let nl=Math.floor(data.score/1000)+1;
+ if(nl>data.level){data.level=nl;data.max+=50;show('🎉 مستوى '+nl)}
+ save();update();float(e,'+'+pts)
+}
+
+function float(e,t){
+ let a=document.getElementById('clickArea');
+ let d=document.createElement('div');d.className='floating';d.textContent=t;
+ let r=a.getBoundingClientRect();
+ d.style.left=(e.clientX-r.left-20)+'px';
+ d.style.top=(e.clientY-r.top-30)+'px';
+ a.appendChild(d);setTimeout(()=>d.remove(),1000)
+}
+
+setInterval(()=>{
+ if(data.energy<data.max){data.energy++;update();save()}
+},2000);
+
+function update(){
+ document.getElementById('score').textContent=data.score.toLocaleString();
+ document.getElementById('enTxt').textContent=data.energy+'/'+data.max;
+ document.getElementById('enBar').style.width=(data.energy/data.max*100)+'%';
+ document.getElementById('lvl').textContent=data.level;
+ document.getElementById('refs').textContent=data.refs;
+ document.getElementById('refLink').textContent='https://t.me/YOUR_BOT?start='+uid;
+ if(data.wallet){document.getElementById('wStat').textContent='✅ '+data.wallet.slice(0,6)+'...'+data.wallet.slice(-4)}
+}
+
+function withdraw(){
+ let a=document.getElementById('wAddr').value.trim();
+ let m=parseInt(document.getElementById('wAmt').value);
+ if(!m||m<1000){show('❌ الحد الأدنى 1000');return}
+ if(m>data.score){show('❌ نقاط غير كافية');return}
+ if(!a||a.length<10){show('❌ عنوان غير صحيح');return}
+ let t=(m/100000).toFixed(4);
+ data.score-=m;data.wallet=a;save();update();closeM();
+ show('✅ طلب سحب '+t+' TON - قيد المراجعة')
+}
+
+function setWallet(){
+ let a=prompt('أدخل عنوان TON:');if(a&&a.length>10){data.wallet=a;save();update();show('✅ تم الربط')}
+}
+
+function copyRef(){navigator.clipboard.writeText(document.getElementById('refLink').textContent).then(()=>show('📋 تم النسخ'))}
+
+function loadTop(){
+ let list=[];
+ for(let i=0;i<localStorage.length;i++){
+  let k=localStorage.key(i);
+  if(k.startsWith('keygame_')){try{let d=JSON.parse(localStorage.getItem(k));list.push({id:k.replace('keygame_',''),score:d.score||0})}catch(e){}}
+ }
+ list.sort((a,b)=>b.score-a.score);
+ let h='';
+ list.slice(0,20).forEach((u,i)=>{
+  let me=u.id===uid;
+  h+='<div class="leader-item '+(me?'me':'')+'"><span>#'+(i+1)+' '+(me?'👤 أنت':'👤 لاعب')+'</span><span style="color:#ff4444">'+(u.score).toLocaleString()+'</span></div>'
+ });
+ if(list.length===0)h='<p style="color:#888;text-align:center">لا يوجد لاعبين بعد</p>';
+ document.getElementById('topList').innerHTML=h;
+}
+
+function openM(n){if(n==='top')loadTop();document.getElementById('m-'+n).style.display='flex'}
+function closeM(){document.querySelectorAll('.modal').forEach(m=>m.style.display='none')}
+function show(m){let t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',3000)}
+
+window.onload=load;
+</script>
+</body>
+</html>

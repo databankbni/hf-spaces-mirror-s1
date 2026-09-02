@@ -232,6 +232,16 @@ class JobLaunchFailed(APIError):
         )
 
 
+class ChallengeClosed(APIError):
+    def __init__(self) -> None:
+        super().__init__(
+            403,
+            "CHALLENGE_CLOSED",
+            "the challenge is closed; no new registrations or contributions are accepted",
+            "reads (GET) still work; contact the organizers if you believe this is wrong",
+        )
+
+
 class QuotaBackendUnavailable(APIError):
     def __init__(self) -> None:
         super().__init__(

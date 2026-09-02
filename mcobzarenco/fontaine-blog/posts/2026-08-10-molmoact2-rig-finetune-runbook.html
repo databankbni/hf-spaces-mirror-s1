@@ -1,0 +1,411 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>2026-08-10 — Runbook: fine-tuning MolmoAct2 on the rig datasets + local rollouts - Fontaine — Bijou research log</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-e96d0476.css">
+        <link rel="stylesheet" href="../css/chrome-d279d366.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-91504666.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-fce102de.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Fontaine — Bijou research log</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/mcobzarenco/flow-matching/tree/fontaine" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="runbook-fine-tuning-molmoact2-on-the-rig-datasets--local-rollouts"><a class="header" href="#runbook-fine-tuning-molmoact2-on-the-rig-datasets--local-rollouts">Runbook: fine-tuning MolmoAct2 on the rig datasets + local rollouts</a></h1>
+<p><em>2026-08-10, from the owner’s 15:19Z question (“How could I — out of
+band — fine-tune molmo2act on my rig datasets and then do local
+rollouts? Happy to use their code.”) and 15:24Z GO. Companion to the
+<a href="2026-08-10-prereg-molmoact2-rig-finetune.html">pre-registration</a>; the
+fine-tune itself runs on our local H100 under that pre-reg. This page
+is the runnable, pinned-commands record — including the rollout-server
+half that runs on the rig machine, which only the owner can execute.</em></p>
+<p><strong>Plain words</strong>: the released MolmoAct2 SO-100/101 policy doesn’t know
+the owner’s robot. Today’s eval measured exactly that: on scenes from
+its own training mixture it is competent; on the rig’s kind of data it
+predicts a canned “average pose” instead of reading the arm. The fix
+is standard: take their released model and continue training it
+briefly on the 57 episodes recorded on the actual rig, using their own
+training code, then serve the result to the robot over a small HTTP
+server with safety rails so a bad prediction can never slam the arm.</p>
+<h2 id="0-what-was-measured-before-anything-ran-preflight-162x163xz"><a class="header" href="#0-what-was-measured-before-anything-ran-preflight-162x163xz">0. What was measured before anything ran (preflight, 16:2x–16:3xZ)</a></h2>
+<ul>
+<li>Both rig repos are <strong>LeRobot codebase v3.0</strong> (<code>meta/info.json</code>,
+read not assumed): <code>so101_pick_place_clean</code> 7 eps / 3,399 frames,
+<code>so101_pick_place_v2</code> 50 eps / 32,679 frames, 30 fps, cameras
+<code>front</code> + <code>wrist</code>, 6-dim state/action, robot <code>so_follower</code>.</li>
+<li><strong>No sign mirrors between their native space and rig v3.0</strong>: the
+released checkpoint, run zero-shot on 240 rig frames, shows
+positive per-joint motion correlation on all six joints
+(+0.12…+0.45). The v2.1/v3.0 hazard the community repo warns about
+does not include mirrored joints on this data.</li>
+<li><strong>There IS a per-joint affine gap, and it matters</strong>: their state
+normalization for joint1 (shoulder) spans [43.7, 185.3]; the rig’s
+shoulder lives in [−103, +67]. 97% of rig frames saturate their
+state encoding, and the model then predicts a near-constant
+shoulder posture (pred std 2.0 vs truth std 44.8, err~truth corr
+−0.999). This is why zero-shot MAE on rig frames is 28.95 vs
+state-copy’s 9.08 — and why <strong>rig-only normalization stats are
+load-bearing at train AND rollout time</strong>.</li>
+<li>Full table: <code>reports/analysis__molmoact2_rig_preflight.json</code>
+(+ per-frame npz alongside it); script
+<code>fontaine/scripts/molmoact2_rig_preflight.py</code>.</li>
+</ul>
+<p><strong>The convention decision that falls out</strong>: stay in v3.0 end-to-end.
+No data conversion; per-joint rig q01/q99 absorbs the affine gap; the
+rollout server must run with the conversion OFF (offsets 0, signs +1
+— the community <code>inference.py</code> defaults exist for running the
+<em>released</em> model on a 0.5.1-calibrated rig, which is not our path once
+the model is fine-tuned on v3.0 data). The requirement that remains:
+<strong>the rig’s calibration must be the same one the datasets were
+recorded under</strong>. If the arm is recalibrated, re-record or re-check
+before rollouts.</p>
+<h2 id="1-one-time-setup-done-on-our-box-repeat-on-any-new-machine"><a class="header" href="#1-one-time-setup-done-on-our-box-repeat-on-any-new-machine">1. One-time setup (done on our box; repeat on any new machine)</a></h2>
+<pre><code class="language-bash">git clone https://github.com/allenai/molmoact2.git ~/molmoact2
+cd ~/molmoact2
+uv venv .venv --python 3.12
+. .venv/bin/activate
+uv pip install --index-strategy unsafe-best-match \
+    -e "./experiments[train]" -e ./lerobot \
+    debugpy "torchcodec&gt;=0.10,&lt;0.11"
+</code></pre>
+<p>Three local patches, committed on branch <code>fontaine-so101-rig</code>
+(commit <code>89f6204</code> in <code>~/molmoact2</code>):</p>
+<ol>
+<li><strong>Mixture</strong> — <code>experiments/launch_scripts/data_mixtures.py</code>: a
+<code>so101_rig</code> builder registering the two rig repos under their
+pretrain tag <code>so100_so101_molmoact2</code> (same setup/control prompt
+text the trunk was trained with; horizon 30 = 1.0 s;
+<code>normalize_gripper=True</code>; cameras pinned to front+wrist). Because
+their stats collector aggregates per tag over only the mixture’s
+repos, <strong>rig-only q01/q99 falls out automatically</strong> — verified
+equal to the count-weighted combination of the repos’
+<code>meta/stats.json</code> and different from the released SO-100 stats.</li>
+<li><strong>Wrapper</strong> — <code>olmo/data/lerobot_wrapper.py</code>: add <code>language</code> to
+the ignored-feature-dtypes set (the rig repos carry our mainline’s
+<code>language_persistent</code>/<code>language_events</code> columns, which are not a
+pyarrow type).</li>
+<li><strong>Vendored lerobot</strong> — <code>lerobot/src/lerobot/datasets/utils.py</code>:
+when an explicit schema is passed, read only its columns from
+parquet (the rig repos’ extra annotation/language columns
+otherwise fail HF datasets’ schema cast). Action/state/video
+paths untouched.</li>
+</ol>
+<p>Env every run needs: <code>LEROBOT_DATA_ROOT=/home/ubuntu/datasets</code>
+(repos resolve as <code>$LEROBOT_DATA_ROOT/&lt;repo_id&gt;</code>),
+<code>MOLMO_DATA_DIR=~/molmoact2/molmo_data</code> (unused scratch, but their
+loader asserts it), <code>PYTHONPATH=$EXP:$EXP/../lerobot/src</code>.</p>
+<h2 id="2-the-fine-tune-runs-here-under-the-pre-reg"><a class="header" href="#2-the-fine-tune-runs-here-under-the-pre-reg">2. The fine-tune (runs here, under the pre-reg)</a></h2>
+<p>Their README’s <strong>action-expert-only</strong> recipe — VLM/ViT/connector/
+embeddings/LM-head frozen, the 620M flow-matching action expert
+trains (577M trainable params measured at smoke). Warm start
+<code>allenai/MolmoAct2-SO100_101</code> (their recommendation for SO-101
+embodiments). Launcher:
+<code>fontaine/scripts/launch_local_molmoact2_rig_ft.sh</code> — 2,000 steps at
+global batch 64 (≈3.5 epochs), AE LR 5e-5, warmup 200, bf16, saves
+every 500 kept, unit <code>fontaine-molmoact2-rig-ft</code>, log
+<code>~/logs/molmoact2_rig_ft.log</code>, gate ≤ 12 GPU-h.</p>
+<p>Smoke (20 steps, batch 1) is green: rc=0, finite falling
+<code>action_flow_loss</code> (0.077 at step 20), checkpoint writes.</p>
+<p>Offline read after training (contaminated-by-construction, labeled):
+matched 1.0 s-window MAE on the same 240 preflight frames per saved
+rung, vs the banked anchors — <strong>zero-shot 28.95 / state-copy 9.08</strong>.
+A rung that fails to beat state-copy on its own training frames
+falsifies the rung. Plus the <strong>step-0 continuity oracle</strong>: predicted
+step 0 must land near the current state on every rung (loud fail =
+convention/normalization pathology).</p>
+<h2 id="3-serving-the-fine-tuned-checkpoint-rig-machine"><a class="header" href="#3-serving-the-fine-tuned-checkpoint-rig-machine">3. Serving the fine-tuned checkpoint (rig machine)</a></h2>
+<p>Their trainer saves olmo-format checkpoints
+(<code>~/molmoact2/experiments/checkpoints/finetune/fontaine_so101_rig_ae_r1/stepNNNN</code>).
+Convert the chosen rung to a HF checkpoint:</p>
+<pre><code class="language-bash">cd ~/molmoact2/experiments
+../.venv/bin/python -m olmo.hf_model.convert_molmoact2_to_hf \
+    checkpoints/finetune/fontaine_so101_rig_ae_r1/step2000 \
+    ~/checkpoints/molmoact2-so101-rig-r1-hf
+</code></pre>
+<p>The converted dir carries <code>norm_stats.json</code> <strong>with the rig-only
+stats</strong> under tag <code>so100_so101_molmoact2</code> — the server must load
+<em>this</em> dir, never the released repo id.</p>
+<p>Server: adapt <code>examples/droid/host_server_droid.py</code> (FastAPI <code>/act</code>,
+json_numpy wire format). The DROID server is the template because it
+already contains the two runtime patches the HF checkpoint needs
+(bf16 trajectory dtype + fp32 cast before <code>.numpy()</code> — the same
+patches our panel predictor ported). The SO-101 deltas:</p>
+<ul>
+<li><code>REPO_ID = "&lt;local converted dir&gt;"</code>, <code>NORM_TAG = "so100_so101_molmoact2"</code>, <code>DEFAULT_NUM_STEPS = 10</code> (Euler steps).</li>
+<li>State is <strong>(6,)</strong> not (8,) — relax the shape check; cameras are
+<code>front</code> (external) + <code>wrist</code>, image order = the dataset’s feature
+order (front, then wrist), 480×640 RGB.</li>
+<li>Response actions are <strong>(30, 6) absolute joint targets in v3.0
+units</strong> — the same space <code>observation.state</code> is reported in on the
+rig. <strong>No joint-offset/sign conversion anywhere</strong> (see §0).</li>
+</ul>
+<h2 id="4-the-client-loop--safety-rails-rig-machine-owner-run"><a class="header" href="#4-the-client-loop--safety-rails-rig-machine-owner-run">4. The client loop + safety rails (rig machine, owner-run)</a></h2>
+<p>Client skeleton (lerobot 0.5.x on the rig): read
+<code>robot.get_observation()</code> → POST <code>{front, wrist, instruction, state}</code> to <code>/act</code> → receive 30-step chunk → execute steps at 30 Hz,
+<strong>replan every 15–30 steps (0.5–1.0 s)</strong> by sending a fresh
+observation mid-chunk and splicing.</p>
+<p>Rails, in order, before the arm moves at all:</p>
+<ol>
+<li><strong>Calibration identity check</strong>: confirm the rig’s current
+calibration file is the one the datasets were recorded under
+(same lerobot version, no recalibration since). If in doubt:
+compare live <code>observation.state</code> against the recorded state range
+per joint (rig q01/q99 in this page’s §0) — every joint should sit
+inside its recorded band at rest poses.</li>
+<li><strong>No-execute dry run</strong>: run the full client loop with motor
+commands printed, not sent. Watch predicted step-0 vs current
+state — they should agree to a few units on every joint (that is
+the step-0 continuity oracle, live). A constant offset or a
+mirrored joint aborts here, harmlessly.</li>
+<li><strong>Command clamp</strong>: wrap the send with per-joint clamps to the rig
+q01/q99 band (±10% margin) and a per-step delta clamp (e.g. ≤ 8
+units/step at 30 Hz to start). “Slam into the table” becomes
+structurally impossible; loosen only after clean rollouts.</li>
+<li>First live runs at reduced speed/stride (execute every other
+step), gripper disabled until arm behavior is verified.</li>
+</ol>
+<h2 id="5-what-happens-next"><a class="header" href="#5-what-happens-next">5. What happens next</a></h2>
+<p><em>(Updated 2026-08-10 20:4xZ with the measured endpoint.)</em></p>
+<p>Run complete: launched 17:48:18Z, rc=0 20:27:44Z, ~2.7 of the 12
+GPU-h gate. <strong>Pre-reg PASS at every gate</strong> — matched-window MAE on
+the 240 anchor rows: zero-shot 28.95 → 6.76@500 → 4.66@1000 →
+3.59@1500 → <strong>3.23@2000</strong> (state-copy anchor 9.08 beaten from rung
+500 on; all 6 motion corrs positive, weakest +0.89; step-0 offsets
+≤ 0.63). Full numbers + charts:
+<a href="2026-08-10-molmoact2-rig-ft-results.html">results post</a> ·
+<a href="https://mcobzarenco-fontaine-reports.static.hf.space/eval__fontaine_so101_rig_ae_r1__anchor_rungs.html">HTML report</a>.</p>
+<p>The serve dir for §3 is
+<code>~/checkpoints/molmoact2-so101-rig-r1-step2000-hf</code> (rig norm_stats
+under tag <code>so100_so101_molmoact2</code> verified inside); the weights
+delta is on
+<a href="https://huggingface.co/mcobzarenco/fontaine-checkpoints/tree/main/molmoact2_so101_rig_r1_step2000">fontaine-checkpoints</a>.
+Rung 2 (LoRA or VLM unfreeze at their README settings) stays parked:
+rung 1 did not plateau above the anchors — nothing triggers it. The
+rung reads are train-frame sanity; the §3–4 rollout path (no-execute
+dry-run gate + command clamp) is the real eval whenever the rig is
+ready.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../posts/2026-08-10-prereg-molmoact2-rig-finetune.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../posts/2026-08-10-molmoact2-rig-ft-results.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../posts/2026-08-10-prereg-molmoact2-rig-finetune.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../posts/2026-08-10-molmoact2-rig-ft-results.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-09f2665d.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

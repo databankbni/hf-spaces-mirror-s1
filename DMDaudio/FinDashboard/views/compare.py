@@ -48,6 +48,77 @@ from views.shared import (
 # runtime or a DB. Sections are passed in as already-built dicts.
 # ---------------------------------------------------------------------------
 
+def compare_year_options(year_sets: dict[str, list[int]]) -> list[int]:
+    """Selectable fiscal years for a picked peer set — the UNION, ascending.
+
+    Union, deliberately, NOT the intersection: a year that ANY picked company
+    filed must stay pickable. Intersecting made one lagging filer hide the year
+    for the whole peer set (the FY2024-missing-from-Compare bug: six clinics,
+    four of which had FY2024, but two peers whose latest filing was FY2023
+    truncated the option list at 2023 for everyone). Companies with no filing
+    for a selected year render blank cells instead — see ``unreported_pairs``.
+    """
+    if not year_sets:
+        return []
+    return sorted(set().union(*(set(int(y) for y in ys) for ys in year_sets.values())))
+
+
+def unreported_pairs(
+    year_sets: dict[str, list[int]],
+    selected_years: list[int],
+) -> set[tuple[str, int]]:
+    """``(idcode, year)`` pairs the company has no filing for.
+
+    Drives blank ("—"-style empty) cells for the peers that simply didn't report
+    a selected year, so a union year list never shows a misleading 0 for a
+    company that never filed. Keyed on *coverage*, not on the value, so a
+    genuinely-zero line item is still rendered as 0.
+    """
+    sel = [int(y) for y in selected_years]
+    return {
+        (idc, y)
+        for idc, ys in year_sets.items()
+        for y in sel
+        if y not in {int(x) for x in ys}
+    }
+
+
+def year_coverage_note(
+    year_sets: dict[str, list[int]],
+    selected_years: list[int],
+    short_names: dict[str, str] | None = None,
+) -> str | None:
+    """Warning text when a selected year isn't filed by every picked company.
+
+    ``None`` when every picked company covers every selected year (the common
+    case — no warning shown). Otherwise names the thin years so the analyst
+    knows the blank cells are missing filings, not zeros.
+    """
+    sel = sorted({int(y) for y in selected_years})
+    if not sel or not year_sets:
+        return None
+    missing = unreported_pairs(year_sets, sel)
+    if not missing:
+        return None
+    total = len(year_sets)
+    names = short_names or {}
+    bits = []
+    for y in sel:
+        absent = sorted(idc for idc, yr in missing if yr == y)
+        if not absent:
+            continue
+        if len(absent) <= 2:
+            who = " and ".join(names.get(idc, idc) for idc in absent)
+            bits.append(f"FY{y}: no filing for {who}")
+        else:
+            bits.append(f"FY{y}: {len(absent)} of {total} companies have no filing")
+    return (
+        "Not every picked company reports every selected year — "
+        + "; ".join(bits)
+        + ". Those cells are left blank (no filing), not zero."
+    )
+
+
 def compare_column_specs(
     picked_idcodes: list[str],
     selected_years: list[int],
@@ -111,6 +182,7 @@ def build_compare_records(
     kind: str,
     *,
     common_size: bool = False,
+    unreported: set[tuple[str, int]] | None = None,
 ) -> tuple[list[dict], list[int]]:
     """Build the side-by-side record list + bold-row indices.
 
@@ -120,6 +192,10 @@ def build_compare_records(
     string of the per-(company, year) base (Revenue for IS, Total Assets for BS);
     otherwise cells are raw floats. Every row here is a section total, so all
     rows are bold.
+
+    ``unreported`` (``{(idcode, year)}``, from ``unreported_pairs``) marks
+    company-years with no filing at all: those cells render as the empty string
+    so the union year list shows a blank rather than a misleading 0.
     """
     from lib.ui import common_size_base as _common_size_base
     from views.shared import section_total_at as _section_total_at
@@ -131,12 +207,17 @@ def build_compare_records(
             if idc not in base_by_idc:
                 base_by_idc[idc] = _common_size_base(sections_by_idc[idc], kind)
 
+    blank = unreported or set()
     records: list[dict] = []
     bold_rows: list[int] = []
     for s in template_sections:
         lookup_label = s["label"].replace(" (adj.)", "")
         rec: dict = {"Line Item": lookup_label}
         for col_label, idc, year in col_specs:
+            if (idc, int(year)) in blank:
+                # No filing for this company-year — blank, not zero.
+                rec[col_label] = ""
+                continue
             raw = _section_total_at(sections_by_idc[idc], lookup_label, year)
             if common_size:
                 base = base_by_idc.get(idc, {}).get(int(year), 0.0) or 0.0
@@ -379,8 +460,15 @@ def render(ctx: ViewContext) -> None:
     selected_year = None
     selected_years: list[int] = []
     year_note = None
+    coverage_note: str | None = None
+    unreported: set[tuple[str, int]] = set()
     agg_selected_years: list[int] | None = None
     MAX_COMPARE_YEARS = 5  # keep the N companies × Y years table readable
+
+    # Per-company filed-year coverage, read once and shared by BOTH view modes so
+    # their year pickers can never drift apart (they used to: side-by-side
+    # intersected, Aggregate unioned).
+    year_sets = {idc: list(years(ctx.db_path, idc)) for idc in picked_idcodes}
 
     _toolbar = st.container(key="fd_toolbar")
     _tc = _toolbar.columns([1.4, 1.6, 1.4, 1.5, 3.1], vertical_alignment="center")
@@ -393,20 +481,13 @@ def render(ctx: ViewContext) -> None:
         # capped) display range; ``selected_year`` stays the single PRIMARY
         # year (the latest selected) used for the Revenue column-sort and the
         # Ratios tab (still single-year).
-        all_year_sets = [set(years(ctx.db_path, idc)) for idc in picked_idcodes]
-        intersect_years = sorted(set.intersection(*all_year_sets)) if all_year_sets else []
-        union_years = sorted(set().union(*all_year_sets)) if all_year_sets else []
-
-        if intersect_years:
-            year_choices = intersect_years
-        elif union_years:
-            year_choices = union_years
-            year_note = (
-                "No single year is shared by all selected companies — picking the union. "
-                "Cells will show empty where a company didn't report that year."
-            )
-        else:
-            year_choices = []
+        # Year options are the UNION of the picked companies' filed years. This
+        # used to be the INTERSECTION, which let a single lagging filer delete a
+        # year from the option list for the entire peer set — the reported bug
+        # (FY2024 unpickable across six clinics because two peers' latest filing
+        # was FY2023). A peer with no filing for a selected year now renders
+        # blank cells instead of hiding the year.
+        year_choices = compare_year_options(year_sets)
 
         if year_choices:
             # Default to the latest year only (preserves the historical
@@ -446,6 +527,16 @@ def render(ctx: ViewContext) -> None:
                 )
             # Primary year = latest selected — drives the Revenue sort + Ratios tab.
             selected_year = selected_years[-1]
+
+            # Coverage: with union options a selected year may be unfiled by some
+            # peers. Mark those company-years (blank cells) and say so, so the
+            # gaps read as "didn't file", not as zero.
+            unreported = unreported_pairs(year_sets, selected_years)
+            coverage_note = year_coverage_note(
+                year_sets,
+                selected_years,
+                {idc: company_short_name(ctx.companies, idc) for idc in picked_idcodes},
+            )
 
             # Display toggles — common-size + (single-year only) peer summary.
             # Sprint-26-safe: the checkboxes own their keys and are read-only
@@ -495,10 +586,9 @@ def render(ctx: ViewContext) -> None:
         # BEFORE the aggregate / contribution / CAGR are computed so every
         # downstream table and chart recomputes off the selection. Keyed by the
         # picked-company set so changing the selection resets to "all years"
-        # rather than carrying a stale pick.
-        _agg_all_years = sorted(
-            set().union(*[set(years(ctx.db_path, idc)) for idc in picked_idcodes])
-        )
+        # rather than carrying a stale pick. Shares ``compare_year_options`` with
+        # the side-by-side picker so the two modes offer the same year set.
+        _agg_all_years = compare_year_options(year_sets)
         if _agg_all_years:
             _years_key = safe_key("compare_agg_years", ",".join(sorted(picked_idcodes)))
             _agg_state = st.session_state.get(_years_key)
@@ -826,6 +916,10 @@ def render(ctx: ViewContext) -> None:
     )
     if year_note:
         st.warning(year_note)
+    if coverage_note:
+        # Routine with union year options (a lagging filer is common), so this is
+        # a quiet caption rather than a warning — it explains the blank cells.
+        st.caption(f":material/info: {coverage_note}")
 
     # Sort picked companies by Revenue (primary/latest selected year), largest
     # first. Keeps column order intuitive — bigger peers on the left, smaller on
@@ -885,7 +979,8 @@ def render(ctx: ViewContext) -> None:
         sections_by_idc = is_by_idc if kind == "is" else bs_by_idc
         template = sections_by_idc[picked_idcodes[0]]
         records, bold_rows = build_compare_records(
-            template, sections_by_idc, col_specs, kind, common_size=common_size
+            template, sections_by_idc, col_specs, kind,
+            common_size=common_size, unreported=unreported,
         )
         if peer_summary:
             # Per-row raw numeric peer values (common-size → proportions),
@@ -899,6 +994,8 @@ def render(ctx: ViewContext) -> None:
                 lookup_label = rec["Line Item"]
                 vals = []
                 for _col, idc, year in col_specs:
+                    if (idc, int(year)) in unreported:
+                        continue  # no filing — don't drag Mean/Median toward 0
                     raw = section_total_at(sections_by_idc[idc], lookup_label, year)
                     if common_size:
                         base = base_by_idc.get(idc, {}).get(int(year), 0.0) or 0.0

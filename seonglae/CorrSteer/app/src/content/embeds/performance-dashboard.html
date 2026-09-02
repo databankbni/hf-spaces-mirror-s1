@@ -1,0 +1,712 @@
+<div class="d3-performance-dashboard"></div>
+<style>
+  .d3-performance-dashboard {
+    width: 100%;
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .d3-performance-dashboard svg {
+    display: block;
+    width: 100%;
+  }
+
+  .d3-performance-dashboard .axes path,
+  .d3-performance-dashboard .axes line {
+    stroke: var(--axis-color, var(--text-color));
+  }
+
+  .d3-performance-dashboard .axes text {
+    fill: var(--tick-color, var(--muted-color));
+    font-size: 11px;
+  }
+
+  .d3-performance-dashboard .grid line {
+    stroke: var(--grid-color, rgba(0, 0, 0, .08));
+    stroke-dasharray: 3, 3;
+  }
+
+  .d3-performance-dashboard .grid path {
+    display: none;
+  }
+
+  .d3-performance-dashboard .bar-rect {
+    transition: opacity 0.18s ease;
+    cursor: pointer;
+  }
+
+  .d3-performance-dashboard .error-bar {
+    stroke-width: 1.2;
+    pointer-events: none;
+  }
+
+  .d3-performance-dashboard .error-cap {
+    stroke-width: 1.2;
+    pointer-events: none;
+  }
+
+  .d3-performance-dashboard .axis-label {
+    fill: var(--text-color);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .d3-performance-dashboard .d3-tooltip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(-9999px, -9999px);
+    pointer-events: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.45;
+    border: 1px solid var(--border-color);
+    background: var(--surface-bg);
+    color: var(--text-color);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, .18);
+    opacity: 0;
+    transition: opacity .12s ease;
+    z-index: 10;
+    max-width: 260px;
+  }
+
+  .d3-performance-dashboard .d3-tooltip__inner {
+    text-align: left;
+  }
+
+  .d3-performance-dashboard .d3-tooltip__inner .tt-method {
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  .d3-performance-dashboard .d3-tooltip__inner .tt-task {
+    font-size: 11px;
+    color: var(--muted-color);
+    margin-bottom: 4px;
+  }
+
+  .d3-performance-dashboard .d3-tooltip__inner .tt-value {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .d3-performance-dashboard .legend {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .d3-performance-dashboard .legend-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-color);
+  }
+
+  .d3-performance-dashboard .legend .items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
+
+  .d3-performance-dashboard .legend .item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--text-color);
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.18s ease;
+  }
+
+  .d3-performance-dashboard .legend .item.disabled {
+    opacity: 0.35;
+  }
+
+  .d3-performance-dashboard .legend .item.disabled .swatch {
+    background: var(--muted-color, #999) !important;
+  }
+
+  .d3-performance-dashboard .legend .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+    transition: background 0.18s ease;
+  }
+
+  .d3-performance-dashboard .legend .item input[type="checkbox"] {
+    display: none;
+  }
+
+  .d3-performance-dashboard .controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+
+  .d3-performance-dashboard .controls .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .d3-performance-dashboard .controls label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-color);
+  }
+
+  .d3-performance-dashboard .controls select {
+    font-size: 12px;
+    padding: 8px 28px 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--surface-bg);
+    color: var(--text-color);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%23999' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    cursor: pointer;
+    min-width: 140px;
+  }
+
+  .d3-performance-dashboard .controls select:focus {
+    outline: 2px solid var(--primary-color, #6B5CE7);
+    outline-offset: 1px;
+  }
+
+  .d3-performance-dashboard .no-data-msg {
+    fill: var(--muted-color);
+    font-size: 10px;
+    font-style: italic;
+  }
+
+  @media (max-width: 600px) {
+    .d3-performance-dashboard .legend .items {
+      gap: 4px 10px;
+    }
+    .d3-performance-dashboard .legend .item {
+      font-size: 11px;
+    }
+    .d3-performance-dashboard .legend .swatch {
+      width: 12px;
+      height: 12px;
+    }
+  }
+</style>
+<script>
+  (() => {
+    const ensureD3 = (cb) => {
+      if (window.d3 && typeof window.d3.select === 'function') return cb();
+      let s = document.getElementById('d3-cdn-script');
+      if (!s) {
+        s = document.createElement('script');
+        s.id = 'd3-cdn-script';
+        s.src = 'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js';
+        document.head.appendChild(s);
+      }
+      const onReady = () => {
+        if (window.d3 && typeof window.d3.select === 'function') cb();
+      };
+      s.addEventListener('load', onReady, { once: true });
+      if (window.d3) onReady();
+    };
+
+    const bootstrap = () => {
+      const scriptEl = document.currentScript;
+      let container = scriptEl ? scriptEl.previousElementSibling : null;
+      if (!(container && container.classList && container.classList.contains('d3-performance-dashboard'))) {
+        const candidates = Array.from(document.querySelectorAll('.d3-performance-dashboard'))
+          .filter((el) => !(el.dataset && el.dataset.mounted === 'true'));
+        container = candidates[candidates.length - 1] || null;
+      }
+      if (!container) return;
+      if (container.dataset) {
+        if (container.dataset.mounted === 'true') return;
+        container.dataset.mounted = 'true';
+      }
+
+      // --- Tooltip ---
+      container.style.position = container.style.position || 'relative';
+      let tip = container.querySelector('.d3-tooltip');
+      let tipInner;
+      if (!tip) {
+        tip = document.createElement('div');
+        tip.className = 'd3-tooltip';
+        tipInner = document.createElement('div');
+        tipInner.className = 'd3-tooltip__inner';
+        tip.appendChild(tipInner);
+        container.appendChild(tip);
+      } else {
+        tipInner = tip.querySelector('.d3-tooltip__inner') || tip;
+      }
+
+      const showTooltip = (html, event) => {
+        tipInner.innerHTML = html;
+        tip.style.opacity = '1';
+        const rect = container.getBoundingClientRect();
+        const [mx, my] = d3.pointer(event, container);
+        const tipW = tip.offsetWidth || 200;
+        const tipH = tip.offsetHeight || 80;
+        let tx = mx + 14;
+        let ty = my - 14;
+        if (tx + tipW > rect.width) tx = mx - tipW - 14;
+        if (ty < 0) ty = my + 14;
+        if (ty + tipH > rect.height) ty = rect.height - tipH - 4;
+        tip.style.transform = `translate(${tx}px, ${ty}px)`;
+      };
+
+      const hideTooltip = () => {
+        tip.style.opacity = '0';
+        setTimeout(() => {
+          tip.style.transform = 'translate(-9999px, -9999px)';
+        }, 120);
+      };
+
+      // --- Task definitions ---
+      const TASKS = [
+        { key: 'mmlu', label: 'MMLU' },
+        { key: 'mmlupro', label: 'MMLU-Pro' },
+        { key: 'simpleqa', label: 'SimpleQA' },
+        { key: 'bbq_ambig', label: 'BBQ Ambig' },
+        { key: 'bbq_disambig', label: 'BBQ Disambig' },
+        { key: 'harmbench', label: 'HarmBench' },
+        { key: 'xstest', label: 'XSTest' },
+        { key: 'gsm8k', label: 'GSM8K' }
+      ];
+
+      // --- Method ordering and colors ---
+      const METHOD_ORDER = [
+        'Non-steered',
+        'CorrSteer-S',
+        'CorrSteer-P',
+        'CorrSteer-A',
+        'Fine-tuning',
+        'SPARE (MI)',
+        'DSG (Fisher)',
+        'CAA'
+      ];
+
+      const METHOD_COLORS = {
+        'CorrSteer-S': '#4EA5B7',
+        'CorrSteer-P': '#9B59B6',
+        'CorrSteer-A': '#6B5CE7',
+        'Non-steered': '#999999',
+        'Fine-tuning': '#E15759',
+        'SPARE (MI)': '#E38A42',
+        'DSG (Fisher)': '#59A14F',
+        'CAA': '#CEC0FA'
+      };
+
+      function getMethodColor(method) {
+        return METHOD_COLORS[method] || '#888';
+      }
+
+      // --- SVG scaffolding ---
+      const svg = d3.select(container).append('svg').attr('width', '100%').style('display', 'block');
+      const gRoot = svg.append('g');
+      const gGrid = gRoot.append('g').attr('class', 'grid');
+      const gAxes = gRoot.append('g').attr('class', 'axes');
+      const gBars = gRoot.append('g').attr('class', 'bars');
+      const gErrors = gRoot.append('g').attr('class', 'errors');
+
+      let width = 800, height = 420;
+      const margin = { top: 24, right: 20, bottom: 72, left: 52 };
+
+      // --- State ---
+      let rawData = [];
+      let enabledMethods = new Set(METHOD_ORDER);
+      let currentModel = 'gemma2b';
+
+      // --- Controls: Model selector ---
+      const controls = document.createElement('div');
+      controls.className = 'controls';
+      const modelGroup = document.createElement('div');
+      modelGroup.className = 'control-group';
+      const modelLabel = document.createElement('label');
+      modelLabel.setAttribute('for', 'perf-dash-model-select');
+      modelLabel.textContent = 'Model';
+      const modelSelect = document.createElement('select');
+      modelSelect.id = 'perf-dash-model-select';
+      modelGroup.appendChild(modelLabel);
+      modelGroup.appendChild(modelSelect);
+      controls.appendChild(modelGroup);
+      container.appendChild(controls);
+
+      // --- Legend ---
+      const legend = document.createElement('div');
+      legend.className = 'legend';
+      const legendTitle = document.createElement('div');
+      legendTitle.className = 'legend-title';
+      legendTitle.textContent = 'Legend';
+      legend.appendChild(legendTitle);
+      const legendItems = document.createElement('div');
+      legendItems.className = 'items';
+      legend.appendChild(legendItems);
+      container.appendChild(legend);
+
+      function buildLegend(methods) {
+        legendItems.innerHTML = '';
+        methods.forEach(method => {
+          const item = document.createElement('span');
+          item.className = 'item' + (enabledMethods.has(method) ? '' : ' disabled');
+          item.setAttribute('data-method', method);
+
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = enabledMethods.has(method);
+
+          const swatch = document.createElement('span');
+          swatch.className = 'swatch';
+          swatch.style.background = enabledMethods.has(method) ? getMethodColor(method) : '';
+
+          const txt = document.createElement('span');
+          txt.textContent = method;
+
+          item.appendChild(cb);
+          item.appendChild(swatch);
+          item.appendChild(txt);
+
+          item.addEventListener('click', () => {
+            if (enabledMethods.has(method)) {
+              if (enabledMethods.size <= 1) return;
+              enabledMethods.delete(method);
+            } else {
+              enabledMethods.add(method);
+            }
+            item.classList.toggle('disabled', !enabledMethods.has(method));
+            cb.checked = enabledMethods.has(method);
+            swatch.style.background = enabledMethods.has(method) ? getMethodColor(method) : '';
+            render();
+          });
+
+          legendItems.appendChild(item);
+        });
+      }
+
+      // --- Data loading ---
+      const JSON_PATHS = [
+        '/data/accuracy_results_full.json',
+        './assets/data/accuracy_results_full.json',
+        '../assets/data/accuracy_results_full.json',
+        '../../assets/data/accuracy_results_full.json'
+      ];
+
+      const fetchFirstAvailable = async (paths) => {
+        for (const p of paths) {
+          try {
+            const r = await fetch(p, { cache: 'no-cache' });
+            if (r.ok) return await r.json();
+          } catch (e) { }
+        }
+        throw new Error('JSON not found');
+      };
+
+      // --- Size update ---
+      function updateSize() {
+        width = container.clientWidth || 800;
+        height = Math.max(340, Math.round(width / 2.2));
+        svg.attr('width', width).attr('height', height);
+        gRoot.attr('transform', `translate(${margin.left},${margin.top})`);
+        return {
+          innerWidth: width - margin.left - margin.right,
+          innerHeight: height - margin.top - margin.bottom
+        };
+      }
+
+      // --- Rounded top bar path ---
+      function roundedTopBar(x, y, w, h, r) {
+        if (h <= 0) return '';
+        r = Math.min(r, h / 2, w / 2);
+        return `M${x},${y + h}L${x},${y + r}Q${x},${y} ${x + r},${y}L${x + w - r},${y}Q${x + w},${y} ${x + w},${y + r}L${x + w},${y + h}Z`;
+      }
+
+      // --- Main render ---
+      function render() {
+        const { innerWidth, innerHeight } = updateSize();
+
+        // Filter data by current model
+        const modelData = rawData.filter(d => d.model === currentModel);
+        const availableMethods = METHOD_ORDER.filter(m => modelData.some(d => d.method === m));
+        const visibleMethods = availableMethods.filter(m => enabledMethods.has(m));
+
+        // Build legend for available methods
+        buildLegend(availableMethods);
+
+        // Clear previous
+        gGrid.selectAll('*').remove();
+        gAxes.selectAll('*').remove();
+        gBars.selectAll('*').remove();
+        gErrors.selectAll('*').remove();
+
+        if (visibleMethods.length === 0) return;
+
+        // Scales
+        const taskLabels = TASKS.map(t => t.label);
+        const x0 = d3.scaleBand()
+          .domain(taskLabels)
+          .range([0, innerWidth])
+          .paddingInner(0.2)
+          .paddingOuter(0.1);
+
+        const x1 = d3.scaleBand()
+          .domain(visibleMethods)
+          .range([0, x0.bandwidth()])
+          .padding(0.08);
+
+        // Compute y domain from visible data
+        let yMax = 0;
+        TASKS.forEach(task => {
+          visibleMethods.forEach(method => {
+            const row = modelData.find(d => d.method === method);
+            if (row && row[task.key] != null) {
+              const val = row[task.key] + (row[task.key + '_std'] || 0);
+              if (val > yMax) yMax = val;
+            }
+          });
+        });
+        yMax = Math.min(100, Math.ceil(yMax / 10) * 10 + 5);
+
+        const y = d3.scaleLinear()
+          .domain([0, yMax])
+          .range([innerHeight, 0])
+          .nice();
+
+        // --- Grid ---
+        gGrid.selectAll('line')
+          .data(y.ticks(6))
+          .join('line')
+          .attr('x1', 0)
+          .attr('x2', innerWidth)
+          .attr('y1', d => y(d))
+          .attr('y2', d => y(d));
+
+        // --- X Axis ---
+        const xAxisG = gAxes.append('g')
+          .attr('transform', `translate(0,${innerHeight})`);
+
+        xAxisG.call(d3.axisBottom(x0).tickSize(0).tickPadding(10));
+        xAxisG.select('.domain').remove();
+
+        // Rotate labels if narrow
+        if (x0.bandwidth() < 70) {
+          xAxisG.selectAll('text')
+            .attr('transform', 'rotate(-35)')
+            .style('text-anchor', 'end')
+            .attr('dx', '-0.6em')
+            .attr('dy', '0.4em');
+        }
+
+        // --- Y Axis ---
+        const yAxisG = gAxes.append('g');
+        yAxisG.call(d3.axisLeft(y).ticks(6).tickSize(-innerWidth));
+        yAxisG.select('.domain').remove();
+        yAxisG.selectAll('.tick line')
+          .attr('stroke', 'none');
+
+        // Y axis label
+        gAxes.append('text')
+          .attr('class', 'axis-label')
+          .attr('transform', 'rotate(-90)')
+          .attr('x', -innerHeight / 2)
+          .attr('y', -40)
+          .attr('text-anchor', 'middle')
+          .text('Accuracy (%)');
+
+        // --- Bars ---
+        const barDuration = 400;
+
+        TASKS.forEach(task => {
+          const taskGroup = gBars.append('g')
+            .attr('transform', `translate(${x0(task.label)},0)`);
+
+          visibleMethods.forEach(method => {
+            const row = modelData.find(d => d.method === method);
+            const val = row && row[task.key] != null ? row[task.key] : null;
+            const std = row && row[task.key + '_std'] != null ? row[task.key + '_std'] : 0;
+
+            const bx = x1(method);
+            const bw = x1.bandwidth();
+            const barRadius = Math.min(3, bw / 4);
+
+            if (val === null) {
+              // Skip — no bar for missing data, keep space clean
+              return;
+            }
+
+            const by = y(val);
+            const bh = innerHeight - by;
+
+            // Bar path with rounded top
+            const bar = taskGroup.append('path')
+              .attr('class', 'bar-rect')
+              .attr('fill', getMethodColor(method))
+              .attr('data-method', method)
+              .attr('data-task', task.key);
+
+            // Animate from zero
+            bar.attr('d', roundedTopBar(bx, innerHeight, bw, 0, barRadius))
+              .transition()
+              .duration(barDuration)
+              .ease(d3.easeCubicOut)
+              .attr('d', roundedTopBar(bx, by, bw, bh, barRadius));
+
+            // Error bar
+            if (std > 0) {
+              const errGroup = gErrors.append('g')
+                .attr('transform', `translate(${x0(task.label)},0)`)
+                .style('opacity', 0);
+
+              const cx = bx + bw / 2;
+              const capW = Math.min(bw * 0.4, 6);
+              const errTop = y(val + std);
+              const errBot = y(Math.max(0, val - std));
+              const errColor = getMethodColor(method);
+
+              // Vertical line
+              errGroup.append('line')
+                .attr('class', 'error-bar')
+                .attr('x1', cx).attr('x2', cx)
+                .attr('y1', errTop).attr('y2', errBot)
+                .attr('stroke', errColor);
+
+              // Top cap
+              errGroup.append('line')
+                .attr('class', 'error-cap')
+                .attr('x1', cx - capW).attr('x2', cx + capW)
+                .attr('y1', errTop).attr('y2', errTop)
+                .attr('stroke', errColor);
+
+              // Bottom cap
+              errGroup.append('line')
+                .attr('class', 'error-cap')
+                .attr('x1', cx - capW).attr('x2', cx + capW)
+                .attr('y1', errBot).attr('y2', errBot)
+                .attr('stroke', errColor);
+
+              // Fade in after bar animation
+              errGroup.transition()
+                .delay(barDuration * 0.6)
+                .duration(200)
+                .style('opacity', 1);
+            }
+
+            // Hover interaction
+            bar.on('mouseenter', function (event) {
+              // Dim other bars
+              gBars.selectAll('.bar-rect')
+                .transition().duration(100)
+                .style('opacity', function () {
+                  return this.getAttribute('data-method') === method ? 1 : 0.25;
+                });
+
+              const html = `
+                <div class="tt-method" style="color:${getMethodColor(method)}">${method}</div>
+                <div class="tt-task">${task.label}</div>
+                <div class="tt-value">${val.toFixed(2)}${std > 0 ? ' &plusmn; ' + std.toFixed(2) : ''}</div>
+              `;
+              showTooltip(html, event);
+            })
+            .on('mousemove', function (event) {
+              const html = `
+                <div class="tt-method" style="color:${getMethodColor(method)}">${method}</div>
+                <div class="tt-task">${task.label}</div>
+                <div class="tt-value">${val.toFixed(2)}${std > 0 ? ' &plusmn; ' + std.toFixed(2) : ''}</div>
+              `;
+              showTooltip(html, event);
+            })
+            .on('mouseleave', function () {
+              gBars.selectAll('.bar-rect')
+                .transition().duration(150)
+                .style('opacity', 1);
+              hideTooltip();
+            });
+          });
+        });
+      }
+
+      // --- Model name formatting ---
+      function formatModelName(model) {
+        const map = {
+          'gemma2b': 'Gemma 2B',
+          'gemma7b': 'Gemma 7B',
+          'llama2_7b': 'Llama-2 7B',
+          'llama2_13b': 'Llama-2 13B',
+          'llama3_8b': 'Llama-3 8B',
+          'mistral7b': 'Mistral 7B'
+        };
+        return map[model] || model;
+      }
+
+      // --- Init ---
+      fetchFirstAvailable(JSON_PATHS)
+        .then(data => {
+          rawData = data;
+
+          // Discover models
+          const models = [...new Set(data.map(d => d.model))];
+          if (models.length > 0) currentModel = models[0];
+
+          // Populate model selector
+          modelSelect.innerHTML = '';
+          models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = formatModelName(m);
+            modelSelect.appendChild(opt);
+          });
+          modelSelect.value = currentModel;
+          modelSelect.addEventListener('change', () => {
+            currentModel = modelSelect.value;
+            render();
+          });
+
+          // Hide model selector if only one model
+          if (models.length <= 1) {
+            controls.style.display = 'none';
+          }
+
+          // Initial render
+          render();
+
+          // Resize observer
+          if (window.ResizeObserver) {
+            const ro = new ResizeObserver(() => render());
+            ro.observe(container);
+          } else {
+            window.addEventListener('resize', render);
+          }
+
+          // Theme change observer
+          const observer = new MutationObserver(() => render());
+          observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-theme']
+          });
+        })
+        .catch(err => {
+          const pre = document.createElement('pre');
+          pre.style.cssText = 'color: #c0392b; padding: 12px; font-size: 13px;';
+          pre.textContent = 'Failed to load data: ' + err.message;
+          container.appendChild(pre);
+        });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => ensureD3(bootstrap), { once: true });
+    } else {
+      ensureD3(bootstrap);
+    }
+  })();
+</script>

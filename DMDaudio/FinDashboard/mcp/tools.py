@@ -47,6 +47,11 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from lib.data_loader import canonicalize_rows  # noqa: E402  (path set above)
+from lib.bia_brand import (  # noqa: E402  (path set above)
+    build_trade_name_index,
+    search_key,
+    search_trade_names,
+)
 from lib.consolidation import (  # noqa: E402  (path set above)
     excluded_pairs,
     shadowed_company_years,
@@ -66,9 +71,9 @@ from scripts.ingest.manual_mappings import (  # noqa: E402
 
 # Local module (mcp/db.py). Support both "run as script" and "import as package".
 try:
-    from db import connect_ro  # type: ignore
+    from db import connect_ro, resolve_db_path  # type: ignore
 except ImportError:  # pragma: no cover - package-style import
-    from mcp.db import connect_ro  # type: ignore
+    from mcp.db import connect_ro, resolve_db_path  # type: ignore
 
 # Numeric metric columns selectable from metrics_panel (everything except the
 # IdCode/FVYear index). Used to validate `metrics=` arguments and to default to
@@ -674,6 +679,47 @@ async def list_sectors() -> str:
         return _err(f"Failed to list sectors: {type(e).__name__}: {e}")
 
 
+_TRADE_NAME_INDEX: dict[str, dict[str, list[str]]] = {}
+
+
+def _trade_name_index(conn: sqlite3.Connection, db_key: str) -> dict[str, list[str]]:
+    """``{IdCode: [trade name, ...]}`` from bia.ge, built once per process.
+
+    Keyed by DB path so a swapped-in Dataset file (see ``mcp/db.py``) is not
+    served stale names. Returns {} when the DB predates ``bia_directory``.
+    """
+    cached = _TRADE_NAME_INDEX.get(db_key)
+    if cached is not None:
+        return cached
+    import gzip
+
+    try:
+        names = {str(r[0]): (r[1] or "")
+                 for r in conn.execute("SELECT IdCode, CompanyName FROM companies")}
+        rows = conn.execute(
+            "SELECT IdCode, DetailGz FROM bia_directory "
+            "WHERE Status = 'ok' AND DetailGz IS NOT NULL"
+        ).fetchall()
+    except sqlite3.Error:
+        _TRADE_NAME_INDEX[db_key] = {}
+        return {}
+
+    def _details():
+        for row in rows:
+            idcode = str(row[0])
+            if idcode not in names:
+                continue
+            try:
+                detail = json.loads(gzip.decompress(row[1]).decode("utf-8"))
+            except (ValueError, TypeError, OSError):
+                continue
+            yield idcode, names[idcode], detail
+
+    index = build_trade_name_index(_details())
+    _TRADE_NAME_INDEX[db_key] = index
+    return index
+
+
 async def search_companies(params: SearchCompaniesInput) -> str:
     """Search the company universe by name (Georgian or English) or IdCode.
 
@@ -685,9 +731,16 @@ async def search_companies(params: SearchCompaniesInput) -> str:
     enriched companies (~1.6k of ~9k, covering the significant names) are
     reachable by English text; a Georgian query or IdCode reaches everything.
 
-    Direct name/IdCode matches rank first, description-only matches after them,
-    each group ordered by latest revenue (largest first) so the most significant
-    matches surface at the top.
+    ALSO matches bia.ge TRADE NAMES, which is how a consumer brand resolves to
+    the company that files: 'Carrefour' finds შპს მაჯიდ ალ ფუტაიმ ჰიპერმარკეტს
+    ჯორჯია, 'SPAR' finds სს ფუდმარტი, 'Adjarabet' finds შპს ავიატორ. That match
+    is PHONETIC and crosses scripts, because bia records brands as Georgian
+    spellings of English words (კარფური, მაკდონალდსი) that no substring test can
+    see through. 1,391 companies carry such a brand.
+
+    Direct name/IdCode matches rank first, then trade-name matches, then
+    description-only matches, each group ordered by latest revenue (largest
+    first) so the most significant matches surface at the top.
 
     Args:
         params (SearchCompaniesInput):
@@ -706,7 +759,8 @@ async def search_companies(params: SearchCompaniesInput) -> str:
                     "sector": str | null,
                     "subsector": str | null,
                     "description": str | null,         # enrichment blurb when known
-                    "matched_on": "name" | "idcode" | "description",
+                    "trade_name": str | null,          # set when matched_on == 'trade_name'
+                    "matched_on": "name" | "idcode" | "trade_name" | "description",
                     "latest_revenue": float | null,   # GEL, latest filed year
                     "latest_year": int | null
                 }, ...
@@ -714,9 +768,11 @@ async def search_companies(params: SearchCompaniesInput) -> str:
         }
         ``matched_on`` says which field the query hit — treat a "description"
         match with care: the query text may merely be *mentioned* in the blurb
-        (e.g. a competitor). ``description`` grounds what a Georgian-named
-        company actually does; call get_company_profile for the full profile
-        incl. sources. Returns count: 0 with an empty list when nothing matches.
+        (e.g. a competitor). A "trade_name" match is stronger: the brand IS the
+        company, and ``trade_name`` reports which brand answered. ``description``
+        grounds what a Georgian-named company actually does; call
+        get_company_profile for the full profile incl. sources. Returns count: 0
+        with an empty list when nothing matches.
     """
     try:
         like = f"%{params.query}%"
@@ -731,6 +787,12 @@ async def search_companies(params: SearchCompaniesInput) -> str:
             except sqlite3.Error:
                 has_desc = False
             direct_hit = "(cs.CompanyName LIKE ? COLLATE NOCASE OR cs.IdCode LIKE ?)"
+            # Over-fetch: the three match kinds are re-ranked in Python below, so
+            # truncating to `limit` here would let description hits crowd out
+            # stronger trade-name hits before they are even considered. "SPAR"
+            # otherwise returns four blurbs that merely contain "spare parts"
+            # and never reaches the company whose BRAND is SPAR.
+            over_fetch = max(params.limit * 4, 40)
             if has_desc:
                 rows = conn.execute(
                     "SELECT cs.IdCode, cs.CompanyName, cs.Sector, cs.SubSector, "
@@ -741,7 +803,7 @@ async def search_companies(params: SearchCompaniesInput) -> str:
                     f"WHERE {direct_hit} OR c.Description LIKE ? COLLATE NOCASE "
                     "ORDER BY direct_hit DESC, cs.LatestRevenue DESC NULLS LAST, cs.IdCode "
                     "LIMIT ?",
-                    (like, like, like, like, like, params.limit),
+                    (like, like, like, like, like, over_fetch),
                 ).fetchall()
             else:
                 rows = conn.execute(
@@ -750,18 +812,87 @@ async def search_companies(params: SearchCompaniesInput) -> str:
                     "WHERE CompanyName LIKE ? COLLATE NOCASE OR IdCode LIKE ? "
                     "ORDER BY LatestRevenue DESC NULLS LAST, IdCode "
                     "LIMIT ?",
-                    (like, like, params.limit),
+                    (like, like, over_fetch),
                 ).fetchall()
+            # Trade names (bia.ge) are a PHONETIC, cross-script match, so an
+            # English query reaches a brand bia stores in Georgian letters.
+            # SQL LIKE cannot see through that, so it runs in Python over the
+            # memoized index. ALWAYS run, never gated on leftover room: a brand
+            # match outranks a description match.
+            q_lower = params.query.lower()
+            q_key = search_key(params.query)
+
+            def _name_matches(row: sqlite3.Row) -> bool:
+                """Literal OR phonetic match against the company's own name.
+
+                The legal names are Georgian, so a Latin query never hit them
+                literally and had to reach the company through its English
+                blurb. Comparing phonetic keys fixes that: "Tegeta" now matches
+                the NAME shown in the Georgian spelling, which is what it is,
+                instead of ranking behind whichever blurb mentions the word.
+                """
+                name = row["CompanyName"] or ""
+                if q_lower in name.lower():
+                    return True
+                return bool(q_key) and len(q_key) >= 3 and q_key in search_key(name)
+
+            def _is_direct(row: sqlite3.Row) -> bool:
+                return _name_matches(row) or q_lower in row["IdCode"]
+
+            direct_codes = {r["IdCode"] for r in rows if _is_direct(r)}
+            # search_trade_names returns best-match-first; keep that order as the
+            # rank INSIDE the brand group. Sorting the group by revenue instead
+            # let a big company's weak fuzzy hit outrank a small company's exact
+            # brand ("Magniti" surfaced Magticom above Magniti's own operator).
+            brand_hits = search_trade_names(
+                _trade_name_index(conn, resolve_db_path()),
+                params.query,
+                limit=params.limit,
+                exclude=direct_codes,
+            )
+            brand_of = {code: name for code, name, _ in brand_hits}
+            brand_score = {code: score for code, _, score in brand_hits}
+            seen_codes = {r["IdCode"] for r in rows}
+            missing = [c for c in brand_of if c not in seen_codes]
+            if missing:
+                placeholders = ",".join("?" * len(missing))
+                rows = list(rows) + conn.execute(
+                    "SELECT IdCode, CompanyName, Sector, SubSector, "
+                    "       LatestRevenue, LatestFVYear "
+                    f"FROM company_search WHERE IdCode IN ({placeholders})",
+                    tuple(missing),
+                ).fetchall()
+
+            # Re-rank: direct hits, then trade names, then description-only,
+            # each group by latest revenue, then cut to the caller's limit.
+            def _rank(row: sqlite3.Row) -> tuple:
+                code = row["IdCode"]
+                revenue = row["LatestRevenue"]
+                by_revenue = -(revenue if revenue is not None else -1.0)
+                if code in direct_codes:
+                    return (0, by_revenue, code)
+                if code in brand_of:
+                    # Match quality first inside this group, revenue only to
+                    # break ties between equally good brand matches — so the
+                    # operator that runs a chain outranks a small franchisee
+                    # whose brand string happens to match just as well.
+                    return (1, -brand_score.get(code, 0.0), by_revenue, code)
+                return (2, by_revenue, code)
+
+            rows = sorted(rows, key=_rank)[: params.limit]
             # Descriptions live on `companies`, not the cached `company_search`.
             descriptions = _descriptions_for(conn, [r["IdCode"] for r in rows])
 
         q = params.query.lower()
 
         def _matched_on(r: sqlite3.Row) -> str:
-            if q in (r["CompanyName"] or "").lower():
-                return "name"
-            if q in r["IdCode"]:
-                return "idcode"
+            # Mirrors the ranking above, including the phonetic name match, so
+            # matched_on never disagrees with why a row is where it is.
+            if r["IdCode"] in direct_codes:
+                return "idcode" if q in r["IdCode"] and q not in (
+                    r["CompanyName"] or "").lower() else "name"
+            if r["IdCode"] in brand_of:
+                return "trade_name"
             return "description"
 
         companies = [
@@ -771,6 +902,7 @@ async def search_companies(params: SearchCompaniesInput) -> str:
                 "sector": r["Sector"] or None,
                 "subsector": r["SubSector"] or None,
                 "description": descriptions.get(r["IdCode"]),
+                "trade_name": brand_of.get(r["IdCode"]),
                 "matched_on": _matched_on(r),
                 "latest_revenue": float(r["LatestRevenue"]) if r["LatestRevenue"] is not None else None,
                 "latest_year": int(r["LatestFVYear"]) if r["LatestFVYear"] is not None else None,

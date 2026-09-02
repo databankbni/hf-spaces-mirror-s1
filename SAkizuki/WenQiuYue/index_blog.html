@@ -1,0 +1,4156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>问秋月</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@300;400;500&family=Noto+Sans+SC:wght@300;400&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #fdf6fb;
+  --bg2:       #f7eef5;
+  --border:    #e8d5e8;
+  --border2:   #d4b8d4;
+  --text:      #3d2b3d;
+  --text-soft: #7a5c7a;
+  --text-faint:#b8a0b8;
+  --pink:      #e8739a;
+  --pink-l:    #f0a0bc;
+  --pink-d:    #c45580;
+  --lavender:  #9b7fc7;
+  --lavender-l:#c4aee8;
+  --mint:      #6dbfaa;
+  --gold:      #c8952a;
+  --branch-0:   #9b7fc7;
+  --branch-1:   #e8739a;
+  --branch-2:   #c8952a;
+  --branch-3:   #52c7c7;
+  --branch-4:   #6f9edf;
+  --branch-5:   #d86bd2;
+  --branch-main: var(--branch-0);
+  --bubble-u:  #f5e0f0;
+  --bubble-a:  #ffffff;
+  --shadow:    rgba(180,120,180,.12);
+  --r-sm:      12px;
+  --r-lg:      20px;
+  --r-pill:    999px;
+  --font-j:    'Zen Maru Gothic', 'Noto Sans SC', sans-serif;
+  --font-body: 'Noto Sans SC', sans-serif;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.8;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 10% 0%,   rgba(232,115,154,.10) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 90% 100%,  rgba(155,127,199,.10) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 80% 20%,   rgba(109,191,170,.07) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 24px;
+  height: 58px;
+  background: rgba(253,246,251,.88);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.header-avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px var(--shadow);
+  background: var(--bg2);
+}
+
+.header-info { flex: 1; min-width: 0; }
+.header-info h1 {
+  font-family: var(--font-j);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: .05em;
+  line-height: 1.2;
+}
+.header-info p {
+  font-size: 11px;
+  color: var(--text-faint);
+  letter-spacing: .04em;
+}
+
+#status-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-faint);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 3px 10px;
+  flex-shrink: 0;
+  transition: all .3s;
+}
+#status-pill .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition: background .4s;
+}
+#status-pill.ok  .dot { background: var(--mint); }
+#status-pill.ok       { color: var(--text-soft); }
+#status-pill.err .dot { background: var(--pink); }
+
+#chat {
+  position: relative;
+  z-index: 1;
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 78px 20px 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  transition: width .32s cubic-bezier(.22,.8,.28,1), margin-left .32s cubic-bezier(.22,.8,.28,1), margin-right .32s cubic-bezier(.22,.8,.28,1);
+}
+
+#welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 48px 20px 0;
+  pointer-events: none;
+  user-select: none;
+}
+#welcome .ava {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 4px 20px var(--shadow);
+  animation: floatY 3s ease-in-out infinite;
+  background: var(--bg2);
+}
+#welcome h2 {
+  font-family: var(--font-j);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: .08em;
+}
+#welcome p {
+  font-size: 13px;
+  color: var(--text-faint);
+  letter-spacing: .05em;
+}
+.hint-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 6px;
+  pointer-events: all;
+}
+.hint-chip {
+  font-size: 12px;
+  padding: 5px 14px;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-pill);
+  color: var(--text-soft);
+  background: var(--bubble-a);
+  cursor: pointer;
+  transition: all .2s;
+}
+.hint-chip:hover {
+  border-color: var(--pink-l);
+  color: var(--pink-d);
+  background: var(--bubble-u);
+  transform: translateY(-1px);
+}
+
+.msg-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: fadeUp .3s ease both;
+}
+.msg-group.user { align-items: flex-end; }
+.msg-group.asst { align-items: flex-start; }
+
+.msg-label {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 0 4px;
+  letter-spacing: .04em;
+}
+
+.bubble {
+  max-width: 78%;
+  padding: 12px 18px;
+  border-radius: var(--r-lg);
+  line-height: 1.85;
+  word-break: break-word;
+  position: relative;
+}
+.msg-group.user .bubble {
+  background: linear-gradient(135deg, var(--pink-l) 0%, #f0c0d8 100%);
+  color: #3d1530;
+  border-bottom-right-radius: var(--r-sm);
+  box-shadow: 0 2px 12px rgba(232,115,154,.25);
+}
+.msg-group.asst .bubble {
+  background: var(--bubble-a);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: var(--r-sm);
+  box-shadow: 0 2px 12px var(--shadow);
+  color: var(--text);
+}
+
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  opacity: .72;
+}
+.msg-group.user .msg-actions { justify-content: flex-end; }
+.msg-action {
+  width: 28px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: background .18s, color .18s, opacity .18s;
+}
+.msg-action:hover { background: var(--bg2); color: var(--pink-d); opacity: 1; }
+.msg-action:focus-visible { outline: 1px solid var(--pink); outline-offset: 1px; }
+.msg-action svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.msg-action.copied { color: var(--mint); }
+
+.inline-edit {
+  width: min(78%, 620px);
+  padding: 10px 12px 9px;
+  border-radius: var(--r-lg);
+  border-bottom-right-radius: var(--r-sm);
+  position: relative;
+}
+.msg-group.user .inline-edit {
+  background: linear-gradient(135deg, var(--pink-l) 0%, #f0c0d8 100%);
+  color: #3d1530;
+  box-shadow: 0 2px 12px rgba(232,115,154,.25);
+}
+.inline-edit-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.inline-edit-images img {
+  display: block;
+  max-width: 160px;
+  max-height: 120px;
+  border-radius: 8px;
+}
+.inline-edit-input {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  max-height: 180px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+  background: transparent;
+  color: inherit;
+  font: 14px/1.6 var(--font-body);
+}
+.inline-edit-input::placeholder { color: currentColor; opacity: .55; }
+.inline-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+.inline-edit-btn {
+  min-width: 52px;
+  padding: 5px 12px;
+  border: 1px solid rgba(61,21,48,.28);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: #3d1530;
+  font: 12px var(--font-body);
+  cursor: pointer;
+  transition: background .18s, border-color .18s, color .18s, box-shadow .18s;
+}
+.inline-edit-btn:hover { background: rgba(61,21,48,.08); border-color: rgba(61,21,48,.48); }
+.inline-edit-btn.submit { background: var(--pink-d); border-color: var(--pink-d); color: #fff; }
+.inline-edit-btn.submit:hover { box-shadow: 0 0 10px rgba(218,54,51,.28); }
+.inline-edit-btn:focus-visible { outline: 1px solid var(--pink-d); outline-offset: 2px; }
+
+.bubble p            { margin-bottom: 8px; }
+.math-display { margin: 8px 0; overflow-x: auto; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble a            { color: var(--lavender); text-decoration: underline; text-underline-offset: 3px; }
+.bubble a:hover      { color: var(--pink-d); }
+.bubble strong       { font-weight: 500; color: var(--pink-d); }
+.bubble code         { font-size: 12px; background: var(--bg2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; }
+.bubble pre          { background: var(--bg2); border: 1px solid var(--border); padding: 14px 16px; border-radius: 12px; overflow-x: auto; margin: 10px 0; }
+.bubble pre code     { background: none; border: none; padding: 0; }
+.bubble ul, .bubble ol { padding-left: 22px; margin: 6px 0; }
+.bubble li           { margin: 3px 0; }
+.bubble h1, .bubble h2, .bubble h3 {
+  font-family: var(--font-j);
+  font-weight: 500;
+  color: var(--text);
+  margin: 12px 0 6px;
+  line-height: 1.4;
+}
+.bubble h1 { font-size: 17px; }
+.bubble h2 { font-size: 15px; }
+.bubble h3 { font-size: 14px; color: var(--text-soft); }
+
+/* ── Horizontal rule ── */
+.bubble hr {
+  border: none;
+  border-top: 1px solid var(--border2);
+  margin: 14px 0;
+}
+
+/* ── Blockquote ── */
+.bubble blockquote {
+  margin: 10px 0;
+  padding: 8px 14px;
+  border-left: 3px solid var(--lavender);
+  background: var(--bg2);
+  border-radius: 0 8px 8px 0;
+  color: var(--text-soft);
+}
+.bubble blockquote p { margin-bottom: 4px; }
+.bubble blockquote p:last-child { margin-bottom: 0; }
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 12px 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bubble-a);
+}
+.bubble table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+.bubble th, .bubble td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+.bubble th:last-child, .bubble td:last-child {
+  border-right: none;
+}
+.bubble tbody tr:last-child td {
+  border-bottom: none;
+}
+.bubble th {
+  background: var(--bg2);
+  font-weight: 500;
+  color: var(--text-soft);
+  text-align: left;
+}
+
+.thinking-text {
+  max-width: 78%;
+  padding: 8px 14px;
+  border-radius: var(--r-lg);
+  border-bottom-left-radius: var(--r-sm);
+  background: var(--bg2);
+  border: 1px dashed var(--border2);
+  color: var(--text-faint);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  animation: fadeUp .2s ease both;
+}
+
+.reasoning-block {
+  width: 100%;
+  overflow: hidden;
+  border: 1px dashed var(--border2);
+  border-radius: var(--r-lg);
+  border-bottom-left-radius: var(--r-sm);
+  background: var(--bg2);
+  color: var(--text-faint);
+  animation: fadeUp .2s ease both;
+}
+.reasoning-block summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.reasoning-block summary::-webkit-details-marker { display: none; }
+.reasoning-block summary:focus-visible {
+  outline: 1px solid var(--pink);
+  outline-offset: -2px;
+}
+.reasoning-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.reasoning-spinner {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border: 2px solid var(--border2);
+  border-top-color: var(--pink);
+  border-radius: 50%;
+  animation: spin .75s linear infinite;
+}
+.reasoning-block:not(.is-streaming) .reasoning-spinner { display: none; }
+.reasoning-label {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-style: normal;
+}
+.reasoning-chevron {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: 18px;
+  line-height: 1;
+  transition: transform .2s ease;
+}
+.reasoning-block[open] .reasoning-chevron { transform: rotate(90deg); }
+.reasoning-detail {
+  max-height: 900px;
+  overflow: hidden;
+  padding: 9px 14px 11px;
+  border-top: 1px dashed var(--border2);
+  color: var(--text-faint);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 1;
+  transition: max-height .3s cubic-bezier(.22,.8,.28,1), padding .24s ease, opacity .18s ease, border-color .2s ease;
+}
+.reasoning-block:not([open]) .reasoning-detail { max-height: 0; padding-top: 0; padding-bottom: 0; border-top-color: transparent; opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .reasoning-spinner { animation: none; }
+  .reasoning-chevron { transition: none; }
+}
+
+.fc-log {
+  max-width: 78%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.fc-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-soft);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 7px 12px;
+  animation: fadeUp .2s ease both;
+  line-height: 1.5;
+}
+.fc-item .fc-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.fc-item .fc-text { flex: 1; min-width: 0; }
+.fc-item .fc-tool {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--lavender);
+  letter-spacing: .03em;
+}
+.fc-item .fc-query {
+  color: var(--text-soft);
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.fc-item .fc-result {
+  font-size: 11px;
+  margin-top: 2px;
+}
+.fc-item .fc-result.found  { color: var(--mint); }
+.fc-item .fc-result.empty  { color: var(--text-faint); }
+.fc-item.pending { opacity: .75; }
+.fc-spinner {
+  width: 12px; height: 12px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--lavender);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── 展开/折叠详情 ── */
+.fc-item {
+  flex-direction: column;
+}
+.fc-item-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+}
+.fc-expand-btn {
+  flex-shrink: 0;
+  cursor: pointer;
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  color: var(--text-faint);
+  transition: all .2s;
+  margin-top: 1px;
+}
+.fc-expand-btn:hover {
+  color: var(--lavender);
+  background: rgba(155,127,199,.10);
+}
+.fc-expand-btn.expanded svg {
+  transform: rotate(90deg);
+}
+.fc-expand-btn svg {
+  transition: transform .2s;
+}
+.fc-detail {
+  display: block;
+  max-height: 0;
+  overflow: hidden;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 1px solid transparent;
+  opacity: 0;
+  transition: max-height .3s cubic-bezier(.22,.8,.28,1), margin .24s ease, padding .24s ease, opacity .18s ease, border-color .2s ease;
+}
+.fc-detail.open {
+  max-height: 900px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top-color: var(--border);
+  opacity: 1;
+}
+.fc-detail-section {
+  margin-top: 5px;
+}
+.fc-detail-label {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-bottom: 2px;
+  letter-spacing: .03em;
+}
+.fc-detail-json {
+  margin: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  color: var(--text-soft);
+}
+.fc-detail-json code {
+  font-family: 'JetBrains Mono', monospace;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* JSON 语法高亮 */
+.fc-detail-json .json-key    { color: var(--lavender); }
+.fc-detail-json .json-string { color: var(--mint); }
+.fc-detail-json .json-number { color: var(--gold); }
+.fc-detail-json .json-bool   { color: var(--pink-d); }
+.fc-detail-json .json-null   { color: var(--text-faint); }
+
+.thinking-bubble {
+  background: var(--bubble-a);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  border-bottom-left-radius: var(--r-sm);
+  padding: 14px 20px;
+  display: flex; gap: 6px;
+  box-shadow: 0 2px 12px var(--shadow);
+}
+.thinking-bubble span {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--pink-l);
+  animation: dot .9s ease-in-out infinite;
+}
+.thinking-bubble span:nth-child(2) { animation-delay: .15s; background: var(--lavender-l); }
+.thinking-bubble span:nth-child(3) { animation-delay: .30s; background: var(--mint); }
+
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.src-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  padding: 4px 12px;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-pill);
+  color: var(--lavender);
+  text-decoration: none;
+  background: var(--bg);
+  transition: all .2s;
+  max-width: 240px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.src-chip .chip-date {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-faint);
+  background: var(--bg2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  letter-spacing: .03em;
+}
+.src-chip .chip-title { overflow: hidden; text-overflow: ellipsis; }
+.src-chip:hover {
+  border-color: var(--lavender);
+  background: var(--bubble-u);
+  transform: translateY(-1px);
+}
+.src-chip::before { content: '🔗'; font-size: 10px; flex-shrink: 0; }
+
+#input-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 20;
+  padding: 12px 20px 24px;
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+  transition: left .32s cubic-bezier(.22,.8,.28,1), right .32s cubic-bezier(.22,.8,.28,1);
+}
+#input-wrap {
+  max-width: 740px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 9px;
+  background: var(--bubble-a);
+  border: 1.5px solid var(--border);
+  border-radius: 22px;
+  padding: 12px 12px 10px 18px;
+  box-shadow: 0 4px 20px var(--shadow);
+  transition: border-color .2s, box-shadow .2s;
+}
+#input-wrap:focus-within {
+  border-color: var(--pink-l);
+  box-shadow: 0 4px 24px rgba(232,115,154,.18);
+}
+
+#msg-input {
+  width: 100%;
+  flex: none;
+  border: none; outline: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text);
+  resize: none;
+  max-height: 120px;
+  line-height: 1.6;
+  padding: 2px 0;
+}
+#msg-input::placeholder { color: var(--text-faint); }
+
+.composer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.composer-options,
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.composer-options { flex-wrap: wrap; }
+.mode-toggle-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+.mode-toggle-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 50;
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  padding: 7px 9px;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  background: var(--bg2);
+  color: var(--text-soft);
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .16);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity .18s, transform .18s;
+}
+.mode-toggle-tooltip.is-restricted:hover::after,
+.mode-toggle-tooltip.is-restricted:focus-within::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+.mode-toggle-tooltip.is-restricted .mode-toggle {
+  opacity: .58;
+  cursor: not-allowed;
+}
+.mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-soft);
+  font-family: var(--font-body);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .18s, border-color .18s, color .18s, box-shadow .18s;
+}
+.mode-toggle svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.mode-toggle:hover { border-color: var(--pink-l); color: var(--pink-d); }
+.mode-toggle.active { border-color: var(--pink-l); background: rgba(232,115,154,.10); color: var(--pink-d); box-shadow: 0 1px 5px rgba(232,115,154,.12); }
+.mode-toggle:focus-visible { outline: 1px solid var(--pink); outline-offset: 2px; }
+
+#clear-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px;
+  border-radius: 50%;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s;
+  align-self: flex-end;
+  margin-bottom: 1px;
+}
+#clear-btn:hover { background: var(--bg2); color: var(--text-soft); }
+
+#download-btn, #upload-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s;
+  align-self: flex-end;
+  margin-bottom: 1px;
+}
+#download-btn:hover, #upload-btn:hover { background: var(--bg2); color: var(--text-soft); }
+#download-btn svg, #upload-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── 上传附件预览 ── */
+.attach-bar {
+  max-width: 740px;
+  margin: 0 auto 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+.attach-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-pill);
+  color: var(--text-soft);
+  background: var(--bubble-a);
+  box-shadow: 0 1px 4px var(--shadow);
+}
+.attach-chip img {
+  width: 24px; height: 24px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.attach-chip .attach-remove {
+  cursor: pointer;
+  color: var(--text-faint);
+  font-size: 14px;
+  line-height: 1;
+  margin-left: 2px;
+  transition: color .2s;
+}
+.attach-chip .attach-remove:hover { color: var(--pink); }
+
+.msg-group.user .bubble img.chat-image {
+  max-width: 260px;
+  max-height: 200px;
+  border-radius: 10px;
+  margin: 6px 0 2px;
+  display: block;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+#send-btn, #stop-btn {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  border: none;
+  background: linear-gradient(135deg, var(--pink) 0%, var(--lavender) 100%);
+  color: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .2s, transform .15s, box-shadow .2s;
+  box-shadow: 0 2px 10px rgba(232,115,154,.35);
+  align-self: flex-end;
+}
+#send-btn:hover:not(:disabled), #stop-btn:hover:not(:disabled) {
+  opacity: .9;
+  transform: scale(1.08);
+  box-shadow: 0 4px 14px rgba(232,115,154,.45);
+}
+#send-btn:disabled, #stop-btn:disabled { opacity: .45; cursor: default; transform: none; }
+#send-btn svg, #stop-btn svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+#stop-btn { background: linear-gradient(135deg, #ef6b73 0%, #d94c66 100%); }
+#send-btn[hidden], #stop-btn[hidden] { display: none; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes floatY {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes dot {
+  0%,80%,100% { transform: scale(.55); opacity: .45; }
+  40%         { transform: scale(1);   opacity: 1; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 520px) {
+  header { padding: 0 14px; }
+  #chat  { padding: 72px 12px 160px; }
+  #input-bar { padding: 10px 12px 20px; }
+  .bubble { max-width: 90%; }
+  .fc-log { max-width: 90%; }
+  .composer-bottom { align-items: flex-end; flex-wrap: wrap; }
+  .composer-actions { margin-left: auto; }
+}
+
+/* ── 设置面板 ── */
+#settings-btn {
+  width: 32px; height: 32px;
+  border: none; border-radius: 50%;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s;
+  flex-shrink: 0;
+}
+#settings-btn:hover { background: var(--bg2); color: var(--pink); }
+
+/* ── 浏览器本地对话 ── */
+#history-btn {
+  position:fixed; top:68px; left:8px; z-index:91;
+  width: 32px; height: 32px;
+  border: none; border-radius: 50%;
+  background: transparent; color: var(--text-soft);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  opacity:0; visibility:hidden; pointer-events:none; transform:translateX(-5px) scale(.96);
+  transition: background .2s, color .2s, opacity .2s ease, transform .24s cubic-bezier(.22,.8,.28,1), visibility 0s linear .24s; flex-shrink: 0;
+}
+body.history-collapsed #history-btn { opacity:1; visibility:visible; pointer-events:auto; transform:translateX(0) scale(1); transition-delay:0s; }
+#history-btn:hover { background: var(--bg2); color: var(--pink); }
+#history-overlay {
+  display: block; position: fixed; top:58px; bottom:0; left:0; width:320px; z-index:19;
+  background: var(--bg); border-right:1px solid var(--border); box-shadow:8px 0 24px rgba(61,43,61,.08);
+  transition: transform .32s cubic-bezier(.22,.8,.28,1), box-shadow .32s ease;
+}
+#history-overlay.collapsed { transform:translateX(-100%); }
+#history-panel {
+  height:100%; padding: 22px 16px; display:flex; flex-direction:column;
+}
+.history-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 4px 14px; }
+.history-head h3 { font-family:var(--font-j); font-size:16px; font-weight:500; letter-spacing:.04em; }
+.history-close { width:30px; height:30px; border:0; border-radius:50%; background:transparent; color:var(--text-soft); cursor:pointer; font-size:22px; line-height:1; }
+.history-close:hover { background:var(--bg2); color:var(--pink); }
+#new-conversation-btn { width:100%; border:1px solid var(--pink-l); border-radius:var(--r-sm); background:var(--bubble-a); color:var(--pink-d); padding:9px 12px; cursor:pointer; font-family:var(--font-body); font-size:13px; transition:all .2s; }
+#new-conversation-btn:hover { background:var(--bubble-u); border-color:var(--pink); }
+.history-local-notice { margin:auto 4px 2px; padding:14px 8px 4px; border:0; background:transparent; color:var(--text-faint); font-size:10px; line-height:1.65; text-align:center; }
+.history-local-notice strong { display:block; color:var(--text-soft); font-weight:400; }
+#conversation-list { min-height:0; flex:1; overflow-y:auto; margin:14px -4px 0; padding:0 4px 16px; display:flex; flex-direction:column; gap:7px; }
+.conversation-empty { padding:28px 14px; text-align:center; color:var(--text-faint); font-size:12px; line-height:1.8; }
+.conversation-item { display:flex; align-items:center; gap:6px; border:1px solid transparent; border-radius:var(--r-sm); padding:9px 7px 9px 11px; background:transparent; transition:all .18s; }
+.conversation-item:hover, .conversation-item.active { background:var(--bg2); border-color:var(--border); }
+.conversation-item.active { box-shadow:inset 3px 0 0 var(--pink-l); }
+.conversation-select { min-width:0; flex:1; border:0; background:transparent; color:var(--text); cursor:pointer; text-align:left; font-family:var(--font-body); }
+.conversation-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+.conversation-time { color:var(--text-faint); font-size:11px; margin-top:2px; }
+.conversation-delete { width:26px; height:26px; flex:0 0 auto; border:0; border-radius:50%; background:transparent; color:var(--text-faint); cursor:pointer; font-size:16px; line-height:1; opacity:.55; }
+.conversation-item:hover .conversation-delete { opacity:1; }
+.conversation-delete:hover { background:var(--bubble-u); color:var(--pink-d); }
+
+/* ── 彩蛋：Agent 轨迹右栏 ── */
+.header-avatar, #welcome .ava { cursor:pointer; }
+#welcome .ava { pointer-events:auto; }
+#trace-btn {
+  position:fixed; top:68px; right:8px; z-index:91;
+  width:32px; height:32px; border:0; border-radius:50%;
+  background:transparent; color:var(--text-soft); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; visibility:hidden; pointer-events:none; transform:translateX(5px) scale(.96);
+  transition:background .2s, color .2s, opacity .2s ease, transform .24s cubic-bezier(.22,.8,.28,1), visibility 0s linear .24s;
+}
+#trace-btn[hidden], #trace-overlay[hidden] { display:none; }
+body.trace-enabled.trace-collapsed #trace-btn { opacity:1; visibility:visible; pointer-events:auto; transform:translateX(0) scale(1); transition-delay:0s; }
+#trace-btn:hover { background:var(--bg2); color:var(--lavender); }
+#trace-overlay {
+  position:fixed; top:58px; right:0; bottom:0; width:430px; z-index:19;
+  background:var(--bg); border-left:1px solid var(--border); box-shadow:-8px 0 24px rgba(61,43,61,.08);
+  transition:transform .32s cubic-bezier(.22,.8,.28,1), box-shadow .32s ease;
+}
+#trace-overlay.collapsed { transform:translateX(100%); }
+#trace-panel { height:100%; padding:22px 16px 16px; display:flex; flex-direction:column; min-width:0; }
+.trace-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 4px 10px; }
+.trace-title-wrap { min-width:0; }
+.trace-head h3 { font-family:var(--font-j); font-size:16px; font-weight:500; letter-spacing:.04em; }
+.trace-subtitle { margin-top:2px; color:var(--text-faint); font-size:10px; }
+.trace-close { width:30px; height:30px; border:0; border-radius:50%; background:transparent; color:var(--text-soft); cursor:pointer; font-size:22px; line-height:1; }
+.trace-close:hover { background:var(--bg2); color:var(--lavender); }
+#trace-stats { display:flex; gap:8px; padding:8px 4px 12px; color:var(--text-faint); font:10px/1.4 var(--font-mono, monospace); border-bottom:1px solid var(--border); }
+.trace-stat { padding:4px 7px; border:1px solid var(--border2); border-radius:var(--r-pill); background:var(--bg2); }
+#trace-list { min-height:0; flex:1; overflow:auto; padding:14px 3px 30px 14px; scrollbar-width:thin; }
+.trace-empty { padding:34px 16px; color:var(--text-faint); font-size:12px; line-height:1.8; text-align:center; }
+.trace-entry { position:relative; margin:0 0 10px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--bubble-a); overflow:visible; animation:fadeUp .2s ease both; }
+.trace-entry::before { content:""; position:absolute; left:-10px; top:18px; width:6px; height:6px; border-radius:50%; background:var(--trace-color, var(--text-faint)); box-shadow:0 0 0 3px var(--bg); }
+.trace-entry::after { content:""; position:absolute; left:-8px; top:24px; bottom:-16px; width:1px; background:var(--border2); }
+.trace-entry[data-role="system"] { --trace-color:var(--lavender); }
+.trace-entry[data-role="user"] { --trace-color:var(--mint); }
+.trace-entry[data-role="assistant"] { --trace-color:var(--pink); }
+.trace-entry[data-role="tool"] { --trace-color:var(--gold); }
+.trace-entry summary { list-style:none; cursor:pointer; padding:10px 11px; }
+.trace-entry summary::-webkit-details-marker { display:none; }
+.trace-row { display:flex; align-items:center; gap:8px; min-width:0; }
+.trace-role { flex:0 0 auto; padding:2px 6px; border-radius:4px; background:color-mix(in srgb, var(--trace-color) 15%, transparent); color:var(--trace-color); font:600 10px/1.4 var(--font-mono, monospace); text-transform:uppercase; }
+.trace-preview { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-soft); font-size:11px; }
+.trace-chevron { flex:0 0 auto; color:var(--text-faint); transition:transform .2s; }
+.trace-entry[open] .trace-chevron { transform:rotate(90deg); }
+.trace-raw { margin:0; padding:11px; border-top:1px solid var(--border); border-radius:0 0 var(--r-sm) var(--r-sm); background:var(--bg2); color:var(--text); font:10px/1.6 var(--font-mono, monospace); white-space:pre-wrap; overflow-wrap:anywhere; max-height:52vh; overflow:auto; }
+@keyframes trace-unlocked { 0%,100%{transform:rotate(0) scale(1)} 35%{transform:rotate(-8deg) scale(1.12)} 70%{transform:rotate(8deg) scale(1.12)} }
+body.trace-enabled .header-avatar, body.trace-enabled #welcome .ava { animation:trace-unlocked .5s ease; }
+
+@media (min-width:800px) {
+  body.trace-open #input-bar { right:430px; }
+  body.trace-open #chat { width:min(740px, calc(100% - 790px)); margin-left:max(340px, calc(50% - 425px)); margin-right:max(450px, calc(50% - 315px)); }
+  body.history-collapsed.trace-open #chat { width:min(740px, calc(100% - 470px)); margin-left:max(20px, calc(50% - 585px)); margin-right:max(450px, calc(50% - 155px)); }
+}
+@media (max-width:799px) { #trace-overlay { width:min(430px, 92vw); z-index:90; } }
+
+/* ── 对话分支轨道 ── */
+#branch-rail {
+  position: fixed;
+  top: 78px;
+  bottom: 158px;
+  width: 112px;
+  z-index: 12;
+  overflow: hidden;
+  transition: left .32s cubic-bezier(.22,.8,.28,1), opacity .2s;
+}
+#branch-rail[hidden] { display: none; }
+#branch-tree {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  position: relative;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+#branch-tree::-webkit-scrollbar { display: none; }
+.branch-tree-canvas { position: relative; min-width: 100%; min-height: 100%; }
+.branch-tree-links { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.branch-link { fill: none; stroke: var(--branch-0); stroke-width: 1.6; opacity: .5; }
+.branch-node {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: currentColor;
+  color: var(--branch-0);
+  cursor: pointer;
+  opacity: .48;
+  transform: translate(-50%, -50%);
+  transition: opacity .18s, transform .18s, box-shadow .18s;
+}
+.branch-node.on-path { opacity: .9; }
+.branch-node:hover { opacity: 1; transform: translate(-50%, -50%) scale(1.16); }
+.branch-node.active { opacity: 1; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px currentColor, 0 0 12px currentColor; }
+.branch-node:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.branch-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding-left: 7px;
+  border-left: 1px solid var(--border2);
+  opacity: 1;
+}
+.branch-page-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-soft);
+  font: 15px/1 var(--font-body);
+  cursor: pointer;
+}
+.branch-page-btn:hover:not(:disabled) { background: var(--bg2); color: var(--branch-main); }
+.branch-page-btn:disabled { color: var(--text-faint); cursor: default; opacity: .35; }
+.branch-page-btn:focus-visible { outline: 1px solid var(--branch-main); outline-offset: 1px; }
+.branch-page-count { min-width: 34px; color: var(--text-soft); font: 12px/1 var(--font-mono, monospace); text-align: center; }
+
+@media (min-width: 1350px) {
+  #branch-rail { left: 328px; }
+  body.history-collapsed #branch-rail { left: 20px; }
+}
+@media (max-width: 1349px) { #branch-rail { display: none !important; } }
+
+@media (min-width: 800px) {
+  #chat { width:min(740px, calc(100% - 360px)); margin-left:340px; margin-right:20px; }
+  #input-bar { left:320px; }
+body.history-collapsed #chat {
+  width:min(740px, calc(100% - 40px));
+  margin-left:max(20px, calc(50% - 370px));
+  margin-right:max(20px, calc(50% - 370px));
+}
+  body.history-collapsed #input-bar { left:0; }
+}
+@media (min-width: 1100px) { #chat { margin-left:calc(50% - 210px); } }
+@media (max-width: 799px) {
+  #history-overlay { width:min(320px, 88vw); z-index:90; }
+}
+
+#settings-overlay {
+  display: flex;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 100;
+  align-items: center; justify-content: center;
+  opacity:0; visibility:hidden; pointer-events:none;
+  transition: opacity .22s ease, visibility 0s linear .22s;
+}
+#settings-overlay.open { opacity:1; visibility:visible; pointer-events:auto; transition-delay:0s; }
+
+#settings-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 28px 32px;
+  width: 420px; max-width: 92vw;
+  box-shadow: 0 16px 48px rgba(0,0,0,.15);
+  opacity:0;
+  transform:translateY(10px) scale(.985);
+  transition: transform .26s cubic-bezier(.22,.8,.28,1), opacity .2s ease;
+}
+#settings-overlay.open #settings-panel { opacity:1; transform:translateY(0) scale(1); }
+#settings-panel h3 {
+  font-family: var(--font-j);
+  font-size: 16px; font-weight: 500;
+  margin-bottom: 6px; color: var(--text);
+}
+#settings-panel .settings-notice {
+  font-size: 12px; color: var(--text-faint);
+  margin-bottom: 18px; line-height: 1.6;
+}
+#settings-panel .settings-notice .security {
+  color: var(--mint);
+}
+#settings-panel .settings-notice .compat {
+  color: var(--gold);
+}
+#settings-panel label {
+  display: block; font-size: 12px; color: var(--text-soft);
+  margin-bottom: 4px; margin-top: 12px;
+}
+#settings-panel input[type="password"],
+#settings-panel input[type="text"] {
+  width: 100%; padding: 8px 12px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--bg2); color: var(--text);
+  font-size: 13px; font-family: var(--font-mono);
+  outline: none; transition: border-color .2s;
+}
+#settings-panel input:focus { border-color: var(--pink); }
+
+#settings-actions {
+  display: flex; gap: 8px; margin-top: 20px;
+}
+.history-backup-settings { margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
+.history-backup-settings p { font-size:12px; color:var(--text-soft); margin-bottom:8px; }
+.history-backup-settings div { display:flex; gap:8px; }
+.history-backup-settings button { flex:1; padding:8px 0; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--bg2); color:var(--text-soft); cursor:pointer; font-size:12px; }
+.history-backup-settings button:hover { border-color:var(--pink); color:var(--pink-d); }
+
+/* ── 系统 API 开关 ── */
+.api-toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; padding: 10px 14px;
+  background: var(--bg); border: 1px solid var(--border2); border-radius: var(--r-sm);
+}
+.api-toggle-row .toggle-label {
+  font-size: 13px; color: var(--text); font-weight: 500;
+}
+.api-toggle-row .toggle-hint {
+  font-size: 11px; color: var(--text-faint); margin-top: 2px;
+}
+.toggle-switch {
+  position: relative; width: 44px; height: 24px; flex-shrink: 0;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-switch .slider {
+  position: absolute; inset: 0; cursor: pointer;
+  background: var(--border2); border-radius: 24px; transition: background .2s;
+}
+.toggle-switch .slider::before {
+  content: ''; position: absolute;
+  width: 18px; height: 18px; left: 3px; bottom: 3px;
+  background: var(--text); border-radius: 50%; transition: transform .2s;
+}
+.toggle-switch input:checked + .slider { background: var(--pink); }
+.toggle-switch input:checked + .slider::before { transform: translateX(20px); }
+.toggle-switch input:disabled + .slider { opacity: .5; cursor: default; }
+
+#settings-actions button {
+  flex: 1; padding: 8px 0;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  font-size: 13px; cursor: pointer; transition: all .2s;
+}
+#btn-validate { background: var(--pink); color: #fff; border-color: var(--pink); }
+#btn-validate:hover { background: var(--pink-d); }
+#btn-save { background: var(--bg2); color: var(--text); }
+#btn-save:hover { border-color: var(--pink); color: var(--pink); }
+#btn-clear { background: transparent; color: var(--text-faint); }
+#btn-clear:hover { color: var(--pink); border-color: var(--pink); }
+
+#validate-status {
+  font-size: 12px; margin-top: 8px; min-height: 18px;
+  text-align: center;
+}
+#validate-status.ok { color: var(--mint); }
+#validate-status.err { color: var(--pink); }
+
+@media (prefers-reduced-motion: reduce) {
+  #chat, #input-bar, #history-btn, #history-overlay, #trace-btn, #trace-overlay, .trace-chevron, .reasoning-detail, .fc-detail, #settings-overlay, #settings-panel, .reasoning-chevron, .fc-expand-btn, .fc-expand-btn svg { transition:none !important; }
+  .msg-group, .fc-item, .trace-entry, .thinking-text, .reasoning-block, .reasoning-spinner, .fc-spinner, .thinking-bubble span { animation:none !important; }
+}
+
+#user-api-badge {
+  display: none;
+  font-size: 11px; color: var(--lavender);
+  background: rgba(155,127,199,.1);
+  padding: 2px 8px; border-radius: var(--r-pill);
+  flex-shrink: 0;
+}
+#user-api-badge.active { display: inline-flex; align-items: center; gap: 4px; }
+#user-api-badge .badge-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--lavender);
+}
+</style>
+</head>
+<body>
+
+<header>
+  <img class="header-avatar" src="https://akizukipic.oss-cn-beijing.aliyuncs.com/img/file.svg" alt="logo">
+  <div class="header-info">
+    <h1>问秋月</h1>
+    <p>博客知识库 · 智能问答</p>
+  </div>
+  <a href="/" style="font-size:11px;color:var(--text-faint);text-decoration:none;margin-right:8px;flex-shrink:0;" title="返回首页">← 首页</a>
+  <div id="user-api-badge"><span class="badge-dot"></span><span id="api-mode-text"></span></div>
+  <button id="settings-btn" title="API 设置">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+  <div id="status-pill">
+    <div class="dot"></div>
+    <span id="status-text">连接中</span>
+  </div>
+</header>
+
+<button id="history-btn" title="展开本地对话记录" aria-label="展开本地对话记录">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>
+</button>
+
+<aside id="history-overlay" aria-label="本地对话记录">
+  <div id="history-panel">
+    <div class="history-head"><h3>本地对话</h3><button class="history-close" id="history-close" aria-label="收起本地对话">×</button></div>
+    <button id="new-conversation-btn" type="button">＋ 新建对话</button>
+    <div id="conversation-list"></div>
+    <p class="history-local-notice"><strong>历史记录仅保存在此浏览器，绝不作为历史档案上传服务器</strong>不会同步到账号或其他设备；自动命名只复用当前对话的标题服务，不保存或同步历史。</p>
+  </div>
+</aside>
+
+<button id="trace-btn" title="展开 Agent 轨迹" aria-label="展开 Agent 轨迹" hidden>
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></svg>
+</button>
+<aside id="trace-overlay" aria-label="Agent 详细轨迹" aria-hidden="true" hidden>
+  <div id="trace-panel">
+    <div class="trace-head">
+      <div class="trace-title-wrap"><h3>Agent 轨迹</h3><p class="trace-subtitle" id="trace-subtitle">当前请求的完整模型上下文</p></div>
+      <button class="trace-close" id="trace-close" aria-label="收起 Agent 轨迹">×</button>
+    </div>
+    <div id="trace-stats"><span class="trace-stat" id="trace-turns">0 条消息</span><span class="trace-stat" id="trace-calls">0 次工具</span><span class="trace-stat" id="trace-duration">0.0s</span></div>
+    <div id="trace-list"><div class="trace-empty">彩蛋已开启。<br>发送消息后，这里会显示 System、User、Assistant 与 Tool 的完整上下文。</div></div>
+  </div>
+</aside>
+
+<aside id="branch-rail" aria-label="对话分支" hidden>
+  <div id="branch-tree"></div>
+</aside>
+
+<div id="chat">
+  <div id="welcome">
+    <img class="ava" src="https://akizukipic.oss-cn-beijing.aliyuncs.com/img/file.svg" alt="logo">
+    <h2>问秋月</h2>
+    <p>有什么想了解的，尽管问我吧</p>
+    <div class="hint-chips">
+      <div class="hint-chip" onclick="fillInput(this)">秋月去哪里旅行过？</div>
+      <div class="hint-chip" onclick="fillInput(this)">介绍一下你的项目</div>
+      <div class="hint-chip" onclick="fillInput(this)">你玩过哪些游戏？</div>
+      <div class="hint-chip" onclick="fillInput(this)">有没有关于 AI 的文章？</div>
+    </div>
+  </div>
+</div>
+
+<div id="input-bar">
+  <div id="input-wrap">
+    <textarea id="msg-input" rows="1" placeholder="问问秋月…  Enter 发送，Shift+Enter 换行"></textarea>
+    <div class="composer-bottom">
+      <div class="composer-options">
+        <div class="mode-toggle-tooltip" id="thinking-toggle-tooltip">
+          <button type="button" class="mode-toggle" id="inp-thinking" data-mode-label="深度思考" aria-pressed="false" title="点击切换深度思考">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>
+            <span>深度思考</span>
+          </button>
+        </div>
+        <button type="button" class="mode-toggle" id="web-search-toggle" data-mode-label="联网搜索" aria-pressed="true" title="点击切换联网搜索">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+          <span>联网搜索</span>
+        </button>
+      </div>
+      <div class="composer-actions">
+        <button id="clear-btn" title="新建对话">＋</button>
+        <input type="file" id="file-input" accept=".md,.txt,.png,.jpg,.jpeg,.gif,.webp" multiple style="display:none">
+        <button id="upload-btn" title="上传文件（对话历史 / 文本 / 图片）">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </button>
+        <button id="download-btn" title="下载对话">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button id="stop-btn" title="停止生成" aria-label="停止生成" hidden>
+          <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1" fill="#fff" stroke="none"/></svg>
+        </button>
+        <button id="send-btn" title="发送">
+          <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/conversation-storage.js"></script>
+<script>
+// ── 用户 API 设置面板 ──────────────────────────────────────
+
+const STORAGE_KEY = 'wenqiuyue_user_api';
+const THINKING_STORAGE_KEY = 'wenqiuyue_thinking_enabled';
+const WEB_SEARCH_STORAGE_KEY = 'wenqiuyue_web_search_enabled';
+const REQUEST_SIZE_WARNING_BYTES = 40 * 1024 * 1024;
+const REQUEST_SIZE_LIMIT_BYTES = 48 * 1024 * 1024;
+const REQUEST_SIZE_COMPACTION_TARGET_BYTES = 20 * 1024 * 1024;
+const HISTORY_IMAGE_REMOVED_MARKER = '【该轮历史图片已从模型上下文移除，文字记录仍保留】';
+const THINKING_RESTRICTION_TOOLTIP = '系统 API 在北京时间 9:00–12:00、14:00–18:00 高峰时段不可开启深度思考；使用自己的 API 或非高峰时段不受限制';
+
+// ── 彩蛋：连续点击头像 10 次解锁 Agent 完整轨迹 ──────────────
+const TRACE_CLICK_TARGET = 10;
+const TRACE_CLICK_WINDOW_MS = 2500;
+const traceOverlay = document.getElementById('trace-overlay');
+const traceBtn = document.getElementById('trace-btn');
+const traceCloseBtn = document.getElementById('trace-close');
+const traceList = document.getElementById('trace-list');
+const traceSubtitle = document.getElementById('trace-subtitle');
+const traceTurns = document.getElementById('trace-turns');
+const traceCalls = document.getElementById('trace-calls');
+const traceDuration = document.getElementById('trace-duration');
+let traceModeEnabled = false;
+let traceMessages = [];
+let traceIncludesSystem = false;
+let traceSystemMessage = null;
+let traceNodeId = null;
+let traceStartedAt = 0;
+let traceClock = null;
+
+function isTraceModeEnabled() { return traceModeEnabled; }
+
+function setTraceDrawer(collapsed) {
+  if (!traceModeEnabled) return;
+  if (!collapsed && window.innerWidth < 1200 && !historyOverlay.classList.contains('collapsed')) {
+    setHistoryDrawer(true);
+  }
+  traceOverlay.classList.toggle('collapsed', collapsed);
+  traceOverlay.setAttribute('aria-hidden', String(collapsed));
+  document.body.classList.toggle('trace-collapsed', collapsed);
+  document.body.classList.toggle('trace-open', !collapsed);
+  traceBtn.title = collapsed ? '展开 Agent 轨迹' : '收起 Agent 轨迹';
+  traceBtn.setAttribute('aria-label', traceBtn.title);
+}
+
+function updateTraceStats() {
+  traceTurns.textContent = `${traceMessages.length} 条消息`;
+  traceCalls.textContent = `${traceMessages.filter(message => message?.role === 'tool').length} 次工具`;
+  const elapsed = traceStartedAt ? (performance.now() - traceStartedAt) / 1000 : 0;
+  traceDuration.textContent = `${elapsed.toFixed(1)}s`;
+}
+
+function startTraceClock() {
+  if (traceClock) clearInterval(traceClock);
+  traceClock = setInterval(updateTraceStats, 100);
+}
+
+function finishTraceClock() {
+  updateTraceStats();
+  if (traceClock) clearInterval(traceClock);
+  traceClock = null;
+}
+
+function traceContentText(message) {
+  const content = message?.content;
+  if (typeof content === 'string') return content;
+  if (content == null) return '';
+  try { return JSON.stringify(content); } catch { return String(content); }
+}
+
+function tracePreview(message) {
+  if (message?.role === 'tool') return `工具结果 · ${message.tool_call_id || 'unknown'}`;
+  if (Array.isArray(message?.tool_calls) && message.tool_calls.length) {
+    const names = message.tool_calls.map(call => call?.function?.name).filter(Boolean).join(', ');
+    return `调用工具 · ${names || message.tool_calls.length + ' 项'}`;
+  }
+  const text = traceContentText(message).replace(/\s+/g, ' ').trim();
+  return text || (message?.reasoning_content ? '包含 reasoning_content' : '空消息');
+}
+
+function appendTraceMessage(message) {
+  if (!message || typeof message !== 'object') return;
+  traceMessages.push(message);
+  const entry = document.createElement('details');
+  entry.className = 'trace-entry';
+  entry.dataset.role = message.role || 'context';
+  const summary = document.createElement('summary');
+  const row = document.createElement('div');
+  row.className = 'trace-row';
+  const role = document.createElement('span');
+  role.className = 'trace-role';
+  role.textContent = message.role || 'context';
+  const preview = document.createElement('span');
+  preview.className = 'trace-preview';
+  preview.textContent = tracePreview(message);
+  const chevron = document.createElement('span');
+  chevron.className = 'trace-chevron';
+  chevron.textContent = '›';
+  const raw = document.createElement('pre');
+  raw.className = 'trace-raw';
+  raw.textContent = JSON.stringify(message, null, 2);
+  row.append(role, preview, chevron);
+  summary.appendChild(row);
+  entry.append(summary, raw);
+  enableReasoningMotion(entry);
+  traceList.appendChild(entry);
+  updateTraceStats();
+  traceList.scrollTop = traceList.scrollHeight;
+}
+
+function resetTraceMessages(messages) {
+  const normalized = Array.isArray(messages) ? messages : [];
+  traceMessages = [];
+  traceSystemMessage = normalized.find(message => message?.role === 'system') || null;
+  traceIncludesSystem = Boolean(traceSystemMessage);
+  traceList.replaceChildren();
+  normalized.forEach(appendTraceMessage);
+  updateTraceStats();
+}
+
+function restoreConversationTrace(record) {
+  const hasCompactTrace = record?.traceState && typeof record.traceState === 'object';
+  const compact = WQYConversationStorage.normalizeTraceState(record, conversationTree.activeNodeId);
+  traceNodeId = compact.nodeId;
+  traceSystemMessage = compact.systemMessage;
+  const compactHistory = traceNodeId && getBranchNode(traceNodeId)
+    ? getBranchHistory(traceNodeId)
+    : (Array.isArray(record?.history) ? record.history : []);
+  const hasSavedTrace = Array.isArray(record?.traceMessages) && record.traceMessages.length > 0;
+  const restored = hasCompactTrace
+    ? [compact.systemMessage, ...compactHistory].filter(Boolean)
+    : hasSavedTrace ? record.traceMessages : compactHistory;
+  traceStartedAt = 0;
+  finishTraceClock();
+  resetTraceMessages(restored);
+  traceDuration.textContent = restored.length ? '已保存' : '—';
+  traceSubtitle.textContent = traceIncludesSystem
+    ? '已保存的完整 Agent 上下文'
+    : restored.length ? '旧记录轨迹（不含 System）' : '当前请求的完整模型上下文';
+  if (!restored.length) {
+    traceList.innerHTML = '<div class="trace-empty">这段对话还没有可显示的 Agent 轨迹。</div>';
+  }
+}
+
+function clearConversationTrace() {
+  traceStartedAt = 0;
+  finishTraceClock();
+  traceMessages = [];
+  traceIncludesSystem = false;
+  traceSystemMessage = null;
+  traceNodeId = null;
+  traceSubtitle.textContent = '当前请求的完整模型上下文';
+  traceTurns.textContent = '0 条消息';
+  traceCalls.textContent = '0 次工具';
+  traceDuration.textContent = '—';
+  traceList.innerHTML = '<div class="trace-empty">发送消息后，这里会显示 System、User、Assistant 与 Tool 的完整上下文。</div>';
+}
+
+function prepareTraceRequest() {
+  if (!traceModeEnabled) return;
+  traceStartedAt = performance.now();
+  traceMessages = [];
+  traceSystemMessage = null;
+  traceNodeId = null;
+  traceSubtitle.textContent = '当前请求的完整模型上下文';
+  traceList.innerHTML = '<div class="trace-empty">正在等待 Agent 初始化上下文…</div>';
+  updateTraceStats();
+  startTraceClock();
+}
+
+function exportConversationTraceState() {
+  return {
+    nodeId: traceNodeId || conversationTree.activeNodeId,
+    systemMessage: traceSystemMessage,
+  };
+}
+
+function activateTraceMode() {
+  if (traceModeEnabled) return;
+  traceModeEnabled = true;
+  traceOverlay.classList.add('collapsed');
+  traceOverlay.hidden = false;
+  traceBtn.hidden = false;
+  document.body.classList.add('trace-enabled');
+  document.body.classList.add('trace-collapsed');
+  requestAnimationFrame(() => setTraceDrawer(false));
+}
+
+function initTraceEasterEgg() {
+  let clickCount = 0;
+  let resetTimer = null;
+  document.querySelectorAll('.header-avatar, #welcome .ava').forEach(avatar => {
+    avatar.draggable = false;
+    avatar.addEventListener('click', () => {
+      if (traceModeEnabled) return;
+      clickCount += 1;
+      if (resetTimer) clearTimeout(resetTimer);
+      if (clickCount >= TRACE_CLICK_TARGET) {
+        clickCount = 0;
+        activateTraceMode();
+        return;
+      }
+      resetTimer = setTimeout(() => { clickCount = 0; }, TRACE_CLICK_WINDOW_MS);
+    });
+  });
+  traceBtn.addEventListener('click', () => setTraceDrawer(false));
+  traceCloseBtn.addEventListener('click', () => setTraceDrawer(true));
+}
+
+document.addEventListener('DOMContentLoaded', initTraceEasterEgg);
+
+function getUserApi() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
+  catch { return null; }
+}
+
+function isBeijingPeakTime() {
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+  const hour = Number(parts.find(part => part.type === 'hour')?.value);
+  const minute = Number(parts.find(part => part.type === 'minute')?.value);
+  const totalMinutes = hour * 60 + minute;
+  return 9 * 60 <= totalMinutes && totalMinutes < 12 * 60
+    || 14 * 60 <= totalMinutes && totalMinutes < 18 * 60;
+}
+
+function isThinkingRestricted() {
+  return !getUserApi() && isBeijingPeakTime();
+}
+
+function getThinkingEnabled() {
+  return localStorage.getItem(THINKING_STORAGE_KEY) === 'true' && !isThinkingRestricted();
+}
+
+function getWebSearchEnabled() {
+  const saved = localStorage.getItem(WEB_SEARCH_STORAGE_KEY);
+  return saved === null ? true : saved === 'true';
+}
+
+function syncModeToggle(button, enabled) {
+  const restricted = button.id === 'inp-thinking' && isThinkingRestricted();
+  const active = enabled && !restricted;
+  button.classList.toggle('active', active);
+  button.setAttribute('aria-pressed', String(active));
+  button.setAttribute('aria-disabled', String(restricted));
+  button.disabled = restricted;
+  button.title = restricted
+    ? THINKING_RESTRICTION_TOOLTIP
+    : `点击${active ? '关闭' : '开启'}${button.dataset.modeLabel}`;
+  const tooltip = button.closest('.mode-toggle-tooltip');
+  if (tooltip) {
+    tooltip.classList.toggle('is-restricted', restricted);
+    if (restricted) tooltip.dataset.tooltip = THINKING_RESTRICTION_TOOLTIP;
+    else delete tooltip.dataset.tooltip;
+  }
+}
+
+function refreshThinkingRestriction() {
+  const thinkingToggle = document.getElementById('inp-thinking');
+  if (thinkingToggle) syncModeToggle(thinkingToggle, getThinkingEnabled());
+}
+
+function initComposerModes() {
+  const thinkingToggle = document.getElementById('inp-thinking');
+  const webSearchToggle = document.getElementById('web-search-toggle');
+  syncModeToggle(thinkingToggle, getThinkingEnabled());
+  syncModeToggle(webSearchToggle, getWebSearchEnabled());
+
+  thinkingToggle.addEventListener('click', () => {
+    if (isThinkingRestricted()) {
+      refreshThinkingRestriction();
+      return;
+    }
+    const enabled = !getThinkingEnabled();
+    localStorage.setItem(THINKING_STORAGE_KEY, String(enabled));
+    syncModeToggle(thinkingToggle, enabled);
+  });
+  webSearchToggle.addEventListener('click', () => {
+    const enabled = !getWebSearchEnabled();
+    localStorage.setItem(WEB_SEARCH_STORAGE_KEY, String(enabled));
+    syncModeToggle(webSearchToggle, enabled);
+  });
+  setInterval(refreshThinkingRestriction, 60 * 1000);
+}
+
+function enableReasoningMotion(block) {
+  const summary = block.querySelector('summary');
+  if (!summary || typeof block.animate !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  let animation = null;
+  summary.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (animation) animation.cancel();
+
+    const startHeight = block.offsetHeight;
+    block.style.overflow = 'hidden';
+    if (block.open) {
+      const endHeight = summary.offsetHeight;
+      animation = block.animate(
+        { height: [`${startHeight}px`, `${endHeight}px`], opacity: [1, .82] },
+        { duration: 220, easing: 'cubic-bezier(.22,.8,.28,1)' }
+      );
+      animation.onfinish = () => {
+        block.open = false;
+        block.style.removeProperty('overflow');
+        animation = null;
+      };
+    } else {
+      block.open = true;
+      const endHeight = block.offsetHeight;
+      animation = block.animate(
+        { height: [`${startHeight}px`, `${endHeight}px`], opacity: [.82, 1] },
+        { duration: 240, easing: 'cubic-bezier(.22,.8,.28,1)' }
+      );
+      animation.onfinish = () => {
+        block.style.removeProperty('overflow');
+        animation = null;
+      };
+    }
+  });
+}
+
+function createReasoningBlock(text = '', isStreaming = false) {
+  const block = document.createElement('details');
+  block.className = 'reasoning-block' + (isStreaming ? ' is-streaming' : '');
+  block.open = false;
+
+  const summary = document.createElement('summary');
+  const status = document.createElement('span');
+  status.className = 'reasoning-status';
+  const spinner = document.createElement('span');
+  spinner.className = 'reasoning-spinner';
+  spinner.setAttribute('aria-hidden', 'true');
+  const label = document.createElement('span');
+  label.className = 'reasoning-label';
+  label.textContent = isStreaming ? '深度思考中...' : '深度思考';
+  const chevron = document.createElement('span');
+  chevron.className = 'reasoning-chevron';
+  chevron.setAttribute('aria-hidden', 'true');
+  chevron.textContent = '›';
+
+  status.append(spinner, label);
+  summary.append(status, chevron);
+
+  const detail = document.createElement('div');
+  detail.className = 'reasoning-detail';
+  detail.textContent = text;
+  block.append(summary, detail);
+  block._detailEl = detail;
+  block._labelEl = label;
+  block._raw = text;
+  enableReasoningMotion(block);
+  return block;
+}
+
+function finishReasoningBlock(block) {
+  if (!block) return;
+  block.classList.remove('is-streaming');
+  block._labelEl.textContent = '深度思考';
+}
+
+function initSettings() {
+  const btn = document.getElementById('settings-btn');
+  const overlay = document.getElementById('settings-overlay');
+  const badge = document.getElementById('user-api-badge');
+  const modeText = document.getElementById('api-mode-text');
+  const useSystemToggle = document.getElementById('inp-use-system');
+  const apiKeyInput = document.getElementById('inp-api-key');
+  const baseUrlInput = document.getElementById('inp-base-url');
+  const modelInput = document.getElementById('inp-model');
+
+  function applyToggleState(useSystem) {
+    useSystemToggle.checked = useSystem;
+    apiKeyInput.disabled = useSystem;
+    baseUrlInput.disabled = useSystem;
+    modelInput.disabled = useSystem;
+    if (useSystem) {
+      apiKeyInput.value = '';
+      baseUrlInput.value = 'https://api.deepseek.com';
+      modelInput.value = 'deepseek-v4-flash';
+    }
+  }
+
+  const saved = getUserApi();
+  if (saved) {
+    apiKeyInput.value = saved.api_key || '';
+    baseUrlInput.value = saved.base_url || 'https://api.deepseek.com';
+    modelInput.value = saved.model || 'deepseek-v4-flash';
+    badge.classList.add('active');
+    modeText.textContent = '自定义 API · ' + (saved.model || 'deepseek-v4-flash');
+    applyToggleState(false);
+  } else {
+    applyToggleState(true);
+  }
+
+  useSystemToggle.addEventListener('change', () => {
+    if (useSystemToggle.checked) {
+      localStorage.removeItem(STORAGE_KEY);
+      applyToggleState(true);
+      refreshThinkingRestriction();
+      badge.classList.remove('active');
+      const status = document.getElementById('validate-status');
+      status.className = 'ok'; status.textContent = '已切换到系统 API';
+    } else {
+      applyToggleState(false);
+      refreshThinkingRestriction();
+      apiKeyInput.focus();
+      const status = document.getElementById('validate-status');
+      status.className = ''; status.textContent = '';
+    }
+  });
+
+  btn.addEventListener('click', () => overlay.classList.add('open'));
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+
+  document.getElementById('btn-validate').addEventListener('click', async () => {
+    const status = document.getElementById('validate-status');
+    const apiKey = document.getElementById('inp-api-key').value.trim();
+    const baseUrl = document.getElementById('inp-base-url').value.trim();
+    const model = document.getElementById('inp-model').value.trim();
+
+    if (!apiKey) { status.className = 'err'; status.textContent = '请输入 API Key'; return; }
+
+    status.className = ''; status.textContent = '测试中...';
+    try {
+      const resp = await fetch('/api/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: apiKey, base_url: baseUrl, model }),
+      });
+      const data = await resp.json();
+      if (data.valid) {
+        status.className = 'ok'; status.textContent = '连接成功';
+      } else {
+        status.className = 'err'; status.textContent = '连接失败：' + (data.error || '未知错误');
+      }
+    } catch (e) {
+      status.className = 'err'; status.textContent = '请求失败：' + e.message;
+    }
+  });
+
+  document.getElementById('btn-save').addEventListener('click', () => {
+    const apiKey = document.getElementById('inp-api-key').value.trim();
+    const baseUrl = document.getElementById('inp-base-url').value.trim();
+    const model = document.getElementById('inp-model').value.trim();
+
+    if (!apiKey) {
+      const status = document.getElementById('validate-status');
+      status.className = 'err'; status.textContent = '请输入 API Key';
+      return;
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      api_key: apiKey,
+      base_url: baseUrl || 'https://api.deepseek.com',
+      model: model || 'deepseek-v4-flash',
+    }));
+
+    useSystemToggle.checked = false;
+    badge.classList.add('active');
+    modeText.textContent = '自定义 API · ' + (model || 'deepseek-v4-flash');
+    refreshThinkingRestriction();
+
+    const status = document.getElementById('validate-status');
+    status.className = 'ok'; status.textContent = '已保存';
+
+    setTimeout(() => overlay.classList.remove('open'), 600);
+  });
+
+  document.getElementById('btn-clear').addEventListener('click', () => {
+    localStorage.removeItem(STORAGE_KEY);
+    applyToggleState(true);
+    refreshThinkingRestriction();
+    badge.classList.remove('active');
+    const status = document.getElementById('validate-status');
+    status.className = 'ok'; status.textContent = '已清除，切换到系统 API';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initSettings();
+  initComposerModes();
+});
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderMd(text) {
+  const preserves = [];
+  function save(html) {
+    preserves.push(html);
+    return `\n\n__PRESERVE_${preserves.length - 1}__\n\n`;
+  }
+
+  text = String(text || '').replace(/\r\n?/g, '\n');
+  text = text.replace(/\$\$([\s\S]+?)\$\$/g, (m) => save(`<div class="math-display">${m}</div>`));
+  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, l, c) => save(`<pre><code>${esc(c.trim())}</code></pre>`));
+
+  function renderInline(str) {
+    return str
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, (_, c) => `<code>${esc(c)}</code>`)
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  }
+
+  text = text.replace(/^\|(.+)\|\r?\n\|([-: |]+)\|\r?\n((?:\|.*\|(?:\r?\n|$))*)/gm, (match, header, divider, body) => {
+    const parseRow = (row, tag) => {
+      const cells = row.trim().replace(/^\||\|$/g, '').split('|');
+      return `<tr>${cells.map(c => `<${tag}>${renderInline(c.trim())}</${tag}>`).join('')}</tr>`;
+    };
+
+    let html = `<div class="table-wrap"><table><thead>${parseRow(header, 'th')}</thead><tbody>`;
+    body.trim().split(/\n/).forEach(line => {
+      if (line.trim()) html += parseRow(line, 'td');
+    });
+    html += '</tbody></table></div>';
+    return save(html);
+  });
+
+  const blocks = [];
+  const paragraph = [];
+  let list = null;
+
+  function flushParagraph() {
+    if (!paragraph.length) return;
+    blocks.push(`<p>${paragraph.map(renderInline).join('<br>')}</p>`);
+    paragraph.length = 0;
+  }
+
+  function flushList() {
+    if (!list) return;
+    const start = list.type === 'ol' && list.start !== 1 ? ` start="${list.start}"` : '';
+    const items = list.items.map(item =>
+      `<li>${item.map(renderInline).join('<br>')}</li>`
+    ).join('');
+    blocks.push(`<${list.type}${start}>${items}</${list.type}>`);
+    list = null;
+  }
+
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      flushParagraph();
+      if (list) {
+        const next = lines.slice(i + 1).find(candidate => candidate.trim());
+        const nextMatch = next && next.match(/^\s*(?:([-*+])|(\d+)[.)])\s+(.+)$/);
+        const nextType = nextMatch && (nextMatch[2] ? 'ol' : 'ul');
+        if (nextType !== list.type) flushList();
+      }
+      continue;
+    }
+
+    const preserveMatch = trimmed.match(/^__PRESERVE_(\d+)__$/);
+    if (preserveMatch) {
+      flushParagraph();
+      flushList();
+      blocks.push(trimmed);
+      continue;
+    }
+
+    const headingMatch = line.match(/^\s*(#{1,3})\s+(.+)$/);
+    if (headingMatch) {
+      flushParagraph();
+      flushList();
+      const level = headingMatch[1].length;
+      blocks.push(`<h${level}>${renderInline(headingMatch[2])}</h${level}>`);
+      continue;
+    }
+
+    if (/^\s*[-*_]{3,}\s*$/.test(line)) {
+      flushParagraph();
+      flushList();
+      blocks.push('<hr>');
+      continue;
+    }
+
+    if (/^\s*>/.test(line)) {
+      flushParagraph();
+      flushList();
+      const quoteLines = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) {
+        quoteLines.push(lines[i].replace(/^\s*>\s?/, ''));
+        i++;
+      }
+      i--;
+      blocks.push(`<blockquote><p>${quoteLines.map(renderInline).join('<br>')}</p></blockquote>`);
+      continue;
+    }
+
+    const listMatch = line.match(/^\s*(?:([-*+])|(\d+)[.)])\s+(.+)$/);
+    if (listMatch) {
+      flushParagraph();
+      const type = listMatch[2] ? 'ol' : 'ul';
+      if (list && list.type !== type) flushList();
+      if (!list) list = { type, start: listMatch[2] ? Number(listMatch[2]) : 1, items: [] };
+      list.items.push([listMatch[3]]);
+      continue;
+    }
+
+    if (list) {
+      if (/^\s{2,}\S/.test(line)) {
+        list.items[list.items.length - 1].push(trimmed);
+        continue;
+      }
+      flushList();
+    }
+
+    paragraph.push(trimmed);
+  }
+
+  flushParagraph();
+  flushList();
+  text = blocks.join('');
+
+  preserves.forEach((html, i) => {
+    text = text.replace(`__PRESERVE_${i}__`, html);
+  });
+
+  return text;
+}
+
+const chatEl   = document.getElementById('chat');
+const welcome  = document.getElementById('welcome');
+const input    = document.getElementById('msg-input');
+const sendBtn  = document.getElementById('send-btn');
+const stopBtn  = document.getElementById('stop-btn');
+const clearBtn = document.getElementById('clear-btn');
+const statusPill = document.getElementById('status-pill');
+const statusText = document.getElementById('status-text');
+const branchRail = document.getElementById('branch-rail');
+const branchTreeEl = document.getElementById('branch-tree');
+
+let history = [];
+let busy    = false;
+let activeController = null;
+let attachedImages = [];  // [{dataUrl, name}]
+let activeInlineEdit = null;
+let conversationTree = { version: 2, activeNodeId: null, nodes: [] };
+let selectedBranchNodeId = null;
+let pendingBranchContext = null;
+
+const CONVERSATION_TREE_VERSION = 2;
+const BRANCH_COLOR_TOKENS = [
+  'var(--branch-0)', 'var(--branch-1)', 'var(--branch-2)',
+  'var(--branch-3)', 'var(--branch-4)', 'var(--branch-5)',
+];
+
+function makeBranchNodeId() {
+  return window.crypto?.randomUUID?.() || `branch-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function cloneBranchImages(images) {
+  return (images || []).map(image => typeof image === 'string'
+    ? { dataUrl: image, name: '' }
+    : { dataUrl: image?.dataUrl || '', name: image?.name || '' });
+}
+
+function extractPromptFormatInstruction(text) {
+  const match = String(text || '').match(/\s*请生成(SDXL|Anima|NewBie)格式的提示词\s*$/);
+  return match ? match[1] : '';
+}
+
+function stripPromptFormatInstruction(text) {
+  return String(text || '').replace(/\s*请生成(?:SDXL|Anima|NewBie)格式的提示词\s*$/, '').trim();
+}
+
+function isConversationUserMessage(message) {
+  if (message?.role !== 'user') return false;
+  if (typeof message.content !== 'string') return true;
+  const content = message.content.trim();
+  return !/^请根据已收集到的(?:信息|标签信息)直接(?:作答|输出最终结果)，禁止再调用任何工具。/.test(content);
+}
+
+function buildLinearConversationTree(items) {
+  const source = Array.isArray(items) ? items : [];
+  const starts = [];
+  source.forEach((message, index) => { if (isConversationUserMessage(message)) starts.push(index); });
+  const nodes = [];
+  let parentId = null;
+  starts.forEach((start, index) => {
+    const end = index + 1 < starts.length ? starts[index + 1] : source.length;
+    const messages = source.slice(start, end);
+    const userMessage = messages[0] || {};
+    const rawText = cleanUserContent(userMessage.content);
+    const promptFormat = extractPromptFormatInstruction(rawText);
+    const node = {
+      id: makeBranchNodeId(),
+      parentId,
+      kind: 'normal',
+      colorIndex: 0,
+      createdAt: new Date(Date.now() + index).toISOString(),
+      userText: stripPromptFormatInstruction(rawText),
+      userImages: cloneBranchImages(extractUserImages(userMessage)),
+      promptFormat,
+      messages,
+    };
+    nodes.push(node);
+    parentId = node.id;
+  });
+  return { version: CONVERSATION_TREE_VERSION, activeNodeId: parentId, nodes };
+}
+
+function assignMissingBranchColors(nodes) {
+  let nextColorIndex = nodes.reduce((maxIndex, node) => (
+    Number.isInteger(node.colorIndex) && node.colorIndex >= 0
+      ? Math.max(maxIndex, node.colorIndex)
+      : maxIndex
+  ), -1) + 1;
+  const childrenOf = parentId => nodes
+    .filter(node => (node.parentId || null) === (parentId || null))
+    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  const assignChildren = (parentId, parentColorIndex = null) => {
+    const children = childrenOf(parentId);
+    children.forEach((child, index) => {
+      if (Number.isInteger(child.colorIndex) && child.colorIndex >= 0) return;
+      const continuesParentBranch = parentId !== null && index === 0;
+      child.colorIndex = continuesParentBranch ? parentColorIndex : nextColorIndex++;
+    });
+    children.forEach(child => assignChildren(child.id, child.colorIndex));
+  };
+  assignChildren(null);
+}
+
+function normalizeConversationTree(raw, fallbackHistory = []) {
+  if (!raw || !Array.isArray(raw.nodes) || !raw.nodes.length) {
+    return buildLinearConversationTree(fallbackHistory);
+  }
+  const nodes = raw.nodes
+    .filter(node => node && typeof node.id === 'string' && Array.isArray(node.messages))
+    .map(node => {
+      const userMessage = node.messages.find(message => message?.role === 'user') || {};
+      const rawText = typeof node.userText === 'string' ? node.userText : cleanUserContent(userMessage.content);
+      const promptFormat = typeof node.promptFormat === 'string'
+        ? node.promptFormat
+        : extractPromptFormatInstruction(rawText);
+      return {
+        id: node.id,
+        parentId: typeof node.parentId === 'string' ? node.parentId : null,
+        kind: ['normal', 'edit', 'regenerate'].includes(node.kind) ? node.kind : 'normal',
+        colorIndex: Number.isInteger(node.colorIndex) && node.colorIndex >= 0 ? node.colorIndex : null,
+        createdAt: typeof node.createdAt === 'string' ? node.createdAt : new Date().toISOString(),
+        userText: stripPromptFormatInstruction(rawText),
+        userImages: cloneBranchImages(node.userImages?.length ? node.userImages : extractUserImages(userMessage)),
+        promptFormat,
+        messages: node.messages.slice(),
+      };
+    });
+  const ids = new Set(nodes.map(node => node.id));
+  nodes.forEach(node => { if (node.parentId && !ids.has(node.parentId)) node.parentId = null; });
+  assignMissingBranchColors(nodes);
+  const activeNodeId = ids.has(raw.activeNodeId) ? raw.activeNodeId : nodes.at(-1)?.id || null;
+  return { version: CONVERSATION_TREE_VERSION, activeNodeId, nodes };
+}
+
+function exportConversationTree() {
+  return {
+    version: CONVERSATION_TREE_VERSION,
+    activeNodeId: conversationTree.activeNodeId,
+    nodes: conversationTree.nodes.map(node => ({
+      ...node,
+      userImages: cloneBranchImages(node.userImages),
+      messages: node.messages.slice(),
+    })),
+  };
+}
+
+function getBranchNode(nodeId) {
+  return nodeId ? conversationTree.nodes.find(node => node.id === nodeId) || null : null;
+}
+
+function getBranchChildren(parentId) {
+  return conversationTree.nodes
+    .filter(node => (node.parentId || null) === (parentId || null))
+    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+}
+
+function getBranchColorMap() {
+  return new Map(conversationTree.nodes.map(node => [
+    node.id,
+    BRANCH_COLOR_TOKENS[(node.colorIndex || 0) % BRANCH_COLOR_TOKENS.length],
+  ]));
+}
+
+function getBranchColorIndexForNewNode(parentId) {
+  const siblings = getBranchChildren(parentId);
+  if (!siblings.length) {
+    const parent = getBranchNode(parentId);
+    return Number.isInteger(parent?.colorIndex) ? parent.colorIndex : 0;
+  }
+  return conversationTree.nodes.reduce((maxIndex, node) => (
+    Number.isInteger(node.colorIndex) ? Math.max(maxIndex, node.colorIndex) : maxIndex
+  ), -1) + 1;
+}
+
+function getBranchPath(nodeId) {
+  const path = [];
+  const seen = new Set();
+  let node = getBranchNode(nodeId);
+  while (node && !seen.has(node.id)) {
+    seen.add(node.id);
+    path.unshift(node);
+    node = getBranchNode(node.parentId);
+  }
+  return path;
+}
+
+function getBranchHistory(nodeId) {
+  return getBranchPath(nodeId).flatMap(node => node.messages);
+}
+
+function applyCompactedHistoryToBranchPath(nextHistory, nodeId) {
+  const path = getBranchPath(nodeId);
+  const messageCount = path.reduce((sum, node) => sum + node.messages.length, 0);
+  if (messageCount !== nextHistory.length) return false;
+  let offset = 0;
+  path.forEach(node => {
+    node.messages = nextHistory.slice(offset, offset + node.messages.length);
+    offset += node.messages.length;
+  });
+  history = nextHistory;
+  return true;
+}
+
+function sameBranchUser(a, b) {
+  return a.userText === b.userText
+    && (a.promptFormat || '') === (b.promptFormat || '')
+    && JSON.stringify(a.userImages || []) === JSON.stringify(b.userImages || []);
+}
+
+function scrollToBranchNode(nodeId) {
+  const group = [...chatEl.querySelectorAll('.msg-group.user')]
+    .find(item => item._branchNodeId === nodeId);
+  group?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function selectBranchNode(nodeId) {
+  selectedBranchNodeId = nodeId;
+  branchTreeEl.querySelectorAll('.branch-node').forEach(button => {
+    button.classList.toggle('active', button.dataset.branchNode === nodeId);
+  });
+}
+
+function createBranchPager(node, siblings) {
+  const index = siblings.findIndex(item => item.id === node.id);
+  const pager = document.createElement('span');
+  pager.className = 'branch-pager';
+  const previous = document.createElement('button');
+  previous.type = 'button';
+  previous.className = 'branch-page-btn';
+  previous.textContent = '‹';
+  previous.disabled = index <= 0;
+  previous.dataset.branchTarget = index > 0 ? siblings[index - 1].id : '';
+  previous.setAttribute('aria-label', '上一个分支');
+  const count = document.createElement('span');
+  count.className = 'branch-page-count';
+  count.textContent = `${index + 1} / ${siblings.length}`;
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'branch-page-btn';
+  next.textContent = '›';
+  next.disabled = index >= siblings.length - 1;
+  next.dataset.branchTarget = index < siblings.length - 1 ? siblings[index + 1].id : '';
+  next.setAttribute('aria-label', '下一个分支');
+  pager.append(previous, count, next);
+  return pager;
+}
+
+function decorateVisibleBranchGroups() {
+  chatEl.querySelectorAll('.branch-pager').forEach(item => item.remove());
+  const path = getBranchPath(conversationTree.activeNodeId);
+  const groups = [...chatEl.querySelectorAll(':scope > .msg-group')];
+  let turnIndex = -1;
+  let currentNode = null;
+  groups.forEach(group => {
+    if (group.classList.contains('user')) {
+      currentNode = path[++turnIndex] || null;
+      if (!currentNode) return;
+      group._branchNodeId = currentNode.id;
+      group._historyBefore = getBranchHistory(currentNode.parentId);
+      group._userText = currentNode.userText;
+      group._userImages = cloneBranchImages(currentNode.userImages);
+      group._promptFormat = currentNode.promptFormat || '';
+    } else if (group.classList.contains('asst') && currentNode) {
+      group._branchNodeId = currentNode.id;
+      group._historyBefore = getBranchHistory(currentNode.parentId);
+      group._userGroup = groups.find(item => item.classList.contains('user') && item._branchNodeId === currentNode.id) || group._userGroup;
+    }
+  });
+
+  path.forEach(node => {
+    const siblings = getBranchChildren(node.parentId);
+    if (siblings.length <= 1) return;
+    const hasUserVariants = siblings.some(item => !sameBranchUser(item, siblings[0]));
+    const selector = hasUserVariants ? '.msg-group.user' : '.msg-group.asst';
+    const host = [...chatEl.querySelectorAll(selector)].find(item => item._branchNodeId === node.id);
+    const actions = host?.querySelector('.msg-actions');
+    if (actions) actions.appendChild(createBranchPager(node, siblings));
+  });
+}
+
+function renderConversationTree() {
+  const nodes = conversationTree.nodes;
+  branchRail.hidden = nodes.length === 0;
+  branchTreeEl.innerHTML = '';
+  if (!nodes.length) return;
+
+  const positions = new Map();
+  let nextColumn = 0;
+  let maxDepth = 0;
+  const visit = (node, depth) => {
+    maxDepth = Math.max(maxDepth, depth);
+    const children = getBranchChildren(node.id);
+    children.forEach(child => visit(child, depth + 1));
+    const column = children.length ? positions.get(children[0].id).column : nextColumn++;
+    positions.set(node.id, { column, depth });
+  };
+  getBranchChildren(null).forEach(root => visit(root, 0));
+
+  const xStep = 28;
+  const yStep = 48;
+  const padX = 18;
+  const padY = 20;
+  const width = Math.max(112, padX * 2 + Math.max(1, nextColumn) * xStep);
+  const height = Math.max(branchTreeEl.clientHeight || 320, padY * 2 + (maxDepth + 1) * yStep);
+  const canvas = document.createElement('div');
+  canvas.className = 'branch-tree-canvas';
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('branch-tree-links');
+  svg.setAttribute('width', String(width));
+  svg.setAttribute('height', String(height));
+  const activePath = new Set(getBranchPath(conversationTree.activeNodeId).map(node => node.id));
+  const branchColors = getBranchColorMap();
+
+  nodes.forEach(node => {
+    if (!node.parentId) return;
+    const from = positions.get(node.parentId);
+    const to = positions.get(node.id);
+    if (!from || !to) return;
+    const x1 = padX + from.column * xStep;
+    const y1 = padY + from.depth * yStep;
+    const x2 = padX + to.column * xStep;
+    const y2 = padY + to.depth * yStep;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
+    path.setAttribute('class', `branch-link ${node.kind}`);
+    path.style.stroke = branchColors.get(node.id) || BRANCH_COLOR_TOKENS[0];
+    svg.appendChild(path);
+  });
+  canvas.appendChild(svg);
+
+  nodes.forEach(node => {
+    const position = positions.get(node.id);
+    if (!position) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `branch-node ${node.kind}`;
+    if (activePath.has(node.id)) button.classList.add('on-path');
+    const selectedNodeId = getBranchNode(selectedBranchNodeId)
+      ? selectedBranchNodeId
+      : conversationTree.activeNodeId;
+    if (node.id === selectedNodeId) button.classList.add('active');
+    button.dataset.branchNode = node.id;
+    button.style.color = branchColors.get(node.id) || BRANCH_COLOR_TOKENS[0];
+    button.style.left = `${padX + position.column * xStep}px`;
+    button.style.top = `${padY + position.depth * yStep}px`;
+    const kindLabel = node.kind === 'edit' ? '修改输入' : node.kind === 'regenerate' ? '重新回答' : '对话';
+    button.title = `第 ${position.depth + 1} 轮 · ${kindLabel}\n${node.userText.slice(0, 42)}`;
+    button.setAttribute('aria-label', button.title.replace('\n', '：'));
+    canvas.appendChild(button);
+  });
+  branchTreeEl.appendChild(canvas);
+}
+
+function activateBranchNode(nodeId, forceSwitch = false) {
+  if (busy || !getBranchNode(nodeId)) return;
+  const activePathIds = new Set(getBranchPath(conversationTree.activeNodeId).map(node => node.id));
+  if (!forceSwitch && activePathIds.has(nodeId)) {
+    selectBranchNode(nodeId);
+    scrollToBranchNode(nodeId);
+    return;
+  }
+  cancelInlineEdit();
+  selectBranchNode(nodeId);
+  conversationTree.activeNodeId = nodeId;
+  const nextHistory = getBranchHistory(nodeId);
+  restoreFromJson({ history: nextHistory }, { keepConversationTree: true });
+  saveCurrentConversation().catch(reportConversationStorageError);
+  requestAnimationFrame(() => scrollToBranchNode(nodeId));
+}
+
+function consumeBranchContext(text, images, promptFormat = '') {
+  const context = pendingBranchContext || {
+    parentId: conversationTree.activeNodeId,
+    kind: 'normal',
+    sourceNodeId: null,
+  };
+  pendingBranchContext = null;
+  return {
+    ...context,
+    userText: text,
+    userImages: cloneBranchImages(images),
+    promptFormat,
+    baseMessageCount: history.length,
+  };
+}
+
+function commitConversationBranch(context, finalHistory) {
+  const messages = finalHistory.slice(context.baseMessageCount);
+  if (!isConversationUserMessage(messages[0])) return null;
+  const node = {
+    id: makeBranchNodeId(),
+    parentId: context.parentId || null,
+    kind: context.kind || 'normal',
+    colorIndex: getBranchColorIndexForNewNode(context.parentId),
+    createdAt: new Date().toISOString(),
+    userText: context.userText || '',
+    userImages: cloneBranchImages(context.userImages),
+    promptFormat: context.promptFormat || '',
+    messages,
+  };
+  conversationTree.nodes.push(node);
+  conversationTree.activeNodeId = node.id;
+  selectBranchNode(node.id);
+  return node;
+}
+
+branchTreeEl.addEventListener('click', event => {
+  const button = event.target.closest('[data-branch-node]');
+  if (button) activateBranchNode(button.dataset.branchNode);
+});
+
+// ── 浏览器本地对话记录（IndexedDB）──────────────────────────
+// 完整 history 可能含工具结果和图片，不能放进容量较小的 localStorage。
+const CONVERSATION_DB = 'wenqiuyue_conversations_v1';
+const CONVERSATION_STORE = 'conversations';
+const CONVERSATION_ASSET_STORE = 'conversation_assets';
+const CONVERSATION_DB_VERSION = 2;
+const HISTORY_SCOPE = 'blog';
+const ACTIVE_CONVERSATION_KEY = `wenqiuyue_active_conversation_${HISTORY_SCOPE}`;
+const historyBtn = document.getElementById('history-btn');
+const historyOverlay = document.getElementById('history-overlay');
+const historyCloseBtn = document.getElementById('history-close');
+const newConversationBtn = document.getElementById('new-conversation-btn');
+const conversationList = document.getElementById('conversation-list');
+let currentConversationId = localStorage.getItem(ACTIVE_CONVERSATION_KEY);
+let currentConversationCreatedAt = null;
+let currentConversationTitle = '';
+let currentConversationTitleGenerated = false;
+
+function openConversationDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(CONVERSATION_DB, CONVERSATION_DB_VERSION);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(CONVERSATION_STORE)) {
+        request.result.createObjectStore(CONVERSATION_STORE, { keyPath: 'id' });
+      }
+      if (!request.result.objectStoreNames.contains(CONVERSATION_ASSET_STORE)) {
+        request.result.createObjectStore(CONVERSATION_ASSET_STORE, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('无法打开本地对话记录'));
+  });
+}
+
+function runConversationStore(mode, action) {
+  return openConversationDb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(CONVERSATION_STORE, mode);
+    const request = action(tx.objectStore(CONVERSATION_STORE));
+    let result;
+    request.onsuccess = () => { result = request.result; };
+    request.onerror = () => reject(request.error || new Error('本地对话记录操作失败'));
+    tx.oncomplete = () => { db.close(); resolve(result); };
+    tx.onerror = () => reject(tx.error || new Error('本地对话记录操作失败'));
+  }));
+}
+
+function writeConversationAssets(records) {
+  if (!records.length) return Promise.resolve();
+  return openConversationDb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(CONVERSATION_ASSET_STORE, 'readwrite');
+    const store = tx.objectStore(CONVERSATION_ASSET_STORE);
+    records.forEach(record => store.put(record));
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => reject(tx.error || new Error('图片资产写入失败'));
+  }));
+}
+
+function readConversationAssets(ids) {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (!uniqueIds.length) return Promise.resolve([]);
+  return openConversationDb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(CONVERSATION_ASSET_STORE, 'readonly');
+    const store = tx.objectStore(CONVERSATION_ASSET_STORE);
+    const records = [];
+    uniqueIds.forEach(id => {
+      const request = store.get(id);
+      request.onsuccess = () => { if (request.result) records.push(request.result); };
+    });
+    tx.oncomplete = () => { db.close(); resolve(records); };
+    tx.onerror = () => reject(tx.error || new Error('图片资产读取失败'));
+  }));
+}
+
+function listConversationAssets() {
+  return openConversationDb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(CONVERSATION_ASSET_STORE, 'readonly');
+    const request = tx.objectStore(CONVERSATION_ASSET_STORE).getAll();
+    request.onsuccess = () => { db.close(); resolve(request.result || []); };
+    request.onerror = () => { db.close(); reject(request.error || new Error('图片资产读取失败')); };
+  }));
+}
+
+async function hydrateStoredConversationRecord(record) {
+  const fallbackHistory = Array.isArray(record?.history) ? record.history : [];
+  const storedTree = normalizeConversationTree(record?.conversationTree, fallbackHistory);
+  const ids = WQYConversationStorage.collectAssetIds(storedTree);
+  const assets = await readConversationAssets(ids);
+  const hydratedTree = await WQYConversationStorage.hydrateTreeImages(storedTree, assets);
+  return { ...record, conversationTree: hydratedTree };
+}
+
+async function ensureConversationStorageCapacity(requiredBytes) {
+  if (!navigator.storage?.estimate) return;
+  const estimate = await navigator.storage.estimate();
+  if (!estimate.quota || estimate.usage == null) return;
+  const available = Math.max(0, estimate.quota - estimate.usage);
+  if (requiredBytes > available * 0.9) throw new Error('浏览器本地存储空间不足，请先导出并清理旧对话');
+}
+
+async function garbageCollectConversationAssets() {
+  const [conversations, assets] = await Promise.all([listAllConversations(), listConversationAssets()]);
+  const used = new Set();
+  conversations.forEach(record => {
+    WQYConversationStorage.collectAssetIds(record?.conversationTree).forEach(id => used.add(id));
+  });
+  const stale = assets.filter(asset => !used.has(asset.id)).map(asset => asset.id);
+  if (!stale.length) return;
+  await openConversationDb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(CONVERSATION_ASSET_STORE, 'readwrite');
+    const store = tx.objectStore(CONVERSATION_ASSET_STORE);
+    stale.forEach(id => store.delete(id));
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => reject(tx.error || new Error('图片资产清理失败'));
+  }));
+}
+
+async function migrateConversationStorageV3() {
+  const records = await listAllConversations();
+  for (const record of records) {
+    if (record?.storageVersion === WQYConversationStorage.STORAGE_VERSION
+      && !Object.hasOwn(record, 'history') && !Object.hasOwn(record, 'traceMessages')) continue;
+    try {
+      const fallbackHistory = Array.isArray(record?.history) ? record.history : [];
+      const normalizedTree = normalizeConversationTree(record?.conversationTree, fallbackHistory);
+      const externalized = await WQYConversationStorage.externalizeTreeImages(normalizedTree);
+      const compactRecord = {
+        storageVersion: WQYConversationStorage.STORAGE_VERSION,
+        id: record.id,
+        scope: record.scope,
+        title: record.title || getConversationTitle(fallbackHistory),
+        titleGenerated: Boolean(record.titleGenerated),
+        createdAt: record.createdAt || new Date().toISOString(),
+        updatedAt: record.updatedAt || new Date().toISOString(),
+        traceState: WQYConversationStorage.normalizeTraceState(record, normalizedTree.activeNodeId),
+        conversationTree: externalized.tree,
+      };
+      await writeConversationAssets(externalized.assets);
+      await runConversationStore('readwrite', store => store.put(compactRecord));
+    } catch (error) {
+      console.warn('[history] 跳过一条无法迁移的旧记录：', record?.id, error);
+    }
+  }
+}
+
+function getConversationTitle(items) {
+  const firstUser = items.find(item => item && item.role === 'user');
+  const raw = firstUser ? cleanUserContent(firstUser.content) : '';
+  const text = raw.replace(/\s+/g, ' ').trim();
+  return text ? text.slice(0, 36) : '未命名对话';
+}
+
+function makeConversationId() {
+  return window.crypto?.randomUUID?.() || `conversation-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+async function requestConversationTitle(items) {
+  const headers = { 'Content-Type': 'application/json' };
+  const userApi = getUserApi();
+  if (userApi) {
+    headers['X-User-API-Key'] = userApi.api_key;
+    headers['X-User-Base-URL'] = userApi.base_url;
+    headers['X-User-Model'] = userApi.model;
+  }
+  const response = await fetch('/prompt/title', {
+    method: 'POST', headers,
+    body: JSON.stringify({ history: items, thinking: getThinkingEnabled() }),
+  });
+  if (!response.ok) return '';
+  const data = await response.json();
+  return typeof data.title === 'string' ? data.title.trim().slice(0, 20) : '';
+}
+
+function formatConversationTime(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  return sameDay
+    ? `今天 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
+    : date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+}
+
+async function listConversations() {
+  const all = await runConversationStore('readonly', store => store.getAll());
+  return all.filter(item => item && item.scope === HISTORY_SCOPE)
+    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+}
+
+async function renderConversationList() {
+  const conversations = await listConversations();
+  conversationList.textContent = '';
+  if (!conversations.length) {
+    const empty = document.createElement('div');
+    empty.className = 'conversation-empty';
+    empty.textContent = '还没有保存的对话。\n完成一次问答后会自动记录在此浏览器中。';
+    conversationList.appendChild(empty);
+    return;
+  }
+  conversations.forEach(conversation => {
+    const item = document.createElement('div');
+    item.className = 'conversation-item' + (conversation.id === currentConversationId ? ' active' : '');
+    const select = document.createElement('button');
+    select.type = 'button';
+    select.className = 'conversation-select';
+    select.dataset.id = conversation.id;
+    const title = document.createElement('div');
+    title.className = 'conversation-title';
+    title.textContent = conversation.title || '未命名对话';
+    const time = document.createElement('div');
+    time.className = 'conversation-time';
+    time.textContent = formatConversationTime(conversation.updatedAt);
+    select.append(title, time);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'conversation-delete';
+    remove.dataset.deleteId = conversation.id;
+    remove.title = '删除此对话';
+    remove.setAttribute('aria-label', '删除此对话');
+    remove.textContent = '×';
+    item.append(select, remove);
+    conversationList.appendChild(item);
+  });
+}
+
+async function saveCurrentConversation() {
+  if (!history.length) return;
+  const now = new Date().toISOString();
+  if (!currentConversationId) {
+    currentConversationId = makeConversationId();
+    currentConversationCreatedAt = now;
+    localStorage.setItem(ACTIVE_CONVERSATION_KEY, currentConversationId);
+  }
+  const externalized = await WQYConversationStorage.externalizeTreeImages(exportConversationTree());
+  const record = {
+    storageVersion: WQYConversationStorage.STORAGE_VERSION,
+    id: currentConversationId,
+    scope: HISTORY_SCOPE,
+    title: currentConversationTitle || getConversationTitle(history),
+    titleGenerated: currentConversationTitleGenerated,
+    createdAt: currentConversationCreatedAt || now,
+    updatedAt: now,
+    traceState: exportConversationTraceState(),
+    conversationTree: externalized.tree,
+  };
+  WQYConversationStorage.assertConversationSize(record, externalized.assets);
+  const existingAssets = await readConversationAssets(externalized.assets.map(asset => asset.id));
+  const existingAssetIds = new Set(existingAssets.map(asset => asset.id));
+  const incrementalBytes = WQYConversationStorage.jsonBytes(record)
+    + externalized.assets.filter(asset => !existingAssetIds.has(asset.id))
+      .reduce((sum, asset) => sum + asset.size, 0);
+  await ensureConversationStorageCapacity(incrementalBytes);
+  await writeConversationAssets(externalized.assets);
+  currentConversationCreatedAt = record.createdAt;
+  await runConversationStore('readwrite', store => store.put(record));
+  await renderConversationList();
+}
+
+let lastConversationStorageError = '';
+function reportConversationStorageError(error) {
+  console.warn('[history] 本地保存失败：', error);
+  const message = error?.message || String(error);
+  if (message && message !== lastConversationStorageError) {
+    lastConversationStorageError = message;
+    alert(`本地保存失败：${message}`);
+  }
+}
+
+async function generateConversationTitle() {
+  if (!currentConversationId || currentConversationTitleGenerated || !history.length) return;
+  const id = currentConversationId;
+  currentConversationTitleGenerated = true;
+  try {
+    const title = await requestConversationTitle(history);
+    if (!title || title === '对话') return;
+    const record = await runConversationStore('readonly', store => store.get(id));
+    if (!record) return;
+    record.title = title;
+    record.titleGenerated = true;
+    await runConversationStore('readwrite', store => store.put(record));
+    if (id === currentConversationId) currentConversationTitle = title;
+    await renderConversationList();
+  } catch (error) {
+    console.warn('[history] 自动命名失败：', error);
+  }
+}
+
+async function listAllConversations() {
+  return runConversationStore('readonly', store => store.getAll());
+}
+
+function downloadHistoryBackup(payload) {
+  WQYConversationStorage.assertExportSize(payload);
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `问秋月_全部历史_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function exportAllConversations() {
+  const conversations = await listAllConversations();
+  if (!conversations.length) { alert('还没有可导出的本地对话。'); return; }
+  const referencedIds = [...new Set(conversations.flatMap(record =>
+    WQYConversationStorage.collectAssetIds(record?.conversationTree)))];
+  const assets = await readConversationAssets(referencedIds);
+  const portableAssets = await WQYConversationStorage.assetsToPortable(assets);
+  downloadHistoryBackup({
+    format: 'wenqiuyue-local-history-backup', version: 2,
+    exportedAt: new Date().toISOString(), conversations, assets: portableAssets,
+  });
+}
+
+function writeConversationRecords(records) {
+  return openConversationDb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(CONVERSATION_STORE, 'readwrite');
+    const store = tx.objectStore(CONVERSATION_STORE);
+    records.forEach(record => store.put(record));
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => reject(tx.error || new Error('本地对话记录导入失败'));
+  }));
+}
+
+async function importAllConversations(file) {
+  WQYConversationStorage.assertImportFileSize(file);
+  let payload;
+  try { payload = JSON.parse(await file.text()); }
+  catch { throw new Error('文件不是有效的 JSON。'); }
+  if (!payload || payload.format !== 'wenqiuyue-local-history-backup' || !Array.isArray(payload.conversations)) {
+    throw new Error('请选择“全部历史”导出的备份文件。');
+  }
+  const existing = await listAllConversations();
+  const existingById = new Map(existing.map(record => [record.id, record]));
+  const usedIds = new Set(existing.map(record => record.id));
+  const importedIds = new Set();
+  const now = new Date().toISOString();
+  const portableAssets = await WQYConversationStorage.portableToAssets(payload.assets || []);
+  const records = [];
+  const extractedAssets = [];
+  let skippedRecords = 0;
+  let replacedRecords = 0;
+  for (const record of payload.conversations
+    .filter(item => item && ['blog', 'prompt'].includes(item.scope)
+      && (Array.isArray(item.history) || Array.isArray(item.conversationTree?.nodes)))) {
+      let id = typeof record.id === 'string' ? record.id : '';
+      if (id && importedIds.has(id)) { skippedRecords += 1; continue; }
+      if (id) importedIds.add(id);
+      const existingRecord = id ? existingById.get(id) : null;
+      if (existingRecord && existingRecord.scope === record.scope) {
+        const localTime = Date.parse(existingRecord.updatedAt || '') || 0;
+        const importedTime = Date.parse(record.updatedAt || '') || 0;
+        if (importedTime <= localTime) { skippedRecords += 1; continue; }
+        replacedRecords += 1;
+      } else if (id && usedIds.has(id)) {
+        id = makeConversationId();
+      } else if (!id) {
+        id = makeConversationId();
+      }
+      usedIds.add(id);
+      const fallbackHistory = Array.isArray(record.history) ? record.history : [];
+      const normalizedTree = normalizeConversationTree(record.conversationTree, fallbackHistory);
+      const externalized = await WQYConversationStorage.externalizeTreeImages(normalizedTree);
+      extractedAssets.push(...externalized.assets);
+      const titleHistory = fallbackHistory.length
+        ? fallbackHistory : WQYConversationStorage.getTreeHistory(normalizedTree);
+      const compactRecord = {
+        storageVersion: WQYConversationStorage.STORAGE_VERSION,
+        id, scope: record.scope,
+        traceState: WQYConversationStorage.normalizeTraceState(record, normalizedTree.activeNodeId),
+        conversationTree: externalized.tree,
+        title: typeof record.title === 'string' && record.title.trim() ? record.title.slice(0, 20) : getConversationTitle(titleHistory),
+        titleGenerated: Boolean(record.titleGenerated),
+        createdAt: typeof record.createdAt === 'string' ? record.createdAt : now,
+        updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : now,
+      };
+      WQYConversationStorage.assertConversationSize(compactRecord, externalized.assets);
+      records.push(compactRecord);
+    }
+  if (!records.length) {
+    if (skippedRecords) { alert(`没有新增记录，已跳过 ${skippedRecords} 条重复或较旧的对话。`); return; }
+    throw new Error('备份中没有可导入的对话。');
+  }
+  await writeConversationAssets([...portableAssets, ...extractedAssets]);
+  await writeConversationRecords(records);
+  await garbageCollectConversationAssets();
+  await renderConversationList();
+  const details = [replacedRecords ? `覆盖 ${replacedRecords} 条` : '', skippedRecords ? `跳过 ${skippedRecords} 条重复记录` : ''].filter(Boolean).join('，');
+  alert(`已导入 ${records.length} 条本地对话${details ? `（${details}）` : ''}。`);
+}
+
+function setHistoryDrawer(collapsed) {
+  if (!collapsed && traceModeEnabled && window.innerWidth < 1200 && !traceOverlay.classList.contains('collapsed')) {
+    setTraceDrawer(true);
+  }
+  historyOverlay.classList.toggle('collapsed', collapsed);
+  document.body.classList.toggle('history-collapsed', collapsed);
+  historyOverlay.setAttribute('aria-hidden', String(collapsed));
+  historyBtn.title = collapsed ? '展开本地对话记录' : '收起本地对话记录';
+  historyBtn.setAttribute('aria-label', historyBtn.title);
+  if (!collapsed) renderConversationList().catch(error => console.warn('[history] 无法读取本地对话：', error));
+}
+
+function resetConversationView() {
+  history = [];
+  clearConversationTrace();
+  conversationTree = { version: CONVERSATION_TREE_VERSION, activeNodeId: null, nodes: [] };
+  selectedBranchNodeId = null;
+  pendingBranchContext = null;
+  activeInlineEdit = null;
+  chatEl.querySelectorAll('.msg-group').forEach(el => el.remove());
+  renderConversationTree();
+  welcome.style.display = '';
+  input.focus();
+}
+
+function startNewConversation() {
+  if (busy) return;
+  currentConversationId = null;
+  currentConversationCreatedAt = null;
+  currentConversationTitle = '';
+  currentConversationTitleGenerated = false;
+  localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
+  resetConversationView();
+  renderConversationList().catch(error => console.warn('[history] 无法刷新本地对话：', error));
+}
+
+async function loadConversation(id) {
+  if (busy) return;
+  const storedRecord = await runConversationStore('readonly', store => store.get(id));
+  if (!storedRecord || storedRecord.scope !== HISTORY_SCOPE) return;
+  const record = await hydrateStoredConversationRecord(storedRecord);
+  currentConversationId = record.id;
+  currentConversationCreatedAt = record.createdAt || null;
+  currentConversationTitle = record.title || '';
+  currentConversationTitleGenerated = Boolean(record.titleGenerated);
+  localStorage.setItem(ACTIVE_CONVERSATION_KEY, record.id);
+  restoreFromJson(record);
+  await renderConversationList();
+}
+
+async function deleteConversation(id) {
+  const record = await runConversationStore('readonly', store => store.get(id));
+  if (!record || !confirm(`删除“${record.title || '未命名对话'}”？此操作无法恢复。`)) return;
+  await runConversationStore('readwrite', store => store.delete(id));
+  await garbageCollectConversationAssets();
+  if (id === currentConversationId) startNewConversation();
+  else await renderConversationList();
+}
+
+function saveImportedConversation(title = '') {
+  currentConversationId = null;
+  currentConversationCreatedAt = null;
+  currentConversationTitle = typeof title === 'string' ? title.slice(0, 20) : '';
+  currentConversationTitleGenerated = true;
+  localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
+  saveCurrentConversation().catch(reportConversationStorageError);
+}
+
+async function initConversationHistory() {
+  try {
+    await migrateConversationStorageV3();
+    if (currentConversationId) {
+      const storedRecord = await runConversationStore('readonly', store => store.get(currentConversationId));
+      if (storedRecord && storedRecord.scope === HISTORY_SCOPE) {
+        const record = await hydrateStoredConversationRecord(storedRecord);
+        currentConversationCreatedAt = record.createdAt || null;
+        currentConversationTitle = record.title || '';
+        currentConversationTitleGenerated = Boolean(record.titleGenerated);
+        restoreFromJson(record);
+      } else {
+        currentConversationId = null;
+        localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
+      }
+    }
+    await renderConversationList();
+  } catch (error) {
+    console.warn('[history] 浏览器不支持本地对话记录：', error);
+    historyBtn.hidden = true;
+    historyOverlay.hidden = true;
+  }
+}
+
+historyBtn.addEventListener('click', () => setHistoryDrawer(!historyOverlay.classList.contains('collapsed')));
+historyCloseBtn.addEventListener('click', () => setHistoryDrawer(true));
+newConversationBtn.addEventListener('click', startNewConversation);
+document.addEventListener('DOMContentLoaded', () => {
+  const exportAllHistoryBtn = document.getElementById('export-all-history-btn');
+  const importAllHistoryBtn = document.getElementById('import-all-history-btn');
+  const importAllHistoryInput = document.getElementById('import-all-history-input');
+  exportAllHistoryBtn.addEventListener('click', () => exportAllConversations().catch(error => alert(`导出失败：${error.message}`)));
+  importAllHistoryBtn.addEventListener('click', () => importAllHistoryInput.click());
+  importAllHistoryInput.addEventListener('change', event => {
+    const [file] = event.target.files;
+    if (file) importAllConversations(file).catch(error => alert(`导入失败：${error.message}`));
+    event.target.value = '';
+  });
+});
+conversationList.addEventListener('click', event => {
+  const deleteBtn = event.target.closest('[data-delete-id]');
+  if (deleteBtn) { deleteConversation(deleteBtn.dataset.deleteId).catch(error => console.warn('[history] 删除失败：', error)); return; }
+  const selectBtn = event.target.closest('[data-id]');
+  if (selectBtn) loadConversation(selectBtn.dataset.id).catch(error => console.warn('[history] 恢复失败：', error));
+});
+window.addEventListener('keydown', event => { if (event.key === 'Escape' && !historyOverlay.classList.contains('collapsed')) setHistoryDrawer(true); });
+setHistoryDrawer(false);
+initConversationHistory();
+
+function setGenerating(value) {
+  busy = value;
+  sendBtn.disabled = value;
+  sendBtn.hidden = value;
+  stopBtn.hidden = !value;
+  stopBtn.disabled = false;
+}
+
+function stopGeneration() {
+  if (!activeController) return;
+  stopBtn.disabled = true;
+  activeController.abort();
+}
+
+window.addEventListener('pagehide', stopGeneration);
+window.addEventListener('beforeunload', stopGeneration);
+
+// ── 文件上传 ──
+
+const fileInput = document.getElementById('file-input');
+const uploadBtn = document.getElementById('upload-btn');
+
+uploadBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  files.forEach(f => handleUploadedFile(f));
+  fileInput.value = '';
+});
+
+// 也支持拖拽上传
+const inputWrap = document.getElementById('input-wrap');
+inputWrap.addEventListener('dragover', (e) => { e.preventDefault(); inputWrap.style.borderColor = 'var(--pink-l)'; });
+inputWrap.addEventListener('dragleave', () => { inputWrap.style.borderColor = ''; });
+inputWrap.addEventListener('drop', (e) => {
+  e.preventDefault();
+  inputWrap.style.borderColor = '';
+  const files = Array.from(e.dataTransfer.files);
+  files.forEach(f => handleUploadedFile(f));
+});
+
+// 图片压缩
+function resizeImage(file, maxDim = 1024, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      // 分辨率未超标时不缩放，但仍做 JPEG 压缩以控制体积
+      if (width <= maxDim && height <= maxDim) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+        return;
+      }
+      // 等比缩放
+      if (width > height) {
+        height = Math.round((height / width) * maxDim);
+        width = maxDim;
+      } else {
+        width = Math.round((width / height) * maxDim);
+        height = maxDim;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => reject(new Error('图片加载失败'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function appendAttachedImage(dataUrl, name) {
+  if (attachedImages.length >= WQYConversationStorage.MAX_IMAGES_PER_MESSAGE) {
+    alert(`每条消息最多上传 ${WQYConversationStorage.MAX_IMAGES_PER_MESSAGE} 张图片`);
+    return false;
+  }
+  const blob = WQYConversationStorage.dataUrlToBlob(dataUrl);
+  if (blob.size > WQYConversationStorage.MAX_IMAGE_ASSET_BYTES) {
+    alert(`图片“${name}”压缩后仍超过 ${WQYConversationStorage.MAX_IMAGE_ASSET_BYTES / 1024 / 1024} MB`);
+    return false;
+  }
+  attachedImages.push({ dataUrl, name });
+  showAttachBar();
+  return true;
+}
+
+function handleUploadedFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const isImage = ['png','jpg','jpeg','gif','webp'].includes(ext);
+
+  if (isImage) {
+    if (ext === 'gif') {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        appendAttachedImage(ev.target.result, file.name);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+    resizeImage(file, 1024, 0.8).then(dataUrl => {
+      appendAttachedImage(dataUrl, file.name);
+    }).catch(() => {
+      // 降级：Canvas 失败时退回原始方式
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        appendAttachedImage(ev.target.result, file.name);
+      };
+      reader.readAsDataURL(file);
+    });
+    return;
+  }
+
+  // 文本类文件（md / txt）
+  try { WQYConversationStorage.assertImportFileSize(file); }
+  catch (error) { alert(error.message); return; }
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const text = ev.target.result;
+    if (isConversationHistory(text)) {
+      try { await restoreConversation(text); }
+      catch (error) { alert(`导入失败：${error.message}`); }
+    } else {
+      // 普通文本 → 作为上下文附到输入框
+      const MAX_CONTEXT = 4000;
+      const truncated = text.length > MAX_CONTEXT ? text.slice(0, MAX_CONTEXT) + '\n...(已截断)' : text;
+      const prefix = input.value ? input.value + '\n' : '';
+      input.value = prefix + '【以下为上传文件的内容】\n' + truncated;
+      input.focus();
+      input.dispatchEvent(new Event('input'));
+    }
+  };
+  reader.readAsText(file);
+}
+
+function isConversationHistory(text) {
+  // JSON 格式（新版，含完整 tool calling 历史）
+  try {
+    const obj = JSON.parse(text);
+    if (obj && (obj.format === 'wenqiuyue-blog-history' || obj.format === 'wenqiuyue-prompt-history')
+      && (Array.isArray(obj.history) || Array.isArray(obj.conversationTree?.nodes))) {
+      return true;
+    }
+  } catch {}
+  // Markdown 格式（旧版兼容）
+  const hasTimestamp = /下载时间[：:]\s*\d/.test(text);
+  const hasUser = /\n\*\*你：\*\*\n/.test(text);
+  const hasAsst = /\n\*\*秋枫：\*\*\n/.test(text);
+  return hasTimestamp && hasUser && hasAsst;
+}
+
+async function restoreConversation(text) {
+  // 新版 JSON 格式
+  try {
+    const obj = JSON.parse(text);
+    if (obj && (obj.format === 'wenqiuyue-blog-history' || obj.format === 'wenqiuyue-prompt-history')
+      && (Array.isArray(obj.history) || Array.isArray(obj.conversationTree?.nodes))) {
+      let restored = obj;
+      if (Array.isArray(obj.conversationTree?.nodes)) {
+        const portableAssets = await WQYConversationStorage.portableToAssets(obj.assets || []);
+        restored = {
+          ...obj,
+          conversationTree: await WQYConversationStorage.hydrateTreeImages(obj.conversationTree, portableAssets),
+        };
+      }
+      restoreFromJson(restored);
+      saveImportedConversation(obj.title);
+      return;
+    }
+  } catch {}
+  // 旧版 Markdown 格式
+  const msgs = parseConversationMd(text);
+  if (!msgs.length) return;
+  restoreFromLegacyMd(msgs);
+  saveImportedConversation();
+}
+
+function cleanUserContent(content) {
+  if (Array.isArray(content)) {
+    content = content
+      .filter(part => part && part.type === 'text' && typeof part.text === 'string')
+      .map(part => part.text)
+      .join('\n');
+  }
+  if (typeof content !== 'string') return '';
+  const m = content.match(/<user_message>\s*([\s\S]*?)\s*<\/user_message>/);
+  let text = m ? m[1].trim() : content.trim();
+  text = text.replace(/\s*\*{2,}\s*务必调用工具搜索.*$/s, '');
+  text = text.replace(/\s*【画面要素分解参考[\s\S]*$/, '');
+  return text.trim();
+}
+
+function extractUserImages(msg) {
+  if (Array.isArray(msg.images)) return msg.images;
+  if (!Array.isArray(msg.content)) return [];
+  return msg.content
+    .filter(part => part && part.type === 'image_url' && part.image_url && part.image_url.url)
+    .map(part => ({ dataUrl: part.image_url.url, name: '' }));
+}
+
+function buildRestoreToolQuery(tool, args) {
+  return args.query || args.url || '';
+}
+
+function parseToolResult(resultStr) {
+  try {
+    const data = JSON.parse(resultStr);
+    if (data && data.error) return { found: false, count: 0 };
+    if (data && data.truncated) return { found: Boolean(data.found), count: Number(data.result_count) || 0 };
+    const items = data.results || [];
+    return { found: items.length > 0, count: items.length };
+  } catch { return { found: false, count: 0 }; }
+}
+
+function restoreFromJson(obj, options = {}) {
+  const fallbackHistory = Array.isArray(obj.history) ? obj.history : [];
+  if (!options.keepConversationTree) {
+    conversationTree = normalizeConversationTree(obj.conversationTree, fallbackHistory);
+    selectedBranchNodeId = conversationTree.activeNodeId;
+  }
+  history = conversationTree.activeNodeId
+    ? getBranchHistory(conversationTree.activeNodeId)
+    : fallbackHistory.slice();
+  restoreConversationTrace({ traceState: obj.traceState, traceMessages: obj.traceMessages, history });
+  chatEl.querySelectorAll('.msg-group').forEach(el => el.remove());
+  welcome.style.display = 'none';
+
+  let i = 0;
+  let lastUserGroup = null;
+  const activePath = getBranchPath(conversationTree.activeNodeId);
+  let branchTurnIndex = -1;
+  while (i < history.length) {
+    const msg = history[i];
+
+    if (isConversationUserMessage(msg)) {
+      const branchNode = activePath[++branchTurnIndex] || null;
+      const text = branchNode?.userText ?? stripPromptFormatInstruction(cleanUserContent(msg.content));
+      const images = branchNode ? cloneBranchImages(branchNode.userImages) : extractUserImages(msg);
+      if (text || images.length) {
+        lastUserGroup = appendUserMsg(text, images);
+        lastUserGroup._historyBefore = history.slice(0, i);
+      }
+      i++;
+
+    } else if (msg.role === 'assistant' && msg.tool_calls) {
+      const group = document.createElement('div');
+      group.className = 'msg-group asst';
+      group._userGroup = lastUserGroup;
+      group._historyBefore = lastUserGroup?._historyBefore || [];
+      group.innerHTML = '<div class="msg-label">秋枫</div>';
+      const fcLog = document.createElement('div');
+      fcLog.className = 'fc-log';
+      group.appendChild(fcLog);
+
+      while (i < history.length) {
+        const m = history[i];
+        if (isConversationUserMessage(m)) break;
+
+        if (m.role === 'assistant' && m.tool_calls) {
+          if (m.reasoning_content && m.reasoning_content.trim()) {
+            fcLog.appendChild(createReasoningBlock(m.reasoning_content));
+          }
+          if (m.content && m.content.trim()) {
+            const el = document.createElement('div');
+            el.className = 'thinking-text';
+            el.textContent = m.content;
+            el._raw = m.content;
+            fcLog.appendChild(el);
+          }
+          for (const tc of m.tool_calls) {
+            const name = tc.function.name;
+            let args = {};
+            try { args = JSON.parse(tc.function.arguments); } catch {}
+            const item = buildFcItem(name, buildRestoreToolQuery(name, args), args);
+            for (let k = i + 1; k < history.length; k++) {
+              if (history[k].role === 'tool' && history[k].tool_call_id === tc.id) {
+                const { found, count } = parseToolResult(history[k].content);
+                resolveFcItem(item, found, count, history[k].content);
+                break;
+              }
+            }
+            fcLog.appendChild(item);
+          }
+          i++;
+
+        } else if (m.role === 'assistant' && !m.tool_calls && m.content) {
+          if (m.reasoning_content && m.reasoning_content.trim()) {
+            fcLog.appendChild(createReasoningBlock(m.reasoning_content));
+          }
+          const bubble = document.createElement('div');
+          bubble.className = 'bubble';
+          bubble.innerHTML = renderMd(m.content);
+          bubble._raw = m.content;
+          group.appendChild(bubble);
+          i++;
+
+        } else {
+          i++;
+        }
+      }
+
+      if (group.querySelector('.bubble')) {
+        group.appendChild(createMessageActions([
+          { action: 'copy-answer', title: '复制回答', icon: 'copy' },
+          { action: 'regenerate', title: '重新回答', icon: 'refresh' },
+        ]));
+      }
+      chatEl.appendChild(group);
+
+    } else if (msg.role === 'assistant' && (msg.content || msg.reasoning_content)) {
+      const group = document.createElement('div');
+      group.className = 'msg-group asst';
+      group._userGroup = lastUserGroup;
+      group._historyBefore = lastUserGroup?._historyBefore || [];
+      group.innerHTML = '<div class="msg-label">秋枫</div>';
+      if (msg.reasoning_content && msg.reasoning_content.trim()) {
+        const fcLog = document.createElement('div');
+        fcLog.className = 'fc-log';
+        fcLog.appendChild(createReasoningBlock(msg.reasoning_content));
+        group.appendChild(fcLog);
+      }
+      if (msg.content) {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = renderMd(msg.content);
+        bubble._raw = msg.content;
+        group.appendChild(bubble);
+      }
+      if (group.querySelector('.bubble')) {
+        group.appendChild(createMessageActions([
+          { action: 'copy-answer', title: '复制回答', icon: 'copy' },
+          { action: 'regenerate', title: '重新回答', icon: 'refresh' },
+        ]));
+      }
+      chatEl.appendChild(group);
+      i++;
+
+    } else {
+      i++;
+    }
+  }
+
+  decorateVisibleBranchGroups();
+  renderConversationTree();
+  scrollBottom();
+}
+
+function restoreFromLegacyMd(msgs) {
+  history = [];
+  chatEl.querySelectorAll('.msg-group').forEach(el => el.remove());
+  welcome.style.display = 'none';
+
+  let lastUserGroup = null;
+  msgs.forEach(msg => {
+    if (msg.role === 'user') {
+      const userGroup = appendUserMsg(msg.content);
+      userGroup._historyBefore = history.slice();
+      lastUserGroup = userGroup;
+      history.push({ role: 'user', content: msg.content });
+    } else {
+      const assistantGroup = appendAssistantMsg(msg.content);
+      assistantGroup._userGroup = lastUserGroup;
+      assistantGroup._historyBefore = assistantGroup._userGroup?._historyBefore || [];
+      history.push({ role: 'assistant', content: msg.content });
+    }
+  });
+
+  if (history.length > 20) history = history.slice(-20);
+  conversationTree = buildLinearConversationTree(history);
+  selectedBranchNodeId = conversationTree.activeNodeId;
+  decorateVisibleBranchGroups();
+  renderConversationTree();
+  scrollBottom();
+}
+
+function parseConversationMd(text) {
+  const msgs = [];
+
+  // 找到所有角色标签的位置（"**你：**" 或 "**秋枫：**"）
+  const roleRe = /\*\*(你|秋枫)：\*\*/g;
+  const positions = [];
+  let m;
+  while ((m = roleRe.exec(text)) !== null) {
+    positions.push({ role: m[1], idx: m.index });
+  }
+  if (!positions.length) return msgs;
+
+  // 每条消息 = 从角色标签到下一个角色标签之间的全部内容
+  for (let i = 0; i < positions.length; i++) {
+    const start = positions[i].idx;
+    const end = (i + 1 < positions.length) ? positions[i + 1].idx : text.length;
+    let block = text.slice(start, end).trim();
+
+    // 去掉开头的角色标签行
+    block = block.replace(/^\*\*(你|秋枫)：\*\*\s*\n?/, '').trim();
+    if (!block) continue;
+
+    // 去掉末尾的 --- 分隔线（消息之间的分隔符）
+    block = block.replace(/\n+---\s*$/, '').trim();
+    if (!block) continue;
+
+    const role = positions[i].role === '你' ? 'user' : 'assistant';
+    msgs.push({ role, content: block });
+  }
+
+  // 合并连续同角色消息（理论上不应出现，但做防御性处理）
+  const merged = [];
+  for (const msg of msgs) {
+    if (merged.length && merged[merged.length - 1].role === msg.role) {
+      merged[merged.length - 1].content += '\n\n' + msg.content;
+    } else {
+      merged.push(msg);
+    }
+  }
+
+  return merged;
+}
+
+function appendAssistantMsg(text) {
+  const group = document.createElement('div');
+  group.className = 'msg-group asst';
+  group.innerHTML = `
+    <div class="msg-label">秋枫</div>
+    <div class="bubble">${renderMd(text)}</div>`;
+  const bubble = group.querySelector('.bubble');
+  bubble._raw = text;
+  group._answerText = text;
+  group.appendChild(createMessageActions([
+    { action: 'copy-answer', title: '复制回答', icon: 'copy' },
+    { action: 'regenerate', title: '重新回答', icon: 'refresh' },
+  ]));
+  chatEl.appendChild(group);
+  return group;
+}
+
+function createMessageActions(items) {
+  const actions = document.createElement('div');
+  actions.className = 'msg-actions';
+  const icons = {
+    copy: '<rect x="9" y="9" width="10" height="10" rx="2"/><path d="M15 9V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/>',
+    refresh: '<path d="M20 11a8 8 0 0 0-14.7-3L3 11"/><path d="M3 5v6h6"/><path d="M4 13a8 8 0 0 0 14.7 3L21 13"/><path d="M21 19v-6h-6"/>',
+  };
+  items.forEach(item => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'msg-action';
+    button.dataset.action = item.action;
+    button.title = item.title;
+    button.setAttribute('aria-label', item.title);
+    button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[item.icon]}</svg>`;
+    actions.appendChild(button);
+  });
+  return actions;
+}
+
+function copyText(text, button) {
+  const fallback = () => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text || '';
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    textarea.remove();
+  };
+  const done = () => {
+    button.classList.add('copied');
+    button.dataset.originalIcon = button.innerHTML;
+    button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>';
+    setTimeout(() => {
+      button.classList.remove('copied');
+      button.innerHTML = button.dataset.originalIcon || button.innerHTML;
+    }, 1600);
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text || '').then(done).catch(() => { fallback(); done(); });
+  } else {
+    fallback();
+    done();
+  }
+}
+
+function resizeInlineEdit(textarea) {
+  textarea.style.height = 'auto';
+  textarea.style.height = Math.min(textarea.scrollHeight, 180) + 'px';
+}
+
+function cancelInlineEdit(group = activeInlineEdit) {
+  const state = group?._inlineEdit;
+  if (!state) return;
+  state.editor.replaceWith(state.bubble);
+  state.bubble.after(state.actions);
+  delete group._inlineEdit;
+  if (activeInlineEdit === group) activeInlineEdit = null;
+}
+
+function editUserMessage(group) {
+  if (busy) return;
+  if (activeInlineEdit && activeInlineEdit !== group) cancelInlineEdit();
+  if (group._inlineEdit) {
+    group._inlineEdit.textarea.focus();
+    return;
+  }
+
+  const bubble = group.querySelector('.bubble');
+  const actions = group.querySelector('.msg-actions');
+  if (!bubble || !actions) return;
+
+  const editor = document.createElement('div');
+  editor.className = 'inline-edit';
+  const images = (group._userImages || []).map(image => ({ ...image }));
+  if (images.length) {
+    const imagesEl = document.createElement('div');
+    imagesEl.className = 'inline-edit-images';
+    images.forEach(image => {
+      const img = document.createElement('img');
+      img.src = image.dataUrl || '';
+      img.alt = image.name || '';
+      imagesEl.appendChild(img);
+    });
+    editor.appendChild(imagesEl);
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'inline-edit-input';
+  textarea.value = group._userText || '';
+  textarea.setAttribute('aria-label', '修改输入');
+  editor.appendChild(textarea);
+
+  const editActions = document.createElement('div');
+  editActions.className = 'inline-edit-actions';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'inline-edit-btn cancel';
+  cancelBtn.textContent = '取消';
+  const submitBtn = document.createElement('button');
+  submitBtn.type = 'button';
+  submitBtn.className = 'inline-edit-btn submit';
+  submitBtn.textContent = '发送';
+  editActions.append(cancelBtn, submitBtn);
+  editor.appendChild(editActions);
+
+  const state = { bubble, actions, editor, editActions, textarea };
+  group._inlineEdit = state;
+  activeInlineEdit = group;
+  bubble.replaceWith(editor);
+  actions.remove();
+
+  cancelBtn.addEventListener('click', () => cancelInlineEdit(group));
+  submitBtn.addEventListener('click', () => submitInlineEdit(group));
+  textarea.addEventListener('input', () => resizeInlineEdit(textarea));
+  textarea.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelInlineEdit(group);
+    } else if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      submitInlineEdit(group);
+    }
+  });
+  resizeInlineEdit(textarea);
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+}
+
+function submitInlineEdit(group) {
+  const state = group?._inlineEdit;
+  if (!state || busy) return;
+  const node = getBranchNode(group._branchNodeId);
+  if (!node) return;
+  const text = state.textarea.value.trim();
+  const images = (group._userImages || []).map(image => ({ ...image }));
+  if (!text && !images.length) {
+    state.textarea.focus();
+    return;
+  }
+
+  const groups = [...chatEl.querySelectorAll('.msg-group')];
+  const start = groups.indexOf(group);
+  if (start < 0) return;
+  groups.slice(start).forEach(item => item.remove());
+  delete group._inlineEdit;
+  if (activeInlineEdit === group) activeInlineEdit = null;
+
+  pendingBranchContext = {
+    parentId: node.parentId,
+    kind: 'edit',
+    sourceNodeId: node.id,
+  };
+  history = getBranchHistory(node.parentId);
+  input.value = text;
+  input.style.height = 'auto';
+  attachedImages = images;
+  if (attachedImages.length) showAttachBar(); else hideAttachBar();
+  input.dispatchEvent(new Event('input'));
+  send();
+}
+
+function regenerateFromGroup(group) {
+  if (busy) return;
+  const node = getBranchNode(group?._branchNodeId);
+  if (!node) return;
+  const userGroup = group._userGroup || group.previousElementSibling;
+  const text = node.userText || '';
+  const images = cloneBranchImages(node.userImages);
+  if (!text && !images.length) return;
+
+  cancelInlineEdit();
+  const groups = [...chatEl.querySelectorAll('.msg-group')];
+  const start = groups.indexOf(userGroup);
+  if (start < 0) return;
+  groups.slice(start).forEach(item => item.remove());
+  pendingBranchContext = {
+    parentId: node.parentId,
+    kind: 'regenerate',
+    sourceNodeId: node.id,
+  };
+  history = getBranchHistory(node.parentId);
+  input.value = text;
+  attachedImages = images;
+  if (attachedImages.length) showAttachBar(); else hideAttachBar();
+  input.dispatchEvent(new Event('input'));
+  send();
+}
+
+function showAttachBar() {
+  let bar = document.getElementById('attach-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'attach-bar';
+    bar.className = 'attach-bar';
+    document.getElementById('input-bar').insertBefore(bar, document.getElementById('input-wrap'));
+    bar.addEventListener('click', (e) => {
+      const rm = e.target.closest('.attach-remove');
+      if (!rm) return;
+      attachedImages.splice(Number(rm.dataset.idx), 1);
+      if (attachedImages.length) showAttachBar(); else hideAttachBar();
+    });
+  }
+  bar.innerHTML = '';
+  attachedImages.forEach((img, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'attach-chip';
+    chip.innerHTML = `<img src="${esc(img.dataUrl)}" alt=""><span>${esc(img.name)}</span><span class="attach-remove" data-idx="${i}">&times;</span>`;
+    bar.appendChild(chip);
+  });
+}
+
+function hideAttachBar() {
+  const bar = document.getElementById('attach-bar');
+  if (bar) bar.remove();
+}
+
+async function checkHealth() {
+  try {
+    const r = await fetch('/blog/health');
+    const d = await r.json();
+    if (d.status === 'ok') {
+      statusPill.className = 'ok';
+      statusText.textContent = `${d.doc_count ?? '?'} 条`;
+    } else {
+      statusPill.className = 'err';
+      statusText.textContent = '异常';
+    }
+  } catch {
+    statusPill.className = 'err';
+    statusText.textContent = '离线';
+  }
+}
+checkHealth();
+
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+});
+
+function fillInput(el) {
+  input.value = el.textContent;
+  input.focus();
+  input.dispatchEvent(new Event('input'));
+}
+
+function stripRequestImages(message) {
+  if (!message || message.role !== 'user') return { message, removedImages: 0 };
+  const next = { ...message };
+  let removedImages = Array.isArray(next.images) ? next.images.length : 0;
+  delete next.images;
+
+  if (Array.isArray(next.content)) {
+    const keptParts = next.content.filter(part => {
+      const isImage = part?.type === 'image_url';
+      if (isImage) removedImages += 1;
+      return !isImage;
+    });
+    if (removedImages && !keptParts.some(part => part?.type === 'text' && part.text === HISTORY_IMAGE_REMOVED_MARKER)) {
+      keptParts.push({ type: 'text', text: HISTORY_IMAGE_REMOVED_MARKER });
+    }
+    next.content = keptParts;
+  } else if (removedImages && typeof next.content === 'string' && !next.content.includes(HISTORY_IMAGE_REMOVED_MARKER)) {
+    next.content = `${next.content}\n${HISTORY_IMAGE_REMOVED_MARKER}`;
+  }
+  return { message: next, removedImages };
+}
+
+function compactRequestHistoryImages(body) {
+  const nextHistory = (body.history || []).map(message => ({ ...message }));
+  const userIndexes = nextHistory
+    .map((message, index) => isConversationUserMessage(message) ? index : -1)
+    .filter(index => index >= 0);
+  const removableCount = Math.floor(userIndexes.length * 0.8);
+  let removedImages = 0;
+
+  for (const index of userIndexes.slice(0, removableCount)) {
+    const compacted = stripRequestImages(nextHistory[index]);
+    nextHistory[index] = compacted.message;
+    removedImages += compacted.removedImages;
+    const candidateBytes = new Blob([JSON.stringify({ ...body, history: nextHistory })]).size;
+    if (candidateBytes < REQUEST_SIZE_COMPACTION_TARGET_BYTES) break;
+  }
+
+  const nextBody = { ...body, history: nextHistory };
+  return {
+    history: nextHistory,
+    bytes: new Blob([JSON.stringify(nextBody)]).size,
+    removedImages,
+  };
+}
+
+function confirmRequestSize(body, historyNodeId) {
+  const requestBytes = new Blob([JSON.stringify(body)]).size;
+  const sizeMiB = (requestBytes / 1024 / 1024).toFixed(1);
+  if (requestBytes >= REQUEST_SIZE_LIMIT_BYTES) {
+    const confirmed = window.confirm(
+      `当前对话请求体约 ${sizeMiB} MiB，已达到 DeepSeek 的 48 MiB 上限。\n\n是否移除最早 80% 用户轮次中发送给模型的历史图片，并尝试压缩到 20 MiB 以下后继续？本地历史中的图片不会被删除。`
+    );
+    if (!confirmed) return false;
+
+    const compacted = compactRequestHistoryImages(body);
+    const compactedMiB = (compacted.bytes / 1024 / 1024).toFixed(1);
+    if (!compacted.removedImages || compacted.bytes >= REQUEST_SIZE_LIMIT_BYTES) {
+      alert(`清理后请求体仍约 ${compactedMiB} MiB，无法低于 48 MiB 上限。请新建对话后再发送。`);
+      return false;
+    }
+
+    body.history = compacted.history;
+    if (!applyCompactedHistoryToBranchPath(compacted.history, historyNodeId)) {
+      history = compacted.history;
+    }
+    saveCurrentConversation().catch(reportConversationStorageError);
+    const freedMiB = ((requestBytes - compacted.bytes) / 1024 / 1024).toFixed(1);
+    const targetNote = compacted.bytes < REQUEST_SIZE_COMPACTION_TARGET_BYTES
+      ? '已降到 20 MiB 以下。'
+      : '已低于 48 MiB，但受最近 20% 对话图片保留规则限制，未能降到 20 MiB 以下。';
+    alert(`已从模型上下文移除 ${compacted.removedImages} 张早期图片，释放约 ${freedMiB} MiB；当前请求约 ${compactedMiB} MiB。${targetNote}\n\n本地历史图片仍然保留。`);
+    return true;
+  }
+  if (requestBytes >= REQUEST_SIZE_WARNING_BYTES) {
+    return window.confirm(
+      `当前对话请求体约 ${sizeMiB} MiB，已接近 DeepSeek 的 48 MiB 上限。建议取消发送并切换到新对话。\n\n点击“确定”仍继续发送，点击“取消”返回。`
+    );
+  }
+  return true;
+}
+
+async function send() {
+  const text = input.value.trim();
+  if ((!text && !attachedImages.length) || busy) return;
+
+  const imgs = attachedImages.slice();
+  const body = {
+    message: text,
+    history,
+    thinking: getThinkingEnabled(),
+    web_search: getWebSearchEnabled(),
+    trace: isTraceModeEnabled(),
+  };
+  if (imgs.length) {
+    body.images = imgs.map(i => i.dataUrl);
+  }
+  const historyNodeId = pendingBranchContext ? pendingBranchContext.parentId : conversationTree.activeNodeId;
+  if (!confirmRequestSize(body, historyNodeId)) return;
+
+  const historyBefore = history.slice();
+  setGenerating(true);
+  const controller = new AbortController();
+  activeController = controller;
+  welcome.style.display = 'none';
+
+  // 构建用户消息内容（含图片）
+  const branchContext = consumeBranchContext(text, imgs);
+  const userGroup = appendUserMsg(text, imgs);
+  userGroup._historyBefore = historyBefore;
+  input.value = '';
+  input.style.height = 'auto';
+  attachedImages = [];
+  hideAttachBar();
+  scrollBottom();
+
+  const group = document.createElement('div');
+  group.className = 'msg-group asst';
+  group._userGroup = userGroup;
+  group._historyBefore = historyBefore;
+  const labelEl = document.createElement('div');
+  labelEl.className = 'msg-label';
+  labelEl.textContent = '秋枫';
+  group.appendChild(labelEl);
+
+  const fcLog = document.createElement('div');
+  fcLog.className = 'fc-log';
+  group.appendChild(fcLog);
+
+  const thinkingEl = document.createElement('div');
+  thinkingEl.className = 'thinking-bubble';
+  thinkingEl.innerHTML = '<span></span><span></span><span></span>';
+  group.appendChild(thinkingEl);
+
+  chatEl.appendChild(group);
+  scrollBottom();
+
+  const fcItems = {};  
+  let streamBubble = null;  
+  let streamRaw = '';       
+  let thinkingStreamEl = null;
+  let branchMessagesReceived = false;
+
+  try {
+    // 构造请求体：图片通过 images 字段传递，后端组装为多模态格式
+    if (!body.trace) traceIncludesSystem = false;
+
+    const headers = { 'Content-Type': 'application/json' };
+    const userApi = getUserApi();
+    if (userApi) {
+      headers['X-User-API-Key'] = userApi.api_key;
+      headers['X-User-Base-URL'] = userApi.base_url;
+      headers['X-User-Model'] = userApi.model;
+    }
+
+    prepareTraceRequest();
+    const res = await fetch('/blog/chat', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+
+      const parts = buf.split('\n\n');
+      buf = parts.pop();  
+
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith('data:')) continue;
+        let evt;
+        try { evt = JSON.parse(line.slice(5).trim()); } catch { continue; }
+
+        if (evt.type === 'trace_reset') {
+          resetTraceMessages(evt.messages);
+        } else if (evt.type === 'trace_message') {
+          appendTraceMessage(evt.message);
+        } else if (evt.type === 'thinking') {
+          thinkingEl.remove();
+          if (!thinkingStreamEl) {
+            thinkingStreamEl = createReasoningBlock('', true);
+            fcLog.appendChild(thinkingStreamEl);
+          }
+          const thinkingText = evt.text || '';
+          thinkingStreamEl._raw += thinkingText;
+          thinkingStreamEl._detailEl.append(document.createTextNode(thinkingText));
+          scrollBottom();
+        } else if (evt.type === 'thinking_flush') {
+          finishReasoningBlock(thinkingStreamEl);
+          thinkingStreamEl = null;
+        } else if (evt.type === 'tool_start') {
+          finishReasoningBlock(thinkingStreamEl);
+          thinkingStreamEl = null;
+          const id = `${evt.tool}_${Date.now()}`;
+          const item = buildFcItem(evt.tool, evt.query, evt.args);
+          item.dataset.id = id;
+          fcItems[id] = item;
+          fcLog.appendChild(item);
+          evt._fcid = id;
+          scrollBottom();
+        } else if (evt.type === 'tool_done') {
+          const pending = fcLog.querySelector(`.fc-item.pending[data-tool="${evt.tool}"]`);
+          if (pending) resolveFcItem(pending, evt.found, evt.count, evt.result);
+          scrollBottom();
+        } else if (evt.type === 'token') {
+          if (!streamBubble) {
+            thinkingEl.remove();
+            streamBubble = document.createElement('div');
+            streamBubble.className = 'bubble';
+            group.appendChild(streamBubble);
+          }
+          streamRaw += evt.text;
+          streamBubble.innerHTML = renderMd(streamRaw);
+          
+          if (window.renderMathInElement) {
+            renderMathInElement(streamBubble, {
+              delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+              ],
+              throwOnError: false
+            });
+          }
+          
+          scrollBottom();
+
+        } else if (evt.type === 'user_model') {
+          group._userModel = evt.model;
+
+        } else if (evt.type === 'token_flush') {
+          if (streamBubble && streamRaw.trim()) {
+            streamBubble.remove();
+            const el = document.createElement('div');
+            el.className = 'thinking-text';
+            el.textContent = streamRaw;
+            el._raw = streamRaw;
+            fcLog.appendChild(el);
+          } else if (streamBubble) {
+            streamBubble.remove();
+          }
+          streamBubble = null;
+          streamRaw = '';
+          finishReasoningBlock(thinkingStreamEl);
+          thinkingStreamEl = null;
+          scrollBottom();
+
+        } else if (evt.type === 'answer') {
+          const srcs = (evt.sources || []).filter(s => s.url);
+          if (srcs.length && streamBubble) {
+            const srcWrap = document.createElement('div');
+            srcWrap.className = 'sources';
+            const seen = new Set();
+            srcs.forEach(s => {
+              if (seen.has(s.url)) return;
+              seen.add(s.url);
+              const a = document.createElement('a');
+              a.className = 'src-chip';
+              a.href = s.url;
+              a.target = '_blank';
+              a.rel = 'noopener';
+              a.title = s.title || s.url;
+              const dateMatch = s.url.match(/\/(\d{4})\/(\d{2})\/(\d{2})\//);
+              const dateStr = dateMatch ? `${dateMatch[1]}.${dateMatch[2]}.${dateMatch[3]}` : '';
+              const label = dateStr
+                ? `<span class="chip-date">${dateStr}</span><span class="chip-title">${esc(s.title || s.url)}</span>`
+                : `<span class="chip-title">${esc(s.title || s.url)}</span>`;
+              a.innerHTML = label;
+              srcWrap.appendChild(a);
+            });
+            streamBubble.appendChild(srcWrap);
+          }
+
+          if (streamBubble) streamBubble._raw = streamRaw;
+
+        } else if (evt.type === 'messages') {
+          history = evt.messages || [];
+          branchMessagesReceived = true;
+
+        } else if (evt.type === 'error') {
+          finishReasoningBlock(thinkingStreamEl);
+          thinkingStreamEl = null;
+          thinkingEl.remove();
+          const bubble = document.createElement('div');
+          bubble.className = 'bubble';
+          bubble.innerHTML = `<span style="color:var(--pink-d)">出错了：${esc(evt.message)}</span>`;
+          group.appendChild(bubble);
+        }
+      }
+    }
+  } catch (e) {
+    finishReasoningBlock(thinkingStreamEl);
+    thinkingStreamEl = null;
+    thinkingEl.remove();
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = e.name === 'AbortError'
+      ? '<span style="color:var(--text-faint)">已停止生成</span>'
+      : `<span style="color:var(--pink-d)">请求失败：${esc(e.message)}</span>`;
+    group.appendChild(bubble);
+  } finally {
+    finishTraceClock();
+    const answerText = streamBubble?._raw || streamRaw || '';
+    if (answerText.trim() && !group.querySelector('.msg-actions')) {
+      group._answerText = answerText;
+      group.appendChild(createMessageActions([
+        { action: 'copy-answer', title: '复制回答', icon: 'copy' },
+        { action: 'regenerate', title: '重新回答', icon: 'refresh' },
+      ]));
+    }
+    // 用户 API 模式下，在最后一条气泡底部添加模型标注
+    if (group._userModel && streamBubble) {
+      const footnote = document.createElement('div');
+      footnote.style.cssText = 'font-size:11px;color:var(--text-faint);margin-top:4px;text-align:right;';
+      footnote.textContent = '由 ' + group._userModel + ' 回答';
+      streamBubble.appendChild(footnote);
+    }
+    if (branchMessagesReceived) {
+      const branchNode = commitConversationBranch(branchContext, history);
+      if (branchNode) {
+        if (traceModeEnabled) traceNodeId = branchNode.id;
+        userGroup._branchNodeId = branchNode.id;
+        group._branchNodeId = branchNode.id;
+        decorateVisibleBranchGroups();
+        renderConversationTree();
+      }
+    }
+    if (activeController === controller) activeController = null;
+    setGenerating(false);
+    saveCurrentConversation().then(generateConversationTitle).catch(reportConversationStorageError);
+    scrollBottom();
+  }
+}
+
+function highlightJson(obj) {
+  if (!obj) return '';
+  let s;
+  try {
+    s = JSON.stringify(typeof obj === 'string' ? JSON.parse(obj) : obj, null, 2);
+  } catch (e) {
+    s = String(obj);
+  }
+  return esc(s)
+    .replace(/"(\w+)":/g, '<span class="json-key">"$1"</span>:')
+    .replace(/: "(.*?)"/g, ': <span class="json-string">"$1"</span>')
+    .replace(/: (-?\d+\.?\d*(?:[eE][+-]?\d+)?)/g, ': <span class="json-number">$1</span>')
+    .replace(/: (true|false)/g, ': <span class="json-bool">$1</span>')
+    .replace(/: (null)/g, ': <span class="json-null">$1</span>');
+}
+
+const TOOL_LABELS = {
+  rag_search:    { icon: '📖', label: '检索博客知识库' },
+  fetch_context: { icon: '📄', label: '获取相邻段落' },
+  web_search:    { icon: '🌐', label: '搜索互联网' },
+};
+
+function buildFcItem(tool, query, requestArgs) {
+  const info = TOOL_LABELS[tool] || { icon: '🔧', label: tool };
+  const el = document.createElement('div');
+  el.className = 'fc-item pending';
+  el.dataset.tool = tool;
+  el.innerHTML = `
+    <div class="fc-item-row">
+      <div class="fc-icon">${info.icon}</div>
+      <div class="fc-text">
+        <div class="fc-tool">${info.label}</div>
+        <div class="fc-query">${esc(tool === 'fetch_context' ? decodeURIComponent(query.split('/').filter(Boolean).pop() || query) : query)}</div>
+      </div>
+      <div class="fc-spinner"></div>
+      <div class="fc-expand-btn" title="展开/折叠详情">
+        <svg width="12" height="12" viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div class="fc-detail">
+      <div class="fc-detail-section">
+        <div class="fc-detail-label">📤 请求体</div>
+        <pre class="fc-detail-json"><code class="fc-request-json">${highlightJson(requestArgs)}</code></pre>
+      </div>
+      <div class="fc-detail-section">
+        <div class="fc-detail-label">📥 响应体</div>
+        <pre class="fc-detail-json"><code class="fc-response-json"></code></pre>
+      </div>
+    </div>`;
+  return el;
+}
+
+function resolveFcItem(el, found, count, resultJson) {
+  el.classList.remove('pending');
+  const spinner = el.querySelector('.fc-spinner');
+  if (spinner) spinner.remove();
+
+  const resultEl = document.createElement('div');
+  resultEl.className = `fc-result ${found ? 'found' : 'empty'}`;
+  resultEl.textContent = found ? `✓ 找到 ${count} 条` : '✗ 未找到';
+  el.querySelector('.fc-text').appendChild(resultEl);
+
+  // 填充响应体 JSON
+  if (resultJson) {
+    const codeEl = el.querySelector('.fc-response-json');
+    if (codeEl) codeEl.innerHTML = highlightJson(resultJson);
+  }
+}
+
+function appendUserMsg(text, images) {
+  const group = document.createElement('div');
+  group.className = 'msg-group user';
+  const normalizedImages = (images || []).map(i => typeof i === 'string' ? { dataUrl: i, name: '' } : i);
+  const imgsHtml = normalizedImages.map(i => `<img class="chat-image" src="${esc(i.dataUrl || '')}" alt="${esc(i.name || '')}">`).join('');
+  const textHtml = text ? esc(text).replace(/\n/g,'<br>') : '';
+  group.innerHTML = `
+    <div class="msg-label">你</div>
+    <div class="bubble">${imgsHtml}${textHtml}</div>`;
+  group.querySelector('.bubble')._raw = text;
+  group._userText = text || '';
+  group._userImages = normalizedImages.map(image => ({ ...image }));
+  group.appendChild(createMessageActions([
+    { action: 'copy-input', title: '复制输入', icon: 'copy' },
+    { action: 'edit-input', title: '修改输入', icon: 'edit' },
+  ]));
+  chatEl.appendChild(group);
+  return group;
+}
+
+function scrollBottom() {
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+clearBtn.addEventListener('click', () => {
+  startNewConversation();
+});
+
+// ── 下载对话 ──
+async function downloadConversation() {
+  if (history.length === 0 && conversationTree.nodes.length === 0) return;
+
+  const title = document.title || '对话';
+  const externalized = await WQYConversationStorage.externalizeTreeImages(exportConversationTree());
+  const assets = await WQYConversationStorage.assetsToPortable(externalized.assets);
+  const payload = {
+    format: 'wenqiuyue-blog-history',
+    version: 3,
+    title,
+    downloadedAt: new Date().toISOString(),
+    traceState: exportConversationTraceState(),
+    conversationTree: externalized.tree,
+    assets,
+  };
+
+  WQYConversationStorage.assertExportSize(payload);
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const ts = new Date().toISOString().replace('T','_').replace(/:/g,'-').slice(0,19);
+  a.download = `${title}_${ts}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('download-btn').addEventListener('click', () => {
+  downloadConversation().catch(error => alert(`下载失败：${error.message}`));
+});
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+sendBtn.addEventListener('click', send);
+stopBtn.addEventListener('click', stopGeneration);
+
+// ── 工具调用展开/折叠 ──
+chatEl.addEventListener('click', (e) => {
+  const branchPageButton = e.target.closest('.branch-page-btn');
+  if (branchPageButton?.dataset.branchTarget) {
+    activateBranchNode(branchPageButton.dataset.branchTarget, true);
+    return;
+  }
+  const action = e.target.closest('.msg-action');
+  if (action) {
+    const group = action.closest('.msg-group');
+    if (action.dataset.action === 'copy-input') {
+      copyText(group?._userText || '', action);
+    } else if (action.dataset.action === 'edit-input') {
+      editUserMessage(group);
+    } else if (action.dataset.action === 'copy-answer') {
+      const bubble = group?.querySelector('.bubble');
+      copyText(bubble?._raw || group?._answerText || '', action);
+    } else if (action.dataset.action === 'regenerate') {
+      regenerateFromGroup(group);
+    }
+    return;
+  }
+  const expandBtn = e.target.closest('.fc-expand-btn');
+  if (!expandBtn) return;
+  const item = expandBtn.closest('.fc-item');
+  const detail = item.querySelector('.fc-detail');
+  expandBtn.classList.toggle('expanded');
+  detail.classList.toggle('open');
+});
+</script>
+
+<!-- 设置面板 -->
+<div id="settings-overlay">
+  <div id="settings-panel">
+    <h3>API 设置</h3>
+    <div class="settings-notice">
+      <div class="security">你的 API Key 仅保存在本地浏览器中，不会上传至服务器，确保信息安全。</div>
+      <div class="compat">本服务测试模型为 DeepSeek 系列，使用其它模型时体验可能有所不同。</div>
+    </div>
+    <div class="api-toggle-row">
+      <div>
+        <div class="toggle-label">使用系统内置 API</div>
+        <div class="toggle-hint">关闭后可填入自己的 API Key</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="inp-use-system">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <label>API Key</label>
+    <input type="password" id="inp-api-key" placeholder="sk-...">
+    <label>Base URL</label>
+    <input type="text" id="inp-base-url" placeholder="https://api.deepseek.com" value="https://api.deepseek.com">
+    <label>Model</label>
+    <input type="text" id="inp-model" placeholder="deepseek-v4-flash" value="deepseek-v4-flash">
+    <div id="settings-actions">
+      <button id="btn-validate">测试连接</button>
+      <button id="btn-save">保存</button>
+      <button id="btn-clear">清除</button>
+    </div>
+    <div class="history-backup-settings">
+      <p>本地对话历史备份</p>
+      <div>
+        <button id="export-all-history-btn" type="button">导出全部历史</button>
+        <button id="import-all-history-btn" type="button">导入历史</button>
+        <input id="import-all-history-input" type="file" accept="application/json,.json" hidden>
+      </div>
+    </div>
+    <div id="validate-status"></div>
+  </div>
+</div>
+</body>
+</html>

@@ -4,6 +4,282 @@ All notable changes to RaagaFinder. Dates are 2026. Accuracy numbers are
 recording-level top-1/top-3; "YouTube" is the found-concert benchmark and
 "holdout" is the solo-voice set that never enters training (n=18 each).
 
+## 2026-08-27 — a raga can be added without retraining
+
+The app gains an **Add a raga** tab. Three to five recordings of a raga
+outside the 154 are embedded by the sequence model, averaged into one
+768-dimension prototype, and compared alongside the trained classes on every
+identification for the rest of that browser session. Nothing is trained and
+nothing is written to disk.
+
+Measured out-of-fold with thirty ragas withheld from every training fold,
+added from five recordings each and competing against all 154 classes at
+full strength — the trained classes keeping every recording they have, as
+they do in the app: **80.0%** top-1, against **84.9%** for the trained
+classes under that same prototype comparison. Both halves come from one run
+of `scripts/enroll_abstain_whitened.py`, which is the point — measuring an
+added raga against the app's headline 84.4% would compare a prototype match
+against a full blended pipeline. The 80.0% is what the whitened metric buys;
+plain cosine on the same split gives 76.3% against 82.1%.
+
+**The new artifact is a metric, not a model.**
+`models_artifacts/model_v3_1.whitener.npy` is a single 768×768 WCCN
+transform, fitted by `scripts/build_whitener.py` on the within-class scatter
+of the serving encoder's embeddings of all 1275 corpus recordings at
+shrinkage 0.5. It is applied to the enrolled comparison only. Whitening the
+154 trained classes as well measures **+0.31 points at Wilcoxon p = 0.65** at
+the shipped mixing weight, which does not justify moving the metric that the
+blend weight, the temperature and every advertised accuracy were fitted
+against — so the trained-class path is byte-identical with the file present
+and absent, and `tests/test_enrollment.py` runs the served stage both ways to
+prove it rather than reading the code.
+
+Two properties of that transform are worth recording. Its shrinkage optimum
+is interior rather than at a grid edge: prototype accuracy runs 0.804 at
+shrinkage 0, peaks at 0.870 at 0.5, and returns to plain cosine's 0.838 as
+the transform approaches the identity, which is the algebraic check the
+construction requires. And it is fitted only from classes the encoder trained
+on yet still improves classes it has never seen, so what it suppresses is a
+property of the embedding space rather than of a class list.
+
+**Added ragas abstain more, on purpose.** They pass one gate with the trained
+classes — the softmax over cosine similarities at the shipped prototype
+temperature 0.05, kept above 0.4161 (`scripts/enroll_abstain.py`, 1275
+queries). It lets through **67.7%** of answers on added ragas against 80.6%
+on trained ones, and the two are then **89.4%** and 90.3% accurate. The raw
+cosine and the cosine margin were measured against the same 90% target and
+both fail: they keep about three quarters of each group and are then four
+points further apart in accuracy on them, which is a gate whose promise means
+two different things depending on which kind of raga the user happens to have.
+
+That threshold was fitted on the plain cosine, before the whitened metric
+existed, and it is carried over unchanged rather than refitted — a second
+constant for enrolled classes is a decision to take on purpose rather than a
+quiet edit. `scripts/enroll_abstain_whitened.py` measures what the carry-over
+does, on the same 1275 queries with only the metric changed: it lets through
+**69.6%** of enrolled answers at **92.0%**, and 74.0% of all answers at 94.3%.
+The threshold was chosen as the largest coverage still reaching 90% overall,
+so on the whitened metric the carried-over rule under-promises rather than
+over-promises — it answers slightly less often than the fit intended and is
+four points more accurate when it does.
+
+**Selection guidance, not silent filtering.** Keeping the recordings closest
+to their own class mean scores 0.772 at three recordings against 0.753 for
+five random ones; deliberately diverse ones are the worst strategy measured,
+0.569 (`scripts/enroll_selection.py`, 375 queries). What sits far from a class
+mean is more often a failed pitch track or a mislabelled recording than an
+unusual rendition. The tab says so and filters nothing, because the rule also
+discards genuinely unusual renditions and the person adding the raga is the
+one who can tell them apart.
+
+Every figure here is out-of-fold on corpus recordings. A recording found
+elsewhere carries the found-audio penalty the rest of this system does, and
+nothing measures the two apart.
+
+- Added ragas live in a `gr.State`, so they are per-session, never written to
+  disk and never visible to another visitor. `tests/test_enrollment.py` walks
+  the app module for a shared container rather than trusting the wiring.
+- Enrolled scoring always runs in the complete model's embedding space,
+  whichever model the selector is on, because that is the model carrying
+  prototypes. The trained answer on the page stays the selected model's own,
+  and it stays on the page even when an added raga wins.
+- Enrollment refuses to run at all if the whitener is missing from a
+  deployment, rather than falling back to the 76.3% metric while the page
+  quotes 80.0%.
+
+## 2026-08-26 — the default model changes, and why the old one was wrong
+
+The default is now the **complete** 154-raga model, replacing **broad**.
+
+The previous default rested on one comparison: the 18-clip YouTube concert
+set, where broad scores 67% against complete's 56%. A power analysis this
+day found that set cannot resolve anything below roughly 56 points, and that
+this particular comparison rests on four clips disagreeing — one gained,
+three lost, **McNemar p = 0.63**. That is noise, and it was the sole evidence
+for the previous default.
+
+Both better-powered sources disagreed with it and were being overridden:
+
+- grouped cross-validation, 1275 recordings: complete **84.4%** vs broad 82.8%
+- fresh-YouTube probe, 67 recordings: complete **73.1%** vs broad 64.2%, six
+  clips gained and none lost, **p = 0.031**
+
+All 67 probe ragas are inside broad's class list, so this is a like-for-like
+comparison rather than complete winning on ragas broad cannot name.
+
+**The wider finding behind it.** The three held-out sets cannot validate
+anything this project has measured. Simulated as paired changes, the smallest
+effect detectable at 80% power is ~56 points on either 18-clip set, ~17 on the
+probe, ~11 on all three pooled. The effects actually argued about are 0.5 to
+2.5 points. The improve-or-hold ship rule therefore catches catastrophic
+breakage and nothing finer — it has never validated a gain and by
+construction cannot. Adoption decisions rest on the 1275-recording
+out-of-fold matrix, where the power exists.
+
+**The widest model loses its remaining justification.** It was kept because it
+named ragas nothing else could reach. The complete model's 154 classes are a
+superset of its 104, so that stopped being true when the complete model
+shipped, and the About tab claimed otherwise until now. It stays selectable
+for continuity and is recommended for nothing.
+
+- The smart cascade's stages are now named explicitly rather than keyed off
+  the default constant, which would have made it fall back from complete to
+  complete and quietly do nothing.
+- Three tests that used the default model as a stand-in for "the model with
+  sequence-only classes" now name the broad model directly.
+
+## 2026-08-25 — accuracy figures corrected for duplicate performances
+
+An audit that fingerprinted the audio rather than comparing identifiers
+found 26 pairs of recordings that are the same performance stored twice
+under different names, 26 of them byte-identical after pitch extraction.
+They arrive structurally: one video fetched under two composition-targeted
+search queries lands in two per-query filenames, and a release present in
+both source datasets enters twice. Every deduplication guard in the
+project compared names, so none could see this.
+
+49 of those recordings sit on opposite sides of a cross-validation fold
+boundary, so each was scored against a training set holding its own twin,
+with a nearest-neighbour member holding that twin at distance zero. All 49
+were top-1 correct.
+
+- Complete model: **85.0 / 92.6 → 84.4 / 92.2** out-of-fold.
+- Concert model: 84.0 / 93.4 → 83.7 / 93.2.
+- The broad and widest models carry the same contamination, but their
+  stored out-of-fold dumps do not reproduce their published figures
+  exactly, so they are marked rather than given an invented correction.
+- Worst affected are the smallest classes, where up to 40% of a raga can
+  be one performance counted twice — so the rare-raga per-class numbers
+  the coverage claim leans on are the least trustworthy ones.
+
+**No model changed. The correction is to the measurement.** The prototype
+mixture adopted earlier the same day survives deduplication at +2.6 points
+across ten folds of ten at p = 0.002, slightly larger than the +2.5 first
+reported, because duplicates had inflated the baseline it was measured
+against.
+
+`scripts/audit_duplicate_recordings.py` reproduces the set from the audio,
+and `tests/test_no_new_duplicates.py` pins it as a ratchet so the corpus
+can lose duplicates but not gain them. The guard checks a pitch-class
+profile as well as a hash: 26 of the 27 pairs are byte-identical, and a
+hash-only version was verified blind to the twenty-seventh, which is the
+same performance re-encoded.
+
+Two claims about the held-out sets are corrected in the paper at the same
+time. The 18-recording devotional holdout was described as the only fully
+out-of-domain benchmark; 80 further recordings from that same private
+collection do train every model, so it is song-disjoint but not
+source-disjoint. And both 18-clip sets have served as the project's
+ship/no-ship acceptance gates while also being quoted as independent
+results, which biases them upward — at n=18 a single clip is 5.6 points.
+
+## 2026-08-25 — model_v3_1: every raga gets a second opinion
+
+The complete model's sequence stage now consults a class prototype
+alongside its classifier. Each of the 154 ragas is represented by the
+average of its recordings' learned embeddings, and a softmax over
+similarity to those averages is mixed into the sequence stage before the
+ensemble blend, at a weight and temperature fixed on a different model's
+sweep rather than on the data they are judged against.
+
+- Out-of-fold full-pipeline accuracy: 82.5/91.7 to **85.0/92.6**,
+  +2.5 points of top-1, winning ten folds of ten (Wilcoxon p = 0.002).
+  This is now the best cross-validated top-1 of the four models.
+- More answers, not fewer: with the abstention constants untouched, this
+  model answers 80.4% of out-of-fold recordings at 92.2% accuracy among
+  the answers given, where the previous one answered 77.3% at 92.7%.
+
+**Where the gain is, stated plainly, because it is not spread evenly.**
+Split by how many recordings a raga has in the corpus, the change is
+worth +12.8 points of top-1 for ragas with three or four recordings,
++5.0 for five or six, +1.0 for seven or eight, and +0.0 for thirteen or
+more. Nothing measured got worse. So a well-known raga returns the same
+answer as before and a rare melakarta returns a considerably better one.
+A softmax head has to learn a decision boundary for each raga from that
+raga's own examples, and four examples against 153 competitors do not
+place one; an average needs no boundary.
+
+**The held-out sets are unchanged, and that is expected.** The
+solo-voice holdout stays at 83/89, the YouTube concert set at 56/67, and
+the 67-recording fresh probe at 73 top-1 with zero paired changes in
+either direction and one recording lost from top-3. The reason is
+measurable rather than mysterious: the probe contains no raga with fewer
+than nine recordings and is 82% drawn from ragas with thirteen or more,
+against 44% for the corpus, because it was built by fresh web search and
+web search returns the ragas people record. Restricted to that same
+class-size profile, the out-of-fold gain is +0.0. No held-out set here
+can see a change that helps the tail, which is a gap in the evaluation
+suite rather than a doubt about the result.
+
+- The ensemble stage, the abstention thresholds, the blend weight and
+  the calibration temperature are all unchanged. The ONNX graph differs
+  from model_v3_0's only by an added output exposing the pooled context
+  vector, and the logits were verified bit-identical before the
+  prototypes were attached.
+- Three refinements were measured and rejected: a median or two- or
+  three-centroid prototype instead of the mean (best +0.08, p = 0.95),
+  dropping each class's least typical recordings before averaging, and
+  giving rare classes a heavier prototype weight (+0.39, p = 0.31,
+  directionally right and too small to adopt).
+- model_v3_0 is retired from the shipped set, superseded by this model.
+
+## 2026-08-24 — model_v3_0: the complete model learns from unlabeled audio
+
+The complete model's sequence stage is replaced by one trained with two
+rounds of noisy-student pseudo-labels drawn from roughly 670 hours of
+unlabeled concert audio (about 250 full concerts fetched by generic
+search, never reviewed, never labeled by hand). Each fold's pseudo-labels
+come from a teacher that never saw that fold, so the cross-validated
+comparison stays honest; iteration two cleared the pre-registered
+adoption bar that iteration one missed (+2.2 points at the blend, CI
+[+0.8, +3.6], Wilcoxon p = 0.012, 8 folds of 10). The same unlabeled
+corpus had already failed to transfer twice as causal language-model
+pretraining (+0.16 then +0.39, both p > 0.7), so the gain is attributable
+to supervision injection, not to the data alone.
+
+- Out-of-fold full-pipeline accuracy: 80.3/91.3 to **82.5/91.7**, now the
+  strongest model except the concert-tuned one.
+- On 67 freshly collected YouTube recordings none of this ever trained
+  on: 65.7/85.1 to **73.1/85.1** — the found-audio gap narrowed by more
+  than the cross-validation gain, consistent with the pseudo-corpus
+  exposing the model to found-audio conditions.
+- The two n=18 sets each moved one recording (holdout 89 to 83 top-1,
+  YouTube 61 to 56), inside single-clip noise; top-3 held on both.
+- Ensemble, thresholds, and calibration are unchanged: they are fitted on
+  ensemble out-of-fold data the pseudo-labels never touched. Blend weight
+  re-fitted on the new sequence out-of-fold matrix and kept at 0.30
+  (inside the statistical plateau).
+
+## Unreleased
+
+No model changed and nothing was redeployed. A capacity idea was tested and
+rejected, and the testing turned up a bug in how every previous model
+comparison here was measured.
+
+- **A bidirectional sequence model was evaluated over ten folds and not
+  adopted.** At the shipped blend weight it is +1.4 points with a 95% interval
+  of [-1.3, +4.2], winning 8 folds of 10 at Wilcoxon p = 0.15, against a bar
+  fixed before the result existed of p < 0.05 and at least a point. Lowering
+  the learning rate to stabilise it made it significantly *worse*, -1.6 points
+  at the blend. Written up in full, traps included, in
+  `docs/bidirectional_lstm_experiment.md`.
+- **Both out-of-fold notebooks seeded once per session rather than once per
+  fold.** `torch.manual_seed(42)` sat in the import cell, above the fold loop,
+  so a fold's weight init depended on how many folds had already run in that
+  session — and the twelve-hour session cap means the ten folds are split
+  across sessions differently for every arm. Measured cost: the same fold,
+  same recipe, scored 0.8100 run first and 0.7600 run second. Now seeded from
+  the fold index inside the loop. The shipped forward-only matrix is
+  deliberately not regenerated, because a new recipe would not make old and
+  new folds comparable, only make them look it.
+- **`scripts/compare_blend_arms.py`** compares two sequence models at the
+  blend with the fold as the unit of analysis, at a weight fixed in advance,
+  reporting a paired t, Wilcoxon and sign test with a confidence interval.
+  It exists because the obvious test, McNemar over recordings, holds the two
+  trained models fixed and cannot see the run-to-run variance above: it
+  reported p = 0.0026 for a margin whose honest interval reached nearly to
+  zero. `scripts/fit_v3_blend.py` gained `--dump-hits` to feed it.
+
 ## v5.1 (2026-07-31)
 
 Correctness rather than capability. No model was retrained and no raga was

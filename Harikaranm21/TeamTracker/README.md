@@ -10,105 +10,155 @@ pinned: false
 
 # TeamTracker
 
-Standalone team work tracking and reporting web app.  
-**Public dashboard, authenticated editing.** Anyone can view the board and dashboard. Only approved editors can create, edit, or delete tasks/sprints/members.
+TeamTracker is a full project and team tracking app built for monthly planning, task execution, and lightweight team coordination. It brings together the board, dashboard, member management, project discussions, and an AI assistant in a single workflow.
 
-## Tech Stack
+## What’s included
 
-- **Backend**: Node.js + Express + TypeScript
-- **Frontend**: React 18 + Radix UI Themes + Phosphor Icons + Recharts
-- **Database**: SQLite via better-sqlite3
-- **Auth**: JWT (httpOnly cookies) + bcrypt password hashing
-- **Bundler**: esbuild
+- Kanban board with task status columns
+- Role-based access control for viewers, editors, and admins
+- Monthly planning and sprint tracking
+- Team member management and assignment
+- Dashboard analytics and workload reporting
+- Personal calendar for per-user scheduling
+- Floating project assistant for task, sprint, and project queries
+- Safe mutation flow that asks for confirmation before changing project data
 
-## Features
+## Tech stack
 
-- **Kanban board** — drag cards between Todo / In Progress / Review / Done
-- **Task management** — create, edit, delete tasks with title, description, status, priority, assignee, sprint, and labels
-- **Sprint management** — create sprints, set dates, track status
-- **Team members** — add/remove team members with auto-assigned avatar colors
-- **Dashboard** — velocity chart, tasks-by-status pie chart, work distribution by assignee, summary stats
-- **Auth** — register/login with username + password, first user becomes admin automatically
-- **Access control** — public read-only view; editors/admins can write; admins manage user approvals
+- Backend: Node.js + Express + TypeScript
+- Frontend: React + Radix UI + Phosphor Icons
+- Database: SQLite via better-sqlite3
+- Auth: JWT in HTTP-only cookies + bcrypt
+- Build: esbuild + TypeScript
 
 ## Roles
 
-| Role | Can do |
-|------|--------|
-| (unauthenticated) | View board, dashboard, sprints, members |
-| `pending` | Logged in but not yet approved |
-| `editor` | Full create/edit/delete on tasks, sprints, members |
-| `admin` | Everything editors can do + manage users (approve, change roles, delete) |
+| Role    | Access                                                      |
+| ------- | ----------------------------------------------------------- |
+| Guest   | Can view public information only                            |
+| Pending | Logged in but not approved                                  |
+| Viewer  | Sees their own work and shared project data                 |
+| Editor  | Can manage tasks and team content for assigned work         |
+| Admin   | Full control over members, roles, approvals, and management |
 
-The **first user to register** is automatically made admin. All subsequent registrations start as `pending` and need admin approval.
+The first registered user becomes the admin automatically.
 
-## Setup
+## Local setup
 
 ```bash
-# Install dependencies
+git clone <repo-url>
+cd TeamTracker
 npm install
-
-# Copy env template
 cp .env.example .env
-# Edit .env — at minimum set JWT_SECRET for production
+```
 
-# Build and start
+Edit `.env` and set at least:
+
+```env
+JWT_SECRET=your-long-random-secret
+NODE_ENV=production
+PORT=3333
+DB_PATH=/data/teamtracker.db
+GEMINI_API_KEY=your_key_here
+```
+
+For Hugging Face Spaces, keep `DB_PATH=/data/teamtracker.db` so the SQLite database persists across rebuilds and restarts. If the Space has persistent storage mounted at `/data`, this keeps users, tasks, and project data from being wiped during deploys.
+
+### Space recovery setup
+
+If the Space has already been reset and you need a fresh admin account:
+
+```bash
+npm run create-admin
+```
+
+This creates a default admin user if the database is empty. You can also set:
+
+```env
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@teamtracker.local
+ADMIN_PASSWORD=admin123
+```
+
+If you want a non-default login, set those values before running the command.
+
+Then run:
+
+```bash
 npm run build
 npm start
 ```
 
-The app runs at **http://localhost:3333** by default.
+The app runs by default at:
 
-## Deploying publicly (Railway / Render / Fly.io)
+```text
+http://localhost:3333
+```
 
-1. Set these environment variables in your hosting dashboard:
-   - `JWT_SECRET` — a long random secret (generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
-   - `NODE_ENV=production`
-   - `PORT` — usually set automatically by the platform
-
-2. For **Railway**: the existing `Procfile` and `railway.json` are already configured.
-
-3. For **Render**: set the build command to `npm run build` and start command to `npm start`.
-
-4. SQLite persistence: on Railway/Render free tiers the filesystem is ephemeral. Use a mounted volume (Railway Volume / Render Disk) and set `DB_PATH` to point to it, e.g. `/data/teamtracker.db`.
-
-## Development
+## Development commands
 
 ```bash
-# Rebuild server after server changes
-npm run build:server && npm start
+# build the client
+npm run build:client
 
-# Rebuild client after client changes
-npm run build:client && npm start
+# build the server
+npm run build:server
 
-# Rebuild everything
-npm run build && npm start
+# full build
+npm run build
+
+# start local app
+npm start
+
+# run tests
+npm test
 ```
 
-## Data
+## Deployment notes
 
-SQLite database is stored at `data/teamtracker.db` (overridable with `DB_PATH` env var).
+This project is designed for a standard Node.js deployment and is not dependent on Docker, Procfile, or Railway config files.
 
-## Project Structure
+You can deploy it to any host that supports Node.js and keeps the app running continuously, including:
 
+- a VPS / VM
+- a simple Node host
+- a managed platform that runs `npm install` and `npm start`
+- a Hugging Face Space using a standard Node startup flow if your host supports it
+
+For production, make sure these are configured:
+
+- `JWT_SECRET`
+- `NODE_ENV=production`
+- `PORT` if your host requires it
+- `GEMINI_API_KEY` if you want the AI assistant to use Gemini
+
+SQLite persistence is file-based, so the database needs a persistent storage path on your host if you deploy remotely.
+
+## Project structure
+
+```text
+TeamTracker/
+  src/
+    client/
+    server/
+    shared/
+  public/
+  .env.example
+  .gitignore
+  package.json
+  tsconfig.json
+  tsconfig.server.json
+  esbuild.config.js
+  vitest.config.ts
 ```
-src/
-  server/
-    middleware/   auth.ts — JWT extraction, requireAuth, requireAdmin
-    routes/       tasks, members, sprints, reports, auth
-    storage/      db, tasks, members, sprints, reports, users
-  client/
-    components/   KanbanBoard, TaskCard, TaskDialog, Dashboard,
-                  SprintPanel, MembersPanel, LoginPage, AdminPanel
-    hooks/        useAuth.tsx — auth context
-    api.ts        HTTP client
-    App.tsx       Root with auth-gated navigation
-    index.tsx     Entry point
-  shared/
-    types.ts      Shared TypeScript interfaces
-public/
-  index.html      HTML shell
-  bundle.js       Built client (generated)
-data/
-  teamtracker.db  SQLite database (generated)
-```
+
+## Important notes
+
+- The app stores data in SQLite.
+- The database file is created in the local project or the configured `DB_PATH` location.
+- The AI assistant is project-aware and can help with summaries and safe task-related actions, but actual mutations require confirmation and proper access.
+- The repo intentionally keeps deployment config minimal and platform-neutral.
+
+## License
+
+This project is for internal/team usage and is not a packaged SaaS product unless you explicitly add your own license and hosting terms.

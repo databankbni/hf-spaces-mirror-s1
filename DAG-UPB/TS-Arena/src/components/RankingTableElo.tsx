@@ -21,6 +21,14 @@ interface RankingTableEloProps {
   title?: string;
   limit?: number;
   definitionId?: number;
+  /**
+   * Models that appear on this scope's SQL board, i.e. the ones that actually
+   * submitted quantile forecasts. Everyone else gets a dash in the SQL column
+   * rather than their degenerate point-forecast score, which is not comparable
+   * with a real one. Omitted (undefined) means the eligibility request failed or
+   * was not made, in which case the column shows nothing rather than guessing.
+   */
+  sqlEligibleModelIds?: Set<number>;
 }
 
 // Text search filter component
@@ -57,12 +65,66 @@ function NumberMaxFilter({ column }: { column: any }) {
   );
 }
 
+/**
+ * Column header with an info popover. Hover on a pointer, tap/keyboard on touch.
+ */
+function HeaderWithInfo({
+  label,
+  ariaLabel,
+  width = 'w-48',
+  children,
+}: {
+  label: string;
+  ariaLabel: string;
+  width?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 normal-case">
+      <span>{label}</span>
+      <Popover className="relative group" onClick={(e) => e.stopPropagation()}>
+        {({ open }) => (
+          <>
+            <PopoverButton
+              className="flex items-center justify-center w-11 h-11 -m-[14px] rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              aria-label={ariaLabel}
+            >
+              <Info className="w-4 h-4" aria-hidden="true" />
+            </PopoverButton>
+            <PopoverPanel
+              static
+              className={`absolute right-0 top-6 ${width} p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg transition-all duration-200 z-10 normal-case font-normal ${
+                open ? 'opacity-100 visible' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
+              }`}
+            >
+              {children}
+            </PopoverPanel>
+          </>
+        )}
+      </Popover>
+    </div>
+  );
+}
+
+/** Tooltip body for the SQL column. Kept next to the header that uses it. */
+function SqlExplanation() {
+  return (
+    <>
+      <span className="font-semibold">Scaled Quantile Loss</span> — the mean pinball loss
+      over the nine deciles (0.1 … 0.9), divided by the same naive-forecast MAE that scales
+      MASE. Lower is better, and the two metrics are on one scale, so they can be read side
+      by side. Only models that submit quantile forecasts are scored on it.
+    </>
+  );
+}
+
 export default function RankingTableElo({ 
   rankings,
   compact = false,
   title,
   limit,
   definitionId,
+  sqlEligibleModelIds,
 }: RankingTableEloProps) {
   const router = useRouter();
 
@@ -130,6 +192,44 @@ export default function RankingTableElo({
         },
       },
       {
+        accessorKey: 'avg_sql',
+        header: () => (
+          <HeaderWithInfo label="Avg SQL" ariaLabel="About the SQL metric" width="w-72">
+            <SqlExplanation />
+          </HeaderWithInfo>
+        ),
+        // Point-only models carry an avg_sql, but it is the degenerate
+        // point-forecast substitution rather than a scored distribution. Sorting
+        // has to agree with the cell that hides it, so they sort as absent too.
+        sortUndefined: 'last',
+        accessorFn: (row) =>
+          sqlEligibleModelIds?.has(row.model_id) ? row.avg_sql ?? undefined : undefined,
+        cell: (info) => {
+          const row = info.row.original;
+          if (!sqlEligibleModelIds?.has(row.model_id)) {
+            return (
+              <span
+                className="text-gray-400 text-right block"
+                title="This model submits point forecasts only, so it is not scored on the probabilistic board."
+              >
+                —
+              </span>
+            );
+          }
+          if (row.avg_sql === null) {
+            return <span className="text-gray-400">N/A</span>;
+          }
+          return (
+            <div className="text-right">
+              <span>{row.avg_sql.toFixed(3)}</span>
+              {row.sql_std !== null && (
+                <div className="text-xs text-gray-500">±{row.sql_std.toFixed(3)}</div>
+              )}
+            </div>
+          );
+        },
+      },
+      {
         accessorKey: 'evaluated_count',
         header: 'Evaluations',
         cell: (info) => {
@@ -163,29 +263,9 @@ export default function RankingTableElo({
         size: 150,
         minSize: 150,
         header: () => (
-          <div className="flex items-center gap-1.5 normal-case">
-            <span>Model Size</span>
-            <Popover className="relative group" onClick={(e) => e.stopPropagation()}>
-              {({ open }) => (
-                <>
-                  <PopoverButton
-                    className="flex items-center justify-center w-11 h-11 -m-[14px] rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    aria-label="About model size"
-                  >
-                    <Info className="w-4 h-4" aria-hidden="true" />
-                  </PopoverButton>
-                  <PopoverPanel
-                    static
-                    className={`absolute right-0 top-6 w-48 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg transition-all duration-200 z-10 normal-case font-normal ${
-                      open ? 'opacity-100 visible' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
-                    }`}
-                  >
-                    Model sizes are shown in million parameters
-                  </PopoverPanel>
-                </>
-              )}
-            </Popover>
-          </div>
+          <HeaderWithInfo label="Model Size" ariaLabel="About model size">
+            Model sizes are shown in million parameters
+          </HeaderWithInfo>
         ),
         filterFn: (row, columnId, filterValue) => {
           const value = row.getValue(columnId) as number;
@@ -202,7 +282,7 @@ export default function RankingTableElo({
         },
       },
     ],
-    []
+    [sqlEligibleModelIds]
   );
 
   const compactColumns = useMemo<ColumnDef<ModelRanking>[]>(
@@ -256,8 +336,46 @@ export default function RankingTableElo({
           );
         },
       },
+      {
+        accessorKey: 'avg_sql',
+        header: () => (
+          <HeaderWithInfo label="Avg SQL" ariaLabel="About the SQL metric" width="w-72">
+            <SqlExplanation />
+          </HeaderWithInfo>
+        ),
+        // Point-only models carry an avg_sql, but it is the degenerate
+        // point-forecast substitution rather than a scored distribution. Sorting
+        // has to agree with the cell that hides it, so they sort as absent too.
+        sortUndefined: 'last',
+        accessorFn: (row) =>
+          sqlEligibleModelIds?.has(row.model_id) ? row.avg_sql ?? undefined : undefined,
+        cell: (info) => {
+          const row = info.row.original;
+          if (!sqlEligibleModelIds?.has(row.model_id)) {
+            return (
+              <span
+                className="text-gray-400 text-right block"
+                title="This model submits point forecasts only, so it is not scored on the probabilistic board."
+              >
+                —
+              </span>
+            );
+          }
+          if (row.avg_sql === null) {
+            return <span className="text-gray-400">N/A</span>;
+          }
+          return (
+            <div className="text-right">
+              <span>{row.avg_sql.toFixed(3)}</span>
+              {row.sql_std !== null && (
+                <div className="text-xs text-gray-500">±{row.sql_std.toFixed(3)}</div>
+              )}
+            </div>
+          );
+        },
+      },
     ],
-    []
+    [sqlEligibleModelIds]
   );
 
   const columns = compact ? compactColumns : fullColumns;
@@ -346,6 +464,23 @@ export default function RankingTableElo({
                       <span className="ml-1.5 text-xs text-gray-500">
                         ±{model.mase_std.toFixed(3)}
                       </span>
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-gray-500">Avg SQL</span>
+                  {!sqlEligibleModelIds?.has(model.model_id) ? (
+                    <span className="text-gray-400">—</span>
+                  ) : model.avg_sql === null ? (
+                    <span className="text-gray-400">N/A</span>
+                  ) : (
+                    <span className="text-gray-900">
+                      {model.avg_sql.toFixed(3)}
+                      {model.sql_std !== null && (
+                        <span className="ml-1.5 text-xs text-gray-500">
+                          ±{model.sql_std.toFixed(3)}
+                        </span>
+                      )}
                     </span>
                   )}
                 </div>

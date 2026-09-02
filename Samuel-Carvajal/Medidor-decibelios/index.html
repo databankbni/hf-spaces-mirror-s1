@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Medellín en Silencio - Medidor educativo de contaminación acústica basado en micrófono.">
+<title>Medellín en Silencio | GENIA Makers</title>
+<style>
+:root{
+  --bg:#07111f; --panel:#0d1b2a; --panel2:#10243a; --text:#eef6ff; --muted:#9fb3c8;
+  --line:#20374f; --accent:#38bdf8; --good:#22c55e; --warn:#facc15; --high:#fb923c; --danger:#ef4444;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:
+ radial-gradient(circle at 15% 0%,#123252 0,transparent 32%),linear-gradient(135deg,#050b14,#0b1727);
+ color:var(--text);min-height:100vh}
+header{padding:28px 20px 18px;text-align:center}
+header h1{margin:0;font-size:clamp(2rem,5vw,3.7rem);letter-spacing:-.04em}
+header p{margin:8px auto 0;max-width:760px;color:var(--muted);font-size:1rem}
+.container{width:min(1180px,94%);margin:auto;padding-bottom:45px}
+.grid{display:grid;grid-template-columns:1.35fr .85fr;gap:18px}
+@media(max-width:850px){.grid{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,rgba(16,36,58,.96),rgba(9,24,40,.96));border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.22)}
+.card h2{margin:0 0 14px;font-size:1.15rem}
+.meter{text-align:center;padding:26px 15px}
+.reading{font-size:clamp(4.2rem,12vw,8rem);font-weight:800;line-height:.95;letter-spacing:-.08em}
+.unit{color:var(--muted);font-weight:700;font-size:1.1rem}
+.status{display:inline-flex;align-items:center;gap:8px;margin:17px 0 12px;padding:9px 15px;border-radius:999px;font-weight:800;background:#1a2a3c}
+.dot{width:11px;height:11px;border-radius:50%;background:currentColor;box-shadow:0 0 16px currentColor}
+.bar-wrap{height:18px;background:#07111d;border-radius:999px;overflow:hidden;border:1px solid var(--line)}
+.bar{height:100%;width:0%;border-radius:inherit;transition:width .15s ease,background .2s ease}
+.controls{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:20px}
+button{border:0;border-radius:12px;padding:12px 17px;font-weight:800;cursor:pointer;color:#04111c;background:var(--accent)}
+button.secondary{background:#243b53;color:var(--text)}
+button.danger{background:#f87171;color:#2b0909}
+button:disabled{opacity:.45;cursor:not-allowed}
+.info{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.stat{padding:12px;border:1px solid var(--line);border-radius:13px;background:rgba(0,0,0,.12)}
+.stat span{display:block;color:var(--muted);font-size:.78rem;margin-bottom:4px}
+.stat strong{font-size:1.05rem}
+canvas{width:100%;height:260px;display:block;background:#07111d;border:1px solid var(--line);border-radius:14px}
+.notice{font-size:.86rem;line-height:1.55;color:var(--muted);padding:13px;border-radius:13px;background:#081522;border:1px solid var(--line);margin-top:15px}
+label{display:block;color:var(--muted);font-size:.85rem;margin:10px 0 5px}
+input,select{width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:#07111d;color:var(--text)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:520px){.row{grid-template-columns:1fr}.info{grid-template-columns:1fr}}
+.history{width:100%;border-collapse:collapse;font-size:.86rem}
+.history th,.history td{padding:9px;border-bottom:1px solid var(--line);text-align:left}
+.history th{color:var(--muted)}
+.table-wrap{overflow:auto;max-height:340px}
+.badge{display:inline-block;padding:4px 8px;border-radius:8px;font-weight:800;font-size:.75rem}
+.footer{text-align:center;color:var(--muted);padding:22px;font-size:.8rem}
+.small{font-size:.78rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔊 Medellín en Silencio</h1>
+  <p>Medidor educativo de contaminación acústica · Proyecto GENIA Makers · Samuel Carvajal Bedoya · 11°1</p>
+  <p>https://samuel-carvajal-medidor-decibelios.static.hf.space</p>
+</header>
+
+<main class="container">
+  <div class="grid">
+    <section class="card meter">
+      <h2>Medición en tiempo real</h2>
+      <div id="reading" class="reading">—</div>
+      <div class="unit">dB estimados</div>
+      <div id="status" class="status"><span class="dot"></span><span>Micrófono detenido</span></div>
+      <div class="bar-wrap"><div id="bar" class="bar"></div></div>
+      <div class="controls">
+        <button id="startBtn">🎙️ Permitir micrófono y medir</button>
+        <button id="pauseBtn" class="secondary" disabled>⏸ Pausar</button>
+        <button id="resetBtn" class="danger">↺ Reiniciar</button>
+      </div>
+      <div class="info">
+        <div class="stat"><span>Mínimo</span><strong id="min">—</strong></div>
+        <div class="stat"><span>Máximo</span><strong id="max">—</strong></div>
+        <div class="stat"><span>Promedio</span><strong id="avg">—</strong></div>
+        <div class="stat"><span>Duración</span><strong id="duration">00:00</strong></div>
+      </div>
+      <div id="permissionMsg" class="notice">
+        Al pulsar el botón, el navegador solicitará permiso para usar el micrófono. El sistema procesa la señal localmente para calcular el nivel y no guarda grabaciones de voz.
+      </div>
+    </section>
+
+    <aside class="card">
+      <h2>⚙️ Configuración y calibración</h2>
+      <label for="offset">Corrección de calibración (dB)</label>
+      <input id="offset" type="number" value="0" step="0.1">
+      <div class="small">Si comparas el prototipo con un sonómetro de referencia, puedes introducir aquí la diferencia encontrada.</div>
+
+      <label for="maxScale">Escala visual máxima</label>
+      <select id="maxScale">
+        <option value="100">100 dB</option>
+        <option value="120" selected>120 dB</option>
+        <option value="140">140 dB</option>
+      </select>
+
+      <label for="smoothing">Suavizado</label>
+      <select id="smoothing">
+        <option value="0.75">Suave</option>
+        <option value="0.5" selected>Medio</option>
+        <option value="0.25">Rápido</option>
+      </select>
+
+      <div class="notice">
+        <strong>⚠️ Importante:</strong> esta aplicación produce una <strong>estimación</strong>. El micrófono, el sistema operativo y el navegador pueden aplicar ganancia automática, cancelación de ruido u otros procesos. Para obtener dB SPL confiables se necesita calibración frente a un sonómetro de referencia.
+      </div>
+
+      <div class="controls">
+        <button id="saveBtn" class="secondary" disabled>💾 Guardar medición</button>
+        <button id="clearBtn" class="secondary">🗑 Borrar historial</button>
+      </div>
+    </aside>
+  </div>
+
+  <section class="card" style="margin-top:18px">
+    <h2>📈 Evolución del nivel sonoro</h2>
+    <canvas id="chart" width="1100" height="260"></canvas>
+    <div class="small" style="margin-top:9px">La gráfica muestra las últimas mediciones procesadas. No almacena audio.</div>
+  </section>
+
+  <section class="card" style="margin-top:18px">
+    <h2>🧭 Registro de mediciones</h2>
+    <div class="row">
+      <div>
+        <label for="place">Lugar</label>
+        <input id="place" placeholder="Ej. Aula 11°1">
+      </div>
+      <div>
+        <label for="notes">Observación</label>
+        <input id="notes" placeholder="Ej. tráfico, conversación, patio...">
+      </div>
+    </div>
+    <div class="table-wrap" style="margin-top:15px">
+      <table class="history">
+        <thead><tr><th>Fecha</th><th>Lugar</th><th>Promedio</th><th>Mín.</th><th>Máx.</th><th>Observación</th></tr></thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:18px">
+    <h2>🎨 Sistema de colores y alertas</h2>
+    <div class="row">
+      <div class="notice"><span class="badge" style="background:#14532d;color:#86efac">BAJO</span><br>&lt; 50 dB estimados<br>Ambiente relativamente tranquilo.</div>
+      <div class="notice"><span class="badge" style="background:#713f12;color:#fde68a">MODERADO</span><br>50–65 dB estimados<br>Ruido perceptible.</div>
+      <div class="notice"><span class="badge" style="background:#7c2d12;color:#fed7aa">ALTO</span><br>65–80 dB estimados<br>Ruido elevado.</div>
+      <div class="notice"><span class="badge" style="background:#7f1d1d;color:#fecaca">MUY ALTO</span><br>&gt; 80 dB estimados<br>Conviene revisar el contexto y la exposición.</div>
+    </div>
+  </section>
+</main>
+
+<div class="footer">Institución Educativa Manuel J. Betancur · Proyecto GENIA Makers · 2026</div>
+
+<script>
+(() => {
+  "use strict";
+
+  let audioContext = null;
+  let stream = null;
+  let source = null;
+  let analyser = null;
+  let data = null;
+  let animationId = null;
+  let running = false;
+  let paused = false;
+  let samples = [];
+  let chartPoints = [];
+  let startTime = null;
+  let elapsedBeforePause = 0;
+  let lastFrame = performance.now();
+
+  const $ = id => document.getElementById(id);
+  const reading = $("reading"), status = $("status"), bar = $("bar");
+  const startBtn = $("startBtn"), pauseBtn = $("pauseBtn"), resetBtn = $("resetBtn");
+  const saveBtn = $("saveBtn"), clearBtn = $("clearBtn");
+  const canvas = $("chart"), ctx = canvas.getContext("2d");
+
+  function statusInfo(db){
+    if (db < 50) return {name:"Nivel bajo", color:"#22c55e", message:"Ambiente relativamente tranquilo"};
+    if (db < 65) return {name:"Nivel moderado", color:"#facc15", message:"Ruido perceptible"};
+    if (db < 80) return {name:"Nivel alto", color:"#fb923c", message:"Ruido elevado"};
+    return {name:"Nivel muy alto", color:"#ef4444", message:"Revisar exposición y contexto"};
+  }
+
+  function setStatus(text, color="#38bdf8"){
+    status.style.color = color;
+    status.querySelector("span:last-child").textContent = text;
+  }
+
+  function resizeCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(300, Math.floor(rect.width*dpr));
+    canvas.height = Math.max(220, Math.floor(rect.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    drawChart();
+  }
+
+  function drawChart(){
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = "#07111d"; ctx.fillRect(0,0,w,h);
+    const pad = 34, maxY = Number($("maxScale").value);
+    ctx.strokeStyle = "#20374f"; ctx.lineWidth = 1;
+    ctx.font = "11px system-ui"; ctx.fillStyle = "#9fb3c8";
+    [0,25,50,75,100].forEach(v=>{
+      const y = h-pad-(v/100)*(h-pad*1.55);
+      ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(w-10,y); ctx.stroke();
+      ctx.fillText(Math.round(maxY*v/100)+" dB",4,y+4);
+    });
+    if(chartPoints.length < 2) return;
+    const usableH = h-pad-25;
+    ctx.beginPath();
+    chartPoints.forEach((v,i)=>{
+      const x = pad + i/(chartPoints.length-1)*(w-pad-10);
+      const clamped = Math.max(0,Math.min(maxY,v));
+      const y = h-pad-(clamped/maxY)*usableH;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle = "#38bdf8"; ctx.lineWidth = 2.5; ctx.stroke();
+  }
+
+  function rms(values){
+    let sum=0;
+    for(let i=0;i<values.length;i++) sum += values[i]*values[i];
+    return Math.sqrt(sum/values.length);
+  }
+
+  // Estimación educativa. El offset se calibra contra un instrumento de referencia.
+  function estimateDb(r){
+    const safe = Math.max(r, 1e-7);
+    const raw = 20*Math.log10(safe/0.0001);
+    const offset = Number($("offset").value) || 0;
+    return Math.max(0, Math.min(140, raw + offset));
+  }
+
+  function updateStats(){
+    if(!samples.length){
+      $("min").textContent = $("max").textContent = $("avg").textContent = "—";
+      return;
+    }
+    const min = Math.min(...samples), max = Math.max(...samples);
+    const avg = samples.reduce((a,b)=>a+b,0)/samples.length;
+    $("min").textContent = min.toFixed(1)+" dB";
+    $("max").textContent = max.toFixed(1)+" dB";
+    $("avg").textContent = avg.toFixed(1)+" dB";
+    saveBtn.disabled = false;
+  }
+
+  function updateDuration(){
+    if(!startTime){ $("duration").textContent="00:00"; return; }
+    let elapsed = elapsedBeforePause;
+    if(running && !paused) elapsed += performance.now()-startTime;
+    const sec = Math.floor(elapsed/1000);
+    $("duration").textContent = String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0");
+  }
+
+  function processFrame(now){
+    if(!running || paused) return;
+    analyser.getFloatTimeDomainData(data);
+    const r = rms(data);
+    const db = estimateDb(r);
+
+    samples.push(db);
+    if(samples.length > 1800) samples.shift();
+    chartPoints.push(db);
+    if(chartPoints.length > 180) chartPoints.shift();
+
+    reading.textContent = db.toFixed(1);
+    const info = statusInfo(db);
+    setStatus(info.name, info.color);
+    status.title = info.message;
+
+    const scale = Number($("maxScale").value);
+    bar.style.width = Math.min(100, Math.max(0, db/scale*100))+"%";
+    bar.style.background = info.color;
+
+    updateStats();
+    updateDuration();
+
+    if(now-lastFrame > 60){
+      drawChart();
+      lastFrame = now;
+    }
+    animationId = requestAnimationFrame(processFrame);
+  }
+
+  async function start(){
+    if(running && !paused) return;
+    try{
+      if(!stream){
+        if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+          throw new Error("Este navegador o contexto no permite acceder al micrófono. Usa HTTPS o localhost y un navegador moderno.");
+        }
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio:{
+            echoCancellation:false,
+            noiseSuppression:false,
+            autoGainControl:false
+          },
+          video:false
+        });
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = Number($("smoothing").value);
+        data = new Float32Array(analyser.fftSize);
+        source.connect(analyser);
+        $("permissionMsg").innerHTML = "<strong>Micrófono activo.</strong> La señal se procesa localmente para calcular el nivel. No se está grabando ni guardando el audio.";
+      }
+      await audioContext.resume();
+      if(paused){
+        elapsedBeforePause += performance.now()-startTime;
+      } else if(!startTime){
+        startTime = performance.now();
+      }
+      paused = false; running = true;
+      startBtn.textContent="🎙️ Midiendo...";
+      startBtn.disabled=true; pauseBtn.disabled=false;
+      setStatus("Midiendo micrófono","#38bdf8");
+      animationId = requestAnimationFrame(processFrame);
+    }catch(err){
+      console.error(err);
+      setStatus("No se pudo acceder al micrófono","#ef4444");
+      $("permissionMsg").innerHTML = "<strong>Permiso o acceso fallido.</strong> "+err.message+"<br><br>Revisa el permiso del micrófono del navegador y vuelve a intentarlo.";
+    }
+  }
+
+  function pause(){
+    if(!running) return;
+    paused = true; running = true;
+    elapsedBeforePause += performance.now()-startTime;
+    startTime = performance.now();
+    cancelAnimationFrame(animationId);
+    startBtn.disabled=false; startBtn.textContent="▶️ Continuar medición";
+    pauseBtn.disabled=true;
+    setStatus("Medición pausada","#facc15");
+    updateDuration();
+  }
+
+  function reset(){
+    cancelAnimationFrame(animationId);
+    samples=[]; chartPoints=[]; running=false; paused=false;
+    startTime=null; elapsedBeforePause=0;
+    reading.textContent="—"; bar.style.width="0%";
+    updateStats(); updateDuration(); drawChart();
+    startBtn.disabled=false; startBtn.textContent="🎙️ Permitir micrófono y medir";
+    pauseBtn.disabled=true; setStatus("Micrófono detenido","#9fb3c8");
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+    if(audioContext){ audioContext.close().catch(()=>{}); audioContext=null; }
+    source=null; analyser=null; data=null;
+    $("permissionMsg").innerHTML="Al pulsar el botón, el navegador solicitará permiso para usar el micrófono. El sistema procesa la señal localmente para calcular el nivel y no guarda grabaciones de voz.";
+  }
+
+  function saveMeasurement(){
+    if(!samples.length) return;
+    const min=Math.min(...samples), max=Math.max(...samples);
+    const avg=samples.reduce((a,b)=>a+b,0)/samples.length;
+    const item={
+      date:new Date().toLocaleString("es-CO"),
+      place:$("place").value.trim() || "Sin especificar",
+      avg:+avg.toFixed(1), min:+min.toFixed(1), max:+max.toFixed(1),
+      notes:$("notes").value.trim() || "—"
+    };
+    const history=JSON.parse(localStorage.getItem("medellinSilencioHistory")||"[]");
+    history.unshift(item);
+    localStorage.setItem("medellinSilencioHistory",JSON.stringify(history.slice(0,100)));
+    renderHistory();
+  }
+
+  function renderHistory(){
+    const body=$("historyBody");
+    const history=JSON.parse(localStorage.getItem("medellinSilencioHistory")||"[]");
+    body.innerHTML="";
+    history.forEach(item=>{
+      const tr=document.createElement("tr");
+      [item.date,item.place,item.avg+" dB",item.min+" dB",item.max+" dB",item.notes].forEach(v=>{
+        const td=document.createElement("td"); td.textContent=v; tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+  }
+
+  function clearHistory(){
+    if(confirm("¿Seguro que quieres borrar todo el historial guardado en este navegador?")){
+      localStorage.removeItem("medellinSilencioHistory"); renderHistory();
+    }
+  }
+
+  startBtn.addEventListener("click",start);
+  pauseBtn.addEventListener("click",pause);
+  resetBtn.addEventListener("click",reset);
+  saveBtn.addEventListener("click",saveMeasurement);
+  clearBtn.addEventListener("click",clearHistory);
+  $("maxScale").addEventListener("change",drawChart);
+  $("smoothing").addEventListener("change",()=>{if(analyser) analyser.smoothingTimeConstant=Number($("smoothing").value)});
+  $("offset").addEventListener("input",()=>{});
+  window.addEventListener("resize",resizeCanvas);
+
+  resizeCanvas();
+  renderHistory();
+})();
+</script>
+</body>
+</html>

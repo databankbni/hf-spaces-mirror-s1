@@ -4,7 +4,7 @@ emoji: 🐳
 colorFrom: yellow
 colorTo: indigo
 sdk: docker
-app_port: 2024
+app_port: 2026
 ---
 
 # New LangGraph Project

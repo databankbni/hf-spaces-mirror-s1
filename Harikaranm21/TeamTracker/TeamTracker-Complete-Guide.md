@@ -1,387 +1,334 @@
-# TeamTracker — Complete User Guide
+# TeamTracker — Complete Guide
 
-**Version:** 1.0  
-**Public URL:** https://harikaranm21-teamtracker.hf.space  
-**GitHub:** https://github.com/harikaranm21/TeamTracker
+This guide reflects the current TeamTracker application as it exists in the codebase today: a Node.js team tracker with a Kanban board, dashboard, member management, personal calendar, project AI assistant, and role-based project access.
 
----
+## 1. Overview
 
-## 1. What is TeamTracker?
+TeamTracker is a project tracking tool for teams that need monthly planning, task control, and lightweight team coordination in one place. It supports:
 
-TeamTracker is a web-based team work management app built for monthly planning and task tracking. It allows your entire team to collaborate on tasks, plan work by month, track progress visually on a Kanban board, and maintain personal daily calendars — all in one place accessible from any browser.
+- task tracking by status and assignee
+- sprint/month planning
+- dashboard reporting
+- personal calendars
+- admin approval and role management
+- a floating AI assistant that summarizes project state and can help trigger safe updates
 
-Anyone can view the dashboard and board without logging in. Only approved team members can create, edit, or delete content.
-
----
-
-## 2. Capabilities at a Glance
-
-| Feature | Description |
-|---------|-------------|
-| **Kanban Board** | Visual task board with To Do, In Progress, Review, Done columns |
-| **Task Search** | Real-time search by title, description, labels, or assignee |
-| **Task Comments** | Threaded comments on each task |
-| **Member Filter** | Filter board to see one person's tasks (like Jira) |
-| **Task Management** | Create tasks with title, description, priority, assignee, month, labels, due date |
-| **Month Planning** | Create monthly work periods, track active vs completed months |
-| **Team Members** | Add, edit, remove team members with avatar colors |
-| **Dashboard** | Charts for monthly velocity, task status distribution, work per person |
-| **Personal Calendar** | Private 24-hour daily schedule per user (spreadsheet style) |
-| **User Authentication** | Secure login with username and password |
-| **Password Management** | Users change own password; admins reset any user's password |
-| **Role-based Access** | Guests view only; editors and admins can edit; admins manage users |
-| **Admin Panel** | Approve registrations, change roles, reset passwords, remove users |
-| **Data Cleanup** | Bulk delete old completed tasks, months, calendar events |
+The app is designed to be simple, browser-based, and easy to run locally without Docker or platform-specific deployment files.
 
 ---
 
-## 3. User Roles Explained
+## 2. Feature summary
 
-| Role | Who they are | What they can do |
-|------|-------------|-----------------|
-| **Guest** | Not logged in | View board, dashboard, months, team — read only |
-| **Pending** | Registered but not approved | Same as guest — cannot edit anything |
-| **Editor** | Approved team member | Full create/edit/delete on tasks, months, members + personal calendar |
-| **Admin** | Team lead / manager | Everything editors can + manage user accounts |
-
----
-
-## 4. How to Register & Become Admin
-
-### First User = Automatic Admin
-
-The **very first person to register** on the app is automatically made Admin. No setup required.
-
-**Steps:**
-1. Go to https://harikaranm21-teamtracker.hf.space
-2. Click **"Sign in"** in the sidebar
-3. Click **"Register"** below the sign-in form
-4. Enter a username, email, and password (min 8 characters)
-5. Click **"Register"**
-6. Since you are the first user, you are instantly logged in as **Admin**
-
-### Subsequent Users (Pending → Editor)
-
-All users who register after the first one start as **Pending** and cannot edit anything until approved.
-
-**How to approve:**
-1. Admin logs in
-2. Click **"Users"** tab in the sidebar (only visible to admins)
-3. Find the pending user — click the green **"Approve"** button
-4. They become an **Editor** and can now edit tasks, months, members
-
-### How to Make Someone an Admin
-
-1. Go to **Users** tab
-2. Find the user
-3. Use the role dropdown → select **"Admin"**
-4. They now have full admin access
+| Feature           | Details                                                        |
+| ----------------- | -------------------------------------------------------------- |
+| Kanban board      | To Do, In Progress, Review, Done columns                       |
+| Task controls     | Create, edit, move, assign, delete, due dates                  |
+| Project data      | Months, members, teams, tasks, comments                        |
+| Dashboard         | Stats, workload, status distribution, sprint trends            |
+| Personal calendar | User-specific blocks and time planning                         |
+| Access control    | Viewer, editor, admin enforcement                              |
+| AI assistant      | Project-aware chat assistant with confirmation before mutation |
+| Admin tools       | User approval, role changes, cleanup utilities                 |
 
 ---
 
-## 5. How to Use the Kanban Board
+## 3. Roles and permissions
 
-The board is the main workspace. Tasks are organized in 4 columns:
+| Role    | What they can do                                              |
+| ------- | ------------------------------------------------------------- |
+| Guest   | View public app pages only                                    |
+| Pending | Logged in, but waiting for approval                           |
+| Viewer  | Access their own tasks and shared project data                |
+| Editor  | Manage assigned work and project updates                      |
+| Admin   | Full access to user approval, roles, teams, and admin actions |
 
-```
-To Do → In Progress → Review → Done
-```
-
-### Viewing the Board
-- Anyone (even without login) can see the board
-- Tasks show title, priority badge, labels, assignee avatar, and due date
-
-### Searching Tasks
-- A **search bar** is at the top of the board (next to the Board title)
-- Type any keyword to filter tasks by title, description, labels, or assignee name
-- Click ✕ to clear the search
-- Works together with the member filter
-
-### Creating a Task (Editor/Admin only)
-1. Click **"+ New Task"** (top right) or **"Add task"** at the bottom of any column
-2. Fill in:
-   - **Title** — required
-   - **Description** — optional notes
-   - **Status** — which column it starts in
-   - **Priority** — High (red), Medium (orange), Low (blue)
-   - **Assignee** — which team member owns this
-   - **Month** — which monthly period this belongs to
-   - **Labels** — comma-separated tags (e.g. frontend, bug, feature)
-   - **Due Date** — optional deadline
-3. Click **"Create Task"**
-
-### Moving Tasks
-- **Drag and drop** a task card to another column
-- Or edit the task and change the Status dropdown
-
-### Due Date Color Coding on Task Cards
-- 🔴 **Red** = Overdue (past the due date)
-- 🟠 **Orange** = Due today or tomorrow
-- ⚫ **Gray** = Future date
-
-### Filtering by Person (Member Filter)
-Above the board columns you'll see filter chips for each team member:
-- Click a **person's name** → see only their tasks
-- Click **"All"** → back to full view
-
-### Editing a Task
-- Click the **pencil icon** on any task card
-- Make changes → click **"Save Changes"**
-- Scroll down in the edit dialog to see **Comments** on that task
-
-### Task Comments
-- Open any existing task to edit it → scroll to the bottom
-- You'll see all existing comments with the username and time
-- **Post a comment:** type in the text box → click **"Post"** (or Cmd+Enter)
-- **Delete a comment:** click the red trash icon (only the comment author or admin can delete)
-- Comments are visible to everyone but only editors/admins can post
-
-### Deleting a Task
-- Click the **trash icon** on any task card
-- Confirm in the dialog
+The first registered user receives admin access automatically.
 
 ---
 
-## 6. How to Use Months (Sprint Planning)
+## 4. Registering and getting started
 
-Months represent work periods — typically one calendar month.
+1. Open the app in the browser.
+2. Click Sign in.
+3. Switch to Register.
+4. Create a username and password.
+5. Submit the form.
 
-### Creating a Month
-1. Click **"Months"** tab in sidebar
-2. Click **"+ New Month"**
-3. Enter:
-   - **Name** — e.g. "July 2026"
-   - **Start Date** — first day of the month
-   - **End Date** — last day of the month
-   - **Status** — Active or Completed
-4. Click **"Create Month"**
-
-### Month Status
-- **Active** — month is currently in progress
-- **Completed** — month is finished
-- Status is set manually — change it via the edit (pencil) button
-
-### Assigning Tasks to a Month
-When creating or editing a task, select the month from the **"Month"** dropdown.
-
-### Viewing Monthly Velocity
-Go to the **Dashboard** tab → the "Monthly Velocity" bar chart shows how many tasks were completed vs total per month.
+If you are the first account, you become the admin automatically. Later users begin as pending until approved.
 
 ---
 
-## 7. How to Manage Team Members
+## 5. Working with the board
 
-### Adding a Member
-1. Click **"Team"** tab in sidebar
-2. Click **"Add Member"**
-3. Enter name and email → click **"Add Member"**
+The main workspace is the Kanban board.
 
-Note: When any user registers and logs in, they are automatically added as a team member.
+### Task columns
 
-### Editing a Member
-1. Click the **pencil icon** next to their name
-2. Change name or email → click **"Save Changes"**
+Tasks move between:
 
-### Removing a Member
-1. Click the **trash icon** next to their name
-2. Confirm → their tasks become unassigned
+- To Do
+- In Progress
+- Review
+- Done
 
----
+### Creating a task
 
-## 8. How to Use the Personal Calendar
+1. Click New Task.
+2. Enter title and details.
+3. Select assignee, status, priority, month, labels, and due date.
+4. Save the task.
 
-Each logged-in user has a **private calendar** — only you can see your own events.
+### Editing a task
 
-### Layout
-- **Rows** = dates (split into two groups per month: days 1–15 and 16–end)
-- **Columns** = hours (12am to 11pm, full 24 hours)
-- Scroll horizontally to see all hours
+- Open the task card actions.
+- Update title, status, assignee, due date, and other values.
+- Save changes.
 
-### Adding an Event
-**Method 1 — Click a cell:**
-- Click any empty hour cell → dialog opens pre-filled with that time
-- Fill in title, type, start/end time → click "Add Event"
+### Moving tasks
 
-**Method 2 — Drag across cells:**
-- Hold mouse down on a cell and drag right across multiple hours
-- Blue highlight shows selection
-- Release → dialog opens with the full span pre-filled (e.g. 2pm–6pm)
+- Drag tasks between columns.
+- Or update task status from the task edit dialog.
 
-**Method 3 — Add Event button:**
-- Click "+ Add Event" (top right) for manual entry
+### Task filters
 
-### Event Types and Colors
-| Type | Color | Use for |
-|------|-------|---------|
-| Task | Purple | Work items |
-| Meeting | Red | Calls, standups, meetings |
-| Reminder | Orange | Reminders, deadlines |
-| Other | Green | Personal events |
+- Search by title, description, label, or assignee.
+- Filter by team member or active view.
 
-### Spanning Multiple Hours
-A 4-hour task (e.g. 2pm–6pm) renders as one wide colored block spanning 4 cells. Edit it by clicking the block.
+### Comments
 
-### Sleep Schedule
-Instead of manually adding sleep to every day:
-1. Click **"Set Sleep"** button (blue, top right)
-2. Choose sleep time (e.g. 10pm) and wake time (e.g. 8am)
-3. Click **"Apply to all [Month] days"**
-4. Blue sleep blocks appear on every day of the month — 10pm–midnight (night) and 12am–8am (morning)
-
-### Editing/Deleting Events
-- **Edit** — click on any event block → dialog opens pre-filled
-- **Delete** — click the red trash icon on the event block
+Task comments are available in the task details/edit flow. Admins and editors are typically the ones who can manage task data depending on the permissions model.
 
 ---
 
-## 9. Dashboard
+## 6. Months and sprint planning
 
-The dashboard is visible to everyone (no login needed).
+Months represent planning periods for the project. Each task can belong to a month/sprint period.
 
-| Chart | What it shows |
-|-------|--------------|
-| **Total Tasks** | Count of all tasks |
-| **Open Tasks** | Tasks not yet done |
-| **In Progress** | Tasks currently in progress |
-| **Completed** | Tasks marked Done |
-| **Team Members** | Total member count |
-| **Active Months** | Currently active monthly periods |
-| **Monthly Velocity** | Bar chart: total vs completed tasks per month |
-| **Tasks by Status** | Pie chart of task distribution across statuses |
-| **Work by Assignee** | Horizontal bar chart showing tasks per person |
+### Typical flow
+
+1. Create or select a month.
+2. Assign tasks to that period.
+3. Track active versus completed months.
+4. Use the dashboard to compare activity and completion trends.
 
 ---
 
-## 10. Admin: Managing Users
+## 7. Team members and teams
 
-Only admins see the **"Users"** tab in the sidebar.
+The app supports team membership and work ownership.
 
-### Approving Pending Users
-1. Go to **Users** tab → **Users** sub-tab
-2. Pending users show an orange "pending" badge
-3. Click **"Approve"** → they become Editor
-4. Or use the role dropdown to assign any role
+### Add a member
 
-### Changing User Roles
-Use the dropdown next to any user:
-- **Pending** → cannot edit anything
-- **Editor** → full edit access
-- **Admin** → full access + user management
+- Create a user account and log in.
+- Or add a member manually from the team management flow.
 
-### Resetting a User's Password
-If someone forgets their password:
-1. Go to **Users** tab → find the user
-2. Click the **key icon** 🔑 next to their name
-3. Enter a new password (min 8 characters) → click **"Reset Password"**
-4. Share the new password with them securely (message, call, etc.)
-5. They can then log in and change it themselves from their profile
+### Assign work
 
-### Removing a User
-Click the red trash icon → confirm.
-Their tasks remain but become unassigned.
-
-### Data Cleanup Tab
-Go to **Users** tab → click **"Data Cleanup"** sub-tab to bulk delete old data.
+- Select a project member while creating or editing a task.
+- Tasks then appear in relevant member filters and workload views.
 
 ---
 
-## 11. How Data is Stored (Persistence)
+## 8. Dashboard and reporting
 
-Your data is stored in a **SQLite database** file at `/data/teamtracker.db` inside the hosting environment.
+The dashboard gives a high-level view of current project health.
 
-The `/data` path is connected to a **Hugging Face Storage Bucket** (TeamTracker-storage) which persists across restarts. This means:
+Typical dashboard information includes:
 
-- ✅ Users, tasks, months, members, calendar events all survive app restarts
-- ✅ Data is permanently stored in the HF bucket
-- ✅ No data loss when the Space sleeps and wakes up
+- total tasks
+- task distribution by status
+- workload by assignee
+- active months
+- velocity and completion trends
 
----
-
-## 12. What Happens When Storage is Full
-
-The HF Storage Bucket starts at a free tier limit. If storage runs low:
-
-### How to check current usage
-Go to your HF Space → **Settings** → **Git Storage Usage** — this shows how much is used.
-
-### What to do when storage is full
-
-**Option 1 — Clean old data**
-- Delete completed tasks that are no longer needed
-- Remove old months that are done
-- Clear calendar events from past months
-
-**Option 2 — Export and reset**
-1. Download the database (see Section 13)
-2. Delete old records manually
-3. Re-upload the cleaned database
-
-**Option 3 — Upgrade HF bucket**
-HF buckets can be expanded. Go to your HF account → Buckets → expand storage (may require payment).
+This is useful for weekly reviews and planning discussions.
 
 ---
 
-## 13. Backing Up and Transferring Data
+## 9. Personal calendar
 
-Your database is a single file: `teamtracker.db`
+Each user has a personal calendar view for scheduling work and personal blocks.
 
-### Downloading the database from HF
-Since the app runs on HF, you can't directly download the DB from the browser. Options:
+Features include:
 
-**Option A — Use HF Datasets**
-Push the database to a private HF dataset as a backup.
-
-**Option B — Run locally**
-If you need the data locally:
-1. Clone the repo: `git clone https://github.com/harikaranm21/TeamTracker.git`
-2. Copy the data you need by manually re-entering it (for small datasets)
-
-**Option C — Export as JSON (future feature)**
-Currently the app doesn't have an export button — this can be added if needed.
-
-### Moving to another hosting service
-If you ever move away from HF:
-1. Get the database file from the bucket
-2. Set it up on the new server with `DB_PATH` pointing to it
+- per-day scheduling across hours
+- event creation by click or drag selection
+- event types and colors
+- personal calendar blocks separated from shared project data
 
 ---
 
-## 14. Running Locally (on your laptop)
+## 10. AI assistant
+
+The app includes a floating project assistant that uses the live project context to answer project questions and help with task-related actions.
+
+### What it can do
+
+- summarize project health
+- explain task counts and workload
+- answer sprint or team questions using live data
+- help prepare task creation requests
+- help with updates like rename, due date, status change, assignee changes
+
+### Safety model
+
+The assistant is designed to work conservatively:
+
+- It uses the current project snapshot as context.
+- It does not freely mutate project data without confirmation.
+- It respects role-based access rules.
+- Real writes happen only after user confirmation and permission checks.
+
+This keeps the AI useful while preventing accidental destructive changes.
+
+---
+
+## 11. Admin operations
+
+Admins can manage:
+
+- pending user approval
+- role updates
+- member and team assignments
+- project data cleanup operations
+- user management tasks
+
+Cleanup tools are available for maintenance but should be used intentionally because they remove old record sets.
+
+---
+
+## 12. Setup and running locally
+
+### Install
 
 ```bash
-# Clone
-git clone https://github.com/harikaranm21/TeamTracker.git
+git clone <repo-url>
 cd TeamTracker
-
-# Install
 npm install
+cp .env.example .env
+```
 
-# Build
+### Configure environment
+
+Update `.env` with your settings before running the app.
+
+```env
+PORT=3333
+JWT_SECRET=replace-with-a-long-random-secret
+NODE_ENV=production
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+### Build and run
+
+```bash
 npm run build
-
-# Start
 npm start
 ```
 
-App runs at: **http://localhost:3333**
+Open:
 
-### Sharing on same WiFi network
-```bash
-# Find your IP
-ipconfig getifaddr en0
+```text
+http://localhost:3333
 ```
-Share: `http://YOUR_IP:3333` — anyone on same WiFi can access it.
 
 ---
 
+## 13. Development commands
+
+```bash
+npm run build:client
+npm run build:server
+npm run build
+npm start
+npm test
+```
+
+Use the client/server split when you want faster iteration during UI or backend changes.
+
+---
+
+## 14. Deployment model
+
+This repo is intentionally not built around Docker, Procfile, or Railway-specific config.
+
+It is a standard Node.js project, so it can be deployed on:
+
+- a VM or VPS
+- a standard Node hosting service
+- a platform where the app is started with `npm install` and `npm start`
+- a compatible hosting environment with persistent storage for SQLite
+
+If you deploy remotely, ensure:
+
+- the app process remains alive
+- `JWT_SECRET` is set
+- `NODE_ENV=production` is set
+- the database path is persistent if needed
+
+---
+
+## 15. Database and persistence
+
+The app uses SQLite for its database. The default local database is created in the app data location and can also be moved via the configured `DB_PATH` environment variable.
+
+For production hosting, keep the database on persistent storage so it survives restarts.
+
+---
+
+## 16. Common usage examples
+
+### Example 1: update a task status
+
+A user can move the task board card or edit the task and set the new status.
+
+### Example 2: ask the assistant to summarize the project
+
+Use the floating AI assistant to ask:
+
+- What is the current workload?
+- Which tasks are overdue?
+- Which sprint is active?
+- Who is assigned the most tasks?
+
+### Example 3: ask the assistant to create or change a task
+
+The assistant can prepare the action and ask for confirmation before performing it, so the change is deliberate and permission-aware.
+
+---
+
+## 17. Files to know
+
+Important project areas include:
+
+- `src/client/App.tsx` — app shell and navigation
+- `src/client/components/ProjectAssistant.tsx` — floating assistant
+- `src/client/components/Dashboard.tsx` — dashboard analytics
+- `src/server/server.ts` — server boot and routes
+- `src/server/routes/` — backend API routes
+- `src/server/storage/` — database and persistence logic
+
+---
+
+## 18. Notes for maintainers
+
+- Keep production secrets in `.env` and never commit them.
+- Do not rely on generated bundle files as source code.
+- Prefer the local Node workflow unless your host specifically requires a different deployment model.
+- The newer assistant behavior is part of the live product, so update docs whenever the assistant workflow changes.
+
+---
+
+## _Last updated: 2026-08-31_
+
 ## 15. Environment Variables
 
-| Variable | Purpose | Value |
-|----------|---------|-------|
-| `NODE_ENV` | Environment mode | `production` |
-| `PORT` | Port number | `7860` (HF) or `3333` (local) |
-| `JWT_SECRET` | Login token secret | Long random string |
-| `DB_PATH` | Database file path | `/data/teamtracker.db` |
+| Variable     | Purpose            | Value                         |
+| ------------ | ------------------ | ----------------------------- |
+| `NODE_ENV`   | Environment mode   | `production`                  |
+| `PORT`       | Port number        | `7860` (HF) or `3333` (local) |
+| `JWT_SECRET` | Login token secret | Long random string            |
+| `DB_PATH`    | Database file path | `/data/teamtracker.db`        |
 
 ---
 
@@ -418,15 +365,15 @@ Yes — the app works in any mobile browser. Go to https://harikaranm21-teamtrac
 
 ## 17. Tech Stack (for developers)
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | Node.js 18 + Express + TypeScript |
-| Frontend | React 18 + Radix UI + Recharts |
-| Database | SQLite via better-sqlite3 |
-| Auth | JWT tokens (httpOnly cookies) + bcrypt |
-| Hosting | Hugging Face Spaces (Docker) |
-| Storage | HF Storage Bucket mounted at /data |
-| Source | GitHub: harikaranm21/TeamTracker |
+| Layer    | Technology                             |
+| -------- | -------------------------------------- |
+| Backend  | Node.js 18 + Express + TypeScript      |
+| Frontend | React 18 + Radix UI + Recharts         |
+| Database | SQLite via better-sqlite3              |
+| Auth     | JWT tokens (httpOnly cookies) + bcrypt |
+| Hosting  | Hugging Face Spaces (Docker)           |
+| Storage  | HF Storage Bucket mounted at /data     |
+| Source   | GitHub: harikaranm21/TeamTracker       |
 
 ---
 
@@ -437,6 +384,7 @@ Yes — the app works in any mobile browser. Go to https://harikaranm21-teamtrac
 ### The Full Workflow
 
 Every code change follows this exact sequence:
+
 ```
 Edit file → Build → Test locally → Commit to GitHub → Push to HF → HF rebuilds automatically
 ```
@@ -448,30 +396,37 @@ Edit file → Build → Test locally → Commit to GitHub → Push to HF → HF 
 If you're making changes from a **different laptop** (not the one where the project was originally set up), you need to do a one-time setup first:
 
 **Step 1 — Clone the repo:**
+
 ```bash
 git clone https://github.com/harikaranm21/TeamTracker.git
 cd TeamTracker
 ```
 
 **Step 2 — Install dependencies:**
+
 ```bash
 npm install
 ```
 
 **Step 3 — Add the Hugging Face remote** (this is the key step the new laptop doesn't know about):
+
 ```bash
 git remote add space https://Harikaranm21:YOUR_HF_TOKEN@huggingface.co/spaces/Harikaranm21/TeamTracker
 ```
 
 Replace `YOUR_HF_TOKEN` with your HF access token. Get it from:
+
 - Go to https://huggingface.co/settings/tokens
 - Click **New token** → Role: **Write** → Generate → Copy
 
 **Step 4 — Verify both remotes are set up:**
+
 ```bash
 git remote -v
 ```
+
 You should see:
+
 ```
 origin   https://github.com/harikaranm21/TeamTracker.git (fetch)
 origin   https://github.com/harikaranm21/TeamTracker.git (push)
@@ -533,24 +488,32 @@ The text "Kanban Board" lives in `src/client/App.tsx`. Open it in any code edito
 Search for: `Kanban Board`
 
 You'll find this line:
+
 ```tsx
-<Text size="5" weight="bold">Kanban Board</Text>
+<Text size="5" weight="bold">
+  Kanban Board
+</Text>
 ```
 
 Change it to:
+
 ```tsx
-<Text size="5" weight="bold">Board</Text>
+<Text size="5" weight="bold">
+  Board
+</Text>
 ```
 
 **Step 2 — Build the changes**
 
 Open your terminal, go to the project folder:
+
 ```bash
 cd /Users/harikarm/TeamTracker
 npm run build
 ```
 
 Wait for:
+
 ```
 Client bundle built successfully
 ```
@@ -586,21 +549,21 @@ Your live site at `https://harikaranm21-teamtracker.hf.space` updates automatica
 
 ### Where to Find What (File Map)
 
-| What you want to change | File to edit |
-|------------------------|-------------|
-| Any UI text / labels | `src/client/App.tsx` or the relevant component |
-| Board page | `src/client/components/KanbanBoard.tsx` |
-| Task card appearance | `src/client/components/TaskCard.tsx` |
-| Task create/edit form | `src/client/components/TaskDialog.tsx` |
-| Months page | `src/client/components/SprintPanel.tsx` |
-| Team members page | `src/client/components/MembersPanel.tsx` |
-| Dashboard charts | `src/client/components/Dashboard.tsx` |
-| Calendar | `src/client/components/CalendarView.tsx` |
-| Login / Register page | `src/client/components/LoginPage.tsx` |
-| Admin panel | `src/client/components/AdminPanel.tsx` |
-| API calls (frontend) | `src/client/api.ts` |
-| Server routes (backend) | `src/server/routes/` folder |
-| Database schema | `src/server/storage/db.ts` |
+| What you want to change   | File to edit                                    |
+| ------------------------- | ----------------------------------------------- |
+| Any UI text / labels      | `src/client/App.tsx` or the relevant component  |
+| Board page                | `src/client/components/KanbanBoard.tsx`         |
+| Task card appearance      | `src/client/components/TaskCard.tsx`            |
+| Task create/edit form     | `src/client/components/TaskDialog.tsx`          |
+| Months page               | `src/client/components/SprintPanel.tsx`         |
+| Team members page         | `src/client/components/MembersPanel.tsx`        |
+| Dashboard charts          | `src/client/components/Dashboard.tsx`           |
+| Calendar                  | `src/client/components/CalendarView.tsx`        |
+| Login / Register page     | `src/client/components/LoginPage.tsx`           |
+| Admin panel               | `src/client/components/AdminPanel.tsx`          |
+| API calls (frontend)      | `src/client/api.ts`                             |
+| Server routes (backend)   | `src/server/routes/` folder                     |
+| Database schema           | `src/server/storage/db.ts`                      |
 | Sidebar navigation labels | `src/client/App.tsx` — look for the `NAV` array |
 
 ---
@@ -611,18 +574,24 @@ Your live site at `https://harikaranm21-teamtracker.hf.space` updates automatica
 
 File: `src/client/App.tsx`
 Find:
+
 ```tsx
 { id: 'members', label: 'Team', icon: <Users size={16} /> },
 ```
+
 Change `'Team'` to `'Members'`.
 
 **Change the app name "TeamTracker"**
 
 File: `src/client/App.tsx`
 Find:
+
 ```tsx
-<Text size="4" weight="bold">TeamTracker</Text>
+<Text size="4" weight="bold">
+  TeamTracker
+</Text>
 ```
+
 Change to whatever you want.
 
 **Add a new column to the Kanban board**
@@ -655,6 +624,7 @@ git push space main
 ```
 
 If you changed server files (`src/server/`), always do the full build:
+
 ```bash
 npm run build
 ```
@@ -664,6 +634,7 @@ npm run build
 ### Checking if HF Deployed Successfully
 
 After `git push space main`:
+
 1. Go to https://huggingface.co/spaces/Harikaranm21/TeamTracker
 2. Click the **"App"** tab
 3. You'll see **"Building"** status while it rebuilds
@@ -708,22 +679,21 @@ git push space main
 npm test
 ```
 
-
 ---
 
 ## 19. What's in .gitignore and Why
 
 These files are intentionally excluded from GitHub:
 
-| File/Folder | Reason |
-|-------------|--------|
-| `node_modules/` | 300MB+ of packages — regenerated by `npm install` |
-| `dist/` | Compiled server JS — regenerated by `npm run build` |
-| `public/bundle.js`, `bundle.css` | Built client files — regenerated by `npm run build` |
-| `data/`, `*.db` | SQLite database with real user data and passwords — must stay private |
+| File/Folder                      | Reason                                                                |
+| -------------------------------- | --------------------------------------------------------------------- |
+| `node_modules/`                  | 300MB+ of packages — regenerated by `npm install`                     |
+| `dist/`                          | Compiled server JS — regenerated by `npm run build`                   |
+| `public/bundle.js`, `bundle.css` | Built client files — regenerated by `npm run build`                   |
+| `data/`, `*.db`                  | SQLite database with real user data and passwords — must stay private |
 
 **Do not commit these.** The `.gitignore` is correct as-is. HF Spaces builds everything fresh from source using Docker, so no built files need to be committed.
 
 ---
 
-*Last updated: June 2026*
+_Last updated: June 2026_

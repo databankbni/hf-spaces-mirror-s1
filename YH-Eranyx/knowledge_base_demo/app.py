@@ -79,18 +79,13 @@ EMBEDDINGS = HuggingFaceEmbeddings(
 TEXTS = {
     "en": {
         "page_title": "RAG Knowledge Base",
-        "header_title": "# Chat With Your PDF (RAG Demo)",
+        "header_title": "# Chat With Your PDF",
         "header_body": (
-            "Upload a PDF document, wait for it to be indexed, then ask questions "
-            "about its contents. Answers are generated **only** from the uploaded "
-            "document using retrieval-augmented generation.\n\n"
-            "**How to use:**\n"
-            "1. Upload a PDF in the panel on the left.\n"
-            "2. Wait for the status to confirm indexing is complete.\n"
-            "3. Ask your questions in the chat on the right.\n\n"
-            "> You must upload and index a document before chatting."
+            "Upload a document, then ask questions. "
+            "Answers are generated **only** from your PDF."
         ),
         "language_label": "Language",
+        "edu_label": "What is this technology?",
         "upload_pdf": "Upload PDF",
         "status": "Status",
         "status_default": "No document indexed yet.",
@@ -98,14 +93,15 @@ TEXTS = {
             "Indexed '{filename}' ({pages} page(s), {chunks} chunk(s)). "
             "You can start asking questions now."
         ),
-        "usage_label": "Daily token budget (all users)",
+        "usage_label": "Daily budget",
         "usage_ok": "Used {used:,} / {limit:,} tokens today. Remaining: {remaining:,}.",
         "usage_hit": (
             "Today's global token limit has been reached "
             "({used:,} / {limit:,}). Please try again tomorrow."
         ),
-        "chat_label": "Answers",
+        "chat_label": "Chat",
         "chat_placeholder": "Ask a question about your uploaded document...",
+        "chat_empty": "Upload a PDF on the left, then ask a question about it here.",
         "send": "Send",
         "clear": "Clear",
         "err_upload_first": "Please upload a PDF file first.",
@@ -217,17 +213,10 @@ If you want to explore how this could fit your organization — internal knowled
     },
     "zh": {
         "page_title": "RAG 知識庫",
-        "header_title": "# 與您的 PDF 對話（RAG 示範）",
-        "header_body": (
-            "上傳 PDF 文件並等待建立索引後，即可針對文件內容提問。"
-            "回答**僅**會根據您上傳的文件，透過檢索增強生成（RAG）產生。\n\n"
-            "**使用方式：**\n"
-            "1. 在左側面板上傳 PDF。\n"
-            "2. 等待狀態顯示索引完成。\n"
-            "3. 在右側聊天視窗開始提問。\n\n"
-            "> 請先上傳並建立文件索引，才能開始對話。"
-        ),
+        "header_title": "# 與您的 PDF 對話",
+        "header_body": "上傳文件後即可提問。回答**僅**會根據您的 PDF 產生。",
         "language_label": "語言",
+        "edu_label": "這是什麼技術？",
         "upload_pdf": "上傳 PDF",
         "status": "狀態",
         "status_default": "尚未建立任何文件索引。",
@@ -235,14 +224,15 @@ If you want to explore how this could fit your organization — internal knowled
             "已建立索引「{filename}」（{pages} 頁，{chunks} 個區塊）。"
             "現在可以開始提問了。"
         ),
-        "usage_label": "每日 Token 配額（全體使用者共用）",
+        "usage_label": "每日配額",
         "usage_ok": "今日已使用 {used:,} / {limit:,} tokens。剩餘：{remaining:,}。",
         "usage_hit": (
             "今日全域 Token 上限已達標（{used:,} / {limit:,}）。"
             "請明天再試。"
         ),
-        "chat_label": "回答",
+        "chat_label": "對話",
         "chat_placeholder": "請輸入關於您上傳文件的問題...",
+        "chat_empty": "請先在左側上傳 PDF，再針對文件內容提問。",
         "send": "送出",
         "clear": "清除",
         "err_upload_first": "請先上傳 PDF 文件。",
@@ -713,6 +703,76 @@ def answer_question(message, history, vectorstore, lang):
 # Gradio UI
 # ---------------------------------------------------------------------------
 
+# Layout-only CSS. Do not override Gradio text/background colors — Hugging Face
+# Spaces often uses dark mode, and light-card overrides make the text vanish.
+CUSTOM_CSS = """
+footer, .footer, .built-with {
+  display: none !important;
+}
+
+.gradio-container {
+  max-width: 1200px !important;
+}
+
+#header-row {
+  align-items: center !important;
+}
+
+#composer-row {
+  align-items: flex-end !important;
+}
+
+#header-md h1 {
+  margin: 0 0 0.4rem 0;
+}
+
+#header-md p {
+  margin: 0;
+}
+
+#edu-panel {
+  margin-top: 1.25rem;
+}
+
+#chatbot {
+  min-height: 420px;
+}
+
+html.in-iframe,
+html.in-iframe body {
+  height: 100%;
+  overflow: auto;
+}
+
+html.in-iframe .gradio-container {
+  max-width: 100% !important;
+  padding: 10px 12px 24px !important;
+}
+"""
+
+HEAD_HTML = """
+<script>
+(function () {
+  function markEmbed() {
+    try {
+      if (window.self !== window.top) {
+        document.documentElement.classList.add("in-iframe");
+      }
+    } catch (e) {
+      document.documentElement.classList.add("in-iframe");
+    }
+  }
+  markEmbed();
+  document.addEventListener("DOMContentLoaded", markEmbed);
+})();
+</script>
+"""
+
+APP_THEME = gr.themes.Soft(
+    primary_hue="indigo",
+    secondary_hue="pink",
+)
+
 
 def on_upload(pdf_file, lang):
     """Handle a new upload: build the store and reset the chat."""
@@ -727,12 +787,14 @@ def switch_language(lang, indexed_info):
         gr.update(label=t(lang, "upload_pdf")),
         gr.update(label=t(lang, "status"), value=get_indexed_status(lang, indexed_info)),
         gr.update(label=t(lang, "usage_label"), value=usage_text(lang)),
-        gr.update(label=t(lang, "chat_label")),
         gr.update(
             label=t(lang, "chat_label"),
-            placeholder=t(lang, "chat_placeholder"),
+            placeholder=t(lang, "chat_empty"),
         ),
-        gr.update(value=t(lang, "send")),
+        gr.update(
+            placeholder=t(lang, "chat_placeholder"),
+            submit_btn=t(lang, "send"),
+        ),
         gr.update(value=t(lang, "clear")),
         gr.update(label=t(lang, "language_label")),
         edu_markdown(lang),
@@ -751,7 +813,6 @@ def apply_browser_language(request: gr.Request):
         usage,
         chat,
         msg_box,
-        submit,
         clear,
         _lang_switch,
         edu,
@@ -765,65 +826,90 @@ def apply_browser_language(request: gr.Request):
         usage,
         chat,
         msg_box,
-        submit,
         clear,
         lang_switch,
         edu,
     )
 
 
-with gr.Blocks(title=TEXTS[DEFAULT_LANG]["page_title"]) as demo:
+with gr.Blocks(
+    title=TEXTS[DEFAULT_LANG]["page_title"],
+    fill_width=True,
+) as demo:
     language_state = gr.State(value=DEFAULT_LANG)
     vectorstore_state = gr.State(value=None)
     indexed_info_state = gr.State(value=None)
 
-    with gr.Row(equal_height=True):
-        with gr.Column(scale=5):
-            header_md = gr.Markdown(header_markdown(DEFAULT_LANG))
-        with gr.Column(scale=1, min_width=180):
+    with gr.Row(elem_id="header-row"):
+        with gr.Column(scale=6):
+            header_md = gr.Markdown(
+                header_markdown(DEFAULT_LANG),
+                elem_id="header-md",
+            )
+        with gr.Column(scale=2, min_width=220):
             language_switch = gr.Radio(
                 choices=[("English", "en"), ("繁體中文", "zh")],
                 value=DEFAULT_LANG,
                 label=TEXTS[DEFAULT_LANG]["language_label"],
                 interactive=True,
+                elem_id="language-switch",
             )
 
-    with gr.Row():
-        with gr.Column(scale=1):
+    with gr.Row(elem_id="main-row"):
+        with gr.Column(scale=4, min_width=260, elem_id="sidebar"):
             pdf_input = gr.File(
                 label=TEXTS[DEFAULT_LANG]["upload_pdf"],
                 file_types=[".pdf"],
                 file_count="single",
+                elem_id="pdf-input",
             )
             status_box = gr.Textbox(
                 label=TEXTS[DEFAULT_LANG]["status"],
                 value=TEXTS[DEFAULT_LANG]["status_default"],
                 interactive=False,
+                lines=2,
+                max_lines=3,
+                elem_id="status-box",
             )
             usage_box = gr.Textbox(
                 label=TEXTS[DEFAULT_LANG]["usage_label"],
                 value=usage_text(DEFAULT_LANG),
                 interactive=False,
-            )
-
-        with gr.Column(scale=2):
-            chatbot = gr.Chatbot(
-                height=480,
-                label=TEXTS[DEFAULT_LANG]["chat_label"],
-            )
-            msg = gr.Textbox(
-                label=TEXTS[DEFAULT_LANG]["chat_label"],
-                placeholder=TEXTS[DEFAULT_LANG]["chat_placeholder"],
                 lines=2,
+                max_lines=2,
+                elem_id="usage-box",
             )
-            with gr.Row():
-                submit_btn = gr.Button(TEXTS[DEFAULT_LANG]["send"], variant="primary")
-                clear_btn = gr.ClearButton(
-                    [msg, chatbot],
-                    value=TEXTS[DEFAULT_LANG]["clear"],
-                )
 
-    edu_md = gr.Markdown(edu_markdown(DEFAULT_LANG))
+        with gr.Column(scale=8, min_width=360, elem_id="chat-col"):
+            with gr.Group(elem_id="chat-room"):
+                chatbot = gr.Chatbot(
+                    height=460,
+                    label=TEXTS[DEFAULT_LANG]["chat_label"],
+                    placeholder=TEXTS[DEFAULT_LANG]["chat_empty"],
+                    autoscroll=True,
+                    layout="bubble",
+                    buttons=["copy"],
+                    feedback_options=None,
+                    elem_id="chatbot",
+                )
+                with gr.Row(elem_id="composer-row"):
+                    msg = gr.Textbox(
+                        show_label=False,
+                        placeholder=TEXTS[DEFAULT_LANG]["chat_placeholder"],
+                        lines=1,
+                        max_lines=4,
+                        submit_btn=TEXTS[DEFAULT_LANG]["send"],
+                        scale=1,
+                        elem_id="composer",
+                    )
+                    clear_btn = gr.ClearButton(
+                        [msg, chatbot],
+                        value=TEXTS[DEFAULT_LANG]["clear"],
+                        scale=0,
+                        min_width=88,
+                    )
+
+    edu_md = gr.Markdown(edu_markdown(DEFAULT_LANG), elem_id="edu-panel")
 
     language_outputs = [
         language_state,
@@ -833,7 +919,6 @@ with gr.Blocks(title=TEXTS[DEFAULT_LANG]["page_title"]) as demo:
         usage_box,
         chatbot,
         msg,
-        submit_btn,
         clear_btn,
         language_switch,
         edu_md,
@@ -841,6 +926,16 @@ with gr.Blocks(title=TEXTS[DEFAULT_LANG]["page_title"]) as demo:
 
     # Auto-detect language from the browser's Accept-Language header on first load.
     # Manual radio changes still override for the rest of the session.
+    demo.load(
+        None,
+        None,
+        None,
+        js=(
+            "() => { try { if (window.self !== window.top) "
+            "document.documentElement.classList.add('in-iframe'); } "
+            "catch (e) { document.documentElement.classList.add('in-iframe'); } }"
+        ),
+    )
     demo.load(
         fn=apply_browser_language,
         inputs=None,
@@ -865,11 +960,6 @@ with gr.Blocks(title=TEXTS[DEFAULT_LANG]["page_title"]) as demo:
         ],
     )
 
-    submit_btn.click(
-        fn=answer_question,
-        inputs=[msg, chatbot, vectorstore_state, language_state],
-        outputs=[msg, chatbot, usage_box],
-    )
     msg.submit(
         fn=answer_question,
         inputs=[msg, chatbot, vectorstore_state, language_state],
@@ -878,4 +968,11 @@ with gr.Blocks(title=TEXTS[DEFAULT_LANG]["page_title"]) as demo:
 
 
 if __name__ == "__main__":
-    demo.queue().launch(server_name="0.0.0.0", server_port=7860)
+    demo.queue().launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+        theme=APP_THEME,
+        css=CUSTOM_CSS,
+        head=HEAD_HTML,
+        footer_links=[],
+    )

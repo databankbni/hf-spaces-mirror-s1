@@ -149,6 +149,90 @@ _TITLE_NAME = re.compile(r"^#\s*(.+?)\s+[-—–]\s*FY\d{4}\s+annual report", re
 _WS = re.compile(r"\s+")
 
 
+# --------------------------------------------------------------------------- #
+# Sentence boundaries. A bare `[.!?]` split is wrong for these filings and the
+# damage is visible on the tearsheet: შპს პეის ჯორჯია (204413759) states its
+# business as "…, პორტის სახით ოპერირება, გემების აგენტირება და ა. შ.." and the
+# note came out ending "…გემების აგენტირება და ა." — cut inside "და ა. შ."
+# ("etc."). The same naive split also breaks inside a cross-reference number
+# ("შენიშვნაში 2.3.") and after an initial ("ბნ. ირაკლი").
+#
+# Georgian is caseless, so the usual "next word is capitalised" disambiguation is
+# unavailable. These three rules cover what actually occurs in the corpus.
+# --------------------------------------------------------------------------- #
+
+#: Multi-letter abbreviations whose trailing period is never a full stop.
+_ABBREV_WORDS = frozenset({
+    "გვ", "მაგ", "იხ", "სხვ", "ათ", "მლნ", "მლრდ", "დაახლ", "ბნ", "ქნ",
+    "no", "nr", "etc", "inc", "ltd", "llc", "jsc", "mr", "mrs", "ms", "dr",
+    "vs", "approx", "fig", "art",
+})
+#: The word a period is attached to (letters first, so "4." is not a "token").
+_TOKEN_BEFORE_DOT = re.compile(r"([^\W\d_][\w\-]*)\.$")
+#: A following single letter that itself carries a period — i.e. we are in the
+#: middle of a chained initialism ("ა. შ.", "ე. წ."), not at a sentence end.
+_INITIAL_CHAIN = re.compile(r"^\s*[^\W\d_]\.")
+
+
+def _ends_sentence(text: str, i: int) -> bool:
+    """True when ``text[i]`` (a terminator character) really ends a sentence.
+
+    Only "." is ambiguous; "!" / "?" / "।" always terminate. Three rejections:
+
+    * a dot binding two digits — ``2.3``, ``№4.5`` — is punctuation inside a
+      token (this alone truncated windows at every note cross-reference);
+    * a single-letter token followed by another dotted single letter — the
+      INTERNAL dot of "ა. შ." / "ე. წ.". The dot that *completes* the initialism
+      is deliberately still a terminator, because "და ა.შ." ("etc.") almost
+      always closes the sentence it appears in;
+    * a known multi-letter abbreviation ("ბნ.", "გვ.", "მლნ.", "etc.").
+    """
+    if text[i] != ".":
+        return True
+    nxt = text[i + 1: i + 5]
+    if nxt[:1].isdigit():
+        return False
+    m = _TOKEN_BEFORE_DOT.search(text[max(0, i - 14): i + 1])
+    if not m:
+        return True
+    tok = m.group(1)
+    if len(tok) == 1 and _INITIAL_CHAIN.match(nxt):
+        return False
+    return tok.lower() not in _ABBREV_WORDS
+
+
+#: How far back :func:`_extract_window` looks for the clause boundary to open on.
+#: Same 180 that :func:`_anchor_sentence`'s span was swept to; see the rationale
+#: in ``_extract_window``.
+_HEAD_SEARCH = 180
+
+#: Candidate inter-sentence gaps: whitespace after a terminator, or a blank line.
+#: Every "." candidate is then re-tested by :func:`_ends_sentence`.
+_BREAK_CANDIDATE = re.compile(r"(?<=[.!?।])\s+|\n[ \t]*\n")
+
+
+def _sentence_breaks(text: str) -> list[tuple[int, int]]:
+    """(start, end) of every real inter-sentence gap in ``text``."""
+    out: list[tuple[int, int]] = []
+    for m in _BREAK_CANDIDATE.finditer(text):
+        i = m.start() - 1
+        if i >= 0 and text[i] in ".!?।" and not _ends_sentence(text, i):
+            continue
+        out.append((m.start(), m.end()))
+    return out
+
+
+def _split_sentences(text: str) -> list[str]:
+    """Abbreviation-aware sentence split."""
+    parts: list[str] = []
+    prev = 0
+    for start, end in _sentence_breaks(text):
+        parts.append(text[prev:start])
+        prev = end
+    parts.append(text[prev:])
+    return parts
+
+
 @dataclass(frozen=True)
 class ActivityNote:
     """Result of slicing one report. ``text`` is None when no anchor fired.
@@ -208,13 +292,32 @@ def _extract_window(body: str, pos: int, before: int, after: int) -> tuple[int, 
     bank-account mention → 'ბანკი', credit terms → 'საკრედიტო', 'ferro' substrings),
     so sweeping it in wrecks deterministic precision. Keep it out.
     """
-    # Start: a little before the anchor, snapped to the previous sentence/line
-    # start so we open on a clause boundary (usually "კომპანიის …" / "The …").
-    lo = max(0, pos - before)
-    seg = body[lo:pos]
-    cut = max(seg.rfind("\n"), seg.rfind(". "), seg.rfind("।"), seg.rfind(":"))
-    if cut != -1:
-        lo = lo + cut + 1
+    # Start: snapped to the previous sentence/line start so we open on a clause
+    # boundary (usually "კომპანიის …" / "The …").
+    #
+    # The search radius is _HEAD_SEARCH, NOT ``before``, and the two are different
+    # numbers on purpose. Looking only ``before`` (40) characters back means that
+    # whenever the clause opens further away than that, no boundary is found and
+    # the window silently starts 40 characters before the anchor — mid-word, mid
+    # clause. That is how "კომპანიის და მისი შვილობილი კომპანიის (ერთად ჯგუფი)
+    # ძირითად საქმიანობას წარმოადგენს …" reached the tearsheet as "მისი შვილობილი
+    # კომპანიის …" (204413759): the sentence start was 52 characters back, 12
+    # past the horizon. The lead-in is 52 characters in that filing and routinely
+    # longer, so the radius is set to the same 180 that `_anchor_sentence` was
+    # swept to. rfind semantics keep this conservative — a nearer boundary still
+    # wins, so a wider radius only ever helps a window that had none.
+    #
+    # With no boundary anywhere in radius, open AT the anchor rather than at an
+    # arbitrary offset: dropping a few words of lead-in is a smaller error than
+    # emitting a fragment that starts with a dangling pronoun.
+    lo0 = max(0, pos - _HEAD_SEARCH)
+    seg = body[lo0:pos]
+    cut = -1
+    for m in re.finditer(r"\n|\.(?=\s)|।|:", seg):
+        if m.group() == "." and not _ends_sentence(seg, m.start()):
+            continue
+        cut = m.start() + 1
+    lo = lo0 + cut if cut != -1 else pos
     # End: the first sentence terminator after the anchor. If that terminator is
     # right on the anchor (the anchor is a bare header like "ძირითადი საქმიანობა."),
     # extend to the next one so the real statement isn't cut to nothing.
@@ -225,7 +328,8 @@ def _extract_window(body: str, pos: int, before: int, after: int) -> tuple[int, 
     # that actually determines the sector. Only sentence-ending punctuation or a
     # blank-line paragraph break ends the activity clause; line-wraps are later
     # collapsed to spaces by _WS.
-    ends = [m.end() for m in re.finditer(r"[.।!?]|\n[ \t]*\n", tail)]
+    ends = [m.end() for m in re.finditer(r"[.।!?]|\n[ \t]*\n", tail)
+            if _ends_sentence(tail, m.start())]
     if ends:
         take = ends[0]
         if take < 25 and len(ends) > 1:
@@ -251,6 +355,21 @@ _NOTE1_START = re.compile(
     r"|ზოგადი\s+ინფორმაცია|ზოგადი\s+ცნობები|საერთო\s+ინფორმაცია"
     r"|ინფორმაცია\s+(?:საწარმოს|კომპანიის)\s+შესახებ"
     r"|საწარმოს\s+შესახებ\s+ინფორმაცია"
+    # NOT here, and it was measured: "ჯგუფი და მისი საქმიანობა" / "The Group and
+    # its operations" is the other standard Note-1 heading, and adding it routes
+    # 478 more reports onto the (better) sentence-selection path. It still loses.
+    # A/B over all 6,726 extracted reports, scored on how many yield a note that
+    # passes the DESCRIPTION gate (assess_note + predicate + business object):
+    #     baseline                          3815
+    #     + marker, region opens ON it      3801   (+24 / -38)
+    #     + marker, region opens AFTER it   3814   (+24 / -25)
+    # The first variant fails because these headings carry no trailing
+    # punctuation, so the heading glues onto the first real sentence and the
+    # blob outscores the activity statement ("კომპანია და მისი საქმიანობა შპს
+    # კორიდა … დაარსდა 2006 წელს …" beat ბიზნესის უმთავრეს საქმიანობას …).
+    # Opening after the heading fixes that and still nets -1. Neither earns the
+    # change; revisit only with a sentence-splitter that treats a short unpunctuated
+    # line as a heading break.
     r"|\bnote\s*1\b|general\s+information|corporate\s+information"
     r"|organisation\s+and\s+(?:its\s+)?principal\s+activit"
     r"|organization\s+and\s+(?:its\s+)?principal\s+activit)",
@@ -408,7 +527,6 @@ _ACTIVITY_BOILERPLATE = re.compile(
     r"|თანამშრომლების\s+გადაადგილებ",
     re.IGNORECASE,
 )
-_SENT_SPLIT = re.compile(r"(?<=[.!?])\s+|\n[ \t]*\n")
 
 # NOT a reject class: the Georgian oblique forms ``საქმიანობისთვის`` (for the
 # activity) / ``საქმიანობის შედეგად`` (as a result of the activity) look like a
@@ -491,11 +609,12 @@ def _anchor_sentence(body: str, pos: int, span: int = 180) -> str:
     lo = max(0, pos - span)
     seg = body[lo:pos + span]
     off = pos - lo
+    breaks = _sentence_breaks(seg)
     start = 0
-    for m in _SENT_SPLIT.finditer(seg[:off]):
-        start = m.end()
-    rest = _SENT_SPLIT.search(seg[off:])
-    end = off + (rest.start() if rest else len(seg) - off)
+    for b_start, b_end in breaks:
+        if b_end <= off:
+            start = b_end
+    end = next((b_start for b_start, _ in breaks if b_start >= off), len(seg))
     return _WS.sub(" ", seg[start:end]).strip()
 
 
@@ -538,7 +657,7 @@ def _best_sentence_in_region(region_text: str,
     therefore a HARD demotion, ranked ahead of both other signals.
     """
     best: tuple[tuple[int, int, int, float], str] | None = None
-    for raw in _SENT_SPLIT.split(region_text):
+    for raw in _split_sentences(region_text):
         s = _WS.sub(" ", raw).strip()
         if len(s) < 40 or not _ACTIVITY_TOPIC.search(s):
             continue

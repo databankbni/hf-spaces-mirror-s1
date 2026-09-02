@@ -1,0 +1,54 @@
+{% extends 'hf_space/layout/base.html' %}
+
+{% block content %}
+<main class="provider-workspace" style="display: flex; flex-direction: column; gap: 30px; padding: 30px; width: 100%;">
+
+    <!-- ========================================== -->
+    <!-- FORM SECTION (GRID LAYOUT)                 -->
+    <!-- ========================================== -->
+    <section class="input-panel" style="width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 25px;">
+        <h2 style="margin-bottom: 25px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">Data Request: {{ provider_name|default:"NOAA CDO" }}</h2>
+
+        <form method="POST" action="?dataset={{ current_dataset }}">
+            {% csrf_token %}
+
+            <div class="form-input-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; align-items: start;">
+
+                <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                    <label for="dataset-select" style="font-weight: 600; font-size: 0.9rem; color: #1e293b;">Dataset Collection</label>
+                    <select id="dataset-select" onchange="window.location.href='?dataset=' + this.value" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.9rem; background-color: #fff;">
+                        {% for key, name in datasets.items %}
+                            <option value="{{ key }}" {% if key == current_dataset %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {% include 'hf_space/forms/noaa.html' %}
+
+            </div>
+
+            <button type="submit" style="margin-top: 30px; width: 100%; padding: 14px; background-color: #1d4ed8; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1.05rem; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 6px rgba(29, 78, 216, 0.2);">
+                Execute NOAA Request
+            </button>
+        </form>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- OUTPUT SECTION (FULL WIDTH BOTTOM)         -->
+    <!-- ========================================== -->
+    <section class="visualization-panel" style="width: 100%; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 25px; display: flex; flex-direction: column; min-height: 400px;">
+        <h2 style="margin-bottom: 20px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">Output</h2>
+        
+        {% if output_data %}
+            <div class="output-container" style="flex: 1; margin-top: 10px;">
+                {% include 'hf_space/outputs/tabular_output.html' %}
+            </div>
+        {% else %}
+            <div class="empty-state" style="flex: 1; display: flex; align-items: center; justify-content: center; background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px;">
+                <p style="color: #64748b; font-size: 1.1rem; margin: 0;">System initialized. Awaiting query execution...</p>
+            </div>
+        {% endif %}
+    </section>
+
+</main>
+{% endblock %}

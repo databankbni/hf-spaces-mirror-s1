@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PastorTee Tracker — Kotoka Int'l Airport</title>
+<style>
+  :root{
+    --blue-900:#0b2a5b;
+    --blue-800:#123a75;
+    --blue-700:#1a4a8f;
+    --blue-600:#245da8;
+    --blue-500:#2f72c3;
+    --blue-400:#4b8fd8;
+    --blue-100:#e3eefb;
+    --blue-50:#f2f7fd;
+    --text:#12233d;
+    --text-muted:#5b6f8a;
+    --border:#dbe7f5;
+    --white:#ffffff;
+    --green:#1d9e6e;
+    --amber:#e0a124;
+    --red:#d64545;
+    --shadow:0 8px 30px rgba(11,42,91,.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:linear-gradient(180deg,var(--blue-50),#eef4fb 40%,var(--white));
+    color:var(--text);
+    min-height:100vh;
+  }
+  /* ===== Header ===== */
+  header{
+    background:linear-gradient(90deg,var(--blue-900),var(--blue-700));
+    color:var(--white);
+    padding:16px 26px;
+    display:flex;align-items:center;justify-content:space-between;
+    flex-wrap:wrap;gap:12px;
+    box-shadow:0 4px 20px rgba(11,42,91,.35);
+    border-bottom:3px solid var(--blue-500);
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{
+    width:46px;height:46px;border-radius:12px;
+    background:linear-gradient(135deg,var(--blue-400),var(--blue-600));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:22px;letter-spacing:1px;
+    box-shadow:0 4px 12px rgba(0,0,0,.25);
+  }
+  .brand h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+  .brand .sub{font-size:12.5px;opacity:.85;letter-spacing:.5px}
+  .header-right{display:flex;align-items:center;gap:16px}
+  .clock{
+    text-align:right;
+    background:rgba(255,255,255,.10);
+    padding:8px 16px;border-radius:10px;
+    border:1px solid rgba(255,255,255,.2);
+  }
+  .clock .t{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+  .clock .d{font-size:11.5px;opacity:.85}
+  /* ===== Airport card ===== */
+  .banner{
+    background:linear-gradient(120deg,var(--blue-800),var(--blue-500));
+    color:var(--white);
+    margin:20px 26px 0;
+    border-radius:16px;
+    padding:18px 24px;
+    display:flex;align-items:center;justify-content:space-between;
+    flex-wrap:wrap;gap:14px;
+    box-shadow:var(--shadow);
+  }
+  .banner .left{display:flex;align-items:center;gap:16px}
+  .banner .code{
+    font-size:34px;font-weight:800;letter-spacing:2px;
+    background:rgba(255,255,255,.15);
+    padding:4px 14px;border-radius:10px;
+    border:1px solid rgba(255,255,255,.3);
+  }
+  .banner h2{font-size:20px}
+  .banner .meta{opacity:.88;font-size:13px;margin-top:3px}
+  .banner .stats{display:flex;gap:22px}
+  .stat{text-align:center}
+  .stat .num{font-size:24px;font-weight:800}
+  .stat .lab{font-size:11.5px;opacity:.85;text-transform:uppercase;letter-spacing:1px}
+  /* ===== Toolbar ===== */
+  .toolbar{
+    margin:18px 26px 0;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .tabs{display:flex;background:var(--white);border-radius:12px;padding:4px;
+    box-shadow:var(--shadow);border:1px solid var(--border)}
+  .tab{background:none;border:none;cursor:pointer;padding:10px 20px;border-radius:9px;
+    font-size:14px;font-weight:600;color:var(--text-muted);transition:.15s}
+  .tab.active{background:var(--blue-600);color:var(--white)}
+  .tab:hover:not(.active){background:var(--blue-100)}
+  .search{flex:1;min-width:200px;display:flex;align-items:center;background:var(--white);
+    border:1px solid var(--border);border-radius:12px;padding:0 14px;box-shadow:var(--shadow)}
+  .search input{border:none;outline:none;background:none;padding:12px 8px;font-size:14px;width:100%}
+  .search .ic{color:var(--blue-600)}
+  .filter select{border:1px solid var(--border);border-radius:12px;padding:11px 12px;font-size:14px;
+    background:var(--white);color:var(--text);outline:none;cursor:pointer;box-shadow:var(--shadow)}
+  /* ===== Board ===== */
+  .board{margin:20px 26px;overflow:hidden;border-radius:16px;
+    background:var(--white);box-shadow:var(--shadow);border:1px solid var(--border)}
+  .board-head{
+    display:grid;grid-template-columns:115px 200px 1fr 150px 120px 150px;
+    background:var(--blue-800);color:var(--white);padding:13px 20px;
+    font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:700;gap:10px;
+  }
+  .board-head .th{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+  .board-head .th:hover{color:var(--blue-100)}
+  .rows{max-height:56vh;overflow-y:auto}
+  .row{
+    display:grid;grid-template-columns:115px 200px 1fr 150px 120px 150px;
+    align-items:center;padding:15px 20px;gap:10px;font-size:14px;
+    border-bottom:1px solid var(--border);transition:.12s;
+  }
+  .row:hover{background:var(--blue-50)}
+  .flight-no{font-weight:800;color:var(--blue-800);letter-spacing:.5px}
+  .airline{display:flex;align-items:center;gap:8px}
+  .tag{
+    width:26px;height:26px;border-radius:7px;font-size:11px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;color:var(--white);
+  }
+  .route{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  }
+  .city-code{font-weight:800;color:var(--text)}
+  .city-name{color:var(--text-muted);font-size:13px}
+  .times .time{font-weight:800;font-variant-numeric:tabular-nums;font-size:15px}
+  .times .date{font-size:12px;color:var(--text-muted)}
+  .status .pill{
+    display:inline-block;padding:6px 12px;border-radius:20px;font-weight:700;font-size:12.5px;
+    text-align:center;width:100%;
+  }
+  .st-ontime{background:var(--green);color:#fff}
+  .st-boarding{background:var(--amber);color:#fff;animation:pulse 1.4s infinite}
+  .st-departed{background:var(--blue-600);color:#fff}
+  .st-arrived{background:var(--blue-800);color:#fff}
+  .st-delayed{background:var(--red);color:#fff}
+  .st-landed{background:var(--green);color:#fff}
+  .st-delaying{background:var(--red);color:#fff}
+  .st-scheduled{background:var(--blue-100);color:var(--blue-800)}
+  .gate{padding:5px 10px;background:var(--blue-100);color:var(--blue-800);border-radius:8px;
+    font-weight:700;display:inline-block;min-width:54px;text-align:center}
+  .terminal{font-size:12px;color:var(--text-muted);margin-top:3px}
+  @keyframes pulse{50%{opacity:.55}}
+  /* ===== empty + footer ===== */
+  .no-result{padding:50px;text-align:center;color:var(--text-muted)}
+  .no-result .big{font-size:38px;margin-bottom:8px}
+  footer{
+    color:var(--text-muted);font-size:12.5px;text-align:center;padding:18px;
+    border-top:1px solid var(--border);margin-top:10px;
+  }
+  footer b{color:var(--blue-700)}
+  @media(max-width:900px){
+    .board-head,.row{grid-template-columns:110px 150px 1fr 130px;overflow-x:auto}
+    .board-head .th:nth-child(5),.board-head .th:nth-child(6),
+    .row .f-status,.row .f-gate{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">PT</div>
+    <div>
+      <h1>PastorTee Tracker</h1>
+      <div class="sub">Live Flight Information System</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="clock">
+      <div class="t" id="clock">--:--</div>
+      <div class="d" id="clockdate">Monday, Jan 1</div>
+    </div>
+  </div>
+</header>
+
+<div class="banner">
+  <div class="left">
+    <div class="code">ACC</div>
+    <div>
+      <h2>Kotoka International Airport (Accra Int'l)</h2>
+      <div class="meta">Accra, Ghana &nbsp;·&nbsp; 5.6037° N, 0.1670° W &nbsp;·&nbsp; IATA: ACC / ICAO: DGAA</div>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="num" id="sta">0</div><div class="lab">Inbound</div></div>
+    <div class="stat"><div class="num" id="std">0</div><div class="lab">Outbound</div></div>
+    <div class="stat"><div class="num" id="sact">0</div><div class="lab">Active</div></div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <div class="tabs">
+    <button class="tab active" data-mode="arrivals">✈ Arrivals</button>
+    <button class="tab" data-mode="departures">🛫 Departures</button>
+  </div>
+  <div class="search">
+    <span class="ic">🔍</span>
+    <input id="search" type="text" placeholder="Search flight no., airline, or city…">
+  </div>
+  <div class="filter">
+    <select id="statusFilter">
+      <option value="all">All statuses</option>
+      <option>On time</option>
+      <option>Boarding</option>
+      <option>Departed</option>
+      <option>Landed</option>
+      <option>Delayed</option>
+      <option>Scheduled</option>
+      <option>Arrived</option>
+    </select>
+  </div>
+</div>
+
+<div class="board">
+  <div class="board-head" id="boardHead"></div>
+  <div class="rows" id="rows"></div>
+</div>
+
+<footer>
+  <b>PastorTee Tracker</b> — Home base: Kotoka International Airport · ACC &nbsp;|&nbsp; Blue-White Corporate Edition &nbsp;|&nbsp;
+  Data simulated for demonstration &nbsp;|&nbsp; © 2026 PastorTee
+</footer>
+
+<script>
+const ACC = 'ACC';
+
+const AIRLINES = [
+  {name:'Ghana Airways', tag:'GKA', color:'#d64545', flavor:'Ghana'},
+  {name:'Emirates',      tag:'EK',  color:'#d64545'},
+  {name:'British Airways',tag:'BA', color:'#2f72c3'},
+  {name:'Ethiopian Airlines',tag:'ETH', color:'#1d9e6e'},
+  {name:'Air France',    tag:'AF',  color:'#2f72c3'},
+  {name:'KLM',           tag:'KLM', color:'#245da8'},
+  {name:'Qatar Airways', tag:'QR',  color:'#7a2248'},
+  {name:'Turkish Airlines',tag:'TK',color:'#d64545'},
+  {name:'Delta Airlines',tag:'DL',  color:'#b02a6b'},
+  {name:'Kenya Airways', tag:'KQ',  color:'#1d9e6e'},
+  {name:'RwandAir',      tag:'WB',  color:'#245da8'},
+  {name:'Air France-KLM',tag:'AF',  color:'#2f72c3'},
+];
+const CITIES = [
+  {code:'LHR',name:'London, UK'}, {code:'CDG',name:'Paris, France'},
+  {code:'AMS',name:'Amsterdam, NL'}, {code:'JFK',name:'New York, USA'},
+  {code:'IAD',name:'Washington, USA'}, {code:'ABJ',name:'Abidjan, Côte d’Ivoire'},
+  {code:'LOS',name:'Lagos, Nigeria'}, {code:'DKR',name:'Dakar, Senegal'},
+  {code:'ADD',name:'Addis Ababa, Ethiopia'}, {code:'NBO',name:'Nairobi, Kenya'},
+  {code:'DXB',name:'Dubai, UAE'}, {code:'DOH',name:'Doha, Qatar'},
+  {code:'IST',name:'Istanbul, Türkiye'}, {code:'KGL',name:'Kigali, Rwanda'},
+  {code:'FNA',name:'Freetown, Sierra Leone'}, {code:'CMN',name:'Casablanca, Morocco'},
+];
+
+// Generate simulated flights rolling on the hour around ACC local time.
+function buildFlights(now){
+  const flights=[];
+  const baseHour=new Date(now);
+  // arrivals spread across past/next 6 hours
+  for(let h=-6;h<=6;h++){
+    const count=1+Math.floor(Math.random()*2);
+    for(let i=0;i<count;i++){
+      const al=AIRLINES[Math.floor(Math.random()*AIRLINES.length)];
+      const city=CITIES[Math.floor(Math.random()*CITIES.length)];
+      // rotate 40 min around the hour
+      const mins=(h*60)+(Math.floor(Math.random()*45)+8);
+      const sch=new Date(now.getTime()+mins*60000);
+      const flightNo=al.tag+' '+(100+Math.floor(Math.random()*900));
+      const isArr=RANDOM_ARR();
+      // estimated time with delay drift
+      const delay=Math.random()<0.2 ? Math.floor(Math.random()*90)+10 : 0;
+      const est=new Date(sch.getTime()+delay*60000);
+      flights.push({
+        id:flightNo+'_'+sch.getTime()+'_'+Math.random(),
+        dir: isArr?'A':'D',
+        flight:flightNo, airline:al,
+        city:city,
+        scheduled:sch, estimated:est, delay:delay,
+        gate:'G'+(Math.floor(Math.random()*12)+1),
+        terminal:isArr?'T2':'T1',
+      });
+    }
+  }
+  return flights;
+}
+function RANDOM_ARR(){return Math.random()<0.6}
+
+function statusFor(f,now,dir){
+  const sch=f.scheduled, est=f.estimated;
+  // For arrivals shown
+  if(f.delay>0 && now<sch){
+    // delayed but not yet time
+    return dir==='A'?{t:'Delayed',cls:'st-delayed'}:{t:'Delayed',cls:'st-delayed'};
+  }
+  if(now>=est){
+    return dir==='A'?{t:'Landed',cls:'st-landed'}:{t:'Departed',cls:'st-departed'};
+  }
+  if(f.delay>0){
+    return {t:'Delayed',cls:'st-delayed'};
+  }
+  // something in active window
+  return {t:'Active',cls:'st-boarding'};
+}
+
+let flights=[];
+let mode='arrivals';
+let sortKey='scheduled';
+let sortDir=1;
+
+function airlineColor(a){
+  return {name:a.name, tag:a.tag, color:a.color};
+}
+
+function render(){
+  const now=new Date();
+  flights=buildFlights(now); // fresh simulation ticks
+  applyRender(now);
+}
+
+function applyRender(now){
+  const list=flights.filter(f=>f.dir===(mode==='arrivals'?'A':'D'));
+  const q=document.getElementById('search').value.trim().toLowerCase();
+  const sf=document.getElementById('statusFilter').value;
+
+  const filtered=list.filter(f=>{
+    if(q){
+      const hay=(f.flight+' '+f.airline.name+' '+f.city.code+' '+f.city.name).toLowerCase();
+      if(!hay.includes(q))return false;
+    }
+    if(sf!=='all'){
+      const st=statusFor(f,now,mode).t.toLowerCase();
+      if(st!==sf.toLowerCase())return false;
+    }
+    return true;
+  });
+
+  filtered.sort((a,b)=>{
+    let va,vb;
+    if(sortKey==='flight'){va=a.flight;vb=b.flight;return (va<vb?-1:1)*sortDir;}
+    if(sortKey==='airline'){va=a.airline.name;vb=b.airline.name;return (va<vb?-1:1)*sortDir;}
+    if(sortKey==='status'){va=statusFor(a,now,mode).t;vb=statusFor(b,now,mode).t;return (va<vb?-1:1)*sortDir;}
+    if(sortKey==='gate'){va=a.gate;vb=b.gate;return (va<vb?-1:1)*sortDir;}
+    // scheduled
+    return (a.scheduled-b.scheduled)*sortDir;
+  });
+
+  // stats
+  document.getElementById('sta').textContent=flights.filter(f=>f.dir==='A').length;
+  document.getElementById('std').textContent=flights.filter(f=>f.dir==='D').length;
+  document.getElementById('sact').textContent=flights.filter(f=>now>=f.scheduled && now<f.estimated).length;
+
+  const head=document.getElementById('boardHead');
+  head.innerHTML='';
+  const cols=[
+    {k:'flight',l:'FLIGHT'},
+    {k:'airline',l:'AIRLINE'},
+    {k:'',l:mode==='arrivals'?'ORIGIN':'DESTINATION'},
+    {k:'scheduled',l:'TIME'},
+    {k:'status',l:'STATUS'},
+    {k:'gate',l:'GATE / TERM'},
+  ];
+  cols.forEach(c=>{
+    const th=document.createElement('div');
+    th.className='th';
+    th.innerHTML=(c.k? (c.l)+' '+(sortKey===c.k?(sortDir===1?'↑':'↓'):'') : c.l);
+    if(c.k){th.onclick=()=>{ if(sortKey===c.k)sortDir*=-1; else {sortKey=c.k;sortDir=1;} applyRender(new Date()); };}
+    head.appendChild(th);
+  });
+
+  const rows=document.getElementById('rows');
+  rows.innerHTML='';
+  if(!filtered.length){
+    rows.innerHTML='<div class="no-result"><div class="big">🛩️</div><div>No flights match your filters.</div></div>';
+    return;
+  }
+  filtered.forEach(f=>{
+    const st=statusFor(f,now,mode);
+    const row=document.createElement('div');
+    row.className='row';
+    const timeStr=fmt(f.estimated);
+    const timeDate=f.estimated.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
+    row.innerHTML=`
+      <div class="flight-no">${f.flight}</div>
+      <div class="airline"><span class="tag" style="background:${f.airline.color}">${f.airline.tag.slice(0,2)}</span> ${f.airline.name}</div>
+      <div class="route"><span class="city-code">${f.city.code}</span><span class="city-name">${f.city.name}</span></div>
+      <div class="times"><div class="time">${timeStr}</div><div class="date">${timeDate}</div></div>
+      <div class="status"><span class="pill ${st.cls}">${st.t}</span></div>
+      <div class="gate-wrap"><span class="gate">${f.gate}</span><div class="terminal">${f.terminal}</div></div>
+    `;
+    rows.appendChild(row);
+  });
+}
+function fmt(d){
+  return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+}
+
+// clock
+function tickClock(){
+  const n=new Date();
+  document.getElementById('clock').textContent=n.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('clockdate').textContent=n.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+}
+
+// event wiring
+document.getElementById('search').addEventListener('input',()=>applyRender(new Date()));
+document.getElementById('statusFilter').addEventListener('change',()=>applyRender(new Date()));
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    mode=btn.dataset.mode;
+    applyRender(new Date());
+  });
+});
+
+// init
+tickClock();
+setInterval(tickClock,1000);
+setInterval(()=>applyRender(new Date()),15000);
+render();
+</script>
+</body>
+</html>
+<script data-huggingchat-badge="script">
+(function () {
+	try {
+		if (document.querySelector("[data-huggingchat-badge]:not(script)")) return;
+		var host = document.createElement("div");
+		host.setAttribute("data-huggingchat-badge", "");
+		var styles = [["all","initial"],["position","fixed"],["right","12px"],["bottom","12px"],["z-index","2147483647"],["display","block"],["visibility","visible"],["opacity","1"],["pointer-events","auto"],["width","auto"],["height","auto"],["margin","0"],["padding","0"],["max-width","none"],["max-height","none"],["transform","none"],["filter","none"],["clip-path","none"],["color-scheme","light"]];
+		for (var i = 0; i < styles.length; i++) {
+			host.style.setProperty(styles[i][0], styles[i][1], "important");
+		}
+		host.attachShadow({ mode: "closed" }).innerHTML = "<style>\n:host { all: initial; }\na {\n  display: flex;\n  align-items: center;\n  gap: 5px;\n  box-sizing: border-box;\n  height: 26px;\n  padding: 0 9px 0 7px;\n  border-radius: 999px;\n  border: 1px solid rgba(0, 0, 0, 0.07);\n  background: rgba(255, 255, 255, 0.92);\n  -webkit-backdrop-filter: saturate(180%) blur(8px);\n  backdrop-filter: saturate(180%) blur(8px);\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);\n  color: #111827;\n  font: 500 11px/1 ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  letter-spacing: 0.01em;\n  text-decoration: none;\n  white-space: nowrap;\n  opacity: 0.72;\n  transition: opacity 0.15s ease, transform 0.15s ease;\n}\na:hover, a:focus-visible { opacity: 1; transform: translateY(-1px); }\nsvg { width: 14px; height: 14px; flex: none; }\n@media print { a { display: none; } }\n<\/style><a href=\"https://huggingface.co/chat\" target=\"_blank\" rel=\"noopener noreferrer nofollow\"><svg viewBox=\"0 0 32 32\" fill=\"none\" aria-hidden=\"true\"><path d=\"M16.0006 25.9992C13.8266 25.999 11.7118 25.2901 9.97686 23.9799C8.2419 22.6698 6.98127 20.8298 6.38599 18.7388C5.79071 16.6478 5.89323 14.4198 6.678 12.3923C7.46278 10.3648 8.88705 8.64837 10.735 7.50308C12.5829 6.35779 14.7538 5.84606 16.9187 6.04544C19.0837 6.24481 21.1246 7.14442 22.7323 8.60795C24.34 10.0715 25.4268 12.0192 25.8281 14.1559C26.2293 16.2926 25.9232 18.5019 24.9561 20.449C24.7703 20.8042 24.7223 21.2155 24.8211 21.604L25.4211 23.8316C25.4803 24.0518 25.4805 24.2837 25.4216 24.5039C25.3627 24.7242 25.2468 24.925 25.0856 25.0862C24.9244 25.2474 24.7235 25.3633 24.5033 25.4222C24.283 25.4811 24.0512 25.4809 23.831 25.4217L21.6034 24.8217C21.2172 24.7248 20.809 24.7729 20.4558 24.9567C19.0683 25.6467 17.5457 26.0068 16.0006 26.0068V25.9992Z\" fill=\"currentColor\"/><path d=\"M9.62598 16.0013C9.62598 15.3799 10.1294 14.8765 10.7508 14.8765C11.3721 14.8765 11.8756 15.3799 11.8756 16.0013C11.8756 17.0953 12.3102 18.1448 13.0838 18.9184C13.8574 19.692 14.9069 20.1266 16.001 20.1267C17.095 20.1267 18.1445 19.692 18.9181 18.9184C19.6918 18.1448 20.1264 17.0953 20.1264 16.0013C20.1264 15.3799 20.6299 14.8765 21.2512 14.8765C21.8725 14.8765 22.3759 15.3799 22.3759 16.0013C22.3759 17.6921 21.7046 19.3137 20.509 20.5093C19.3134 21.7049 17.6918 22.3762 16.001 22.3762C14.3102 22.3762 12.6885 21.7049 11.4929 20.5093C10.2974 19.3137 9.62598 17.6921 9.62598 16.0013Z\" fill=\"#fff\"/><\/svg><span>Made with HuggingChat<\/span><\/a>";
+		function attach() {
+			var parent = document.body || document.documentElement;
+			if (parent && host.parentNode !== parent) parent.appendChild(host);
+		}
+		attach();
+		// Artifacts that rewrite document.body wholesale would drop the badge.
+		if (document.body && typeof MutationObserver === "function") {
+			new MutationObserver(attach).observe(document.body, { childList: true });
+		} else {
+			document.addEventListener("DOMContentLoaded", attach);
+		}
+	} catch (e) {}
+})();
+</script>

@@ -23,13 +23,13 @@ export function getUserById(id: number): User | undefined {
 
 export function getAllUsers(): Omit<User, 'password_hash'>[] {
   const db = getDb();
-  return db.prepare('SELECT id, username, email, role, created_at FROM users ORDER BY created_at ASC').all() as Omit<User, 'password_hash'>[];
+  return db.prepare('SELECT id, username, email, role, team_id, created_at FROM users ORDER BY created_at ASC').all() as Omit<User, 'password_hash'>[];
 }
 
 export function getPendingUsers(): Omit<User, 'password_hash'>[] {
   const db = getDb();
   return db
-    .prepare("SELECT id, username, email, role, created_at FROM users WHERE role = 'pending' ORDER BY created_at ASC")
+    .prepare("SELECT id, username, email, role, team_id, created_at FROM users WHERE role = 'pending' ORDER BY created_at ASC")
     .all() as Omit<User, 'password_hash'>[];
 }
 
@@ -58,6 +58,21 @@ export function updateUserRole(id: number, role: User['role']): Omit<User, 'pass
   return getUserSafe(id);
 }
 
+export function updateUserTeam(id: number, teamId: number | null): Omit<User, 'password_hash'> | undefined {
+  const db = getDb();
+  db.prepare('UPDATE users SET team_id = ? WHERE id = ?').run(teamId, id);
+  const user = getUserSafe(id);
+  if (user) {
+    db.prepare('UPDATE members SET team_id = ? WHERE email = ?').run(teamId, user.email);
+    db.prepare(`
+      UPDATE tasks SET team_id = ?, updated_at = datetime('now')
+      WHERE assignee_id = (SELECT id FROM members WHERE email = ?)
+        AND (team_id IS NULL OR team_id = ?)
+    `).run(teamId, user.email, teamId);
+  }
+  return user;
+}
+
 export function deleteUser(id: number): boolean {
   const db = getDb();
   const result = db.prepare('DELETE FROM users WHERE id = ?').run(id);
@@ -74,6 +89,6 @@ export function updateUserPassword(id: number, newPassword: string): Omit<User, 
 function getUserSafe(id: number): Omit<User, 'password_hash'> | undefined {
   const db = getDb();
   return db
-    .prepare('SELECT id, username, email, role, created_at FROM users WHERE id = ?')
+    .prepare('SELECT id, username, email, role, team_id, created_at FROM users WHERE id = ?')
     .get(id) as Omit<User, 'password_hash'> | undefined;
 }

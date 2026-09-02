@@ -11,6 +11,7 @@ votes on, because a classifier's confidence on wrongly-normalised features is
 arbitrary.
 """
 
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -111,8 +112,24 @@ def _lstm_component(artifact):
 
             comp.align = align_classes(artifact.classes, comp.classes)
             if comp.align is None:
+                warnings.warn(
+                    f"sequence model for {getattr(artifact, 'name', '?')} "
+                    f"rejected: class lists do not align; serving the "
+                    f"ensemble alone", RuntimeWarning, stacklevel=2)
                 comp = None
-    except Exception:
+    except Exception as exc:
+        # An UNLOADABLE component and a deliberately absent one both end
+        # up as None here, and a served pipeline missing its sequence
+        # stage looks entirely normal from the outside -- that is exactly
+        # how the model_v2_4 outage survived a release. The tests prove
+        # liveness on a developer's machine; only a line in the log can
+        # prove it in the deployment, where the plausible failures are
+        # environmental (a git-LFS pointer served in place of the graph,
+        # onnxruntime missing from the image, a truncated upload).
+        warnings.warn(
+            f"sequence model for {getattr(artifact, 'name', '?')} failed "
+            f"to load ({type(exc).__name__}: {exc}); serving the ensemble "
+            f"alone", RuntimeWarning, stacklevel=2)
         comp = None
     _lstm_cache[key] = comp
     return comp

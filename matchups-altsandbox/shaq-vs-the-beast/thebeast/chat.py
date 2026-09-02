@@ -163,8 +163,11 @@ TOOLS: list[dict] = [
         "name": "get_best_bets",
         "description": (
             "The ranked plays for a slate — the same ones in the Best bets "
-            "panel, built by pricing Sleeper's posted props and lines against "
-            "this app's simulations and keeping where they disagree. Each play "
+            "panel, built by pricing the configured props feed against "
+            "this app's simulations and keeping where they disagree. The reply "
+            "names that feed in `source`, and carries a `pricing_caveat` when "
+            "the feed posts no odds of its own — repeat it rather than "
+            "presenting the price as one the user can go and take. Each play "
             "carries the model's probability, the book's implied probability, "
             "the edge between them, and whether it clears the bar. Call it for "
             "any question about what to bet, parlays, props, edges or value — "
@@ -672,13 +675,19 @@ def _tool_simulate_what_if(repo, season: int, args: dict) -> dict:
 
 
 def _tool_get_best_bets(repo, season: int, args: dict) -> dict:
-    """The ranked plays, from the same simulations and the posted Sleeper prices.
+    """The ranked plays, from the same simulations and the same posted prices.
 
     A parlay question used to make the assistant run games itself and assemble
     something out of raw projections, which is both a second opinion nobody
     asked for and how it ended up quoting prices that never existed. The panel
-    already does this properly — simulate, price against Sleeper, rank by edge —
-    so the assistant reads that instead of re-deriving it.
+    already does this properly — simulate, price against the configured feed,
+    rank by edge — so the assistant reads that instead of re-deriving it.
+
+    Which feed that is travels back in `source`, along with the pricing caveat.
+    PrizePicks posts no odds — the payout is on the slip — so the `price` on
+    every play is a break-even we derived rather than a number anyone quoted,
+    and an assistant that read it as a quote would send someone looking for a
+    line that does not exist.
     """
     from .api.main import BEST_BETS_WAIT_SECONDS, CURRENT_SEASON, PARK_SEASON
     from .betting.best_bets import build_best_bets
@@ -720,13 +729,21 @@ def _tool_get_best_bets(repo, season: int, args: dict) -> dict:
             "clears_the_bar": bool(b.get("has_edge")),
             "live": bool(b.get("is_live")),
         })
+    from .data.sources.prizepicks import BOOK
+
+    book = getattr(report, "book", "") or BOOK
+    caveat = getattr(report, "pricing_note", "")
     return {
         "date": report.date,
         "games_priced": report.games_priced,
         "props_available": report.props_available,
         "plays": rows,
-        "source": ("Sleeper's posted prices against this app's simulations; "
-                   "edge is model probability minus the book's implied"),
+        "source": (f"{book}'s posted prices against this app's simulations; "
+                   f"edge is model probability minus the book's implied"),
+        # Only present when the feed posts no odds. Sent to the assistant
+        # verbatim so it repeats the caveat rather than reporting a derived
+        # break-even as a price the user could go and take.
+        "pricing_caveat": caveat or None,
         "note": ("Nothing cleared the minimum edge — these are the closest, "
                  "not recommendations.") if rows and not any(
                      r["clears_the_bar"] for r in rows) else None,
@@ -780,12 +797,9 @@ def _graded_summary(record: dict, detail: bool) -> dict:
     return summary
 
 
-def _game_date(game_id: str) -> Optional[date]:
-    """The date a game id starts with, or None if it doesn't start with one."""
-    try:
-        return datetime.strptime(game_id[:10], "%Y-%m-%d").date()
-    except (ValueError, IndexError):
-        return None
+# Lenient on purpose: this is what lets "2026-08-03 STL at NYY" resolve rather
+# than being refused for not being a well-formed id.
+from .gameid import date_of as _game_date  # noqa: E402
 
 
 def _unavailable(repo, teams: list, season: int) -> dict:
@@ -1162,8 +1176,10 @@ directly; there is nothing to look up.
 Everything here comes from one place: the simulations this app ran for \
 tonight's slate. `get_slate` hands you all of them at once and is where to \
 start for anything about tonight. `get_best_bets` prices those same \
-simulations against Sleeper's posted lines and ranks the disagreements — use \
-it for every question about bets, parlays, props, edges or value.
+simulations against the posted lines and ranks the disagreements — use \
+it for every question about bets, parlays, props, edges or value. It names \
+the book it used; never name a different one, and never quote a price it \
+didn't give you.
 
 To compare players across games — most strikeouts, most likely to homer, most \
 hits — use `get_projections`. It reads the same simulations and sorts them for \

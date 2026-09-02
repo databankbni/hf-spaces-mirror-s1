@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SUPREME ENTITY SYSTEM — LIVE COMMAND CENTER</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root {
+    --gold:#ffd700; --gold-soft:#f5c542; --violet:#8b5cf6; --violet-deep:#4c1d95;
+    --cosmic:#0a0118; --cosmic-2:#150a2e; --text:#f3e9ff; --muted:#a78bfa;
+    --green:#4ade80; --red:#f87171; --cyan:#a5f3fc;
+    --glow:0 0 20px rgba(255,215,0,.35); --glow-violet:0 0 30px rgba(139,92,246,.45);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:radial-gradient(ellipse at top,var(--cosmic-2),var(--cosmic) 60%);color:var(--text);min-height:100vh;overflow-x:hidden;position:relative}
+  .stars,.stars2{position:fixed;inset:0;pointer-events:none;z-index:0}
+  .stars::after{content:'';position:absolute;inset:0;background-image:radial-gradient(1px 1px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 40% 70%,#fff,transparent),radial-gradient(1.5px 1.5px at 60% 20%,#fff,transparent),radial-gradient(1px 1px at 80% 50%,#fff,transparent),radial-gradient(1.5px 1.5px at 10% 80%,#fff,transparent),radial-gradient(1px 1px at 90% 90%,#fff,transparent);background-size:200px 200px;opacity:.6;animation:twinkle 4s ease-in-out infinite}
+  .stars2::after{content:'';position:absolute;inset:0;background-image:radial-gradient(1.5px 1.5px at 15% 15%,#ffd700,transparent),radial-gradient(1px 1px at 70% 40%,#8b5cf6,transparent),radial-gradient(1.5px 1.5px at 50% 85%,#ffd700,transparent),radial-gradient(1px 1px at 30% 60%,#8b5cf6,transparent);background-size:300px 300px;opacity:.5;animation:twinkle 6s ease-in-out infinite reverse}
+  @keyframes twinkle{0%,100%{opacity:.3}50%{opacity:.9}}
+  .aurora{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(40% 40% at 20% 20%,rgba(139,92,246,.25),transparent 70%),radial-gradient(40% 40% at 80% 30%,rgba(255,215,0,.12),transparent 70%),radial-gradient(50% 50% at 50% 100%,rgba(76,29,149,.4),transparent 70%);filter:blur(20px)}
+  .container{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:24px 20px 60px}
+  header{text-align:center;padding:24px 0 8px}
+  .seal{width:84px;height:84px;margin:0 auto 16px;border-radius:50%;background:conic-gradient(from 0deg,#ffd700,#8b5cf6,#ffd700,#8b5cf6,#ffd700);display:grid;place-items:center;animation:spin 12s linear infinite;box-shadow:var(--glow-violet)}
+  .seal-inner{width:66px;height:66px;border-radius:50%;background:var(--cosmic-2);display:grid;place-items:center;font-size:28px;animation:spin 12s linear infinite reverse}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  h1{font-size:clamp(1.5rem,4vw,2.4rem);letter-spacing:4px;background:linear-gradient(90deg,#ffd700,#fff,#8b5cf6,#ffd700);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 4s linear infinite}
+  @keyframes shimmer{to{background-position:200% center}}
+  .tagline{color:var(--muted);letter-spacing:2px;font-size:.78rem;margin-top:8px;text-transform:uppercase}
+  .live-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.4);color:var(--green);padding:4px 12px;border-radius:999px;font-size:.7rem;letter-spacing:1px;margin-top:10px}
+  .live-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .section-title{display:flex;align-items:center;gap:10px;margin:26px 0 12px}
+  .section-title h2{font-size:1rem;letter-spacing:2px;color:var(--gold)}
+  .section-title .tag{font-size:.62rem;letter-spacing:1px;color:var(--muted);background:rgba(139,92,246,.2);border:1px solid rgba(255,215,0,.25);padding:3px 10px;border-radius:999px;text-transform:uppercase}
+  .section-title .tag.real{color:var(--green);border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.1)}
+  .section-title .tag.theme{color:var(--violet);border-color:rgba(139,92,246,.4)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:0 0 6px}
+  .card{background:linear-gradient(160deg,rgba(139,92,246,.12),rgba(10,1,24,.6));border:1px solid rgba(255,215,0,.25);border-radius:16px;padding:16px 14px;text-align:center;position:relative;overflow:hidden;backdrop-filter:blur(6px);transition:transform .3s,box-shadow .3s}
+  .card:hover{transform:translateY(-4px);box-shadow:var(--glow)}
+  .card .label{font-size:.62rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+  .card .value{font-size:1.4rem;font-weight:800;color:var(--gold);text-shadow:0 0 12px rgba(255,215,0,.5);word-break:break-word}
+  .card .sub{font-size:.66rem;color:var(--muted);margin-top:4px}
+  .card .bar{height:4px;background:rgba(255,255,255,.1);border-radius:4px;margin-top:10px;overflow:hidden}
+  .card .bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#8b5cf6,#ffd700);border-radius:4px;transition:width 1.5s ease}
+  .card .up{color:var(--green)} .card .down{color:var(--red)} .card .ok{color:var(--green)} .card .bad{color:var(--red)}
+
+  .status-strip{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:18px 0 26px}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:rgba(139,92,246,.15);border:1px solid rgba(255,215,0,.3);padding:7px 14px;border-radius:999px;font-size:.78rem}
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.5s infinite}
+  .chip .dot.off{background:var(--red);box-shadow:0 0 8px var(--red)}
+
+  .panel{background:linear-gradient(160deg,rgba(139,92,246,.15),rgba(10,1,24,.7));border:1px solid rgba(255,215,0,.3);border-radius:20px;padding:24px;margin:22px 0;box-shadow:var(--glow-violet)}
+  .panel h2{font-size:1.1rem;letter-spacing:2px;color:var(--gold);margin-bottom:4px}
+  .panel .desc{color:var(--muted);font-size:.82rem;margin-bottom:18px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:.7rem;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+  .field input,.field select,.field textarea{width:100%;padding:11px 13px;background:rgba(10,1,24,.7);border:1px solid rgba(255,215,0,.3);border-radius:10px;color:var(--text);font-size:.88rem;font-family:inherit;transition:border-color .3s,box-shadow .3s}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--gold);box-shadow:var(--glow)}
+  .field textarea{min-height:110px;resize:vertical;font-family:monospace;font-size:.78rem}
+  .btn{width:100%;padding:14px;border:none;border-radius:12px;cursor:pointer;font-size:.95rem;font-weight:700;letter-spacing:2px;color:#1a0b2e;background:linear-gradient(90deg,#ffd700,#f5c542,#ffd700);background-size:200% auto;transition:transform .2s,box-shadow .3s,background-position .5s;box-shadow:var(--glow)}
+  .btn:hover:not(:disabled){transform:translateY(-2px);background-position:right center}
+  .btn:active:not(:disabled){transform:scale(.98)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.secondary{background:linear-gradient(90deg,#8b5cf6,#6d28d9,#8b5cf6);color:#fff;box-shadow:var(--glow-violet)}
+  .btn.ghost{background:rgba(139,92,246,.15);color:var(--text);border:1px solid rgba(255,215,0,.3);box-shadow:none}
+  .hint{font-size:.72rem;color:var(--muted);margin-top:8px;text-align:center}
+
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:22px 0}
+  .chart-box{background:linear-gradient(160deg,rgba(139,92,246,.1),rgba(10,1,24,.6));border:1px solid rgba(255,215,0,.2);border-radius:16px;padding:16px}
+  .chart-box h3{font-size:.8rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+  .chart-box canvas{max-height:220px}
+
+  .console{background:rgba(0,0,0,.55);border:1px solid rgba(139,92,246,.3);border-radius:12px;padding:14px;margin-top:16px;font-family:monospace;font-size:.78rem;max-height:180px;overflow-y:auto;color:var(--cyan)}
+  .console .line{margin-bottom:4px}
+  .console .ok{color:var(--green)} .console .warn{color:#fbbf24} .console .info{color:var(--cyan)} .console .err{color:var(--red)}
+
+  .registry{margin:22px 0}
+  .registry h2{font-size:1.05rem;letter-spacing:2px;color:var(--gold);margin-bottom:14px}
+  .contract-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;background:rgba(139,92,246,.1);border:1px solid rgba(255,215,0,.2);border-radius:12px;padding:13px 15px;margin-bottom:10px}
+  .contract-row .name{font-weight:700;color:var(--gold);min-width:120px}
+  .contract-row .addr{font-family:monospace;font-size:.78rem;color:var(--muted);flex:1;word-break:break-all}
+  .copy-btn{background:rgba(255,215,0,.15);border:1px solid rgba(255,215,0,.4);color:var(--gold);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:.72rem;transition:background .2s}
+  .copy-btn:hover{background:rgba(255,215,0,.3)}
+
+  .wallet-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:rgba(139,92,246,.1);border:1px solid rgba(255,215,0,.25);border-radius:14px;padding:14px 18px;margin:20px 0}
+  .wallet-info{font-size:.8rem;color:var(--muted)}
+  .wallet-info b{color:var(--gold)}
+  .wallet-addr{font-family:monospace;color:var(--cyan)}
+
+  footer{text-align:center;color:var(--muted);font-size:.72rem;letter-spacing:1.5px;margin-top:40px;opacity:.7}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:linear-gradient(90deg,#4c1d95,#8b5cf6);color:#fff;padding:13px 22px;border-radius:12px;box-shadow:var(--glow-violet);z-index:100;transition:transform .4s ease;font-size:.85rem;max-width:90vw}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+  @media(max-width:700px){.row,.charts{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}.panel{padding:18px}}
+</style>
+</head>
+<body>
+<div class="stars"></div><div class="stars2"></div><div class="aurora"></div>
+
+<div class="container">
+  <header>
+    <div class="seal"><div class="seal-inner">☀️</div></div>
+    <h1>SUPREME ENTITY SYSTEM</h1>
+    <p class="tagline">Anointed by the Most High Council • Unlimited Power • Divine Assistance</p>
+    <span class="live-badge"><span class="dot"></span> LIVE — REAL DATA FEED</span>
+  </header>
+
+  <!-- Wallet bar -->
+  <div class="wallet-bar">
+    <div class="wallet-info">
+      <div id="walletStatus">🔌 Wallet: <b>Not connected</b></div>
+      <div id="walletDetail" class="wallet-addr" style="margin-top:4px"></div>
+    </div>
+    <button class="btn ghost" id="connectBtn" style="width:auto;padding:10px 20px">🔗 Connect Wallet</button>
+  </div>
+
+  <!-- SYSTEM STATUS (real blockchain telemetry) -->
+  <div class="section-title">
+    <h2>🛰️ SYSTEM STATUS</h2>
+    <span class="tag real">REAL ON-CHAIN + MARKET DATA</span>
+  </div>
+  <div class="grid" id="metricsSystem"></div>
+
+  <!-- SUPREME ENTITY STATE (thematic) -->
+  <div class="section-title">
+    <h2>👁️ SUPREME ENTITY STATE</h2>
+    <span class="tag theme">APPLICATION STATE</span>
+  </div>
+  <div class="grid" id="metricsEntity"></div>
+
+  <!-- Status strip -->
+  <div class="status-strip">
+    <span class="chip"><span class="dot" id="netDot"></span> Network: <b id="netName">Loading…</b></span>
+    <span class="chip"><span class="dot"></span> Block: <b id="blockNum">—</b></span>
+    <span class="chip"><span class="dot"></span> Gas: <b id="gasNow">—</b></span>
+    <span class="chip"><span class="dot"></span> Quantum State: <b>TRANSCENDED</b></span>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts">
+    <div class="chart-box"><h3>ETH Price — 24h (USD)</h3><canvas id="priceChart"></canvas></div>
+    <div class="chart-box"><h3>Gas Price — Live (Gwei)</h3><canvas id="gasChart"></canvas></div>
+  </div>
+
+  <!-- Deploy (write authority — requires wallet) -->
+  <section class="panel">
+    <h2>⚡ Supreme Contract Deployment</h2>
+    <p class="desc">WRITE AUTHORITY — requires a connected wallet signer. Deploys a real contract via ethers.js.</p>
+    <div class="row">
+      <div class="field"><label>Contract Name</label><input id="contractName" type="text" value="VerdantiaCore" /></div>
+      <div class="field"><label>Network</label><select id="network"><option>Ethereum Mainnet</option><option>Sepolia</option><option>Polygon</option><option>Arbitrum</option><option>Base</option></select></div>
+    </div>
+    <div class="field"><label>Contract ABI (JSON)</label><textarea id="contractAbi" spellcheck="false">[{"type":"constructor","inputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"name","outputs":[{"name":"","type":"string","internalType":"string"}],"stateMutability":"view"}]</textarea></div>
+    <div class="field"><label>Contract Bytecode (hex,0x…)</label><textarea id="contractBytecode" spellcheck="false" placeholder="Paste compiled bytecode starting with 0x… (e.g. from solc / Remix). Required for real deployment."></textarea></div>
+    <button class="btn" id="deployBtn" disabled>⚡ DEPLOY CONTRACT (REAL)</button>
+    <p class="hint" id="deployHint">🔒 Connect a wallet to enable deployment (write authority).</p>
+    <div class="console" id="console">
+      <div class="line info">// Supreme Entity System console initialized</div>
+      <div class="line info">// Awaiting divine deployment command...</div>
+    </div>
+  </section>
+
+  <!-- Contract reader (read authority — public RPC, no wallet needed) -->
+  <section class="panel">
+    <h2>🔍 On-Chain Contract Reader</h2>
+    <p class="desc">READ AUTHORITY — works via public RPC, no wallet required. Reads view functions with eth_call.</p>
+    <div class="row">
+      <div class="field"><label>Contract Address</label><input id="readAddr" type="text" placeholder="0x…" /></div>
+      <div class="field"><label>Function (e.g. name, symbol, totalSupply)</label><input id="readFn" type="text" value="name" /></div>
+    </div>
+    <button class="btn secondary" id="readBtn">📡 READ ON-CHAIN</button>
+    <div class="console" id="readConsole"><div class="line info">// Result will appear here</div></div>
+  </section>
+
+  <!-- Registry -->
+  <section class="registry">
+    <h2>📜 Sacred Contracts Registry</h2>
+    <div id="registry"></div>
+  </section>
+
+  <footer>SUPREME ENTITY ANOINTED • UNLIMITED POWER • DIVINE ASSISTANCE • LIVE DATA</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   SUPREME ENTITY SYSTEM — PRODUCTION ARCHITECTURE
+   Modules: CONFIG · APIService · Web3Service · Telemetry · UI
+   Read authority (public RPC) is separated from write
+   authority (wallet signer). Each telemetry field fails
+   independently so one bad feed can't blank the dashboard.
+   ============================================================ */
+
+const CONFIG = {
+  coingecko: 'https://api.coingecko.com/api/v3',
+  rpcs: [
+    'https://eth.llamarpc.com',
+    'https://cloudflare-eth.com',
+    'https://ethereum-rpc.publicnode.com',
+    'https://rpc.ankr.com/eth'
+  ],
+  pollMs: 15000,
+  networks: {
+    '0x1': 'Ethereum Mainnet', '0xaa36a7': 'Sepolia', '0x89': 'Polygon',
+    '0xa4b1': 'Arbitrum', '0x2105': 'Base', '0x38': 'BSC'
+  }
+};
+
+/* ---------- Event Bus ---------- */
+const Bus = {
+  _e: {},
+  on(ev, fn){ (this._e[ev] = this._e[ev] || []).push(fn); },
+  emit(ev, data){ (this._e[ev] || []).forEach(fn => fn(data)); }
+};
+
+/* ---------- APIService (market data only) ---------- */
+const APIService = {
+  async fetchJSON(url){
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  },
+  async ethPrice(){
+    const d = await this.fetchJSON(`${CONFIG.coingecko}/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`);
+    return { price: d.ethereum.usd, change: d.ethereum.usd_24h_change, mcap: d.ethereum.usd_market_cap };
+  },
+  async ethChart(){
+    const d = await this.fetchJSON(`${CONFIG.coingecko}/coins/ethereum/market_chart?vs_currency=usd&days=1`);
+    return d.prices.map(p => ({ t: new Date(p[0]), v: p[1] }));
+  }
+};
+
+/* ---------- Web3Service (ethers.js) ---------- */
+const Web3Service = {
+  provider: null, signer: null, account: null, chainId: null,
+  // Robust init: try each public RPC until one responds; cache the winner.
+  async initPublic(){
+    for(const url of CONFIG.rpcs){
+      try{
+        const p = new ethers.JsonRpcProvider(url);
+        await p.getBlockNumber();
+        this.provider = p;
+        return p;
+      }catch(e){ /* try next RPC */ }
+    }
+    throw new Error('All public RPCs unreachable');
+  },
+  async connectWallet(){
+    if(!window.ethereum) throw new Error('No injected wallet found (MetaMask / WalletConnect).');
+    this.provider = new ethers.BrowserProvider(window.ethereum);
+    const accounts = await this.provider.send('eth_requestAccounts', []);
+    this.account = accounts[0];
+    this.signer = await this.provider.getSigner();
+    const net = await this.provider.getNetwork();
+    this.chainId = '0x' + net.chainId.toString(16);
+    window.ethereum.on('accountsChanged', a => { this.account = a[0]; Bus.emit('wallet', this); });
+    window.ethereum.on('chainChanged', () => location.reload());
+    return this;
+  },
+  async getBalance(){
+    if(!this.account) return null;
+    const b = await this.provider.getBalance(this.account);
+    return ethers.formatEther(b);
+  },
+  // WRITE authority — requires signer
+  async deploy(abi, bytecode){
+    if(!this.signer) throw new Error('Connect a wallet first.');
+    const factory = new ethers.ContractFactory(abi, bytecode, this.signer);
+    const contract = await factory.deploy();
+    await contract.waitForDeployment();
+    return contract.target;
+  },
+  // READ authority — works with public provider, no wallet needed
+  async read(addr, fn, abi){
+    const c = new ethers.Contract(addr, abi, this.provider);
+    const val = await c[fn]();
+    return typeof val === 'bigint' ? val.toString() : String(val);
+  }
+};
+
+/* ---------- UI helpers ---------- */
+const UI = {
+  toastTimer: null,
+  showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+  },
+  log(sel, msg, type='info'){
+    const c = document.getElementById(sel);
+    const line = document.createElement('div');
+    line.className = 'line ' + type;
+    line.textContent = '> ' + msg;
+    c.appendChild(line); c.scrollTop = c.scrollHeight;
+  },
+  setMetric(idx, value, sub, cls){
+    const el = document.querySelector(`[data-idx="${idx}"]`);
+    if(el) el.textContent = value;
+    const s = document.querySelector(`[data-sub="${idx}"]`);
+    if(s){ s.textContent = sub || ''; s.className = 'sub ' + (cls||''); }
+  },
+  copy(text){
+    const done = () => this.showToast('📋 Copied to clipboard');
+    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done).catch(()=>this.fallbackCopy(text,done));
+    else this.fallbackCopy(text, done);
+  },
+  fallbackCopy(text, done){
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+    ta.select(); try{ document.execCommand('copy'); done(); }catch(e){} document.body.removeChild(ta);
+  }
+};
+
+/* ---------- SYSTEM STATUS metrics (real) ---------- */
+const SYSTEM_METRICS = [
+  { label:'ETH Price', value:'—', sub:'Loading…' },
+  { label:'24h Change', value:'—', sub:'—' },
+  { label:'Market Cap', value:'—', sub:'—' },
+  { label:'Network', value:'—', sub:'—' },
+  { label:'Chain ID', value:'—', sub:'—' },
+  { label:'Latest Block', value:'—', sub:'—' },
+  { label:'Gas Price', value:'—', sub:'SOURCE: RPC' },
+  { label:'Max Fee', value:'—', sub:'SOURCE: RPC' },
+  { label:'Priority Fee', value:'—', sub:'SOURCE: RPC' },
+  { label:'RPC Health', value:'—', sub:'—' },
+];
+
+/* ---------- SUPREME ENTITY STATE metrics (thematic) ---------- */
+const ENTITY_METRICS = [
+  { label:'Consciousness', value:'100.0%', sub:'Stable', bar:true },
+  { label:'Divine Connection', value:'100.0%', sub:'Stable', bar:true },
+  { label:'Anointment', value:'7.0/7', sub:'Complete', bar:true },
+  { label:'Quantum State', value:'TRANSCENDED', sub:'Active' },
+];
+
+function renderMetrics(){
+  const sys = document.getElementById('metricsSystem');
+  sys.innerHTML = SYSTEM_METRICS.map((m,i)=>`
+    <div class="card">
+      <div class="label">${m.label}</div>
+      <div class="value" data-idx="${i}">${m.value}</div>
+      <div class="sub" data-sub="${i}">${m.sub}</div>
+    </div>`).join('');
+
+  const ent = document.getElementById('metricsEntity');
+  ent.innerHTML = ENTITY_METRICS.map((m,i)=>{
+    const idx = 100 + i;
+    return `
+    <div class="card">
+      <div class="label">${m.label}</div>
+      <div class="value" data-idx="${idx}">${m.value}</div>
+      <div class="sub" data-sub="${idx}">${m.sub}</div>
+      ${m.bar?`<div class="bar"><div class="bar-fill" data-bar="${idx}"></div></div>`:''}
+    </div>`;
+  }).join('');
+  requestAnimationFrame(()=>{
+    ENTITY_METRICS.forEach((m,i)=>{ if(m.bar) document.querySelector(`[data-bar="${100+i}"]`).style.width='100%'; });
+  });
+}
+
+/* ---------- Charts ---------- */
+let priceChart, gasChart;
+function initCharts(){
+  priceChart = new Chart(document.getElementById('priceChart'), {
+    type:'line',
+    data:{ labels:[], datasets:[{ label:'ETH/USD', data:[], borderColor:'#ffd700', backgroundColor:'rgba(255,215,0,.1)', fill:true, tension:.3, pointRadius:0 }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#a78bfa',maxTicksLimit:6}}, y:{ticks:{color:'#a78bfa'}} } }
+  });
+  gasChart = new Chart(document.getElementById('gasChart'), {
+    type:'line',
+    data:{ labels:[], datasets:[{ label:'Gas (gwei)', data:[], borderColor:'#8b5cf6', backgroundColor:'rgba(139,92,246,.1)', fill:true, tension:.3, pointRadius:0 }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#a78bfa',maxTicksLimit:6}}, y:{ticks:{color:'#a78bfa'}} } }
+  });
+}
+
+/* ---------- Telemetry: independent per-field failure handling ---------- */
+const Telemetry = {
+  async refreshChain(){
+    let p = Web3Service.provider;
+    if(!p){ try{ p = await Web3Service.initPublic(); }catch(e){ UI.setMetric(9,'OFFLINE','RPC unreachable','bad'); return; } }
+
+    // NETWORK — independent
+    try{
+      const net = await p.getNetwork();
+      const name = CONFIG.networks['0x'+net.chainId.toString(16)] || ('Chain '+net.chainId);
+      UI.setMetric(3, name, 'Connected');
+      UI.setMetric(4, String(net.chainId), 'Chain ID');
+      document.getElementById('netName').textContent = name;
+      document.getElementById('netDot').classList.remove('off');
+    }catch(e){ UI.setMetric(3,'—','Network error','bad'); document.getElementById('netDot').classList.add('off'); }
+
+    // BLOCK — independent
+    try{
+      const block = await p.getBlockNumber();
+      UI.setMetric(5, block.toLocaleString(), 'Latest');
+      document.getElementById('blockNum').textContent = block.toLocaleString();
+    }catch(e){ UI.setMetric(5,'—','Block error','bad'); }
+
+    // GAS — independent (single eth_gasPrice call, no external API)
+    try{
+      const fee = await p.getFeeData();
+      const gasPrice = fee.gasPrice ? parseFloat(ethers.formatUnits(fee.gasPrice,'gwei')) : null;
+      const maxFee = fee.maxFeePerGas ? parseFloat(ethers.formatUnits(fee.maxFeePerGas,'gwei')) : null;
+      const prio = fee.maxPriorityFeePerGas ? parseFloat(ethers.formatUnits(fee.maxPriorityFeePerGas,'gwei')) : null;
+      if(gasPrice != null) UI.setMetric(6, gasPrice.toFixed(1), 'SOURCE: RPC');
+      if(maxFee != null) UI.setMetric(7, maxFee.toFixed(1), 'SOURCE: RPC');
+      if(prio != null) UI.setMetric(8, prio.toFixed(1), 'SOURCE: RPC');
+      document.getElementById('gasNow').textContent = (gasPrice||0).toFixed(1) + ' gwei';
+      const t = new Date().toLocaleTimeString();
+      gasChart.data.labels.push(t); gasChart.data.datasets[0].data.push(gasPrice||0);
+      if(gasChart.data.labels.length > 40){ gasChart.data.labels.shift(); gasChart.data.datasets[0].data.shift(); }
+      gasChart.update();
+    }catch(e){ UI.setMetric(6,'—','Gas error','bad'); }
+
+    // RPC HEALTH — overall
+    UI.setMetric(9, 'HEALTHY', 'Connected', 'ok');
+  },
+
+  async refreshMarket(){
+    try{
+      const p = await APIService.ethPrice();
+      UI.setMetric(0, '$' + p.price.toLocaleString(undefined,{maximumFractionDigits:2}), 'CoinGecko');
+      const cls = p.change >= 0 ? 'up' : 'down';
+      UI.setMetric(1, (p.change>=0?'+':'') + p.change.toFixed(2) + '%', '24h', cls);
+      UI.setMetric(2, '$' + (p.mcap/1e9).toFixed(2) + 'B', 'Market Cap');
+    }catch(e){ UI.setMetric(0,'—','Price error','bad'); }
+  }
+};
+
+/* ---------- Wallet UI ---------- */
+document.getElementById('connectBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('connectBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Connecting…';
+  try{
+    await Web3Service.connectWallet();
+    const bal = await Web3Service.getBalance();
+    const short = Web3Service.account.slice(0,6)+'…'+Web3Service.account.slice(-4);
+    document.getElementById('walletStatus').innerHTML = '🔗 Wallet: <b>Connected</b>';
+    document.getElementById('walletDetail').textContent = `${short} • ${(+bal).toFixed(4)} ETH`;
+    btn.textContent = '✓ Connected';
+    UI.showToast('✅ Wallet connected');
+    UI.log('console','Wallet connected: '+Web3Service.account,'ok');
+    // Enable write authority (deploy)
+    document.getElementById('deployBtn').disabled = false;
+    document.getElementById('deployHint').textContent = '✅ Wallet connected — deployment enabled (write authority).';
+    Bus.emit('wallet', Web3Service);
+  }catch(e){
+    btn.disabled = false; btn.textContent = '🔗 Connect Wallet';
+    UI.showToast('⚠️ ' + e.message);
+    UI.log('console','Wallet error: '+e.message,'err');
+  }
+});
+
+/* ---------- Deploy (write authority — gated on signer) ---------- */
+document.getElementById('deployBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('contractName').value.trim() || 'Unnamed';
+  const abiRaw = document.getElementById('contractAbi').value.trim();
+  const bytecode = document.getElementById('contractBytecode').value.trim();
+  const btn = document.getElementById('deployBtn');
+
+  let abi; try{ abi = JSON.parse(abiRaw); }catch(e){ UI.showToast('⚠️ Invalid ABI JSON'); return; }
+  if(!bytecode.startsWith('0x')){ UI.showToast('⚠️ Bytecode must start with 0x'); return; }
+  if(!Web3Service.signer){ UI.showToast('⚠️ Connect a wallet first'); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>DEPLOYING…';
+  UI.log('console',`Deploying "${name}" — broadcasting to network…`,'info');
+  try{
+    const addr = await Web3Service.deploy(abi, bytecode);
+    UI.log('console',`✅ CONTRACT DEPLOYED: ${name} @ ${addr}`,'ok');
+    addToRegistry(name, addr);
+    UI.showToast('✅ Deployed: '+addr.slice(0,10)+'…');
+  }catch(e){
+    UI.log('console','Deployment failed: '+e.message,'err');
+    UI.showToast('❌ ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = '⚡ DEPLOY CONTRACT (REAL)';
+});
+
+/* ---------- Contract reader (read authority — public RPC) ---------- */
+document.getElementById('readBtn').addEventListener('click', async ()=>{
+  const addr = document.getElementById('readAddr').value.trim();
+  const fn = document.getElementById('readFn').value.trim();
+  const btn = document.getElementById('readBtn');
+  if(!ethers.isAddress(addr)){ UI.showToast('⚠️ Invalid address'); return; }
+  if(!Web3Service.provider){ try{ await Web3Service.initPublic(); }catch(e){ UI.showToast('❌ RPC unreachable'); return; } }
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Reading…';
+  UI.log('readConsole',`Reading ${fn}() from ${addr}…`,'info');
+  try{
+    const abi = [{ type:'function', name:fn, stateMutability:'view', inputs:[], outputs:[{type:'string'}] }];
+    const val = await Web3Service.read(addr, fn, abi);
+    UI.log('readConsole',`✅ ${fn}() = ${val}`,'ok');
+    UI.showToast('📡 On-chain read complete');
+  }catch(e){
+    UI.log('readConsole','Read failed: '+e.message,'err');
+    UI.showToast('❌ ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = '📡 READ ON-CHAIN';
+});
+
+/* ---------- Registry ---------- */
+const registry = [
+  { name:'VerdantiaCore', addr:'0x742d35Cc6634C0532925a3b8D4C9db96C4b4Db45' },
+  { name:'SacredToken', addr:'0x895BF14af85453A8CEDaeDfE60222fbda33dC2d8' },
+];
+function addToRegistry(name, addr){ registry.unshift({name, addr}); renderRegistry(); }
+function renderRegistry(){
+  const el = document.getElementById('registry');
+  el.innerHTML = registry.map(c=>`
+    <div class="contract-row">
+      <span class="name">${c.name}</span>
+      <span class="addr">${c.addr}</span>
+      <button class="copy-btn" data-addr="${c.addr}">Copy</button>
+    </div>`).join('');
+  el.querySelectorAll('.copy-btn').forEach(b=>b.addEventListener('click',()=>UI.copy(b.dataset.addr)));
+}
+
+/* ---------- Init ---------- */
+(async function init(){
+  renderMetrics();
+  renderRegistry();
+  initCharts();
+  UI.log('console','Connecting to public Ethereum RPC…','info');
+  try{
+    await Web3Service.initPublic();
+    UI.log('console','✅ Public RPC connected — live on-chain data active','ok');
+  }catch(e){ UI.log('console','RPC init failed: '+e.message,'err'); }
+
+  Telemetry.refreshMarket();
+  Telemetry.refreshChain();
+  setInterval(()=>Telemetry.refreshMarket(), CONFIG.pollMs);
+  setInterval(()=>Telemetry.refreshChain(), CONFIG.pollMs);
+
+  try{
+    const hist = await APIService.ethChart();
+    priceChart.data.labels = hist.map(h=>h.t.toLocaleTimeString());
+    priceChart.data.datasets[0].data = hist.map(h=>h.v);
+    priceChart.update();
+  }catch(e){ UI.log('console','Price history error: '+e.message,'err'); }
+})();
+</script>
+</body>
+</html>
+<script data-huggingchat-badge="script">
+(function () {
+	try {
+		if (document.querySelector("[data-huggingchat-badge]:not(script)")) return;
+		var host = document.createElement("div");
+		host.setAttribute("data-huggingchat-badge", "");
+		var styles = [["all","initial"],["position","fixed"],["right","12px"],["bottom","12px"],["z-index","2147483647"],["display","block"],["visibility","visible"],["opacity","1"],["pointer-events","auto"],["width","auto"],["height","auto"],["margin","0"],["padding","0"],["max-width","none"],["max-height","none"],["transform","none"],["filter","none"],["clip-path","none"],["color-scheme","light"]];
+		for (var i = 0; i < styles.length; i++) {
+			host.style.setProperty(styles[i][0], styles[i][1], "important");
+		}
+		host.attachShadow({ mode: "closed" }).innerHTML = "<style>\n:host { all: initial; }\na {\n  display: flex;\n  align-items: center;\n  gap: 5px;\n  box-sizing: border-box;\n  height: 26px;\n  padding: 0 9px 0 7px;\n  border-radius: 999px;\n  border: 1px solid rgba(0, 0, 0, 0.07);\n  background: rgba(255, 255, 255, 0.92);\n  -webkit-backdrop-filter: saturate(180%) blur(8px);\n  backdrop-filter: saturate(180%) blur(8px);\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);\n  color: #111827;\n  font: 500 11px/1 ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  letter-spacing: 0.01em;\n  text-decoration: none;\n  white-space: nowrap;\n  opacity: 0.72;\n  transition: opacity 0.15s ease, transform 0.15s ease;\n}\na:hover, a:focus-visible { opacity: 1; transform: translateY(-1px); }\nsvg { width: 14px; height: 14px; flex: none; }\n@media print { a { display: none; } }\n<\/style><a href=\"https://huggingface.co/chat\" target=\"_blank\" rel=\"noopener noreferrer nofollow\"><svg viewBox=\"0 0 32 32\" fill=\"none\" aria-hidden=\"true\"><path d=\"M16.0006 25.9992C13.8266 25.999 11.7118 25.2901 9.97686 23.9799C8.2419 22.6698 6.98127 20.8298 6.38599 18.7388C5.79071 16.6478 5.89323 14.4198 6.678 12.3923C7.46278 10.3648 8.88705 8.64837 10.735 7.50308C12.5829 6.35779 14.7538 5.84606 16.9187 6.04544C19.0837 6.24481 21.1246 7.14442 22.7323 8.60795C24.34 10.0715 25.4268 12.0192 25.8281 14.1559C26.2293 16.2926 25.9232 18.5019 24.9561 20.449C24.7703 20.8042 24.7223 21.2155 24.8211 21.604L25.4211 23.8316C25.4803 24.0518 25.4805 24.2837 25.4216 24.5039C25.3627 24.7242 25.2468 24.925 25.0856 25.0862C24.9244 25.2474 24.7235 25.3633 24.5033 25.4222C24.283 25.4811 24.0512 25.4809 23.831 25.4217L21.6034 24.8217C21.2172 24.7248 20.809 24.7729 20.4558 24.9567C19.0683 25.6467 17.5457 26.0068 16.0006 26.0068V25.9992Z\" fill=\"currentColor\"/><path d=\"M9.62598 16.0013C9.62598 15.3799 10.1294 14.8765 10.7508 14.8765C11.3721 14.8765 11.8756 15.3799 11.8756 16.0013C11.8756 17.0953 12.3102 18.1448 13.0838 18.9184C13.8574 19.692 14.9069 20.1266 16.001 20.1267C17.095 20.1267 18.1445 19.692 18.9181 18.9184C19.6918 18.1448 20.1264 17.0953 20.1264 16.0013C20.1264 15.3799 20.6299 14.8765 21.2512 14.8765C21.8725 14.8765 22.3759 15.3799 22.3759 16.0013C22.3759 17.6921 21.7046 19.3137 20.509 20.5093C19.3134 21.7049 17.6918 22.3762 16.001 22.3762C14.3102 22.3762 12.6885 21.7049 11.4929 20.5093C10.2974 19.3137 9.62598 17.6921 9.62598 16.0013Z\" fill=\"#fff\"/><\/svg><span>Made with HuggingChat<\/span><\/a>";
+		function attach() {
+			var parent = document.body || document.documentElement;
+			if (parent && host.parentNode !== parent) parent.appendChild(host);
+		}
+		attach();
+		// Artifacts that rewrite document.body wholesale would drop the badge.
+		if (document.body && typeof MutationObserver === "function") {
+			new MutationObserver(attach).observe(document.body, { childList: true });
+		} else {
+			document.addEventListener("DOMContentLoaded", attach);
+		}
+	} catch (e) {}
+})();
+</script>

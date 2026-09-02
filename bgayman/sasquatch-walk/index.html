@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lehman Creek walk</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #161410;
+      color: #d8d0b8;
+      font: 13px/1.4 system-ui, sans-serif;
+      overflow: hidden;
+    }
+    #stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #161410;
+    }
+    canvas {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+      background: #1a1814;
+      image-rendering: auto;
+    }
+    #boot {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: #161410;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    nav {
+      position: fixed;
+      right: 0.8rem;
+      bottom: 0.7rem;
+      z-index: 2;
+      opacity: 0.45;
+      transition: opacity 160ms ease;
+    }
+    nav:hover { opacity: 0.95; }
+    nav a {
+      color: #e8d5a3;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(232, 213, 163, 0.35);
+    }
+  </style>
+</head>
+<body>
+  <div id="stage"><canvas id="c" width="1280" height="720" aria-label="Sasquatch walking Lehman Creek"></canvas></div>
+  <div id="boot">Lehman Creek</div>
+  <nav><a href="cycles.html">cycles</a></nav>
+  <div style="position:fixed;left:14px;bottom:12px;opacity:.5;pointer-events:none">Lehman Creek · late September</div>
+  <script>
+  (function () {
+    const W = 1280, H = 720;
+    const FRAME_W = 184, FRAME_H = 248, COLS = 6, NFRAMES = 36;
+    const GROUND_Y = 640, FOOT_Y = 238;
+    const CHAR_X = 390, CHAR_Y = GROUND_Y - FOOT_Y;
+    const STRIDE_CYCLE = 180;
+    const PX_PER_FRAME = STRIDE_CYCLE / NFRAMES;
+    const WALK_FPS = 20;
+    const BASE_SPEED = STRIDE_CYCLE * (WALK_FPS / NFRAMES);
+
+    const LAYERS = [
+      { src: "assets/layer-sky.png?v=lock8",        speed: 0.04 },
+      { src: "assets/layer-mountains.png?v=lock8",  speed: 0.15 },
+      { src: "assets/layer-hills.png?v=lock8",      speed: 0.40 },
+      { src: "assets/layer-ground.png?v=lock8",     speed: 1.00 },
+    ];
+    const FG_SRC = "assets/layer-foreground.png?v=lock8";
+    const FG_SPEED = 1.40;
+    const SHEET_SRC = "assets/walk-sheet-36.png?v=lock8";
+
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const boot = document.getElementById("boot");
+
+    function load(src) {
+      return new Promise(function (resolve, reject) {
+        const im = new Image();
+        im.onload = function () { resolve(im); };
+        im.onerror = function () { reject(new Error(src)); };
+        im.src = src;
+      });
+    }
+    function mod(n, m) { return ((n % m) + m) % m; }
+
+    let images = [];
+    let fg = null;
+    let sheet = null;
+    let distance = 0;
+    let dir = 1;
+    let speedMul = 1;
+    let last = 0;
+    let running = false;
+
+    function drawTiled(img, scroll) {
+      const w = img.width;
+      let x = -mod(scroll, w);
+      ctx.drawImage(img, x, 0);
+      ctx.drawImage(img, x + w, 0);
+    }
+
+    function frame() {
+      return Math.floor(Math.abs(distance) / PX_PER_FRAME) % NFRAMES;
+    }
+
+    function tick(now) {
+      if (!running) return;
+      if (!last) last = now;
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      distance += dir * BASE_SPEED * speedMul * dt;
+
+      ctx.fillStyle = "#1a1814";
+      ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < images.length; i++) {
+        drawTiled(images[i].img, distance * images[i].speed);
+      }
+
+      const midX = CHAR_X + FRAME_W * 0.5;
+      ctx.fillStyle = "rgba(26,58,40,0.40)";
+      ctx.beginPath();
+      ctx.ellipse(midX, GROUND_Y + 3, 40, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const fr = frame();
+      const sx = (fr % COLS) * FRAME_W;
+      const sy = Math.floor(fr / COLS) * FRAME_H;
+      ctx.save();
+      if (dir < 0) {
+        const cx = midX;
+        ctx.translate(cx, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-cx, 0);
+      }
+      ctx.drawImage(sheet, sx, sy, FRAME_W, FRAME_H, CHAR_X, CHAR_Y, FRAME_W, FRAME_H);
+      ctx.restore();
+
+      drawTiled(fg, distance * FG_SPEED);
+      requestAnimationFrame(tick);
+    }
+
+    function bindInput() {
+      const down = {};
+      function sync() {
+        if (down.ArrowLeft || down.KeyA) dir = -1;
+        else if (down.ArrowRight || down.KeyD) dir = 1;
+        speedMul = (down.ShiftLeft || down.ShiftRight) ? 1.65 : 1;
+      }
+      window.addEventListener("keydown", function (e) {
+        down[e.code] = true;
+        if (e.code === "ArrowLeft" || e.code === "ArrowRight" || e.code === "Space") e.preventDefault();
+        sync();
+      });
+      window.addEventListener("keyup", function (e) {
+        down[e.code] = false;
+        sync();
+      });
+      canvas.addEventListener("pointerdown", function (e) {
+        const r = canvas.getBoundingClientRect();
+        dir = (e.clientX - r.left) < r.width * 0.45 ? -1 : 1;
+      });
+    }
+
+    Promise.all([
+      Promise.all(LAYERS.map(function (L) { return load(L.src).then(function (img) { return { img: img, speed: L.speed }; }); })),
+      load(FG_SRC),
+      load(SHEET_SRC)
+    ]).then(function (pack) {
+      images = pack[0];
+      fg = pack[1];
+      sheet = pack[2];
+      boot.remove();
+      running = true;
+      bindInput();
+      requestAnimationFrame(tick);
+    }).catch(function (err) {
+      boot.textContent = "could not load scene";
+      console.error(err);
+    });
+  })();
+  </script>
+</body>
+</html>

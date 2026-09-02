@@ -1,5 +1,5 @@
 ---
-title: Franshi
+title: 🔻GHOST-DERP2P🔻
 emoji: 🏃
 colorFrom: purple
 colorTo: gray

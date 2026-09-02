@@ -10,7 +10,6 @@ ENV STORE_INTEL_MAX_ANALYSIS_SECONDS=0
 ENV STORE_INTEL_CHUNK_SECONDS=300
 ENV STORE_INTEL_ANALYSIS_WIDTH=960
 ENV STORE_INTEL_FRAME_SAMPLE_SECONDS=1
-ENV STORE_INTEL_SYNTHETIC_DEMO_PATH=/app/runtime/uploads/demo_synthetic.mp4
 
 WORKDIR /app
 
@@ -28,6 +27,8 @@ COPY tests ./tests
 COPY store_layout.json pos_transactions.csv ./
 
 RUN pip install --no-cache-dir -e .
+
+COPY samples ./samples
 
 RUN mkdir -p /app/data /app/uploads /app/runtime/data /app/runtime/uploads /app/samples
 

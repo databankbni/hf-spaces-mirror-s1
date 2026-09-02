@@ -1,0 +1,36 @@
+name: Diagnose edaphic v2 collection
+on:
+  push:
+    branches: [edaphic-v2.0-enrichment]
+    paths: ['.github/workflows/diagnose-edaphic-v2-collect.yml']
+permissions:
+  actions: read
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Capture collection runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/collect-edaphic-v2-sources.yml/runs?branch=edaphic-v2.0-enrichment&per_page=5" > /tmp/runs.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.load(open('/tmp/runs.json'))
+          out={'runs':[{k:r.get(k) for k in ('id','status','conclusion','head_sha','created_at','updated_at','html_url')} for r in d.get('workflow_runs',[])]}
+          Path('/tmp/diag.json').write_text(json.dumps(out,indent=2)+'\n')
+          PY
+      - name: Record diagnostic
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin edaphic-v2.0-enrichment
+          git reset --hard origin/edaphic-v2.0-enrichment
+          cp /tmp/diag.json .github/edaphic-v2-collect-diagnostic.json
+          git add .github/edaphic-v2-collect-diagnostic.json
+          git commit -m 'Record v2 collection diagnostic [skip ci]'
+          git push origin HEAD:edaphic-v2.0-enrichment

@@ -11,9 +11,27 @@ passes ``api_visibility="private"``, so render callbacks stay out of the schema
 (a public listener would otherwise show up as ``/lambda_7`` with a parameter
 called ``value_11``).
 
-The same three functions are also served as MCP tools at ``/gradio_api/mcp/``,
+The same four functions are also served as MCP tools at ``/gradio_api/mcp/``,
 from these type hints and docstrings, because ``main.py`` launches with
 ``mcp_server=True``. Anything written here is read by an agent twice over.
+
+Two things follow from how an MCP client actually reads this, and both shape the
+wording below.
+
+*Each tool description has to introduce the subject.* Gradio 6 offers no
+server-level instructions field, so there is nowhere to say once what TabArena
+is; a client may surface a single tool with no sibling for context. So every
+``api_description`` names the domain (predicting a target column from
+structured, rows-and-columns data) and the methods people actually ask about by
+name, and spells out the questions the tool answers. A description that only
+says "TabArena results" is invisible to an agent whose user asked about TabPFN
+or about which model to use on a CSV.
+
+*Gradio keeps only the first line of each ``Args:`` entry.*
+``utils.get_function_description`` splits on the first colon per line and drops
+continuations, so a wrapped parameter description reaches the schema cut off
+mid-sentence. Every entry below is therefore one long line, however wide it
+reads in source.
 
 Records are the published CSVs with agent-friendly keys, not a second source of
 truth: the same files the site reads, the same model-cell parser the table uses.
@@ -25,6 +43,7 @@ from __future__ import annotations
 
 import os
 import re
+from itertools import combinations
 from pathlib import Path
 from typing import Any, Literal, get_args
 
@@ -37,10 +56,14 @@ from data_loading import (
     BEYOND_SUBSET_LABELS,
     DATA_DIR,
     DATASET_LABELS,
+    SYSTEM_CATEGORY_LABELS,
     BeyondSubset,
     LBContainer,
     Subset,
     TASK_LABELS,
+    entrants_key,
+    entrants_name,
+    entrants_note,
     parse_model,
 )
 
@@ -50,12 +73,12 @@ from data_loading import (
 # null payload, message dropped. _validate_axes below keeps these in step with
 # the label dicts that define the data layout.
 # A leaderboard row is either a single model (evaluated in its default / tuned /
-# tuned+ensembled variants) or a whole AutoML system such as AutoGluon, which the
-# artifacts mark as a reference pipeline. Agents conflate the two otherwise, and
-# "the best tabular model" answered with an AutoML system is a wrong answer, so the
-# endpoints return models only unless asked for something else.
+# tuned+ensembled variants) or a whole system such as AutoGluon, which the artifacts mark
+# with method_class="system". Agents conflate the two otherwise, and "the best tabular
+# model" answered with an AutoML system is a wrong answer, so the endpoints return models
+# only unless asked for something else.
 KindAxis = Literal["models", "systems", "all"]
-SYSTEM_TYPE = Constants.reference
+SYSTEM_TYPE = Constants.system
 
 # Which benchmark a cross-benchmark endpoint should read.
 BenchmarkAxis = Literal["tabarena", "beyondarena"]
@@ -79,6 +102,21 @@ _COST_UNITS = {
     "median_train_time_s_per_1k": "seconds per 1000 rows to train",
 }
 
+# Which field the numbers were computed against. Not a filter: each pool is its own
+# evaluation, because Elo is pairwise over the participants and improvability is measured
+# against the best of them. One value per combination of the system categories, so `models`
+# is models only and `open_llm_api` is everything; `llm` is models plus LLM-based systems
+# without the plain open-source ones.
+EntrantsAxis = Literal[
+    "models",
+    "open",
+    "llm",
+    "api",
+    "open_llm",
+    "open_api",
+    "llm_api",
+    "open_llm_api",
+]
 TasksAxis = Literal["all", "classification", "regression", "binary", "multiclass"]
 DatasetsAxis = Literal["all", "small", "medium"]
 ImputationAxis = Literal["yes", "no"]
@@ -117,7 +155,19 @@ def _validate_axes() -> None:
             )
 
 
+def _validate_entrants_axis() -> None:
+    """Fail at import if EntrantsAxis has drifted from the category combinations."""
+    keys = list(SYSTEM_CATEGORY_LABELS)
+    expected = {entrants_key(c) for size in range(len(keys) + 1) for c in combinations(keys, size)}
+    if set(get_args(EntrantsAxis)) != expected:
+        raise RuntimeError(
+            "api.EntrantsAxis is out of sync with data_loading.SYSTEM_CATEGORY_LABELS: "
+            f"{sorted(set(get_args(EntrantsAxis)) ^ expected)} on one side only."
+        )
+
+
 _validate_axes()
+_validate_entrants_axis()
 
 # The Space serving this app; HF sets SPACE_ID in the container.
 SPACE_ID = os.environ.get("SPACE_ID", "TabArena/leaderboard")
@@ -132,7 +182,7 @@ _KEY_OVERRIDES = {"#": "position", "TypeName": "type_name"}
 # two cannot drift.
 _TABARENA_CSV_TEMPLATE = (
     f"{_RAW_URL}/{DATA_DIR.name}/"
-    + Subset("{imputation}", "{splits}", "{tasks}", "{datasets}").rel_path
+    + Subset("{entrants}", "{imputation}", "{splits}", "{tasks}", "{datasets}").rel_path
     + "/website_leaderboard.csv"
 )
 _BEYOND_CSV_TEMPLATE = (
@@ -166,6 +216,9 @@ def _records(df: pd.DataFrame) -> list[dict[str, Any]]:
         record["model_url"] = url
         record["verified"] = str(row.get("Verified") or "").strip() == "✔️"
         record["kind"] = "system" if row.get("TypeName") == SYSTEM_TYPE else "model"
+        # Semicolon-joined upstream; agents want a list. Empty for every model, and for a
+        # system that is open-source, local and LLM-free.
+        record["tags"] = [t for t in str(row.get("Tags") or "").split(";") if t]
         records.append(record)
     return records
 
@@ -260,42 +313,42 @@ def get_tabarena_leaderboard(
     kind: KindAxis = "models",
     imputation: ImputationAxis = "yes",
     splits: SplitsAxis = "all",
+    entrants: EntrantsAxis = "models",
 ) -> list[dict[str, Any]]:
-    """Ranked TabArena results for one subset of the IID benchmark.
+    """Ranked results for one subset of TabArena, the IID tabular machine-learning benchmark.
+
+    Each row is a method evaluated on 51 curated datasets whose task is to predict a target
+    column from structured, rows-and-columns data: tabular foundation models (TabPFN, TabICL,
+    TabDPT, Mitra, TabM), gradient-boosted trees (LightGBM, XGBoost, CatBoost), neural networks
+    (RealMLP, ModernNCA) and AutoML systems (AutoGluon).
 
     Args:
-        tasks: Task subset, one of ``all``, ``classification``, ``regression``,
-            ``binary``, ``multiclass``.
-        datasets: Dataset-size subset, one of ``all``, ``small``, ``medium``.
-        kind: What to rank. ``models`` (the default) returns individual models
-            such as TabPFN, RealMLP or LightGBM. ``systems`` returns whole AutoML
-            systems such as AutoGluon, which tune and ensemble many models
-            internally and are therefore not comparable to a single model.
-            ``all`` returns both, as the website's table does. Ask for ``models``
-            when the question is "which model should I use" and ``systems`` when
-            it is "which AutoML framework should I use"; every record also
-            carries its own ``kind``.
-        imputation: ``yes`` includes models that cannot run on every dataset,
-            imputing the missing runs with a default RandomForest (this is what
-            the website shows by default); ``no`` drops them.
-        splits: ``all`` for the full repeated-CV protocol, ``lite`` for the
-            single-split TabArena-Lite results.
+        tasks: Restrict to a task type. ``all`` (default), ``classification``, ``regression``, ``binary`` or ``multiclass``.
+        datasets: Restrict by dataset size. ``all`` (default), ``small`` (up to 2500 rows) or ``medium`` (up to 100k rows).
+        kind: What to rank. ``models`` (default) returns individual models such as TabPFN, RealMLP or LightGBM; ``systems`` returns whole AutoML systems such as AutoGluon, which tune and ensemble many models inside their own budget and so are not comparable to a single model; ``all`` returns both, as the website's table does. Ask for ``models`` when the question is "which model should I use" and ``systems`` when it is "which AutoML framework should I use". Every record also carries its own ``kind``.
+        imputation: Whether to keep methods with incomplete coverage. ``yes`` (default, and what the website shows) includes models that cannot run on every dataset, filling their missing runs with a default RandomForest; ``no`` drops those models entirely.
+        splits: Which evaluation protocol. ``all`` (default) is the full repeated cross-validation; ``lite`` is the cheaper single-split TabArena-Lite protocol.
+        entrants: Which field the numbers were computed against, not a row filter: Elo is a pairwise rating over whoever competed and Improvability is the gap to the best of them, so each pool is a separate published evaluation and switching re-ranks everything. ``models`` (default) is individual models only; ``open`` adds open-source local systems such as AutoGluon; ``llm`` adds systems with an LLM in the loop; ``api`` adds systems behind a closed-source API; the compound values (``open_llm``, ``open_api``, ``llm_api``, ``open_llm_api``) admit those categories together.
 
     Returns:
         One record per model variant, best first, with ``model``, ``variant``,
         ``elo``, ``score``, ``rank``, ``median_train_time_s_per_1k`` and the
         remaining leaderboard columns. ``variant`` is ``default``, ``tuned`` or
-        ``tuned + ensembled``, and empty for reference pipelines such as
-        AutoGluon, which are whole pipelines rather than one model's variant
-        (``type_name`` identifies those). Note the website's variant filter
-        groups them with the tuned ensembles instead.
+        ``tuned + ensembled``, and empty for systems such as AutoGluon, which
+        are whole pipelines rather than one model's variant (``kind`` identifies
+        those, and ``tags`` lists any caveats such as ``with-llm`` or
+        ``closed-source-api``). Note the website's variant filter groups them with
+        the tuned ensembles instead.
     """
     _check("tasks", tasks, list(TASK_LABELS))
     _check("datasets", datasets, list(DATASET_LABELS))
     _check("kind", kind, KIND_VALUES)
     _check("imputation", imputation, IMPUTATION_VALUES)
     _check("splits", splits, SPLITS_VALUES)
-    subset = Subset(imputation=imputation, splits=splits, tasks=tasks, datasets=datasets)
+    _check("entrants", entrants, list(get_args(EntrantsAxis)))
+    subset = Subset(
+        entrants=entrants, imputation=imputation, splits=splits, tasks=tasks, datasets=datasets
+    )
     return _select_kind(_load(DATA_DIR, subset), kind)
 
 
@@ -304,19 +357,17 @@ def get_beyondarena_leaderboard(
 ) -> list[dict[str, Any]]:
     """Ranked BeyondArena results for one subset, on the recommended core protocol.
 
-    BeyondArena goes beyond the IID assumption: it spans random, temporal and
-    grouped splits. It has a single subset axis rather than TabArena's grid.
+    BeyondArena runs the same tabular methods (TabPFN, LightGBM, CatBoost, AutoGluon and the
+    rest) where the IID assumption does not hold: random, temporal and grouped splits, across
+    dataset sizes and feature types. It has a single subset axis rather than TabArena's grid.
 
     Args:
-        subset: One of ``full``, ``random``, ``temporal``, ``grouped``, ``tiny``,
-            ``small``, ``medium``, ``large``, ``low-dim``, ``high-dim``, ``text``,
-            ``high-cardinality``.
-        kind: ``models`` (the default), ``systems`` for whole AutoML systems, or
-            ``all``. See :func:`get_tabarena_leaderboard` for the distinction.
+        subset: Which slice of BeyondArena to read. ``full`` (default) is everything; ``random`` / ``temporal`` / ``grouped`` pick a split type; ``tiny`` / ``small`` / ``medium`` / ``large`` pick a dataset size; ``low-dim`` / ``high-dim`` / ``text`` / ``high-cardinality`` pick a feature profile.
+        kind: What to rank: ``models`` (default), ``systems`` for whole AutoML systems, or ``all`` for both. See `get_tabarena_leaderboard` for why the two are not directly comparable.
 
     Returns:
         One record per model variant, best first, in the same shape as
-        :func:`get_tabarena_leaderboard`.
+        `get_tabarena_leaderboard`.
     """
     _check("subset", subset, list(BEYOND_SUBSET_LABELS))
     _check("kind", kind, KIND_VALUES)
@@ -335,33 +386,31 @@ def get_pareto_frontier(
     max_predict_time_s_per_1k: float = 0.0,
     imputation: ImputationAxis = "yes",
     splits: SplitsAxis = "all",
+    entrants: EntrantsAxis = "models",
 ) -> dict[str, Any]:
-    """The accuracy-versus-time trade-off, for answering "which model should I use".
+    """The accuracy-versus-time trade-off, for answering "which tabular model should I use".
 
     The top of a leaderboard is only one answer, and often the wrong one: the
     highest-Elo model can be orders of magnitude slower than one a hair behind it.
-    This returns the whole trade-off instead — the outright best, the models that
-    nothing beats on both axes at once, and the best model that fits a time budget.
+    This returns the whole trade-off: the outright best, the models that nothing
+    beats on both axes at once, and the best model that fits a time budget. It
+    covers tabular foundation models (TabPFN, TabICL, TabDPT), boosted trees
+    (LightGBM, XGBoost, CatBoost), neural networks (RealMLP, TabM) and AutoML
+    systems (AutoGluon), all on predicting a target column from structured data.
 
     Args:
-        benchmark: ``tabarena`` (IID) or ``beyondarena`` (temporal / grouped splits).
-        quality: What "better" means: ``elo`` (default) or ``score``, where higher
-            wins, or ``rank`` / ``harmonic_rank`` / ``improvability_pct``, where
-            lower wins.
-        cost: What "cheaper" means: ``predict_time`` (default, what matters for
-            serving) or ``train_time`` (what matters for retraining).
-        kind: ``models`` (default), ``systems``, or ``all``. See
-            :func:`get_tabarena_leaderboard`.
-        tasks: TabArena task subset; ignored when `benchmark` is ``beyondarena``.
-        datasets: TabArena dataset-size subset; ignored for ``beyondarena``.
-        beyond_subset: BeyondArena subset; ignored when `benchmark` is ``tabarena``.
-        max_train_time_s_per_1k: Optional ceiling on median train seconds per 1000
-            rows. 0 means no limit.
-        max_predict_time_s_per_1k: Optional ceiling on median predict seconds per
-            1000 rows. 0 means no limit. Use this for "what is the best model I can
-            afford to serve".
-        imputation: TabArena only; see :func:`get_tabarena_leaderboard`.
-        splits: TabArena only; see :func:`get_tabarena_leaderboard`.
+        benchmark: Which benchmark to read: ``tabarena`` (default, IID splits) or ``beyondarena`` (temporal, grouped and other non-IID splits).
+        quality: What "better" means: ``elo`` (default) or ``score``, where higher wins, or ``rank`` / ``harmonic_rank`` / ``improvability_pct``, where lower wins.
+        cost: What "cheaper" means: ``predict_time`` (default, what matters for serving) or ``train_time`` (what matters for retraining).
+        kind: What to consider: ``models`` (default), ``systems`` for whole AutoML systems, or ``all``. See `get_tabarena_leaderboard`.
+        tasks: TabArena task subset (``all``, ``classification``, ``regression``, ``binary``, ``multiclass``); ignored when `benchmark` is ``beyondarena``.
+        datasets: TabArena dataset-size subset (``all``, ``small``, ``medium``); ignored when `benchmark` is ``beyondarena``.
+        beyond_subset: BeyondArena subset (``full``, ``temporal``, ``grouped``, a size or a feature profile); ignored when `benchmark` is ``tabarena``.
+        max_train_time_s_per_1k: Ceiling on median train seconds per 1000 rows; 0 (default) means no limit. Use it for "what can I afford to retrain".
+        max_predict_time_s_per_1k: Ceiling on median predict seconds per 1000 rows; 0 (default) means no limit. Use it for "what is the best model I can afford to serve".
+        imputation: TabArena only; ``yes`` (default) keeps models with incomplete dataset coverage, ``no`` drops them. See `get_tabarena_leaderboard`.
+        splits: TabArena only; ``all`` (default) is repeated cross-validation, ``lite`` the single-split protocol. See `get_tabarena_leaderboard`.
+        entrants: TabArena only; which field the numbers were computed against, ``models`` by default. See `get_tabarena_leaderboard`.
 
     Returns:
         ``best_overall`` (the outright leader, ignoring cost), ``frontier`` (the
@@ -379,9 +428,14 @@ def get_pareto_frontier(
         where = f"BeyondArena ({beyond_subset}, core protocol)"
     else:
         records = get_tabarena_leaderboard(
-            tasks=tasks, datasets=datasets, kind=kind, imputation=imputation, splits=splits
+            tasks=tasks,
+            datasets=datasets,
+            kind=kind,
+            imputation=imputation,
+            splits=splits,
+            entrants=entrants,
         )
-        where = f"TabArena ({tasks} tasks, {datasets} datasets)"
+        where = f"TabArena ({tasks} tasks, {datasets} datasets, {entrants})"
 
     cost_key = _COST_KEY[cost]
     best_overall = _best(records, quality)
@@ -488,24 +542,39 @@ def _pareto_summary(
 def list_leaderboards() -> dict[str, Any]:
     """Describe the available leaderboards, their subset axes, and the bulk-download URLs.
 
-    Call this first: it lists the valid argument values for the other endpoints
-    and the record keys they return. It also gives the raw CSV URL template for
-    each benchmark, which serves the identical numbers over plain HTTP with no
-    queue or session, and is the better choice for reading many subsets.
+    TabArena benchmarks tabular machine learning: predicting a target column from
+    structured, rows-and-columns data. Call this first: it lists the valid argument
+    values for the other endpoints and the record keys they return. It also gives the
+    raw CSV URL template for each benchmark, which serves the identical numbers over
+    plain HTTP with no queue or session, and is the better choice for reading many
+    subsets.
     """
     default_rows = _load(DATA_DIR, Subset())
     return {
+        "about": (
+            "TabArena benchmarks tabular machine learning: predicting a target column from "
+            "structured, rows-and-columns data such as CSV files, spreadsheets, dataframes "
+            "and database tables. Entrants range from tabular foundation models (TabPFN, "
+            "TabICL, TabDPT, Mitra, TabM) through gradient-boosted trees (LightGBM, XGBoost, "
+            "CatBoost) and neural networks (RealMLP, ModernNCA) to AutoML systems "
+            "(AutoGluon). Every method is run under one protocol with its training and "
+            "inference time measured, so accuracy and cost can be read together."
+        ),
         "leaderboards": [
             {
                 "name": "tabarena",
                 "endpoint": "/get_tabarena_leaderboard",
-                "description": "Tabular ML on 51 curated IID datasets, ranked by Elo.",
+                "description": (
+                    "Tabular ML on 51 curated datasets with IID (random) splits, ranked by "
+                    "Elo. The default question: which method predicts best."
+                ),
                 "axes": {
                     "tasks": list(TASK_LABELS),
                     "datasets": list(DATASET_LABELS),
                     "kind": KIND_VALUES,
                     "imputation": IMPUTATION_VALUES,
                     "splits": SPLITS_VALUES,
+                    "entrants": list(get_args(EntrantsAxis)),
                 },
                 "csv_url_template": _TABARENA_CSV_TEMPLATE,
             },
@@ -514,7 +583,8 @@ def list_leaderboards() -> dict[str, Any]:
                 "endpoint": "/get_beyondarena_leaderboard",
                 "description": (
                     "Tabular ML beyond the IID assumption: random, temporal and grouped "
-                    "splits across dataset sizes and feature types."
+                    "splits across dataset sizes and feature types. Read this one when the "
+                    "data shifts over time or arrives in groups."
                 ),
                 "axes": {"subset": list(BEYOND_SUBSET_LABELS), "kind": KIND_VALUES},
                 "csv_url_template": _BEYOND_CSV_TEMPLATE,
@@ -524,11 +594,25 @@ def list_leaderboards() -> dict[str, Any]:
         "kinds": {
             "models": "Individual models (TabPFN, RealMLP, LightGBM, ...). The default.",
             "systems": (
-                f"Whole AutoML systems (AutoGluon, ...), marked '{SYSTEM_TYPE}' in the "
-                "artifacts. They tune and ensemble many models internally, so ranking them "
-                "against a single model compares different things."
+                f"Whole systems (AutoGluon, TabFM+, hosted APIs, ...), marked '{SYSTEM_TYPE}' "
+                "in the artifacts. They tune and ensemble many models inside their own budget, "
+                "so ranking them against a single model compares different things. Only present "
+                "when `entrants` admits them; see the `entrants` axis."
             ),
             "all": "Both, as the website's table shows them.",
+        },
+        "entrants": {
+            key: f"{entrants_name(key)}. {entrants_note(key)}" for key in get_args(EntrantsAxis)
+        },
+        "tags": {
+            "with-llm": (
+                "An LLM is involved somewhere in this system, possibly as an agent. Its results "
+                "depend on a model that can change and whose training data cannot be audited."
+            ),
+            "closed-source-api": (
+                "The system runs behind a remote API whose internals cannot be inspected, so the "
+                "numbers are not reproducible from source."
+            ),
         },
         "choosing_a_model": (
             "For 'which model should I use', call get_pareto_frontier rather than reading the "
@@ -545,35 +629,57 @@ def list_leaderboards() -> dict[str, Any]:
     }
 
 
+# Every description opens by naming the subject, because an MCP client may show one tool with
+# no sibling for context and Gradio has no server-level instructions field. See the module
+# docstring.
+_WHAT_IS_TABARENA = (
+    "TabArena is a living benchmark for tabular machine learning: predicting a target column "
+    "from structured, rows-and-columns data (CSV files, spreadsheets, dataframes, database "
+    "tables). It ranks tabular foundation models (TabPFN, TabICL, TabDPT, Mitra, TabM), "
+    "gradient-boosted trees (LightGBM, XGBoost, CatBoost), neural networks (RealMLP, "
+    "ModernNCA) and AutoML systems (AutoGluon) by Elo over 51 curated datasets, with "
+    "measured training and inference time for each."
+)
+
+
 def register_api() -> None:
     """Register the endpoints. Call inside the app's ``gr.Blocks`` context."""
     gr.api(
         list_leaderboards,
         api_name="list_leaderboards",
         api_description=(
-            "List the available TabArena leaderboards, the valid subset values for each, "
-            "the difference between models and systems, the keys every record carries, and "
-            "the raw CSV URLs for bulk download. Call this before the get_* endpoints."
+            f"{_WHAT_IS_TABARENA} This endpoint is the index: it lists the available "
+            "leaderboards, the valid subset values for every other endpoint, the difference "
+            "between a model and a whole system, the keys each record carries, and the raw "
+            "CSV URLs for bulk download. Call it before the get_* endpoints when you are "
+            "unsure which arguments exist."
         ),
     )
     gr.api(
         get_tabarena_leaderboard,
         api_name="get_tabarena_leaderboard",
         api_description=(
-            "Ranked TabArena results (Elo, score, ranks, train/predict time) for one subset "
-            "of the IID benchmark, selected by tasks, datasets, imputation and splits. "
-            "Pass kind='models' (the default) for individual models such as TabPFN or "
-            "LightGBM, kind='systems' for whole AutoML systems such as AutoGluon, or "
-            "kind='all' for both. A question about the best model wants 'models'; a "
-            "question about the best AutoML framework wants 'systems'."
+            f"{_WHAT_IS_TABARENA} This endpoint returns the ranked results (Elo, score, "
+            "ranks, train and predict time) for one subset of the IID benchmark, selected by "
+            "task type, dataset size, imputation and split protocol. Use it to look up where "
+            "a named method stands, to compare two of them (\"is TabPFN better than "
+            "LightGBM on small data\"), or to report the current state of the art on tabular "
+            "data. Pass kind='models' (the default) for individual models, kind='systems' "
+            "for whole AutoML systems such as AutoGluon, or kind='all' for both: a question "
+            "about the best model wants 'models', one about the best AutoML framework wants "
+            "'systems'."
         ),
     )
     gr.api(
         get_beyondarena_leaderboard,
         api_name="get_beyondarena_leaderboard",
         api_description=(
-            "Ranked BeyondArena results for one subset (random, temporal, grouped splits; "
-            "size and feature-type buckets), on the recommended core protocol. Takes the "
+            "Ranked results for BeyondArena, the companion benchmark that measures the same "
+            "tabular models (TabPFN, LightGBM, CatBoost, AutoGluon and the rest) where the "
+            "IID assumption does not hold: random, temporal and grouped splits, sliced by "
+            "dataset size and feature type. Use it whenever the question involves "
+            "distribution shift, time-ordered rows, leakage-prone grouped splits, or how "
+            "well a tabular model generalizes beyond a random train/test split. Takes the "
             "same kind='models' | 'systems' | 'all' distinction as the TabArena endpoint."
         ),
     )
@@ -581,12 +687,15 @@ def register_api() -> None:
         get_pareto_frontier,
         api_name="get_pareto_frontier",
         api_description=(
-            "The accuracy-versus-time trade-off for one subset: the outright best model, "
-            "the models nothing beats on both accuracy and speed at once (each with its "
-            "speedup and accuracy gap versus the leader), and the best model that fits a "
-            "train- or predict-time budget. Prefer this over get_*_leaderboard for "
-            "'which model should I use', 'what is the best model', or any question about "
-            "models that are faster to fit or to serve: the top of the leaderboard is "
-            "often far slower than a model just behind it. Returns a summary sentence."
+            "The accuracy-versus-time trade-off among tabular models (TabPFN, TabICL, "
+            "LightGBM, XGBoost, CatBoost, RealMLP, AutoGluon and the rest), measured on "
+            "TabArena or BeyondArena. Returns the outright best model, the models nothing "
+            "beats on both accuracy and speed at once (each with its speedup and accuracy "
+            "gap versus the leader), and the best model that fits a train- or predict-time "
+            "budget. Prefer it over the leaderboard endpoints for 'which model should I use "
+            "on my tabular data', 'what is the best tabular model', 'what is a faster "
+            "alternative to TabPFN', or anything about cost of training or serving: the top "
+            "of the leaderboard is often orders of magnitude slower than a model just behind "
+            "it. Returns a summary sentence you can relay."
         ),
     )

@@ -11,54 +11,92 @@ import type {
   DashboardStats
 } from '../../shared/types';
 
-export function getVelocityData(): VelocityDataPoint[] {
+function taskScope(userId: number, role: string, teamId?: number, alias = 't'): { sql: string; params: number[] } {
+  if (role === 'admin' && teamId == null) return { sql: '', params: [] };
+  if (role === 'admin' && teamId != null) {
+    return {
+      sql: `(${alias}.team_id = ? OR (${alias}.team_id IS NULL AND ${alias}.assignee_id IN (SELECT id FROM members WHERE team_id = ?)))`,
+      params: [teamId, teamId],
+    };
+  }
+  const ownMember = `(SELECT m.id FROM members m JOIN users u ON u.email = m.email WHERE u.id = ?)`;
+  if (role === 'viewer') return { sql: `${alias}.assignee_id = ${ownMember}`, params: [userId] };
+  return {
+    sql: `(
+      ${alias}.team_id = (SELECT team_id FROM users WHERE id = ?)
+      OR (${alias}.team_id IS NULL AND ${alias}.assignee_id IN (
+        SELECT m.id FROM members m
+        WHERE m.team_id = (SELECT team_id FROM users WHERE id = ?)
+      ))
+      OR ${alias}.assignee_id = ${ownMember}
+    )`,
+    params: [userId, userId, userId],
+  };
+}
+
+export function getVelocityData(userId: number, role: string, teamId?: number): VelocityDataPoint[] {
   const db = getDb();
   const sprints = db.prepare('SELECT * FROM sprints ORDER BY start_date ASC').all() as Array<{
     id: number; name: string;
   }>;
 
   return sprints.map((sprint) => {
-    const total = (db.prepare('SELECT COUNT(*) as c FROM tasks WHERE sprint_id = ?').get(sprint.id) as { c: number }).c;
-    const completed = (db.prepare("SELECT COUNT(*) as c FROM tasks WHERE sprint_id = ? AND status = 'done'").get(sprint.id) as { c: number }).c;
+    const scope = taskScope(userId, role, teamId);
+    const total = (db.prepare(`SELECT COUNT(*) as c FROM tasks t WHERE t.sprint_id = ?${scope.sql ? ` AND ${scope.sql}` : ''}`).get(sprint.id, ...scope.params) as { c: number }).c;
+    const completed = (db.prepare(`SELECT COUNT(*) as c FROM tasks t WHERE t.sprint_id = ? AND t.status = 'done'${scope.sql ? ` AND ${scope.sql}` : ''}`).get(sprint.id, ...scope.params) as { c: number }).c;
     return { sprint_name: sprint.name, completed, total };
   });
 }
 
-export function getAssigneeDistribution(sprintId?: number): AssigneeDistribution[] {
+export function getAssigneeDistribution(userId: number, role: string, sprintId?: number, teamId?: number): AssigneeDistribution[] {
   const db = getDb();
+  const scope = taskScope(userId, role, teamId);
+  const taskFilter = scope.sql ? ` AND ${scope.sql}` : '';
+  const memberFilter = role === 'admin' && teamId == null
+    ? ''
+    : role === 'admin'
+      ? ' WHERE m.team_id = ?'
+      : ` WHERE m.team_id = (SELECT team_id FROM users WHERE id = ?) OR m.email = (SELECT email FROM users WHERE id = ?)`;
   if (sprintId != null) {
     return db.prepare(`
       SELECT m.name, m.avatar_color as color, COUNT(t.id) as count
       FROM members m
-      LEFT JOIN tasks t ON t.assignee_id = m.id AND t.sprint_id = ?
+      LEFT JOIN tasks t ON t.assignee_id = m.id AND t.sprint_id = ?${taskFilter}
+      ${memberFilter}
       GROUP BY m.id
       ORDER BY count DESC
-    `).all(sprintId) as AssigneeDistribution[];
+    `).all(sprintId, ...scope.params, ...(role === 'admin' ? (teamId == null ? [] : [teamId]) : [userId, userId])) as AssigneeDistribution[];
   }
   return db.prepare(`
     SELECT m.name, m.avatar_color as color, COUNT(t.id) as count
     FROM members m
-    LEFT JOIN tasks t ON t.assignee_id = m.id
+    LEFT JOIN tasks t ON t.assignee_id = m.id${taskFilter}
+    ${memberFilter}
     GROUP BY m.id
     ORDER BY count DESC
-  `).all() as AssigneeDistribution[];
+  `).all(...scope.params, ...(role === 'admin' ? (teamId == null ? [] : [teamId]) : [userId, userId])) as AssigneeDistribution[];
 }
 
-export function getStatusDistribution(sprintId?: number): StatusDistribution[] {
+export function getStatusDistribution(userId: number, role: string, sprintId?: number, teamId?: number): StatusDistribution[] {
   const db = getDb();
+  const scope = taskScope(userId, role, teamId);
+  const taskFilter = scope.sql ? ` AND ${scope.sql}` : '';
   if (sprintId != null) {
     return db.prepare(
-      "SELECT status, COUNT(*) as count FROM tasks WHERE sprint_id = ? GROUP BY status"
-    ).all(sprintId) as StatusDistribution[];
+      `SELECT status, COUNT(*) as count FROM tasks t WHERE sprint_id = ?${taskFilter} GROUP BY status`
+    ).all(sprintId, ...scope.params) as StatusDistribution[];
   }
   return db.prepare(
-    "SELECT status, COUNT(*) as count FROM tasks GROUP BY status"
-  ).all() as StatusDistribution[];
+    `SELECT status, COUNT(*) as count FROM tasks t${scope.sql ? ` WHERE ${scope.sql}` : ''} GROUP BY status`
+  ).all(...scope.params) as StatusDistribution[];
 }
 
-export function getDashboardStats(sprintId?: number): DashboardStats {
+export function getDashboardStats(userId: number, role: string, sprintId?: number, teamId?: number): DashboardStats {
   const db = getDb();
-  const members = (db.prepare('SELECT COUNT(*) as c FROM members').get() as { c: number }).c;
+  const scope = taskScope(userId, role, teamId);
+  const members = role === 'admin'
+    ? (db.prepare('SELECT COUNT(*) as c FROM members').get() as { c: number }).c
+    : (db.prepare('SELECT COUNT(*) as c FROM members m WHERE m.team_id = (SELECT team_id FROM users WHERE id = ?) OR m.email = (SELECT email FROM users WHERE id = ?)').get(userId, userId) as { c: number }).c;
   const activeSprints = (db.prepare("SELECT COUNT(*) as c FROM sprints WHERE status = 'active'").get() as { c: number }).c;
 
   let total: number;
@@ -66,13 +104,13 @@ export function getDashboardStats(sprintId?: number): DashboardStats {
   let inProgress: number;
 
   if (sprintId != null) {
-    total = (db.prepare('SELECT COUNT(*) as c FROM tasks WHERE sprint_id = ?').get(sprintId) as { c: number }).c;
-    completed = (db.prepare("SELECT COUNT(*) as c FROM tasks WHERE sprint_id = ? AND status = 'done'").get(sprintId) as { c: number }).c;
-    inProgress = (db.prepare("SELECT COUNT(*) as c FROM tasks WHERE sprint_id = ? AND status = 'in_progress'").get(sprintId) as { c: number }).c;
+    total = (db.prepare(`SELECT COUNT(*) as c FROM tasks t WHERE sprint_id = ?${scope.sql ? ` AND ${scope.sql}` : ''}`).get(sprintId, ...scope.params) as { c: number }).c;
+    completed = (db.prepare(`SELECT COUNT(*) as c FROM tasks t WHERE sprint_id = ? AND status = 'done'${scope.sql ? ` AND ${scope.sql}` : ''}`).get(sprintId, ...scope.params) as { c: number }).c;
+    inProgress = (db.prepare(`SELECT COUNT(*) as c FROM tasks t WHERE sprint_id = ? AND status = 'in_progress'${scope.sql ? ` AND ${scope.sql}` : ''}`).get(sprintId, ...scope.params) as { c: number }).c;
   } else {
-    total = (db.prepare('SELECT COUNT(*) as c FROM tasks').get() as { c: number }).c;
-    completed = (db.prepare("SELECT COUNT(*) as c FROM tasks WHERE status = 'done'").get() as { c: number }).c;
-    inProgress = (db.prepare("SELECT COUNT(*) as c FROM tasks WHERE status = 'in_progress'").get() as { c: number }).c;
+    total = (db.prepare(`SELECT COUNT(*) as c FROM tasks t${scope.sql ? ` WHERE ${scope.sql}` : ''}`).get(...scope.params) as { c: number }).c;
+    completed = (db.prepare(`SELECT COUNT(*) as c FROM tasks t WHERE status = 'done'${scope.sql ? ` AND ${scope.sql}` : ''}`).get(...scope.params) as { c: number }).c;
+    inProgress = (db.prepare(`SELECT COUNT(*) as c FROM tasks t WHERE status = 'in_progress'${scope.sql ? ` AND ${scope.sql}` : ''}`).get(...scope.params) as { c: number }).c;
   }
 
   return {

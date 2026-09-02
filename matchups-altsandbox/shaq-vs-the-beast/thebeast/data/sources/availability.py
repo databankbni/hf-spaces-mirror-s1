@@ -68,10 +68,17 @@ class TeamRoster:
     """One team's active roster, plus labels for anyone notable who isn't on it."""
 
     def __init__(self, active: set[int], reasons: Optional[dict[int, str]] = None,
-                 fetched_at: Optional[float] = None) -> None:
+                 fetched_at: Optional[float] = None,
+                 positions: Optional[dict[int, str]] = None) -> None:
         self.active = active
         self.reasons = reasons or {}
+        # {player_id: "SS"} — each man's listed position, taken from the same
+        # response that says he can play. Empty when unknown; never a guess.
+        self.positions = positions or {}
         self.fetched_at = fetched_at or time.time()
+
+    def position(self, player_id: int) -> str:
+        return self.positions.get(player_id, "")
 
     @property
     def usable(self) -> bool:
@@ -146,12 +153,24 @@ class MLBAvailabilitySource:
         return dict(found)
 
     def _ids_from(self, data: Any) -> set[int]:
-        found = set()
+        return set(self._roster_rows(data))
+
+    def _roster_rows(self, data: Any) -> dict[int, str]:
+        """{player_id: position} from a roster payload.
+
+        The position comes free with the availability check — the same entry
+        that says a player is on the active roster also says what he plays —
+        and it was being thrown away. Reading it here means the lineup can be
+        labelled without a second call.
+        """
+        found: dict[int, str] = {}
         for entry in (data or {}).get("roster", []) or []:
             try:
-                found.add(int((entry.get("person") or {}).get("id")))
+                pid = int((entry.get("person") or {}).get("id"))
             except (TypeError, ValueError):
                 continue
+            pos = (entry.get("position") or {}).get("abbreviation")
+            found[pid] = str(pos).strip().upper() if pos else ""
         return found
 
     def roster(self, team: str) -> TeamRoster:
@@ -183,7 +202,9 @@ class MLBAvailabilitySource:
             self._note_failure(abbr)
             return _UNKNOWN
 
-        roster = TeamRoster(self._ids_from(data), fetched_at=now)
+        rows = self._roster_rows(data)
+        roster = TeamRoster(set(rows), fetched_at=now,
+                            positions={p: v for p, v in rows.items() if v})
         if not roster.usable:
             self._note_failure(abbr)
             return _UNKNOWN

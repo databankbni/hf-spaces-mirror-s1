@@ -190,3 +190,5 @@ class TestAnalyzeTotals:
         # 3 of 6 sims over 9.5, 3 under → 0.5 each
         assert abs(edges["over"].model_probability - 0.5) < 1e-9
         assert abs(edges["under"].model_probability - 0.5) < 1e-9
+
+

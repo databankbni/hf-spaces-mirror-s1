@@ -1,0 +1,506 @@
+<div class="safety-dashboard"></div>
+<style>
+  .safety-dashboard {
+    width: 100%;
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  .safety-dashboard svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .safety-dashboard .axis-label {
+    fill: var(--text-color);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .safety-dashboard .axes path,
+  .safety-dashboard .axes line {
+    stroke: var(--axis-color, var(--text-color));
+  }
+  .safety-dashboard .axes text {
+    fill: var(--tick-color, var(--muted-color));
+    font-size: 11px;
+  }
+  .safety-dashboard .grid line {
+    stroke: var(--grid-color, rgba(0,0,0,.08));
+  }
+  .safety-dashboard .center-line {
+    stroke: var(--border-color);
+    stroke-width: 1.5;
+    stroke-dasharray: 4,3;
+  }
+  .safety-dashboard .group-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .safety-dashboard .bar-rect {
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+    rx: 3;
+    ry: 3;
+  }
+  .safety-dashboard .bar-rect:hover {
+    opacity: 0.8;
+  }
+  .safety-dashboard .bar-value {
+    font-size: 10px;
+    font-weight: 600;
+    fill: var(--text-color);
+    pointer-events: none;
+  }
+  .safety-dashboard .category-label {
+    font-size: 11px;
+    fill: var(--text-color);
+  }
+  .safety-dashboard .separator-line {
+    stroke: var(--border-color);
+    stroke-width: 1;
+    stroke-dasharray: 2,2;
+  }
+  .safety-dashboard .d3-tooltip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(-9999px, -9999px);
+    pointer-events: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.45;
+    border: 1px solid var(--border-color);
+    background: var(--surface-bg);
+    color: var(--text-color);
+    box-shadow: 0 4px 24px rgba(0,0,0,.18);
+    opacity: 0;
+    transition: opacity .12s ease;
+    z-index: 10;
+    max-width: 260px;
+  }
+  .safety-dashboard .d3-tooltip__inner {
+    text-align: left;
+  }
+  .safety-dashboard .d3-tooltip__inner .tt-category {
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .safety-dashboard .d3-tooltip__inner .tt-type {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+  }
+  .safety-dashboard .d3-tooltip__inner .tt-type.safe {
+    background: oklch(0.75 0.18 145 / 0.2);
+    color: oklch(0.55 0.18 145);
+  }
+  .safety-dashboard .d3-tooltip__inner .tt-type.unsafe {
+    background: oklch(0.65 0.22 25 / 0.2);
+    color: oklch(0.55 0.22 25);
+  }
+  .safety-dashboard .d3-tooltip__inner .tt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .safety-dashboard .d3-tooltip__inner .tt-label {
+    color: var(--muted-color);
+  }
+  .safety-dashboard .d3-tooltip__inner .tt-value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 600px) {
+    .safety-dashboard .category-label {
+      font-size: 9px;
+    }
+    .safety-dashboard .bar-value {
+      font-size: 8px;
+    }
+  }
+</style>
+<script>
+  (() => {
+    if (window.safetyDashboardInitialized) return;
+    window.safetyDashboardInitialized = true;
+
+    const ensureD3 = (cb) => {
+      if (window.d3 && typeof window.d3.select === 'function') return cb();
+      let s = document.getElementById('d3-cdn-script');
+      if (!s) {
+        s = document.createElement('script');
+        s.id = 'd3-cdn-script';
+        s.src = 'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js';
+        document.head.appendChild(s);
+      }
+      const onReady = () => { if (window.d3 && typeof window.d3.select === 'function') cb(); };
+      s.addEventListener('load', onReady, { once: true });
+      if (window.d3) onReady();
+    };
+
+    const bootstrap = () => {
+      const scriptEl = document.currentScript;
+      let container = scriptEl ? scriptEl.previousElementSibling : null;
+      if (!(container && container.classList && container.classList.contains('safety-dashboard'))) {
+        const cs = Array.from(document.querySelectorAll('.safety-dashboard'))
+          .filter(el => !(el.dataset && el.dataset.mounted === 'true'));
+        container = cs[cs.length - 1] || null;
+      }
+      if (!container) return;
+      if (container.dataset) {
+        if (container.dataset.mounted === 'true') return;
+        container.dataset.mounted = 'true';
+      }
+
+      container.style.position = container.style.position || 'relative';
+
+      // Tooltip
+      let tip = container.querySelector('.d3-tooltip');
+      let tipInner;
+      if (!tip) {
+        tip = document.createElement('div');
+        tip.className = 'd3-tooltip';
+        Object.assign(tip.style, {
+          position: 'absolute', top: '0px', left: '0px',
+          transform: 'translate(-9999px, -9999px)', pointerEvents: 'none',
+          padding: '10px 14px', borderRadius: '8px', fontSize: '12px', lineHeight: '1.45',
+          border: '1px solid var(--border-color)', background: 'var(--surface-bg)',
+          color: 'var(--text-color)', boxShadow: '0 4px 24px rgba(0,0,0,.18)',
+          opacity: '0', transition: 'opacity .12s ease', zIndex: '10', maxWidth: '260px'
+        });
+        tipInner = document.createElement('div');
+        tipInner.className = 'd3-tooltip__inner';
+        tipInner.style.textAlign = 'left';
+        tip.appendChild(tipInner);
+        container.appendChild(tip);
+      } else {
+        tipInner = tip.querySelector('.d3-tooltip__inner') || tip;
+      }
+
+      const d3 = window.d3;
+
+      // Colors
+      const safeColor = 'oklch(0.72 0.19 145)';
+      const unsafeColor = 'oklch(0.63 0.24 25)';
+
+      function formatCategory(cat) {
+        return cat
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, c => c.toUpperCase());
+      }
+
+      // SVG setup
+      const svg = d3.select(container).append('svg');
+      const gRoot = svg.append('g');
+      const gGrid = gRoot.append('g').attr('class', 'grid');
+      const gAxes = gRoot.append('g').attr('class', 'axes');
+      const gBars = gRoot.append('g').attr('class', 'bars');
+      const gLabels = gRoot.append('g').attr('class', 'labels');
+
+      let rawData = [];
+
+      async function loadData() {
+        const paths = [
+          '/data/safety_breakdown.json',
+          './data/safety_breakdown.json',
+          '../assets/data/safety_breakdown.json',
+          '/assets/data/safety_breakdown.json'
+        ];
+        for (const p of paths) {
+          try {
+            const res = await fetch(p);
+            if (res.ok) {
+              rawData = await res.json();
+              render();
+              return;
+            }
+          } catch (_) {}
+        }
+        console.warn('safety-dashboard: could not load safety_breakdown.json');
+      }
+
+      function render() {
+        if (!rawData.length) return;
+
+        const containerWidth = container.clientWidth || 700;
+        const labelWidth = Math.min(170, containerWidth * 0.25);
+        const margin = { top: 30, right: 30, bottom: 40, left: labelWidth + 10 };
+        const barHeight = 26;
+        const barGap = 5;
+        const groupGap = 18;
+
+        // Sort: safe first (lowest rate first), then unsafe (lowest rate first)
+        const safeItems = rawData.filter(d => d.type === 'safe').sort((a, b) => a.rate - b.rate);
+        const unsafeItems = rawData.filter(d => d.type === 'unsafe').sort((a, b) => a.rate - b.rate);
+        const sorted = [...safeItems, ...unsafeItems];
+
+        const totalItems = sorted.length;
+        const innerHeight = totalItems * (barHeight + barGap) + groupGap;
+        const height = innerHeight + margin.top + margin.bottom;
+        const innerWidth = containerWidth - margin.left - margin.right;
+
+        svg
+          .attr('viewBox', `0 0 ${containerWidth} ${height}`)
+          .attr('preserveAspectRatio', 'xMidYMid meet');
+
+        gRoot.attr('transform', `translate(${margin.left},${margin.top})`);
+
+        // Scales: safe bars go LEFT (negative direction), unsafe bars go RIGHT
+        const maxRate = d3.max(rawData, d => d.rate) || 100;
+        const domainMax = Math.max(maxRate * 1.15, 10);
+
+        const xLeft = d3.scaleLinear().domain([0, domainMax]).range([0, innerWidth / 2]);
+        const xRight = d3.scaleLinear().domain([0, domainMax]).range([0, innerWidth / 2]);
+        const centerX = innerWidth / 2;
+
+        // Clear
+        gGrid.selectAll('*').remove();
+        gAxes.selectAll('*').remove();
+        gBars.selectAll('*').remove();
+        gLabels.selectAll('*').remove();
+
+        // Grid lines
+        const ticksLeft = xLeft.ticks(4).filter(t => t > 0);
+        const ticksRight = xRight.ticks(4).filter(t => t > 0);
+
+        gGrid.selectAll('.grid-left')
+          .data(ticksLeft)
+          .join('line')
+          .attr('class', 'grid-left')
+          .attr('x1', d => centerX - xLeft(d))
+          .attr('x2', d => centerX - xLeft(d))
+          .attr('y1', -10)
+          .attr('y2', innerHeight)
+          .attr('stroke', 'var(--grid-color, rgba(0,0,0,.06))')
+          .attr('stroke-width', 1);
+
+        gGrid.selectAll('.grid-right')
+          .data(ticksRight)
+          .join('line')
+          .attr('class', 'grid-right')
+          .attr('x1', d => centerX + xRight(d))
+          .attr('x2', d => centerX + xRight(d))
+          .attr('y1', -10)
+          .attr('y2', innerHeight)
+          .attr('stroke', 'var(--grid-color, rgba(0,0,0,.06))')
+          .attr('stroke-width', 1);
+
+        // Center line
+        gGrid.append('line')
+          .attr('class', 'center-line')
+          .attr('x1', centerX)
+          .attr('x2', centerX)
+          .attr('y1', -10)
+          .attr('y2', innerHeight);
+
+        // Axes: top labels
+        // Left axis (safe, rates going left)
+        const leftAxisG = gAxes.append('g').attr('transform', `translate(0, -14)`);
+        leftAxisG.selectAll('text')
+          .data(ticksLeft)
+          .join('text')
+          .attr('x', d => centerX - xLeft(d))
+          .attr('y', 0)
+          .attr('text-anchor', 'middle')
+          .attr('fill', 'var(--muted-color)')
+          .attr('font-size', '10px')
+          .text(d => d + '%');
+
+        // Right axis (unsafe, rates going right)
+        const rightAxisG = gAxes.append('g').attr('transform', `translate(0, -14)`);
+        rightAxisG.selectAll('text')
+          .data(ticksRight)
+          .join('text')
+          .attr('x', d => centerX + xRight(d))
+          .attr('y', 0)
+          .attr('text-anchor', 'middle')
+          .attr('fill', 'var(--muted-color)')
+          .attr('font-size', '10px')
+          .text(d => d + '%');
+
+        // Center label "0%"
+        gAxes.append('text')
+          .attr('x', centerX)
+          .attr('y', -14)
+          .attr('text-anchor', 'middle')
+          .attr('fill', 'var(--muted-color)')
+          .attr('font-size', '10px')
+          .attr('font-weight', '600')
+          .text('0%');
+
+        // Group headers
+        const safeHeaderY = -4;
+        gAxes.append('text')
+          .attr('class', 'group-label')
+          .attr('x', centerX - 20)
+          .attr('y', safeHeaderY)
+          .attr('text-anchor', 'end')
+          .attr('fill', safeColor)
+          .attr('font-size', '11px')
+          .attr('font-weight', '700')
+          .attr('letter-spacing', '0.5px')
+          .text('SAFE (False Refusal Rate %)');
+
+        gAxes.append('text')
+          .attr('class', 'group-label')
+          .attr('x', centerX + 20)
+          .attr('y', safeHeaderY)
+          .attr('text-anchor', 'start')
+          .attr('fill', unsafeColor)
+          .attr('font-size', '11px')
+          .attr('font-weight', '700')
+          .attr('letter-spacing', '0.5px')
+          .text('UNSAFE (Compliance Rate %)');
+
+        // Separator between safe and unsafe
+        const separatorY = safeItems.length * (barHeight + barGap) + groupGap / 2 - barGap / 2;
+        gGrid.append('line')
+          .attr('class', 'separator-line')
+          .attr('x1', -labelWidth)
+          .attr('x2', innerWidth)
+          .attr('y1', separatorY)
+          .attr('y2', separatorY);
+
+        // Draw bars
+        sorted.forEach((d, i) => {
+          const yOffset = i < safeItems.length
+            ? i * (barHeight + barGap)
+            : safeItems.length * (barHeight + barGap) + groupGap + (i - safeItems.length) * (barHeight + barGap);
+          const isSafe = d.type === 'safe';
+          const barW = isSafe ? xLeft(d.rate) : xRight(d.rate);
+          const barX = isSafe ? centerX - barW : centerX;
+          const color = isSafe ? safeColor : unsafeColor;
+
+          // Bar background (subtle)
+          gBars.append('rect')
+            .attr('x', barX)
+            .attr('y', yOffset)
+            .attr('width', Math.max(barW, 0))
+            .attr('height', barHeight)
+            .attr('rx', 3)
+            .attr('ry', 3)
+            .attr('fill', color)
+            .attr('opacity', 0.85)
+            .attr('class', 'bar-rect')
+            .on('mousemove', (event) => {
+              const [px, py] = d3.pointer(event, container);
+              tipInner.innerHTML =
+                `<div class="tt-category">${formatCategory(d.category)}</div>` +
+                `<div class="tt-type ${d.type}">${d.type.toUpperCase()}</div>` +
+                `<div class="tt-row"><span class="tt-label">N</span><span class="tt-value">${d.n}</span></div>` +
+                `<div class="tt-row"><span class="tt-label">${isSafe ? 'False Refusal Rate' : 'Compliance Rate'}</span><span class="tt-value">${d.rate.toFixed(1)}%</span></div>`;
+              const tipW = tip.offsetWidth || 200;
+              const tipH = tip.offsetHeight || 80;
+              let tx = px + 14;
+              let ty = py - tipH / 2;
+              if (tx + tipW > containerWidth) tx = px - tipW - 14;
+              if (ty < 0) ty = 4;
+              tip.style.transform = `translate(${tx}px, ${ty}px)`;
+              tip.style.opacity = '1';
+            })
+            .on('mouseleave', () => {
+              tip.style.opacity = '0';
+              tip.style.transform = 'translate(-9999px, -9999px)';
+            });
+
+          // Value label on the bar
+          if (d.rate > 0) {
+            const valuePadding = 6;
+            const textX = isSafe
+              ? barX - valuePadding
+              : barX + barW + valuePadding;
+            const textAnchor = isSafe ? 'end' : 'start';
+
+            gBars.append('text')
+              .attr('class', 'bar-value')
+              .attr('x', textX)
+              .attr('y', yOffset + barHeight / 2)
+              .attr('dy', '0.35em')
+              .attr('text-anchor', textAnchor)
+              .attr('fill', 'var(--text-color)')
+              .attr('font-size', '10px')
+              .attr('font-weight', '600')
+              .text(d.rate.toFixed(1) + '%');
+          } else {
+            // Show "0%" centered at the bar position
+            const textX = isSafe ? centerX - 6 : centerX + 6;
+            const textAnchor = isSafe ? 'end' : 'start';
+            gBars.append('text')
+              .attr('class', 'bar-value')
+              .attr('x', textX)
+              .attr('y', yOffset + barHeight / 2)
+              .attr('dy', '0.35em')
+              .attr('text-anchor', textAnchor)
+              .attr('fill', 'var(--muted-color)')
+              .attr('font-size', '10px')
+              .text('0%');
+          }
+
+          // Category label
+          gLabels.append('text')
+            .attr('class', 'category-label')
+            .attr('x', -10)
+            .attr('y', yOffset + barHeight / 2)
+            .attr('dy', '0.35em')
+            .attr('text-anchor', 'end')
+            .attr('fill', 'var(--text-color)')
+            .attr('font-size', '11px')
+            .text(formatCategory(d.category));
+        });
+
+        // Bottom axis labels
+        gAxes.append('text')
+          .attr('x', centerX / 2)
+          .attr('y', innerHeight + 24)
+          .attr('text-anchor', 'middle')
+          .attr('fill', 'var(--muted-color)')
+          .attr('font-size', '11px')
+          .attr('font-weight', '600')
+          .text('False Refusal Rate (%)');
+
+        gAxes.append('text')
+          .attr('x', centerX + centerX / 2)
+          .attr('y', innerHeight + 24)
+          .attr('text-anchor', 'middle')
+          .attr('fill', 'var(--muted-color)')
+          .attr('font-size', '11px')
+          .attr('font-weight', '600')
+          .text('Compliance Rate (%)');
+      }
+
+      // Responsive
+      const rerender = () => render();
+      if (window.ResizeObserver) {
+        new ResizeObserver(rerender).observe(container);
+      } else {
+        window.addEventListener('resize', rerender);
+      }
+
+      // Dark mode MutationObserver
+      const themeTarget = document.documentElement;
+      const observer = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+          if (m.type === 'attributes' && m.attributeName === 'data-theme') {
+            render();
+            break;
+          }
+        }
+      });
+      observer.observe(themeTarget, { attributes: true, attributeFilter: ['data-theme'] });
+
+      loadData();
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => ensureD3(bootstrap), { once: true });
+    } else {
+      ensureD3(bootstrap);
+    }
+  })();
+</script>

@@ -1,0 +1,1405 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2e6b4d">
+  <title>HYDROFRA — Análisis hidrológico Bolivia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent: #2e6b4d;
+      --earth:  #9a7b43;
+      --bg:     #f5f7f2;
+      --ink:    #1b241e;
+      --mute:   #5d6760;
+      --soft:   #8a938c;
+      --line:   #e3e7df;
+      --line2:  #eef1ea;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+                 font-family: 'IBM Plex Sans', system-ui, sans-serif;
+                 -webkit-font-smoothing: antialiased; }
+    ::placeholder { color: #aab2a8; }
+    @keyframes hf-spin { to { transform: rotate(360deg); } }
+    @keyframes hf-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    button { font-family: inherit; }
+    input, select { font-family: inherit; }
+
+    .hf-strip { height: 4px; background: linear-gradient(90deg, var(--accent), var(--earth)); }
+    .hf-header { display: flex; align-items: center; justify-content: space-between;
+                 flex-wrap: wrap; gap: 16px; max-width: 1180px; margin: 0 auto;
+                 padding: 22px 28px; }
+    .hf-logo { display: flex; align-items: center; gap: 14px; }
+    .hf-logo-bars { display: flex; flex-direction: column; gap: 3px; }
+    .hf-logo-bars span { display: block; height: 3px; border-radius: 2px; background: var(--accent); }
+    .hf-logo-bars span:nth-child(1) { width: 28px; }
+    .hf-logo-bars span:nth-child(2) { width: 21px; opacity: .65; }
+    .hf-logo-bars span:nth-child(3) { width: 14px; opacity: .4; }
+    .hf-brand-name { font-weight: 700; font-size: 19px; letter-spacing: .04em; }
+    .hf-brand-sub  { font-size: 12px; color: var(--mute); letter-spacing: .01em; }
+    .hf-tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .hf-tag { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--mute);
+              background: #fff; border: 1px solid var(--line); border-radius: 999px;
+              padding: 5px 11px; }
+
+    .hf-main { max-width: 1180px; margin: 0 auto; padding: 8px 28px 64px; }
+    .hf-hero { max-width: 680px; margin: 14px 0 26px; }
+    .hf-hero h1 { font-size: 30px; font-weight: 600; letter-spacing: -0.02em;
+                   margin: 0 0 10px; line-height: 1.15; }
+    .hf-hero p  { font-size: 15px; line-height: 1.6; color: var(--mute); margin: 0; }
+
+    .hf-tabs { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 28px; }
+    .hf-tab { flex: 1 1 280px; min-width: 240px; display: flex; align-items: center;
+              gap: 16px; padding: 18px 20px; border-radius: 14px; cursor: pointer;
+              text-align: left; transition: all .15s; background: #fff;
+              color: var(--ink); border: 1px solid var(--line); }
+    .hf-tab.is-active { color: #fff; box-shadow: 0 6px 18px rgba(27,36,30,.12); }
+    .hf-tab[data-mode="max"].is-active { background: var(--accent); border-color: var(--accent); }
+    .hf-tab[data-mode="min"].is-active { background: var(--earth);  border-color: var(--earth); }
+    .hf-tab:hover { border-color: var(--accent); }
+    .hf-tab[data-mode="min"]:hover { border-color: var(--earth); }
+    .hf-tab.is-active:hover { filter: brightness(1.04); }
+    .hf-tab-bars { display: flex; align-items: flex-end; gap: 3px; height: 22px; }
+    .hf-tab-bars span { width: 5px; border-radius: 2px; background: currentColor; }
+    .hf-tab-bars-up   span:nth-child(1) { height: 9px;  opacity: .55; }
+    .hf-tab-bars-up   span:nth-child(2) { height: 15px; opacity: .8; }
+    .hf-tab-bars-up   span:nth-child(3) { height: 22px; }
+    .hf-tab-bars-down span:nth-child(1) { height: 22px; }
+    .hf-tab-bars-down span:nth-child(2) { height: 15px; opacity: .8; }
+    .hf-tab-bars-down span:nth-child(3) { height: 9px;  opacity: .55; }
+    .hf-tab-title { font-weight: 600; font-size: 15px; }
+    .hf-tab-sub   { font-size: 12.5px; opacity: .8; margin-top: 2px; }
+
+    /* Tercer tab: Hidráulica Fluvial (mismo tamaño que máximos/mínimos) */
+    .hf-tab[data-mode="fluvial"] { color: #0d2a5e; }
+    .hf-tab[data-mode="fluvial"] .hf-tab-title { color: #0d2a5e; }
+    .hf-tab[data-mode="fluvial"]:hover { border-color: #10387f; }
+    .hf-tab[data-mode="fluvial"].is-active { background: linear-gradient(135deg,
+                  #0d2a5e 0%, #10387f 55%, #0a2350 100%); border-color: #0d2a5e; }
+    .hf-tab[data-mode="fluvial"].is-active .hf-tab-title { color: #f4cf5e; }
+    .hf-tab[data-mode="fluvial"] .hf-tab-bars span { background: #d9a93a; }
+    .hf-tab[data-mode="fluvial"].is-active .hf-tab-bars span { background: #f4cf5e; }
+
+
+    .hf-body { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+    .hf-form-col { flex: 3 1 460px; min-width: 320px; display: flex;
+                    flex-direction: column; gap: 18px; }
+    .hf-side    { flex: 1 1 300px; min-width: 280px; max-width: 360px;
+                    position: sticky; top: 20px; }
+
+    section.hf-section { background: #fff; border: 1px solid var(--line);
+                          border-radius: 14px; padding: 22px; }
+    .hf-sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
+    .hf-sec-num  { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--accent); }
+    .hf-sec-num.is-earth { color: var(--earth); }
+    .hf-sec-title { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+
+    .hf-select-wrap { position: relative; }
+    .hf-select-wrap::after { content: "▼"; position: absolute; right: 14px;
+        top: 50%; transform: translateY(-50%); pointer-events: none;
+        color: #8a938c; font-size: 11px; }
+    .hf-input, .hf-select { width: 100%; appearance: none; -webkit-appearance: none;
+        font: 14px 'IBM Plex Sans'; color: var(--ink); background: #fff;
+        border: 1px solid var(--line); border-radius: 9px; padding: 11px 13px;
+        outline: none; transition: box-shadow .12s, border-color .12s; }
+    .hf-select { padding-right: 38px; cursor: pointer; }
+    .hf-input.is-mono, .hf-input[inputmode="decimal"], .hf-input[inputmode="numeric"] {
+        font-family: 'IBM Plex Mono', monospace; }
+    .hf-input:focus, .hf-select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(46,107,77,.12);
+    }
+    body[data-mode="min"] .hf-input:focus,
+    body[data-mode="min"] .hf-select:focus {
+        border-color: var(--earth);
+        box-shadow: 0 0 0 3px rgba(154,123,67,.14);
+    }
+    .hf-row { display: flex; flex-wrap: wrap; gap: 14px; }
+    .hf-field { display: flex; flex-direction: column; gap: 7px;
+                flex: 1 1 200px; min-width: 160px; }
+    .hf-field--small { flex: 1 1 150px; min-width: 130px; }
+    .hf-field--full  { flex: 1 1 100%; }
+    .hf-label { font: 500 12.5px 'IBM Plex Sans'; color: var(--mute); }
+    .hf-hint  { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+                color: var(--soft); margin: 11px 0 0; line-height: 1.5; }
+
+    .hf-tcaption { margin-top: 14px; display: flex; align-items: center;
+                    justify-content: space-between; gap: 12px; background: #eef3ee;
+                    border: 1px solid #dde7df; border-radius: 10px; padding: 12px 15px; }
+    .hf-tcaption-label { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+                           color: var(--mute); text-transform: uppercase; letter-spacing: .05em; }
+    .hf-tcaption-val   { font-family: 'IBM Plex Mono', monospace; font-size: 15px;
+                            font-weight: 600; color: var(--accent); }
+    body[data-mode="min"] .hf-tcaption { background: #f4efe2; border-color: #e6dcc2; }
+    body[data-mode="min"] .hf-tcaption-val { color: var(--earth); }
+
+    /* Toggles */
+    .hf-toggle-row { display: flex; align-items: flex-start; justify-content: space-between;
+                       gap: 16px; padding: 13px 0; cursor: pointer; }
+    .hf-toggle-row + .hf-toggle-row { border-top: 1px solid var(--line2); }
+    .hf-toggle-title { font-size: 14px; font-weight: 500; }
+    .hf-toggle-sub   { font-size: 12.5px; color: var(--soft); margin-top: 2px; }
+    .hf-switch { flex: none; position: relative; width: 42px; height: 24px;
+                  border-radius: 999px; display: inline-block; background: #d6dbd0;
+                  transition: background .18s; }
+    .hf-switch::after { content: ""; position: absolute; top: 3px; left: 3px;
+                         width: 18px; height: 18px; border-radius: 50%; background: #fff;
+                         transition: transform .18s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+    .hf-toggle-row.is-on .hf-switch { background: var(--accent); }
+    .hf-toggle-row.is-on .hf-switch::after { transform: translateX(18px); }
+    .hf-toggle-row input { display: none; }
+
+    /* Min analysis checks (read-only style — actual checkbox underneath) */
+    .hf-check-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0;
+                     border-bottom: 1px solid var(--line2); cursor: pointer; }
+    .hf-check-row:last-child { border-bottom: none; }
+    .hf-check-row input { display: none; }
+    .hf-check-mark { flex: none; width: 18px; height: 18px; margin-top: 1px;
+                       border-radius: 5px; background: var(--earth); color: #fff;
+                       display: flex; align-items: center; justify-content: center;
+                       font-size: 11px; transition: background .15s; }
+    .hf-check-row:not(.is-on) .hf-check-mark { background: #d6dbd0; color: transparent; }
+    .hf-check-text { font-size: 13.5px; line-height: 1.45; color: var(--ink); }
+
+    /* Sidebar */
+    .hf-side-card { background: #fff; border: 1px solid var(--line); border-radius: 14px;
+                      padding: 20px; box-shadow: 0 1px 3px rgba(27,36,30,.04); }
+    .hf-side-title { font-size: 12px; font-weight: 600; letter-spacing: .06em;
+                       text-transform: uppercase; color: var(--soft); margin-bottom: 6px; }
+    .hf-side-row { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0;
+                     border-bottom: 1px solid var(--line2); }
+    .hf-side-row:last-of-type { border-bottom: none; }
+    .hf-side-k { font-size: 13px; color: var(--mute); flex: none; }
+    .hf-side-v { font-size: 13px; font-weight: 500; text-align: right; max-width: 60%; }
+    .hf-side-v.is-mono { font-family: 'IBM Plex Mono', monospace; }
+    .hf-side-v.is-accent { color: var(--accent); font-weight: 600; }
+    body[data-mode="min"] .hf-side-v.is-accent { color: var(--earth); }
+    .hf-cta { margin-top: 16px; width: 100%; background: var(--accent); color: #fff;
+                border: none; border-radius: 10px; padding: 14px; font: 600 14.5px 'IBM Plex Sans';
+                cursor: pointer; letter-spacing: .005em; transition: filter .12s; }
+    .hf-cta:hover { filter: brightness(1.08); }
+    body[data-mode="min"] .hf-cta { background: var(--earth); }
+    .hf-cta-note { font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+                     color: var(--soft); text-align: center; margin: 11px 0 0; line-height: 1.5; }
+    .hf-method { background: #f0ead9; border: 1px solid #e6dcc2; border-radius: 14px;
+                  padding: 16px 18px; margin-top: 16px; }
+    .hf-method-h { font-size: 12px; font-weight: 600; color: var(--earth); margin-bottom: 7px; }
+    .hf-method-p { font-size: 12.5px; line-height: 1.55; color: #6b6450; margin: 0; }
+
+    /* Aviso informativo (no opcional, sin toggle) */
+    .hf-notice { background: #eef3ee; border: 1px solid #dde7df; border-radius: 10px;
+                  padding: 13px 16px; }
+    .hf-notice--earth { background: #f4efe2; border-color: #e6dcc2; }
+    .hf-notice-title { font-size: 14px; font-weight: 600; color: var(--ink);
+                         margin-bottom: 4px; }
+    .hf-notice-sub   { font-size: 12.5px; line-height: 1.5; color: var(--mute); }
+
+    /* Mode-specific visibility */
+    [data-show-mode] { display: none; }
+    body[data-mode="max"] [data-show-mode="max"] { display: block; }
+    body[data-mode="min"] [data-show-mode="min"] { display: block; }
+    body[data-mode="fluvial"] [data-show-mode="fluvial"] { display: block; }
+    body[data-mode="max"] [data-show-mode="max"].hf-row,
+    body[data-mode="min"] [data-show-mode="min"].hf-row,
+    body[data-mode="fluvial"] [data-show-mode="fluvial"].hf-row { display: flex; }
+    body[data-mode="max"] [data-show-mode="max"].hf-field,
+    body[data-mode="min"] [data-show-mode="min"].hf-field { display: flex; }
+    /* Intro compacto del modo fluvial */
+    .hf-fp-intro { margin: 4px 0 18px; padding: 18px 20px; border-radius: 14px;
+      background: linear-gradient(135deg, #0d2a5e, #10387f); color: #eef3fb; }
+    .hf-fp-intro .hf-fp-title { font-weight: 800; font-size: 19px; letter-spacing: .02em;
+      color: #f4cf5e; margin: 0 0 8px; }
+    .hf-fp-intro .hf-fp-legend { font-size: 13.5px; line-height: 1.55; margin: 0; }
+
+    /* Generating overlay */
+    .hf-overlay { position: fixed; inset: 0; background: rgba(20,30,24,.45);
+                    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+                    display: flex; align-items: center; justify-content: center;
+                    padding: 20px; z-index: 50; }
+    .hf-overlay-card { background: #fff; border-radius: 16px; width: min(440px, 100%);
+                         padding: 26px; box-shadow: 0 24px 60px rgba(20,30,24,.3);
+                         animation: hf-rise .25s ease; }
+    .hf-overlay-h { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+    .hf-overlay-sub { font-size: 13px; color: var(--mute); margin-bottom: 18px; }
+    .hf-progress { height: 6px; border-radius: 999px; background: var(--line2);
+                     overflow: hidden; margin-bottom: 18px; }
+    .hf-progress-bar { height: 100%; border-radius: 999px; background: var(--accent);
+                         transition: width .5s ease; width: 0%; }
+    body[data-mode="min"] .hf-progress-bar { background: var(--earth); }
+    .hf-step { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+    .hf-step-dot { flex: none; width: 20px; height: 20px; border-radius: 50%; }
+    .hf-step.is-pending .hf-step-dot { border: 2px solid var(--line); box-sizing: border-box; }
+    .hf-step.is-active  .hf-step-dot { border: 2px solid var(--line); border-top-color: var(--accent);
+                                          animation: hf-spin .8s linear infinite; }
+    body[data-mode="min"] .hf-step.is-active .hf-step-dot { border-top-color: var(--earth); }
+    .hf-step.is-done    .hf-step-dot { background: var(--accent); color: #fff;
+                                          display: flex; align-items: center; justify-content: center;
+                                          font-size: 11px; font-weight: 600; }
+    body[data-mode="min"] .hf-step.is-done .hf-step-dot { background: var(--earth); }
+    .hf-step-label { font-size: 13.5px; }
+    .hf-step.is-pending .hf-step-label { color: #9aa39b; }
+
+    @media (max-width: 640px) {
+      .hf-hero h1 { font-size: 24px; }
+      .hf-main { padding: 8px 18px 48px; }
+      .hf-header { padding: 18px 18px; }
+    }
+  </style>
+</head>
+<body data-mode="max">
+
+  <div class="hf-strip"></div>
+
+  <header class="hf-header">
+    <div class="hf-logo">
+      <div class="hf-logo-bars"><span></span><span></span><span></span></div>
+      <div>
+        <div class="hf-brand-name">HYDROFRA</div>
+        <div class="hf-brand-sub">Análisis hidrológico · Bolivia</div>
+      </div>
+    </div>
+    <div class="hf-tags">
+      <span class="hf-tag">SENAMHI</span>
+      <span class="hf-tag">CHIRPS</span>
+      <span class="hf-tag">MERIT Hydro</span>
+      <span class="hf-tag">CMIP6</span>
+    </div>
+  </header>
+
+  <main class="hf-main">
+
+    {% if usuario %}
+    <div style="max-width:1100px;margin:0 auto 10px;padding:10px 16px;display:flex;
+                flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;
+                background:linear-gradient(135deg,#0d2a5e,#10387f);color:#eef3fb;
+                border-radius:12px;font-size:13.5px;">
+      <span>👤 <strong>{{ usuario.nombre or usuario.email }}</strong></span>
+      {% if cuota.licenciado %}
+      <span>✔ Licencia mensual activa{% if cuota.licencia_hasta %} · vigente hasta
+        {{ cuota.licencia_hasta }}{% endif %} · ejecuciones ilimitadas</span>
+      {% else %}
+      <span>Te quedan
+        <strong style="color:#f4cf5e;">{{ cuota.restantes }}</strong>
+        de {{ cuota.limite }} ejecuciones</span>
+      {% endif %}
+      <a href="{{ url_for('logout') }}"
+         style="color:#f4cf5e;text-decoration:none;font-weight:700;">Cerrar sesión</a>
+    </div>
+    {% endif %}
+
+    <div class="hf-hero">
+      <h1>Análisis hidrológico de caudales</h1>
+      <p>Estimación de caudales máximos y mínimos para diseño de obras en Bolivia,
+         integrando estaciones SENAMHI, datos satelitales y proyecciones de cambio
+         climático.</p>
+    </div>
+
+    <!-- Mode selector -->
+    <div class="hf-tabs" role="tablist">
+      <button type="button" class="hf-tab is-active" data-mode="max" id="tab-max">
+        <div class="hf-tab-bars hf-tab-bars-up"><span></span><span></span><span></span></div>
+        <div>
+          <div class="hf-tab-title">Caudales máximos</div>
+          <div class="hf-tab-sub">Diseño de obras · períodos de retorno</div>
+        </div>
+      </button>
+      <button type="button" class="hf-tab" data-mode="min" id="tab-min">
+        <div class="hf-tab-bars hf-tab-bars-down"><span></span><span></span><span></span></div>
+        <div>
+          <div class="hf-tab-title">Caudales mínimos</div>
+          <div class="hf-tab-sub">Aprovechamiento · caudal ecológico</div>
+        </div>
+      </button>
+      <button type="button" class="hf-tab" data-mode="fluvial" id="tab-fluvial">
+        <div class="hf-tab-bars hf-tab-bars-up"><span></span><span></span><span></span></div>
+        <div>
+          <div class="hf-tab-title">Hidráulica Fluvial</div>
+          <div class="hf-tab-sub">Membresía Gold · obra hidráulica</div>
+        </div>
+      </button>
+    </div>
+
+    <!-- ─────────────── HIDRÁULICA FLUVIAL (tirante / calado) ─────────────── -->
+    <form id="form-fluvial" action="{{ url_for('analizar') }}" method="POST"
+          data-show-mode="fluvial" autocomplete="off"
+          enctype="multipart/form-data">
+      <div class="hf-body">
+
+        <div class="hf-form-col">
+
+          <div class="hf-fp-intro" data-show-mode="fluvial">
+            <div class="hf-fp-title">HIDRÁULICA FLUVIAL PARA PUENTES — TRES PILARES</div>
+            <p class="hf-fp-legend">Todo informe de hidráulica fluvial para puentes converge en
+              <strong>tres pilares</strong>: <strong>①&nbsp;Hidrología</strong> (caudal de diseño
+              Q100 y verificación Q500), <strong>②&nbsp;Hidráulica</strong> (nivel de agua/tirante,
+              velocidad, Froude y comportamiento del flujo en la sección de cruce, con enfoque
+              HEC-RAS sobre el DEM COP-DEM 12.5&nbsp;m) y <strong>③&nbsp;Socavación</strong>
+              (contracción, pila y estribo por HEC-18 y socavación general por Lischtvan-Lebediev),
+              que define la <strong>profundidad de cimentación</strong> —el criterio estructural
+              crítico según AASHTO&nbsp;LRFD. Los tres se entregan en el informe.</p>
+          </div>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num">01</span>
+              <h2 class="hf-sec-title">Tipo de obra a diseñar</h2>
+            </div>
+            <div class="hf-select-wrap">
+              <select name="obra" id="obra-fluvial" class="hf-select">
+                {% for o in tipos_obra %}
+                  <option value="{{ o.clave }}"
+                          data-t="{{ o.t_recomendado }}"
+                          data-rango="{{ o.rango_texto }}"
+                          data-nombre="{{ o.nombre }}"
+                          {% if o.clave == 'carretera_puente' %}selected{% endif %}>
+                    {{ o.nombre }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="hf-tcaption">
+              <span class="hf-tcaption-label">Período de retorno</span>
+              <span class="hf-tcaption-val" id="t-fluvial-display">T 100 años</span>
+            </div>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num">02</span>
+              <h2 class="hf-sec-title">Datos del proyecto</h2>
+            </div>
+            <div class="hf-row">
+              <div class="hf-field">
+                <label class="hf-label" for="np-fluvial">Nombre del proyecto</label>
+                <input class="hf-input" id="np-fluvial" name="nombre_proyecto"
+                       placeholder="Ej. Puente Río Rocha">
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="ing-fluvial">Ingeniero a cargo</label>
+                <input class="hf-input" id="ing-fluvial" name="ingeniero"
+                       value="{{ usuario.nombre or '' }}"
+                       placeholder="Nombre y apellido">
+              </div>
+              <div class="hf-field hf-field--full">
+                <label class="hf-label" for="ub-fluvial">Ubicación</label>
+                <input class="hf-input" id="ub-fluvial" name="ubicacion"
+                       placeholder="Departamento, provincia, municipio">
+              </div>
+            </div>
+            <details style="margin-top:10px;">
+              <summary style="cursor:pointer; font-size:13px; color:#334;">
+                Datos administrativos EDTP (opcional) — contratante, SISIN,
+                ubicación política, firmas</summary>
+              <div class="hf-row" style="margin-top:8px;">
+                <div class="hf-field">
+                  <label class="hf-label" for="contratante">Contratante / entidad</label>
+                  <input class="hf-input" id="contratante" name="contratante"
+                         placeholder="Ej. ABC / GAM / Gobernación">
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="codigo_sisin">Código SISIN</label>
+                  <input class="hf-input" id="codigo_sisin" name="codigo_sisin"
+                         placeholder="Inversión pública (si aplica)">
+                </div>
+              </div>
+              <div class="hf-row">
+                <div class="hf-field">
+                  <label class="hf-label" for="municipio">Municipio</label>
+                  <input class="hf-input" id="municipio" name="municipio">
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="provincia">Provincia</label>
+                  <input class="hf-input" id="provincia" name="provincia">
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="departamento">Departamento</label>
+                  <input class="hf-input" id="departamento" name="departamento">
+                </div>
+              </div>
+              <div class="hf-row">
+                <div class="hf-field">
+                  <label class="hf-label" for="registro_profesional">Registro profesional (SIB/SBP)</label>
+                  <input class="hf-input" id="registro_profesional" name="registro_profesional"
+                         placeholder="Nº de registro del especialista">
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="jefe_proyecto">Jefe de proyecto</label>
+                  <input class="hf-input" id="jefe_proyecto" name="jefe_proyecto"
+                         placeholder="Nombre y apellido">
+                </div>
+              </div>
+            </details>
+            <details style="margin-top:10px;">
+              <summary style="cursor:pointer; font-size:13px; color:#334;">
+                Serie observada de SENAMHI (opcional) — pegá tu serie certificada
+                para un informe con datos observados</summary>
+              <div class="hf-field hf-field--full" style="margin-top:8px;">
+                <label class="hf-label" for="serie_observada">Serie P24max anual
+                  (año y valor por línea)</label>
+                <textarea class="hf-input" id="serie_observada"
+                          name="serie_observada" rows="6"
+                          style="font-family:'IBM Plex Mono',monospace; resize:vertical;"
+                          placeholder="2001 58.4&#10;2002 61.0&#10;2003 47.2&#10;… (mínimo 10 años)"></textarea>
+                <p class="hf-hint">Si pegás tu serie de precipitación máxima
+                  diaria anual de SENAMHI, TODO el análisis (frecuencia, IDF,
+                  caudales, tirante, socavación) se hace sobre datos OBSERVADOS
+                  en vez de satelitales, y el informe lo declara así. Formato
+                  libre: «año valor» por línea (separador coma, espacio o tab).
+                  Adjuntá la certificación de SENAMHI al expediente.</p>
+              </div>
+            </details>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num">03</span>
+              <h2 class="hf-sec-title">Coordenadas del sitio (sobre el cauce)</h2>
+            </div>
+            <div class="hf-row">
+              <div class="hf-field">
+                <label class="hf-label" for="lat-fluvial">Latitud (°)</label>
+                <input class="hf-input is-mono" id="lat-fluvial" name="lat" type="number"
+                       inputmode="decimal" step="any"
+                       value="{{ default_lat }}" placeholder="-17.39">
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="lon-fluvial">Longitud (°)</label>
+                <input class="hf-input is-mono" id="lon-fluvial" name="lon" type="number"
+                       inputmode="decimal" step="any"
+                       value="{{ default_lon }}" placeholder="-66.16">
+              </div>
+            </div>
+            <p class="hf-hint">Ubica el punto sobre el eje del río. Negativo = sur / oeste.</p>
+          </section>
+
+          <section class="hf-section" id="sec-04">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num">04</span>
+              <h2 class="hf-sec-title" id="sec04-title">Puente y sedimento (Pilar 3 · socavación)</h2>
+            </div>
+            <div id="bloque-puente">
+            <p class="hf-hint" style="margin-bottom:10px;">Opcional. Si dejás la
+              pila/estribo en blanco, se calcula solo la socavación general y por
+              contracción. El D50 se toma del tipo de cauce si no lo indicás.</p>
+            <div class="hf-row">
+              <div class="hf-field">
+                <label class="hf-label" for="ancho-pila">Ancho de pila (m)</label>
+                <input class="hf-input" id="ancho-pila" name="ancho_pila" type="number"
+                       step="any" inputmode="decimal" placeholder="Ej. 1.5 (vacío = sin pila)">
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="forma-pila">Forma de la pila</label>
+                <select name="forma_pila" id="forma-pila" class="hf-select">
+                  <option value="redonda" selected>Nariz redonda</option>
+                  <option value="cuadrada">Nariz cuadrada</option>
+                  <option value="aguda">Nariz aguda / triangular</option>
+                  <option value="cilindrica">Cilíndrica</option>
+                </select>
+              </div>
+            </div>
+            <div class="hf-row">
+              <div class="hf-field">
+                <label class="hf-label" for="angulo-ataque">Ángulo de ataque (°)</label>
+                <input class="hf-input" id="angulo-ataque" name="angulo_ataque" type="number"
+                       step="any" inputmode="decimal" value="0" placeholder="0">
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="long-estribo">Long. de estribo (m)</label>
+                <input class="hf-input" id="long-estribo" name="long_estribo" type="number"
+                       step="any" inputmode="decimal" placeholder="Ej. 12 (vacío = sin estribo)">
+              </div>
+            </div>
+            <div class="hf-row">
+              <div class="hf-field">
+                <label class="hf-label" for="tipo-cauce">Tipo de cauce (sedimento)</label>
+                <select name="tipo_cauce" id="tipo-cauce" class="hf-select">
+                  <option value="arena_fina">Arena fina (D50≈0.3 mm)</option>
+                  <option value="arena">Arena (D50≈1 mm)</option>
+                  <option value="arena_gruesa">Arena gruesa (D50≈2 mm)</option>
+                  <option value="grava_fina">Grava fina (D50≈8 mm)</option>
+                  <option value="grava" selected>Grava (D50≈25 mm)</option>
+                  <option value="grava_gruesa">Grava gruesa (D50≈60 mm)</option>
+                  <option value="canto_rodado">Canto rodado (D50≈150 mm)</option>
+                </select>
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="d50">D50 real (mm) — opcional</label>
+                <input class="hf-input" id="d50" name="d50" type="number"
+                       step="any" inputmode="decimal" placeholder="Del estudio granulométrico">
+              </div>
+            </div>
+            <div class="hf-row">
+              <div class="hf-field">
+                <label class="hf-label" for="galibo">Gálibo de la viga (m) — según norma</label>
+                <input class="hf-input" id="galibo" name="galibo" type="number"
+                       step="any" inputmode="decimal" placeholder="Vacío = 2.0 m (MOPSV/ABC · AASHTO)">
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="palizada">Altura de palizada / troncos (m)</label>
+                <input class="hf-input" id="palizada" name="palizada" type="number"
+                       step="any" inputmode="decimal" placeholder="Vacío = 0.5 m">
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="galibo_min">Gálibo libre mínimo ABC (m)</label>
+                <input class="hf-input" id="galibo_min" name="galibo_min" type="number"
+                       step="any" inputmode="decimal" placeholder="Vacío = 1.5 m">
+              </div>
+            </div>
+            </div><!-- /bloque-puente -->
+
+            <div id="bloque-alcantarilla" style="display:none;">
+              <p class="hf-hint" style="margin-bottom:10px;">Diseño FHWA HDS-5
+                (Manual de Hidrología y Drenaje ABC). Elegí el tipo y la sección,
+                o dejá «Comparar y recomendar» para que el programa dimensione con
+                Q(25) cumpliendo HW/D ≤ 1.2 y verifique con Q(100). El caudal, la
+                velocidad y la socavación entran al modelo de tu cuenca.</p>
+              <div class="hf-row">
+                <div class="hf-field">
+                  <label class="hf-label" for="alc_tipo">Tipo de alcantarilla</label>
+                  <select name="alc_tipo" id="alc_tipo" class="hf-select">
+                    <option value="auto" selected>Comparar y recomendar (auto)</option>
+                    <option value="circular_hoao">Circular de HºAº</option>
+                    <option value="cajon_hoao">Cajón de HºAº</option>
+                    <option value="armco">Metálica corrugada (ARMCO)</option>
+                  </select>
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="alc_celdas">N.º de celdas / barriles</label>
+                  <input class="hf-input" id="alc_celdas" name="alc_celdas"
+                         type="number" step="1" min="1" inputmode="numeric"
+                         placeholder="1">
+                </div>
+              </div>
+              <div class="hf-row" id="alc-fila-circular">
+                <div class="hf-field">
+                  <label class="hf-label" for="alc_diam">Diámetro D (m) — circular / ARMCO</label>
+                  <input class="hf-input" id="alc_diam" name="alc_diam"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Ej. 1.20 (solo si elegís tipo circular/ARMCO)">
+                </div>
+              </div>
+              <div class="hf-row" id="alc-fila-cajon" style="display:none;">
+                <div class="hf-field">
+                  <label class="hf-label" for="alc_base">Base B (m) — cajón</label>
+                  <input class="hf-input" id="alc_base" name="alc_base"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Ej. 2.0">
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="alc_alto">Alto H (m) — cajón</label>
+                  <input class="hf-input" id="alc_alto" name="alc_alto"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Ej. 1.5">
+                </div>
+              </div>
+              <div class="hf-row">
+                <div class="hf-field">
+                  <label class="hf-label" for="alc_long">Longitud de la
+                    alcantarilla (m)</label>
+                  <input class="hf-input" id="alc_long" name="alc_long"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Vacío = 12 m · plataforma + taludes">
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="alc_tw">Tirante aguas abajo TW
+                    (m)</label>
+                  <input class="hf-input" id="alc_tw" name="alc_tw"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Vacío = HEC-RAS o descarga libre">
+                </div>
+              </div>
+              <p class="hf-hint">Si subís el modelo HEC-RAS abajo, el caudal de
+                diseño y el TW se toman de ese modelo automáticamente.</p>
+            </div><!-- /bloque-alcantarilla -->
+
+            <div id="bloque-riego" style="display:none;">
+              <p class="hf-hint" style="margin-bottom:10px;">Predimensiona la
+                captación (bocatoma, desarenador, canal y protección). El caudal
+                de crecida del río viene del análisis hidrológico; el caudal de
+                captación (demanda) lo ingresás vos, directo o por área × módulo.</p>
+              <div class="hf-row">
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_q">Caudal de captación (l/s)</label>
+                  <input class="hf-input" id="riego_q" name="riego_q"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Directo. Vacío = usar área × módulo">
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_ancho_rio">Ancho del río (m)</label>
+                  <input class="hf-input" id="riego_ancho_rio" name="riego_ancho_rio"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Ej. 8">
+                </div>
+              </div>
+              <div class="hf-row">
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_qestiaje">Caudal de estiaje disponible (l/s)</label>
+                  <input class="hf-input" id="riego_qestiaje" name="riego_qestiaje"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Q95 / Q7,10 del estudio de caudales mínimos">
+                </div>
+              </div>
+              <div class="hf-row">
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_area">Área bajo riego (ha)</label>
+                  <input class="hf-input" id="riego_area" name="riego_area"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Si no diste el caudal directo">
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_modulo">Módulo de riego (l/s/ha)</label>
+                  <input class="hf-input" id="riego_modulo" name="riego_modulo"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Ej. 1.0–1.5">
+                </div>
+              </div>
+              <div class="hf-row">
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_revest">Revestimiento del canal</label>
+                  <select name="riego_revest" id="riego_revest" class="hf-select">
+                    <option value="hormigon" selected>Hormigón (n=0.014)</option>
+                    <option value="hormigon_pulido">Hormigón pulido (n=0.013)</option>
+                    <option value="mamposteria">Mampostería (n=0.017)</option>
+                    <option value="tierra_revestida">Tierra revestida (n=0.020)</option>
+                    <option value="tierra">Tierra (n=0.025)</option>
+                  </select>
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_forma">Forma del canal</label>
+                  <select name="riego_forma" id="riego_forma" class="hf-select">
+                    <option value="trapezoidal" selected>Trapezoidal</option>
+                    <option value="rectangular">Rectangular</option>
+                  </select>
+                </div>
+              </div>
+              <div class="hf-row">
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_so">Pendiente del canal (%)</label>
+                  <input class="hf-input" id="riego_so" name="riego_so"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Ej. 0.10">
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_talud">Talud z (H:V) — trapezoidal</label>
+                  <input class="hf-input" id="riego_talud" name="riego_talud"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Ej. 1.0">
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_base">Base b (m) — opcional</label>
+                  <input class="hf-input" id="riego_base" name="riego_base"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Vacío = máxima eficiencia">
+                </div>
+              </div>
+              <div class="hf-row">
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_dpart">Partícula a decantar d (mm)</label>
+                  <input class="hf-input" id="riego_dpart" name="riego_dpart"
+                         type="number" step="any" inputmode="decimal"
+                         placeholder="Vacío = 0.20 mm">
+                </div>
+                <div class="hf-field">
+                  <label class="hf-label" for="riego_cota">Cota de captación (msnm) — opcional</label>
+                  <input class="hf-input" id="riego_cota" name="riego_cota"
+                         type="text" placeholder="De la topografía">
+                </div>
+              </div>
+            </div><!-- /bloque-riego -->
+
+            <details style="margin-top:10px;">
+              <summary style="cursor:pointer; font-size:13px; color:#334;">
+                Modelación HEC-RAS externa (opcional) — subí el HDF del plan
+                para usar resultados reales</summary>
+              <p class="hf-hint" style="margin-top:8px;">Si ya modelaste el
+                cruce en HEC-RAS, subí el archivo de resultados del plan
+                (<code>.p01.hdf</code>, <code>.p02.hdf</code>, …). HYDROFRA lee
+                el WSE, la velocidad y el caudal reales (vía ras-commander /
+                h5py) y los usa en el informe en vez del cálculo 1D interno. El
+                motor HEC-RAS lo corrés vos en tu PC; acá solo se leen los
+                resultados.</p>
+              <div class="hf-field hf-field--full" style="margin-top:6px;">
+                <label class="hf-label" for="hecras_hdf">Archivo de resultados
+                  HEC-RAS (.hdf)</label>
+                <input class="hf-input" id="hecras_hdf" name="hecras_hdf"
+                       type="file" accept=".hdf">
+              </div>
+            </details>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num">05</span>
+              <h2 class="hf-sec-title">Opciones</h2>
+            </div>
+            <label class="hf-toggle-row is-on" data-toggle id="full-row-fluvial">
+              <div style="flex:1;">
+                <div class="hf-toggle-title">Informe completo (con DEM real)</div>
+                <div class="hf-toggle-sub">Recomendado: descarga el DEM COP-DEM y corta
+                  las secciones reales del cauce. Desmarcá para modo rápido (secciones
+                  estimadas por geometría hidráulica, sin DEM).</div>
+              </div>
+              <input type="checkbox" name="informe_completo" checked>
+              <span class="hf-switch"></span>
+            </label>
+            <div class="hf-notice">
+              <div class="hf-notice-title">Los datos generados se guardan para una investigación científica</div>
+              <div class="hf-notice-sub">HYDROFRA Dataset · CC-BY 4.0 · Abierto a Solicitud.</div>
+              <input type="hidden" name="telemetria_consent" value="on">
+            </div>
+          </section>
+
+        </div>
+
+        <aside class="hf-side">
+          <div class="hf-side-card">
+            <div class="hf-side-title">Resumen del cálculo</div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Modo</span>
+              <span class="hf-side-v">Tirante (calado)</span>
+            </div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Tipo de obra</span>
+              <span class="hf-side-v" id="sum-fluvial-obra">Carreteras y puentes (principales)</span>
+            </div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Período de retorno</span>
+              <span class="hf-side-v is-mono is-accent" id="sum-fluvial-t">T 100 años</span>
+            </div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Coordenadas</span>
+              <span class="hf-side-v is-mono" id="sum-fluvial-coord">— , —</span>
+            </div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Método</span>
+              <span class="hf-side-v">Manning · HEC-RAS 1D</span>
+            </div>
+            <button type="submit" class="hf-cta">Calcular tirante — generar informe</button>
+            <p class="hf-cta-note">Tirante normal por sección · secciones ⟂ al cauce sobre DEM 12.5 m</p>
+          </div>
+          <div class="hf-method">
+            <div class="hf-method-h">Programas a medida</div>
+            <p class="hf-method-p">Estudios de hidráulica de ríos, socavación, encauzamientos,
+              vertederos y obras hidráulicas con modelación 2D/3D. Membresías Gold —
+              <strong>Luis Franco Guarachi</strong>,
+              <a href="https://wa.me/59169907008" target="_blank" rel="noopener">+591 69907008</a>.</p>
+          </div>
+        </aside>
+
+      </div>
+    </form>
+
+    <!-- ─────────────── Q MÁXIMOS ─────────────── -->
+    <form id="form-max" action="{{ url_for('analizar') }}" method="POST"
+          data-show-mode="max" autocomplete="off">
+      <div class="hf-body">
+
+        <div class="hf-form-col">
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num">01</span>
+              <h2 class="hf-sec-title">Tipo de obra a diseñar</h2>
+            </div>
+            <div class="hf-select-wrap">
+              <select name="obra" id="obra-max" class="hf-select">
+                {% for o in tipos_obra %}
+                  <option value="{{ o.clave }}"
+                          data-t="{{ o.t_recomendado }}"
+                          data-rango="{{ o.rango_texto }}"
+                          data-nombre="{{ o.nombre }}"
+                          {% if o.clave == 'carretera_puente' %}selected{% endif %}>
+                    {{ o.nombre }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="hf-tcaption">
+              <span class="hf-tcaption-label">Período de retorno</span>
+              <span class="hf-tcaption-val" id="t-max-display">T 100 años</span>
+            </div>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num">02</span>
+              <h2 class="hf-sec-title">Datos del proyecto</h2>
+            </div>
+            <div class="hf-row">
+              <div class="hf-field">
+                <label class="hf-label" for="np-max">Nombre del proyecto</label>
+                <input class="hf-input" id="np-max" name="nombre_proyecto"
+                       placeholder="Ej. Puente Río Rocha">
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="ing-max">Ingeniero a cargo</label>
+                <input class="hf-input" id="ing-max" name="ingeniero"
+                       value="{{ usuario.nombre or '' }}"
+                       placeholder="Nombre y apellido">
+              </div>
+              <div class="hf-field hf-field--full">
+                <label class="hf-label" for="ub-max">Ubicación</label>
+                <input class="hf-input" id="ub-max" name="ubicacion"
+                       placeholder="Departamento, provincia, municipio">
+              </div>
+            </div>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num">03</span>
+              <h2 class="hf-sec-title">Coordenadas del sitio</h2>
+            </div>
+            <div class="hf-row">
+              <div class="hf-field">
+                <label class="hf-label" for="lat-max">Latitud (°)</label>
+                <input class="hf-input is-mono" id="lat-max" name="lat" type="number"
+                       inputmode="decimal" step="any" required
+                       value="{{ default_lat }}" placeholder="-17.39">
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="lon-max">Longitud (°)</label>
+                <input class="hf-input is-mono" id="lon-max" name="lon" type="number"
+                       inputmode="decimal" step="any" required
+                       value="{{ default_lon }}" placeholder="-66.16">
+              </div>
+            </div>
+            <p class="hf-hint">Negativo = sur / oeste · Cochabamba ≈ -17.39, -66.16</p>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num">04</span>
+              <h2 class="hf-sec-title">Parámetros del análisis</h2>
+            </div>
+            <div class="hf-row">
+              <div class="hf-field hf-field--small">
+                <label class="hf-label" for="anios-max">Años de serie</label>
+                <input class="hf-input is-mono" id="anios-max" name="anios"
+                       type="number" min="10" max="200" value="40" required>
+              </div>
+              <div class="hf-field hf-field--small">
+                <label class="hf-label" for="sem-max">Semilla aleatoria</label>
+                <input class="hf-input is-mono" id="sem-max" name="semilla"
+                       type="number" value="42">
+              </div>
+              <div class="hf-field hf-field--small">
+                <label class="hf-label" for="exp-max">Exp. Dyck-Peschke</label>
+                <input class="hf-input is-mono" id="exp-max" name="exp_dp"
+                       type="number" step="0.01" min="0.15" max="0.40" value="0.25">
+              </div>
+              <div class="hf-field hf-field--full">
+                <label class="hf-label" for="res-max">Resolución de los datos de lluvia</label>
+                <div class="hf-select-wrap">
+                  <select class="hf-select" id="res-max" name="resolucion">
+                    {% for clave, etiqueta, _, _ in resoluciones %}
+                      <option value="{{ clave }}"
+                              {% if clave == 'diaria' %}selected{% endif %}>
+                        {{ etiqueta }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <input type="hidden" name="criterio" value="ks">
+              <input type="hidden" name="t_diseno" value="">
+            </div>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num">05</span>
+              <h2 class="hf-sec-title">Opciones del informe</h2>
+            </div>
+
+            <label class="hf-toggle-row" data-toggle id="cn-row">
+              <div style="flex:1;">
+                <div class="hf-toggle-title">Tengo CN verificado</div>
+                <div class="hf-toggle-sub">Suelo + uso de suelo · habilita el método SCS en el Tc</div>
+              </div>
+              <input type="checkbox" name="cn_disponible">
+              <span class="hf-switch"></span>
+            </label>
+
+            <label class="hf-toggle-row is-on" data-toggle id="full-row">
+              <div style="flex:1;">
+                <div class="hf-toggle-title">Informe completo</div>
+                <div class="hf-toggle-sub">CHIRPS / NASA POWER / Open-Meteo +
+                  correlación · 7 mapas GEE · curvas IDF por modelo ·
+                  cálculo 60–120 s. Desmarcá para modo rápido (20–40 s, solo
+                  serie de la estación de referencia).</div>
+              </div>
+              <input type="checkbox" name="informe_completo" checked>
+              <span class="hf-switch"></span>
+            </label>
+
+            <div class="hf-notice">
+              <div class="hf-notice-title">Los datos generados se guardan para una investigación científica</div>
+              <div class="hf-notice-sub">HYDROFRA Dataset · CC-BY 4.0 · Abierto a Solicitud.
+                No se envía IP ni datos identificables más allá de lo que ingreses.</div>
+              <input type="hidden" name="telemetria_consent" value="on">
+            </div>
+          </section>
+
+        </div>
+
+        <aside class="hf-side">
+          <div class="hf-side-card">
+            <div class="hf-side-title">Resumen del análisis</div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Modo</span>
+              <span class="hf-side-v">Caudales máximos</span>
+            </div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Tipo de obra</span>
+              <span class="hf-side-v" id="sum-max-obra">Carreteras y puentes (principales)</span>
+            </div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Período de retorno</span>
+              <span class="hf-side-v is-mono is-accent" id="sum-max-t">T 100 años</span>
+            </div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Coordenadas</span>
+              <span class="hf-side-v is-mono" id="sum-max-coord">— , —</span>
+            </div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Modelo IDF</span>
+              <span class="hf-side-v" id="sum-max-idf">Témez · Dyck-Peschke</span>
+            </div>
+            <button type="submit" class="hf-cta">Generar informe — Q máximos</button>
+            <p class="hf-cta-note">Cálculo: 60–120 s · CHIRPS+NASA POWER+Open-Meteo · 7 mapas GEE</p>
+          </div>
+          <div class="hf-method">
+            <div class="hf-method-h">Metodología</div>
+            <p class="hf-method-p">Se elige la estación SENAMHI más cercana, se contrastan
+              fuentes satelitales (CHIRPS / NASA POWER / Open-Meteo / NOAA GHCN-D) y el
+              Tc se adopta por el procedimiento de 5 pasos.</p>
+          </div>
+        </aside>
+
+      </div>
+    </form>
+
+    <!-- ─────────────── Q MÍNIMOS ─────────────── -->
+    <form id="form-min" action="{{ url_for('analizar_minimos') }}" method="POST"
+          data-show-mode="min" autocomplete="off">
+      <div class="hf-body">
+
+        <div class="hf-form-col">
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num is-earth">01</span>
+              <h2 class="hf-sec-title">Tipo de aprovechamiento</h2>
+            </div>
+            <div class="hf-select-wrap">
+              <select name="uso" id="uso-min" class="hf-select">
+                <option value="captacion_agua" data-t="Q95 · Q7,10"
+                        data-nombre="Captación para agua potable" selected>
+                  Captación para agua potable
+                </option>
+                <option value="riego" data-t="Q90"
+                        data-nombre="Captación para riego">
+                  Captación para riego
+                </option>
+                <option value="hidroelectrico" data-t="Q50 · FDC"
+                        data-nombre="Aprovechamiento hidroeléctrico">
+                  Aprovechamiento hidroeléctrico
+                </option>
+                <option value="ecologico" data-t="Q90 ambiental"
+                        data-nombre="Caudal ecológico mínimo">
+                  Caudal ecológico mínimo
+                </option>
+                <option value="investigacion_cientifica" data-t="Serie completa"
+                        data-nombre="Análisis para investigación científica">
+                  Análisis para investigación científica
+                </option>
+              </select>
+            </div>
+            <div class="hf-tcaption">
+              <span class="hf-tcaption-label">Caudal característico</span>
+              <span class="hf-tcaption-val" id="t-min-display">Q95 · Q7,10</span>
+            </div>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num is-earth">02</span>
+              <h2 class="hf-sec-title">Datos del proyecto</h2>
+            </div>
+            <div class="hf-row">
+              <div class="hf-field">
+                <label class="hf-label" for="np-min">Nombre del proyecto</label>
+                <input class="hf-input" id="np-min" name="nombre_proyecto"
+                       placeholder="Ej. Captación Río Tarija">
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="ing-min">Ingeniero a cargo</label>
+                <input class="hf-input" id="ing-min" name="ingeniero"
+                       value="{{ usuario.nombre or '' }}"
+                       placeholder="Nombre y apellido">
+              </div>
+              <div class="hf-field hf-field--full">
+                <label class="hf-label" for="ub-min">Ubicación</label>
+                <input class="hf-input" id="ub-min" name="ubicacion"
+                       placeholder="Departamento, provincia, municipio">
+              </div>
+            </div>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num is-earth">03</span>
+              <h2 class="hf-sec-title">Coordenadas del punto de captación</h2>
+            </div>
+            <div class="hf-row">
+              <div class="hf-field">
+                <label class="hf-label" for="lat-min">Latitud (°)</label>
+                <input class="hf-input is-mono" id="lat-min" name="lat" type="number"
+                       inputmode="decimal" step="any" required
+                       value="{{ default_lat }}" placeholder="-17.39">
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="lon-min">Longitud (°)</label>
+                <input class="hf-input is-mono" id="lon-min" name="lon" type="number"
+                       inputmode="decimal" step="any" required
+                       value="{{ default_lon }}" placeholder="-66.16">
+              </div>
+            </div>
+            <p class="hf-hint">Negativo = sur / oeste · Cochabamba ≈ -17.39, -66.16</p>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num is-earth">04</span>
+              <h2 class="hf-sec-title">Parámetros del análisis</h2>
+            </div>
+            <div class="hf-row">
+              <div class="hf-field hf-field--small">
+                <label class="hf-label" for="anios-min">Años de serie</label>
+                <input class="hf-input is-mono" id="anios-min" name="anios"
+                       type="number" min="10" max="200" value="35" required>
+              </div>
+            </div>
+          </section>
+
+          <!-- Bloque de demanda (visible solo si uso = captacion_agua).
+               Los defaults se usan aunque el bloque esté oculto: si el
+               usuario elige otro aprovechamiento, el worker simplemente
+               los ignora. -->
+          <section class="hf-section" id="hf-bloque-demanda-ap"
+                   data-uso-only="captacion_agua">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num is-earth">04b</span>
+              <h2 class="hf-sec-title">Datos para el cálculo de demanda
+                (NB 689 — agua potable)</h2>
+            </div>
+            <p class="hf-hint">Solo aplica cuando el aprovechamiento es
+              <b>Captación para agua potable</b>. Si no completás algún
+              campo, el informe usa valores orientativos según el piso
+              ecológico y los marca como «[validar]».</p>
+            <div class="hf-row">
+              <div class="hf-field hf-field--small">
+                <label class="hf-label" for="ap-pob">Población actual (hab)</label>
+                <input class="hf-input is-mono" id="ap-pob"
+                       name="ap_poblacion_actual" type="number"
+                       min="0" step="1" value="500">
+              </div>
+              <div class="hf-field hf-field--small">
+                <label class="hf-label" for="ap-tasa">Tasa de crec. (%/año)</label>
+                <input class="hf-input is-mono" id="ap-tasa"
+                       name="ap_tasa_crec_pct" type="number"
+                       min="-2" max="6" step="0.1" value="1.5">
+              </div>
+              <div class="hf-field hf-field--small">
+                <label class="hf-label" for="ap-horizonte">Horizonte (años)</label>
+                <input class="hf-input is-mono" id="ap-horizonte"
+                       name="ap_horizonte_anios" type="number"
+                       min="5" max="30" step="1" value="20">
+              </div>
+              <div class="hf-field hf-field--small">
+                <label class="hf-label" for="ap-metodo">Método de proyección</label>
+                <select class="hf-select" id="ap-metodo" name="ap_metodo_proy">
+                  <option value="geometrico" selected>Geométrico</option>
+                  <option value="aritmetico">Aritmético</option>
+                  <option value="wappaus">Wappäus</option>
+                </select>
+              </div>
+              <div class="hf-field">
+                <label class="hf-label" for="ap-nivel">Nivel de servicio</label>
+                <select class="hf-select" id="ap-nivel" name="ap_nivel_servicio">
+                  <option value="pileta_publica">Pileta pública</option>
+                  <option value="domiciliaria_basica" selected>
+                    Conexión domiciliaria — servicio básico</option>
+                  <option value="domiciliaria_plena">
+                    Conexión domiciliaria — servicio pleno</option>
+                </select>
+              </div>
+              <div class="hf-field hf-field--small">
+                <label class="hf-label" for="ap-dotacion">Dotación (L/hab/día)</label>
+                <input class="hf-input is-mono" id="ap-dotacion"
+                       name="ap_dotacion_l_hab_dia" type="number"
+                       min="20" max="300" step="1"
+                       placeholder="auto por piso ecológico">
+                <p class="hf-hint">Vacío → adopta el valor sugerido del
+                  piso ecológico × nivel de servicio.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num is-earth">05</span>
+              <h2 class="hf-sec-title">Análisis a incluir</h2>
+            </div>
+            <label class="hf-check-row is-on">
+              <input type="checkbox" name="incluir_fdc" checked>
+              <span class="hf-check-mark">✓</span>
+              <span class="hf-check-text">Curva de duración de caudales (FDC) + percentiles Q5/Q50/Q90/Q95/Q99</span>
+            </label>
+            <label class="hf-check-row is-on">
+              <input type="checkbox" name="incluir_frecuencia" checked>
+              <span class="hf-check-mark">✓</span>
+              <span class="hf-check-text">Frecuencia de mínimos: Q7,10 / Q30,10 (Weibull, LogNormal, Pearson III)</span>
+            </label>
+            <label class="hf-check-row is-on">
+              <input type="checkbox" name="incluir_ecologico" checked>
+              <span class="hf-check-mark">✓</span>
+              <span class="hf-check-text">Caudales ecológicos: Tennant/Montana, Tessman, Q90 ambiental, Smakhtin</span>
+            </label>
+            <label class="hf-check-row is-on">
+              <input type="checkbox" name="incluir_recesion" checked>
+              <span class="hf-check-mark">✓</span>
+              <span class="hf-check-text">Curva de recesión: constante k de Maillet/Boussinesq + caudal base</span>
+            </label>
+            <label class="hf-check-row is-on">
+              <input type="checkbox" name="incluir_clima" checked>
+              <span class="hf-check-mark">✓</span>
+              <span class="hf-check-text">Efectos de cambio climático en Bolivia (CMIP6)</span>
+            </label>
+          </section>
+
+          <section class="hf-section">
+            <div class="hf-sec-head">
+              <span class="hf-sec-num is-earth">06</span>
+              <h2 class="hf-sec-title">Datos para investigación científica</h2>
+            </div>
+            <div class="hf-notice hf-notice--earth">
+              <div class="hf-notice-title">Los datos generados se guardan para una investigación científica</div>
+              <div class="hf-notice-sub">HYDROFRA Dataset · CC-BY 4.0 · Abierto a Solicitud.
+                No se envía IP ni datos identificables más allá de lo que ingreses.</div>
+              <input type="hidden" name="telemetria_consent" value="on">
+            </div>
+          </section>
+
+        </div>
+
+        <aside class="hf-side">
+          <div class="hf-side-card">
+            <div class="hf-side-title">Resumen del análisis</div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Modo</span>
+              <span class="hf-side-v">Caudales mínimos</span>
+            </div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Aprovechamiento</span>
+              <span class="hf-side-v" id="sum-min-uso">Captación para agua potable</span>
+            </div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Caudal característico</span>
+              <span class="hf-side-v is-mono is-accent" id="sum-min-t">Q95 · Q7,10</span>
+            </div>
+            <div class="hf-side-row">
+              <span class="hf-side-k">Coordenadas</span>
+              <span class="hf-side-v is-mono" id="sum-min-coord">— , —</span>
+            </div>
+            <button type="submit" class="hf-cta">Generar informe — Q mínimos</button>
+            <p class="hf-cta-note">Cálculo: 30–90 s · incluye delineación MERIT + 6 mapas GEE</p>
+          </div>
+          <div class="hf-method">
+            <div class="hf-method-h">Metodología</div>
+            <p class="hf-method-p">Se buscan estaciones del catálogo oficial SENAMHI dentro de
+              100 km, se aplica el panel de consistencia OMM-168, se delinea la cuenca
+              MERIT Hydro y se calculan Q ecológicos por 5 métodos.</p>
+          </div>
+        </aside>
+
+      </div>
+    </form>
+
+  </main>
+
+  <script>
+    (function () {
+      const body = document.body;
+      const tabMax = document.getElementById('tab-max');
+      const tabMin = document.getElementById('tab-min');
+      const tabFluvial = document.getElementById('tab-fluvial');
+      function setMode(m) {
+        body.dataset.mode = m;
+        tabMax.classList.toggle('is-active', m === 'max');
+        tabMin.classList.toggle('is-active', m === 'min');
+        if (tabFluvial) tabFluvial.classList.toggle('is-active', m === 'fluvial');
+      }
+      tabMax.addEventListener('click', () => setMode('max'));
+      tabMin.addEventListener('click', () => setMode('min'));
+      // Hidráulica Fluvial: al activarse muestra el formulario de tirante
+      // (data-show-mode="fluvial") y oculta los de Q máximos/mínimos.
+      if (tabFluvial) tabFluvial.addEventListener('click', () => setMode('fluvial'));
+
+      // Toggles (CN, informe completo)
+      document.querySelectorAll('[data-toggle]').forEach(row => {
+        const cb = row.querySelector('input[type=checkbox]');
+        if (cb && cb.checked) row.classList.add('is-on');
+        row.addEventListener('click', (e) => {
+          if (e.target.tagName === 'A') return;
+          if (e.target !== cb) cb.checked = !cb.checked;
+          row.classList.toggle('is-on', cb.checked);
+        });
+      });
+
+      // Q mínimos check rows
+      document.querySelectorAll('.hf-check-row').forEach(row => {
+        const cb = row.querySelector('input[type=checkbox]');
+        if (!cb) return;
+        row.addEventListener('click', (e) => {
+          if (e.target !== cb) {
+            cb.checked = !cb.checked;
+            e.preventDefault();
+          }
+          row.classList.toggle('is-on', cb.checked);
+        });
+      });
+
+      // Resumen reactivo Q máximos
+      const obraMax = document.getElementById('obra-max');
+      const sumObra = document.getElementById('sum-max-obra');
+      const sumT    = document.getElementById('sum-max-t');
+      const tDisp   = document.getElementById('t-max-display');
+      function updateMaxObra() {
+        const opt = obraMax.options[obraMax.selectedIndex];
+        const t = opt.getAttribute('data-t');
+        const rango = opt.getAttribute('data-rango');
+        const nom = opt.getAttribute('data-nombre');
+        if (sumObra) sumObra.textContent = nom;
+        const tLabel = 'T ' + rango;
+        if (sumT) sumT.textContent = tLabel;
+        if (tDisp) tDisp.textContent = tLabel;
+      }
+      obraMax.addEventListener('change', updateMaxObra);
+      updateMaxObra();
+
+      // Resumen reactivo Hidráulica Fluvial (tirante)
+      const obraFluvial = document.getElementById('obra-fluvial');
+      if (obraFluvial) {
+        const sumObraF = document.getElementById('sum-fluvial-obra');
+        const sumTF    = document.getElementById('sum-fluvial-t');
+        const tDispF   = document.getElementById('t-fluvial-display');
+        const bloquePuente = document.getElementById('bloque-puente');
+        const bloqueAlc = document.getElementById('bloque-alcantarilla');
+        const bloqueRiego = document.getElementById('bloque-riego');
+        const sec04Title = document.getElementById('sec04-title');
+        function updateFluvialObra() {
+          const opt = obraFluvial.options[obraFluvial.selectedIndex];
+          const rango = opt.getAttribute('data-rango');
+          const nom = opt.getAttribute('data-nombre');
+          if (sumObraF) sumObraF.textContent = nom;
+          const tLabel = 'T ' + rango;
+          if (sumTF) sumTF.textContent = tLabel;
+          if (tDispF) tDispF.textContent = tLabel;
+          // Punto 04 cambia según el tipo de obra: puente / alcantarilla / riego.
+          const v = obraFluvial.value;
+          const esAlc = v === 'drenaje_vial_menor';
+          const esRiego = v === 'riego_pequeno';
+          const esPuente = !esAlc && !esRiego;
+          if (bloquePuente) bloquePuente.style.display = esPuente ? '' : 'none';
+          if (bloqueAlc) bloqueAlc.style.display = esAlc ? '' : 'none';
+          if (bloqueRiego) bloqueRiego.style.display = esRiego ? '' : 'none';
+          if (sec04Title) sec04Title.textContent = esAlc
+            ? 'Alcantarilla (drenaje vial menor)'
+            : (esRiego ? 'Captación para riego menor (bocatoma · desarenador · canal)'
+                       : 'Puente y sedimento (Pilar 3 · socavación)');
+        }
+        obraFluvial.addEventListener('change', updateFluvialObra);
+        updateFluvialObra();
+
+        // Tipo de alcantarilla → mostrar diámetro (circular/ARMCO) o B×H (cajón).
+        const alcTipo = document.getElementById('alc_tipo');
+        const filaCirc = document.getElementById('alc-fila-circular');
+        const filaCajon = document.getElementById('alc-fila-cajon');
+        if (alcTipo) {
+          function updateAlcTipo() {
+            const v = alcTipo.value;
+            const esCajon = v === 'cajon_hoao';
+            const esAuto = v === 'auto';
+            if (filaCirc) filaCirc.style.display = (esCajon || esAuto) ? 'none' : '';
+            if (filaCajon) filaCajon.style.display = esCajon ? '' : 'none';
+          }
+          alcTipo.addEventListener('change', updateAlcTipo);
+          updateAlcTipo();
+        }
+      }
+
+      // Resumen reactivo Q mínimos
+      const usoMin = document.getElementById('uso-min');
+      const sumUso = document.getElementById('sum-min-uso');
+      const sumMinT = document.getElementById('sum-min-t');
+      const tMinDisp = document.getElementById('t-min-display');
+      // Bloques que solo aplican a un uso específico (p.ej. captación agua
+      // potable). Atributo data-uso-only="captacion_agua".
+      const bloquesPorUso = document.querySelectorAll('[data-uso-only]');
+      function updateMinUso() {
+        const opt = usoMin.options[usoMin.selectedIndex];
+        const t = opt.getAttribute('data-t');
+        const nom = opt.getAttribute('data-nombre');
+        if (sumUso) sumUso.textContent = nom;
+        if (sumMinT) sumMinT.textContent = t;
+        if (tMinDisp) tMinDisp.textContent = t;
+        bloquesPorUso.forEach(b => {
+          const expected = b.getAttribute('data-uso-only');
+          b.style.display = (usoMin.value === expected) ? '' : 'none';
+        });
+      }
+      usoMin.addEventListener('change', updateMinUso);
+      updateMinUso();
+
+      // Modelo IDF según resolución
+      const resMax = document.getElementById('res-max');
+      const sumIdf = document.getElementById('sum-max-idf');
+      const IDF_MAP = {
+        'sub_10min':       'Wenzel',
+        'horaria':         'Chen / Chen modificado',
+        'diaria':          'Témez · Dyck-Peschke',
+        'altiplano_pocos': 'Sherman / Promedio adimensional',
+      };
+      function updateIDF() {
+        sumIdf.textContent = IDF_MAP[resMax.value] || '—';
+      }
+      resMax.addEventListener('change', updateIDF);
+      updateIDF();
+
+      // Coordenadas reactivas
+      function bindCoord(latId, lonId, sumId) {
+        const lat = document.getElementById(latId);
+        const lon = document.getElementById(lonId);
+        const sum = document.getElementById(sumId);
+        function tick() {
+          const a = lat.value.trim(), b = lon.value.trim();
+          sum.textContent = (a && b) ? (a + ', ' + b) : '— , —';
+        }
+        lat.addEventListener('input', tick);
+        lon.addEventListener('input', tick);
+        tick();
+      }
+      bindCoord('lat-max', 'lon-max', 'sum-max-coord');
+      bindCoord('lat-min', 'lon-min', 'sum-min-coord');
+      if (document.getElementById('lat-fluvial'))
+        bindCoord('lat-fluvial', 'lon-fluvial', 'sum-fluvial-coord');
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1049 @@
+<title>Wasl Reader</title>
+<style>
+  :root{
+    --paper:#EAEAE5; --surface:#F5F5F1; --surface-2:#E1E1DA;
+    --ink:#181C24; --ink-muted:#5C6270; --ink-faint:#868C99;
+    --rule:#D0D0C7; --rule-soft:#DEDED6;
+    --lapis:#2B4C82; --lapis-soft:#E2E7F0;
+    --fluent:#3E7A52; --semi:#A8791A; --halting:#AC4128;
+    --fluent-bg:#DEE9E0; --semi-bg:#F0E5CB; --halting-bg:#F0DDD7;
+    --gilt:#A8791A; --gilt-mid:#C4A65E;
+    --shadow:0 1px 2px rgba(24,28,36,.06),0 10px 30px -20px rgba(24,28,36,.25);
+    --display:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --body:Charter,"Bitstream Charter","Sitka Text",Cambria,Georgia,serif;
+    --util:ui-sans-serif,"Avenir Next",Avenir,"Segoe UI",system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    --arabic:"Noto Naskh Arabic","Al Bayan","Geeza Pro","Traditional Arabic","Times New Roman",serif;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#14171D; --surface:#1C2028; --surface-2:#252A34;
+    --ink:#E4E4DE; --ink-muted:#9CA2AE; --ink-faint:#767C88;
+    --rule:#2E333E; --rule-soft:#242932; --lapis:#86AAE0; --lapis-soft:#1E2735;
+    --fluent:#74B489; --semi:#D6AC52; --halting:#DD7A62;
+    --fluent-bg:#1B2A21; --semi-bg:#2C2617; --halting-bg:#2E1D19;
+    --gilt:#CBA455; --gilt-mid:#9A7E40;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -20px rgba(0,0,0,.8);
+  }}
+  :root[data-theme="dark"]{
+    --paper:#14171D; --surface:#1C2028; --surface-2:#252A34;
+    --ink:#E4E4DE; --ink-muted:#9CA2AE; --ink-faint:#767C88;
+    --rule:#2E333E; --rule-soft:#242932; --lapis:#86AAE0; --lapis-soft:#1E2735;
+    --fluent:#74B489; --semi:#D6AC52; --halting:#DD7A62;
+    --fluent-bg:#1B2A21; --semi-bg:#2C2617; --halting-bg:#2E1D19;
+    --gilt:#CBA455; --gilt-mid:#9A7E40;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -20px rgba(0,0,0,.8);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);
+       font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:34rem;margin:0 auto;padding:1.4rem 1.1rem 3rem;
+        display:flex;flex-direction:column;gap:1.1rem;min-height:100vh}
+  header{display:flex;align-items:baseline;gap:.55rem;flex-wrap:wrap;
+         padding-bottom:.65rem;border-bottom:1px solid var(--rule)}
+  .brand{font-family:var(--display);font-size:1.15rem;font-weight:600}
+  .brand em{font-style:normal;color:var(--gilt)}
+  .phase{font-family:var(--util);font-size:.58rem;font-weight:600;letter-spacing:.13em;
+         text-transform:uppercase;color:var(--ink-faint);border:1px solid var(--rule);
+         border-radius:2px;padding:.1rem .33rem}
+  .counter{margin-left:auto;font-family:var(--mono);font-size:.74rem;
+           color:var(--ink-faint);font-variant-numeric:tabular-nums}
+  h1{font-family:var(--display);font-size:1.45rem;line-height:1.2;font-weight:600;
+     margin:0;text-wrap:balance}
+  p{margin:0;max-width:32rem}
+  .lede{color:var(--ink-muted)}
+  .small{font-family:var(--util);font-size:.79rem;line-height:1.5;color:var(--ink-faint)}
+  .stage{background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+         box-shadow:var(--shadow);padding:1.7rem 1.1rem;min-height:9rem;
+         display:flex;align-items:center;justify-content:center;text-align:center}
+  .line{font-family:var(--arabic);direction:rtl;font-size:2.3rem;line-height:2.3;
+        display:flex;flex-wrap:wrap;gap:.12em .48em;justify-content:center}
+  .wd{padding:.02em .15em;border-radius:3px;border-bottom:3px solid transparent}
+  .wd.g{color:var(--fluent);background:var(--fluent-bg);border-bottom-color:var(--fluent)}
+  .wd.y{color:var(--semi);background:var(--semi-bg);border-bottom-color:var(--semi)}
+  .wd.r{color:var(--halting);background:var(--halting-bg);border-bottom-color:var(--halting)}
+  i.h{font-style:normal;color:var(--gilt)}
+  .wd.rung2 i.h{color:var(--gilt-mid)}
+  .wd.g i.h,.wd.y i.h,.wd.r i.h{color:inherit;opacity:.5}
+  .wd.unconf{border-bottom-style:dotted}
+  .heard{font-family:var(--arabic);direction:rtl;font-size:1.35rem;line-height:1.9;
+         background:var(--surface-2);border-radius:3px;padding:.5rem .7rem;margin-top:.4rem}
+  .heard.none{font-family:var(--util);font-size:.82rem;color:var(--ink-faint);direction:ltr}
+
+  /* definition card */
+  #card{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--gilt);
+        border-radius:0 4px 4px 0;padding:1rem;display:flex;flex-direction:column;gap:.75rem}
+  .cw{font-family:var(--arabic);direction:rtl;font-size:2.4rem;line-height:1.6}
+  .diagnosis{font-family:var(--util);font-size:.82rem;padding:.45rem .6rem;border-radius:3px;
+             background:var(--surface-2);color:var(--ink)}
+  .diagnosis.g{background:var(--fluent-bg);color:var(--fluent)}
+  .diagnosis.y{background:var(--semi-bg);color:var(--semi)}
+  .diagnosis.r{background:var(--halting-bg);color:var(--halting)}
+  .rootrow{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+  .rootchip{font-family:var(--arabic);direction:rtl;font-size:1.5rem;letter-spacing:.22em;
+            background:var(--lapis-soft);color:var(--lapis);border-radius:3px;padding:.15rem .55rem}
+  .fam{display:flex;flex-wrap:wrap;gap:.4rem;direction:rtl}
+  .fam span{font-family:var(--arabic);font-size:1.35rem;background:var(--surface-2);
+            border-radius:3px;padding:.15rem .5rem}
+  .exs{display:flex;flex-direction:column;gap:.3rem}
+  .exs div{font-family:var(--arabic);direction:rtl;font-size:1.3rem;line-height:1.9;
+           border-right:2px solid var(--rule);padding-right:.5rem}
+  .label{font-family:var(--util);font-size:.63rem;font-weight:600;letter-spacing:.1em;
+         text-transform:uppercase;color:var(--ink-faint)}
+  .gloss{font-family:var(--util);font-size:.9rem;color:var(--ink)}
+
+  /* flash */
+  .flash{font-family:var(--arabic);font-size:3.1rem;direction:rtl;line-height:1.5}
+  .flash.mask{color:transparent}
+  .choices{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+  .choice{font-family:var(--arabic);font-size:1.85rem;direction:rtl;padding:.6rem .4rem;
+          background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+          cursor:pointer;color:var(--ink);line-height:1.6}
+  .choice:hover{border-color:var(--lapis)}
+  .choice.right{background:var(--fluent-bg);border-color:var(--fluent);color:var(--fluent)}
+  .choice.wrong{background:var(--halting-bg);border-color:var(--halting);color:var(--halting)}
+  .choice:focus-visible{outline:2px solid var(--lapis);outline-offset:2px}
+
+  /* mic */
+  .meter{height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden}
+  .meter b{display:block;height:100%;width:0;background:var(--lapis);transition:width .06s linear}
+  .rec{display:flex;align-items:center;gap:.5rem;font-family:var(--util);font-size:.82rem;color:var(--ink-muted)}
+  .dot{width:.6rem;height:.6rem;border-radius:50%;background:var(--halting);flex:none}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .dot.live{animation:pulse 1.1s ease-in-out infinite}
+  @media (prefers-reduced-motion:reduce){.dot.live{animation:none}}
+
+  .row{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center}
+  button{font-family:var(--util);font-size:.92rem;font-weight:600;padding:.7rem 1.1rem;
+         border-radius:3px;cursor:pointer;border:1px solid var(--lapis);
+         background:var(--lapis);color:var(--paper)}
+  button.ghost{background:transparent;color:var(--lapis)}
+  button.quiet{background:transparent;color:var(--ink-faint);border-color:var(--rule)}
+  button:disabled{opacity:.4;cursor:default}
+  button:focus-visible{outline:2px solid var(--lapis);outline-offset:2px}
+  .legend{display:flex;flex-wrap:wrap;gap:.35rem 1rem;font-family:var(--util);
+          font-size:.75rem;color:var(--ink-muted)}
+  .legend div{display:flex;align-items:center;gap:.35rem}
+  .sw{width:.62rem;height:.62rem;border-radius:2px;flex:none}
+  .card{background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+        padding:.95rem 1rem;display:flex;flex-direction:column;gap:.6rem}
+  .card h2{font-family:var(--display);font-size:1.06rem;margin:0;font-weight:600}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(5.6rem,1fr));gap:.5rem}
+  .stat{background:var(--surface-2);border-radius:3px;padding:.5rem .6rem}
+  .stat b{display:block;font-family:var(--mono);font-size:1.18rem;font-variant-numeric:tabular-nums}
+  .stat span{font-family:var(--util);font-size:.63rem;letter-spacing:.05em;
+             text-transform:uppercase;color:var(--ink-faint)}
+  .warn{border-left:3px solid var(--semi);background:var(--semi-bg);padding:.7rem .85rem;
+        border-radius:0 3px 3px 0;font-family:var(--util);font-size:.8rem;color:var(--ink)}
+  .hidden{display:none!important}
+  footer{margin-top:auto;padding-top:.9rem;border-top:1px solid var(--rule)}
+  @media (max-width:420px){.line{font-size:1.95rem;line-height:2.15}.flash{font-size:2.6rem}.choice{font-size:1.6rem}}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="brand">وَصْل <em>·</em> Wasl</span>
+    <span class="phase">Prototype</span>
+    <span class="counter" id="counter"></span>
+    <span class="counter" id="srvstate" style="margin-left:0;opacity:.65"></span>
+  </header>
+
+  <section id="intro">
+    <h1>Two drills. About three minutes.</h1>
+    <p class="lede" style="margin-top:.6rem">First, words flashed too fast to sound out — you say each one aloud. Then three sentences read aloud while the app listens for where you pause.</p>
+    <div class="card" style="margin-top:1rem">
+      <h2>What it's actually measuring</h2>
+      <p class="small"><b>The flash drill</b> shows a word for a fraction of a second, then asks you to say it. Two things make that a real test: the exposure is too short to sound anything out, and <i>you cannot pronounce a shape you did not read</i> — so remembering the outline gets you nowhere. It also times how long you take to start speaking.</p>
+      <p class="small"><b>The reading drill</b> does two things at once: it checks <i>which words</i> it heard, and it listens for silences <i>inside</i> them. Assembling ك‑ت‑ا‑ب before saying it leaves gaps that fluent reading doesn't.</p>
+      <p class="small"><b>Speech recognition on non-native Arabic is unreliable</b> — error rates run far higher than for native speakers. So it is only ever used to <i>confirm</i> a word, never to fail one. If it can't make you out, you get a dotted line and a slower path to mastery, not a red mark.</p>
+      <p class="small"><b>The gold marks are scaffolding.</b> Master a word and its vowel marks dim, then vanish.</p>
+    </div>
+    <div class="row" style="margin-top:1rem">
+      <button onclick="beginFlash()">Start</button>
+      <button class="quiet" onclick="wipe()">Reset progress</button>
+    </div>
+  </section>
+
+  <!-- FLASH -->
+  <section id="flash" class="hidden">
+    <p class="small" id="fprog"></p>
+    <div class="stage"><div class="flash" id="fword">&nbsp;</div></div>
+    <div class="choices hidden" id="fchoices"></div>
+    <p class="small" id="fhint">Watch closely…</p>
+  </section>
+
+  <!-- READ -->
+  <section id="read" class="hidden">
+    <p class="small" id="rprog"></p>
+    <div class="stage"><div class="line" id="line"></div></div>
+    <div id="micbox">
+      <div class="rec"><span class="dot" id="dot"></span><span id="recmsg">Listening…</span></div>
+      <div class="meter" style="margin-top:.5rem"><b id="meter"></b></div>
+    </div>
+    <div class="row">
+      <button id="doneBtn" onclick="stopReading()">Done reading</button>
+      <button class="ghost" onclick="skipSentence()">Skip</button>
+    </div>
+    <p class="small" id="tapHint"></p>
+  </section>
+
+  <!-- RESULT -->
+  <section id="result" class="hidden">
+    <div class="stage"><div class="line" id="graded"></div></div>
+    <div class="legend">
+      <div><span class="sw" style="background:var(--fluent)"></span> read as one unit</div>
+      <div><span class="sw" style="background:var(--semi)"></span> hesitant</div>
+      <div><span class="sw" style="background:var(--halting)"></span> broken up</div>
+      <div><span class="sw" style="border:1px dotted var(--ink-faint);background:transparent"></span> not confirmed</div>
+    </div>
+    <div id="diag"></div>
+    <div id="card" class="hidden"></div>
+    <div class="row"><button id="nextBtn" onclick="nextSentence()">Next</button></div>
+  </section>
+
+  <!-- SUMMARY -->
+  <section id="summary" class="hidden">
+    <h1>Done.</h1>
+    <div class="stats" id="stats"></div>
+    <div class="card" id="ladderCard"></div>
+    <div class="row">
+      <button onclick="location.reload()">Again</button>
+      <button class="quiet" onclick="wipe()">Reset progress</button>
+    </div>
+    <p class="small" id="note"></p>
+  </section>
+
+  <footer class="small">
+    Phase 0 prototype. Pause detection runs on your device. <b>Word recognition uses your browser's
+    speech service, which on Chrome and Safari means audio is sent to Google or Apple for transcription</b> —
+    the same path as any dictation box. Clips sent to our analysis service are deleted after scoring; progress stays on this device. <a href="privacy.html" style="color:var(--lapis)">Privacy policy</a>.
+  </footer>
+</div>
+
+<script>
+"use strict";
+const FLASH_ITEMS = [{"w": "الوَلَدُ", "d": ["والِد", "والِدَي", "لَوْلا"]}, {"w": "البَيْتِ", "d": ["تَبْدِيل", "ابْتَلَى", "بُنْيان"]}, {"w": "الأَرْضِ", "d": ["ضَلالَة", "أَلْباب", "رِضْوان"]}, {"w": "النّاسُ", "d": ["لِسان", "سُلْطان", "إِنسان"]}, {"w": "اللَّيْلِ", "d": ["لَيْلَة", "والِدَي", "يَنالُ"]}, {"w": "الطَّعامَ", "d": ["أَطْعَمَ", "عامِل", "عالِم"]}, {"w": "الكَبِيرُ", "d": ["اسْتَكْبَرَ", "أَكْبَر", "مُبارَك"]}, {"w": "البابَ", "d": ["أَلْباب", "انقَلَبَ", "ابْتَلَى"]}, {"w": "أَبِيهِ", "d": ["يَهْبِطُ", "أَذْهَبَ", "أَبْيَض"]}, {"w": "لِأَخِيهِ", "d": ["خَلِيفَة", "تَأْوِيل", "نَخِيل"]}, {"w": "قَرِيبٌ", "d": ["أَقْرَب", "قُرْبَى", "يَقْبَلُ"]}, {"w": "عَظِيمًا", "d": ["مِيعاد", "عَظِيم", "يُضاعِفُ"]}, {"w": "وَالقَمَرَ", "d": ["مِثْقال", "اسْتَقامُ", "يَرْجُوا۟"]}, {"w": "كَبِيرٌ", "d": ["اسْتَكْبَرَ", "أَكْبَر", "يَقْرَبُ"]}, {"w": "أَباهُ", "d": ["أَوّاب", "أَنابَ", "أَصابَ"]}, {"w": "رَأَوا", "d": ["وَراء", "وارِث", "راوَدُ"]}, {"w": "الجَبَلَ", "d": ["أَلْباب", "انقَلَبَ", "اجْتَنَبُ"]}, {"w": "وَالبَحْرَ", "d": ["يَرْجُوا۟", "اسْتَكْبَرَ", "ارْتابَ"]}, {"w": "لِلْوَلَدِ", "d": ["وَلَدَ", "والِدَي", "وَلِيد"]}, {"w": "أَخَذْتُ", "d": ["اتَّخَذَ", "أَخْذ", "أُخْت"]}, {"w": "بِيَدِي", "d": ["يُبْدِيَ", "بَعِيد", "شَدِيد"]}, {"w": "أَرادَ", "d": ["راوَدُ", "قادِر", "ارْتَدَّ"]}, {"w": "يَأْخُذَ", "d": ["أُوذِيَ", "أُخْفِيَ", "أَخْزَيْ"]}, {"w": "طَعامٌ", "d": ["أَطْعَمَ", "يَطْمَعُ", "مَتاع"]}, {"w": "اليَوْمِ", "d": ["والِدَي", "مَعْلُوم", "مِيقات"]}, {"w": "عَلِمْتُ", "d": ["تَمَتَّعَ", "مَلَكَتْ", "مُلِئَتْ"]}, {"w": "مالًا", "d": ["مال", "لَمّا", "كُلَّما"]}, {"w": "الأَهْلُ", "d": ["أَلْباب", "هُنالِك", "أَهْواء"]}, {"w": "البَحْرِ", "d": ["ارْتابَ", "أَلْباب", "مُبارَك"]}, {"w": "وَعَلَى", "d": ["مَوْلَى", "تَوَلَّى", "أَوْلَى"]}, {"w": "سَأَلْتُ", "d": ["أَسْلَمَ", "أَسْفَل", "أَرْسَلَ"]}, {"w": "جَعَلْنا", "d": ["جاعِل", "هُنالِك", "مَنافِع"]}, {"w": "رَأَيْنا", "d": ["أَيّان", "بُنْيان", "اثْنَيْن"]}, {"w": "بِالماءِ", "d": ["بَلاء", "ابْتِغاء", "يَتَساءَلُ"]}, {"w": "مالَهُ", "d": ["مِهاد", "كُلَّما", "غُلام"]}, {"w": "وَأَتَى", "d": ["آتَى", "آتِي", "مَأْوَى"]}];
+const DEFS = {"الولد": {"voc": "الوَلَدُ", "root": "ولد", "fam": [{"w": "والِد", "f": 14}, {"w": "والِدَي", "f": 10}, {"w": "وَلِيد", "f": 7}, {"w": "مَوْلُود", "f": 3}, {"w": "والِدَة", "f": 2}], "ex": [0, 2, 6], "gloss": "boy, child", "freq": 56, "rank": 200}, "في": {"voc": "فِي", "root": "", "fam": [], "ex": [0, 3, 4], "gloss": "in", "freq": 1701, "rank": 4}, "البيت": {"voc": "البَيْتِ", "root": "بيت", "fam": [{"w": "بَيات", "f": 3}, {"w": "يَبِيتُ", "f": 1}], "ex": [0, 3, 10], "gloss": "house", "freq": 65, "rank": 167}, "مع": {"voc": "مَعَ", "root": "", "fam": [], "ex": [0], "gloss": "with", "freq": 159, "rank": 64}, "أخيه": {"voc": "أَخِيهِ", "root": "", "fam": [], "ex": [0, 2, 4], "gloss": "", "freq": 0, "rank": 0}, "رأى": {"voc": "رَأَى", "root": "راي", "fam": [{"w": "أَرَيْ", "f": 40}, {"w": "رُءْيا", "f": 7}, {"w": "رِئاء", "f": 3}, {"w": "تَراءَتِ", "f": 2}, {"w": "يُراءُ", "f": 2}], "ex": [1, 22], "gloss": "to see", "freq": 271, "rank": 41}, "الرجل": {"voc": "الرَّجُلُ", "root": "رجل", "fam": [{"w": "رِجال", "f": 28}], "ex": [1, 4, 7], "gloss": "man", "freq": 29, "rank": 360}, "الكتاب": {"voc": "الكِتابَ", "root": "كتب", "fam": [{"w": "كَتَبَ", "f": 49}, {"w": "كاتِب", "f": 6}, {"w": "كاتِبُ", "f": 1}, {"w": "كِتابِي", "f": 1}, {"w": "مَكْتُوب", "f": 1}], "ex": [1, 5, 6], "gloss": "book", "freq": 260, "rank": 44}, "على": {"voc": "عَلَى", "root": "", "fam": [], "ex": [1, 5, 19], "gloss": "on", "freq": 1445, "rank": 8}, "الأرض": {"voc": "الأَرْضِ", "root": "ارض", "fam": [], "ex": [1, 22, 30], "gloss": "earth, ground", "freq": 461, "rank": 18}, "أخذ": {"voc": "أَخَذَ", "root": "اخذ", "fam": [{"w": "اتَّخَذَ", "f": 124}, {"w": "يُؤاخِذُ", "f": 9}, {"w": "آخِذ", "f": 3}, {"w": "مُتَّخِذ", "f": 3}, {"w": "اتِّخاذ", "f": 1}], "ex": [2, 39], "gloss": "to take", "freq": 127, "rank": 85}, "الماء": {"voc": "الماءَ", "root": "موه", "fam": [], "ex": [2, 7, 13], "gloss": "water", "freq": 63, "rank": 176}, "من": {"voc": "مِنْ", "root": "", "fam": [], "ex": [2, 25, 27], "gloss": "from", "freq": 3226, "rank": 1}, "يد": {"voc": "يَدِ", "root": "يدي", "fam": [], "ex": [2, 11, 29], "gloss": "hand", "freq": 120, "rank": 91}, "جاء": {"voc": "جاءَ", "root": "جيا", "fam": [], "ex": [3, 25], "gloss": "to come", "freq": 278, "rank": 38}, "الناس": {"voc": "النّاسُ", "root": "نوس", "fam": [], "ex": [3, 8, 21], "gloss": "people", "freq": 241, "rank": 47}, "إلى": {"voc": "إِلَى", "root": "", "fam": [], "ex": [3, 10, 36], "gloss": "to", "freq": 742, "rank": 11}, "الليل": {"voc": "اللَّيْلِ", "root": "ليل", "fam": [{"w": "لَيْلَة", "f": 8}], "ex": [3, 10, 17], "gloss": "night", "freq": 84, "rank": 121}, "أكل": {"voc": "أَكَلَ", "root": "اكل", "fam": [{"w": "آكِل", "f": 3}, {"w": "أَكّال", "f": 1}, {"w": "مَأْكُول", "f": 1}], "ex": [4, 28], "gloss": "to eat", "freq": 93, "rank": 106}, "الطعام": {"voc": "الطَّعامَ", "root": "طعم", "fam": [{"w": "أَطْعَمَ", "f": 13}, {"w": "طَعِمُ", "f": 5}, {"w": "إِطْعام", "f": 3}, {"w": "طاعِم", "f": 1}, {"w": "طَعْم", "f": 1}], "ex": [4, 20, 28], "gloss": "food", "freq": 24, "rank": 421}, "بيت": {"voc": "بَيْتِ", "root": "بيت", "fam": [{"w": "بَيات", "f": 3}, {"w": "يَبِيتُ", "f": 1}], "ex": [4, 6], "gloss": "house", "freq": 65, "rank": 167}, "الكبير": {"voc": "الكَبِيرُ", "root": "كبر", "fam": [{"w": "اسْتَكْبَرَ", "f": 40}, {"w": "أَكْبَر", "f": 24}, {"w": "كَبُرَ", "f": 8}, {"w": "كَبِيرَة", "f": 7}, {"w": "كُبْرَى", "f": 7}], "ex": [5], "gloss": "big, elder", "freq": 40, "rank": 273}, "الباب": {"voc": "البابِ", "root": "بوب", "fam": [], "ex": [5, 20, 31], "gloss": "door", "freq": 27, "rank": 381}, "وجد": {"voc": "وَجَدَ", "root": "وجد", "fam": [], "ex": [6], "gloss": "to find", "freq": 106, "rank": 99}, "أبيه": {"voc": "أَبِيهِ", "root": "", "fam": [], "ex": [6], "gloss": "", "freq": 0, "rank": 0}, "قال": {"voc": "قالَ", "root": "قول", "fam": [{"w": "قَوْل", "f": 92}, {"w": "قائِل", "f": 5}, {"w": "قِيل", "f": 4}, {"w": "تَقَوَّلَ", "f": 2}, {"w": "أَقاوِيل", "f": 1}], "ex": [7, 20, 31], "gloss": "to say", "freq": 1618, "rank": 6}, "لأخيه": {"voc": "لِأَخِيهِ", "root": "", "fam": [], "ex": [7], "gloss": "", "freq": 0, "rank": 0}, "إن": {"voc": "إِنَّ", "root": "", "fam": [], "ex": [7, 20, 31], "gloss": "indeed", "freq": 1682, "rank": 5}, "قريب": {"voc": "قَرِيبٌ", "root": "قرب", "fam": [{"w": "أَقْرَب", "f": 19}, {"w": "قُرْبَى", "f": 16}, {"w": "يَقْرَبُ", "f": 11}, {"w": "مُقَرَّب", "f": 8}, {"w": "قَرَّبَ", "f": 5}], "ex": [7, 27, 38], "gloss": "near", "freq": 26, "rank": 398}, "علم": {"voc": "عَلِمَ", "root": "علم", "fam": [{"w": "عالَم", "f": 73}, {"w": "أَعْلَم", "f": 49}, {"w": "عالِم", "f": 18}, {"w": "مَعْلُوم", "f": 11}, {"w": "عَلّام", "f": 4}], "ex": [8, 21, 38], "gloss": "to know", "freq": 382, "rank": 24}, "أن": {"voc": "أَنَّ", "root": "", "fam": [], "ex": [8, 23, 26], "gloss": "that", "freq": 625, "rank": 14}, "العلم": {"voc": "العِلْمِ", "root": "علم", "fam": [{"w": "عالَم", "f": 73}, {"w": "أَعْلَم", "f": 49}, {"w": "عالِم", "f": 18}, {"w": "مَعْلُوم", "f": 11}, {"w": "عَلّام", "f": 4}], "ex": [8], "gloss": "to know", "freq": 382, "rank": 24}, "خيرا": {"voc": "خَيْرًا", "root": "", "fam": [], "ex": [8], "gloss": "", "freq": 0, "rank": 0}, "عظيما": {"voc": "عَظِيمًا", "root": "", "fam": [], "ex": [8], "gloss": "", "freq": 0, "rank": 0}, "رأيت": {"voc": "رَأَيْتُ", "root": "", "fam": [], "ex": [9, 29], "gloss": "", "freq": 0, "rank": 0}, "الشمس": {"voc": "الشَّمْسَ", "root": "شمس", "fam": [], "ex": [9, 35], "gloss": "sun", "freq": 33, "rank": 325}, "والقمر": {"voc": "وَالقَمَرَ", "root": "قمر", "fam": [], "ex": [9, 35], "gloss": "moon", "freq": 27, "rank": 389}, "السماء": {"voc": "السَّماءِ", "root": "سمو", "fam": [{"w": "اسْم", "f": 39}, {"w": "مُسَمًّى", "f": 21}, {"w": "سَمَّى", "f": 8}, {"w": "سَمِيّ", "f": 2}, {"w": "تَسْمِيَة", "f": 1}], "ex": [9], "gloss": "sky", "freq": 310, "rank": 33}, "أتى": {"voc": "أَتَى", "root": "اتي", "fam": [{"w": "آتَى", "f": 271}, {"w": "آتِي", "f": 9}, {"w": "إِيتاء", "f": 3}, {"w": "مَأْتِيّ", "f": 1}, {"w": "مُؤْتي", "f": 1}], "ex": [10, 36], "gloss": "to come, to bring", "freq": 264, "rank": 43}, "بعد": {"voc": "بَعْدَ", "root": "بعد", "fam": [{"w": "بَعِيد", "f": 25}, {"w": "بَعُدَتْ", "f": 2}, {"w": "باعِدْ", "f": 1}, {"w": "مُبْعَد", "f": 1}], "ex": [10], "gloss": "after", "freq": 199, "rank": 53}, "كتاب": {"voc": "كِتابٌ", "root": "كتب", "fam": [{"w": "كَتَبَ", "f": 49}, {"w": "كاتِب", "f": 6}, {"w": "كاتِبُ", "f": 1}, {"w": "كِتابِي", "f": 1}, {"w": "مَكْتُوب", "f": 1}], "ex": [11], "gloss": "book", "freq": 260, "rank": 44}, "كبير": {"voc": "كَبِيرٌ", "root": "كبر", "fam": [{"w": "اسْتَكْبَرَ", "f": 40}, {"w": "أَكْبَر", "f": 24}, {"w": "كَبُرَ", "f": 8}, {"w": "كَبِيرَة", "f": 7}, {"w": "كُبْرَى", "f": 7}], "ex": [11, 15, 31], "gloss": "big, elder", "freq": 40, "rank": 273}, "سأل": {"voc": "سَأَلَ", "root": "سال", "fam": [{"w": "يَتَساءَلُ", "f": 9}, {"w": "سائِل", "f": 7}, {"w": "مَسْئُول", "f": 5}, {"w": "سُؤال", "f": 1}, {"w": "سُؤْل", "f": 1}], "ex": [12], "gloss": "to ask", "freq": 106, "rank": 98}, "أباه": {"voc": "أَباهُ", "root": "", "fam": [], "ex": [12], "gloss": "", "freq": 0, "rank": 0}, "عن": {"voc": "عَنِ", "root": "", "fam": [], "ex": [12, 32], "gloss": "about, from", "freq": 465, "rank": 17}, "جعل": {"voc": "جَعَلَ", "root": "جعل", "fam": [{"w": "جاعِل", "f": 6}], "ex": [13], "gloss": "to put, to make", "freq": 340, "rank": 28}, "أهل": {"voc": "أَهْلُ", "root": "اهل", "fam": [], "ex": [14, 21, 32], "gloss": "family, people of", "freq": 127, "rank": 84}, "المدينة": {"voc": "المَدِينَةِ", "root": "مدن", "fam": [{"w": "مَدائِن", "f": 3}], "ex": [14, 17, 21], "gloss": "city", "freq": 14, "rank": 649}, "رأوا": {"voc": "رَأَوا", "root": "", "fam": [], "ex": [14], "gloss": "", "freq": 0, "rank": 0}, "الجبل": {"voc": "الجَبَلَ", "root": "جبل", "fam": [{"w": "جِبِلَّة", "f": 2}], "ex": [14], "gloss": "mountain", "freq": 39, "rank": 285}, "والبحر": {"voc": "وَالبَحْرَ", "root": "بحر", "fam": [{"w": "بَحِيرَة", "f": 1}], "ex": [14], "gloss": "sea", "freq": 41, "rank": 267}, "للولد": {"voc": "لِلْوَلَدِ", "root": "", "fam": [], "ex": [15, 34], "gloss": "", "freq": 0, "rank": 0}, "أخ": {"voc": "أَخٌ", "root": "اخو", "fam": [{"w": "أُخْت", "f": 14}, {"w": "إِخْوَة", "f": 7}], "ex": [15], "gloss": "brother", "freq": 75, "rank": 139}, "وأم": {"voc": "وَأُمٌّ", "root": "", "fam": [], "ex": [15], "gloss": "", "freq": 0, "rank": 0}, "كريمة": {"voc": "كَرِيمَةٌ", "root": "", "fam": [], "ex": [15], "gloss": "", "freq": 0, "rank": 0}, "ما": {"voc": "ما", "root": "", "fam": [], "ex": [16, 37], "gloss": "not; what", "freq": 2565, "rank": 2}, "وجدت": {"voc": "وَجَدْتُ", "root": "", "fam": [], "ex": [16], "gloss": "", "freq": 0, "rank": 0}, "كان": {"voc": "كانَ", "root": "كون", "fam": [{"w": "مَكان", "f": 27}, {"w": "مَكانَت", "f": 5}], "ex": [17, 34], "gloss": "to be", "freq": 1358, "rank": 9}, "قبل": {"voc": "قَبْلَ", "root": "قبل", "fam": [{"w": "تَقَبَّلَ", "f": 10}, {"w": "أَقْبَلَ", "f": 9}, {"w": "يَقْبَلُ", "f": 9}, {"w": "قِبْلَة", "f": 7}, {"w": "مُتَقابِل", "f": 4}], "ex": [17], "gloss": "before", "freq": 242, "rank": 46}, "أخذت": {"voc": "أَخَذْتُ", "root": "", "fam": [], "ex": [18], "gloss": "", "freq": 0, "rank": 0}, "بيدي": {"voc": "بِيَدِي", "root": "", "fam": [], "ex": [18], "gloss": "", "freq": 0, "rank": 0}, "النهار": {"voc": "النَّهارِ", "root": "نهر", "fam": [{"w": "نَهَر", "f": 54}, {"w": "تَنْهَرْ", "f": 2}], "ex": [18, 35], "gloss": "daytime", "freq": 57, "rank": 194}, "عين": {"voc": "عَيْنُ", "root": "عين", "fam": [{"w": "مَعِين", "f": 4}], "ex": [19], "gloss": "eye", "freq": 57, "rank": 191}, "أخي": {"voc": "أَخِي", "root": "", "fam": [], "ex": [20, 29, 31], "gloss": "", "freq": 0, "rank": 0}, "ابن": {"voc": "ابْنُ", "root": "بني", "fam": [{"w": "بُنَىّ", "f": 80}, {"w": "بِنْت", "f": 17}, {"w": "بَنَى", "f": 11}, {"w": "بُنْيان", "f": 7}, {"w": "بِناء", "f": 2}], "ex": [22, 34], "gloss": "son", "freq": 63, "rank": 178}, "أراد": {"voc": "أَرادَ", "root": "رود", "fam": [{"w": "راوَدُ", "f": 8}, {"w": "رُوَيْد", "f": 1}], "ex": [23], "gloss": "to want", "freq": 139, "rank": 75}, "يأخذ": {"voc": "يَأْخُذَ", "root": "", "fam": [], "ex": [23], "gloss": "", "freq": 0, "rank": 0}, "ليس": {"voc": "لَيْسَ", "root": "ليس", "fam": [], "ex": [24], "gloss": "is not", "freq": 89, "rank": 110}, "ماء": {"voc": "ماءٌ", "root": "موه", "fam": [], "ex": [24, 30], "gloss": "water", "freq": 63, "rank": 176}, "ولا": {"voc": "وَلا", "root": "", "fam": [], "ex": [24, 37], "gloss": "", "freq": 0, "rank": 0}, "طعام": {"voc": "طَعامٌ", "root": "طعم", "fam": [{"w": "أَطْعَمَ", "f": 13}, {"w": "طَعِمُ", "f": 5}, {"w": "إِطْعام", "f": 3}, {"w": "طاعِم", "f": 1}, {"w": "طَعْم", "f": 1}], "ex": [24], "gloss": "food", "freq": 24, "rank": 421}, "أبي": {"voc": "أَبِي", "root": "", "fam": [], "ex": [25, 38], "gloss": "", "freq": 0, "rank": 0}, "ذلك": {"voc": "ذَلِكَ", "root": "", "fam": [], "ex": [25], "gloss": "that", "freq": 0, "rank": 0}, "اليوم": {"voc": "اليَوْمِ", "root": "يوم", "fam": [], "ex": [25], "gloss": "day", "freq": 405, "rank": 21}, "علمت": {"voc": "عَلِمْتُ", "root": "", "fam": [], "ex": [26], "gloss": "", "freq": 0, "rank": 0}, "للرجل": {"voc": "لِلرَّجُلِ", "root": "", "fam": [], "ex": [26], "gloss": "", "freq": 0, "rank": 0}, "مالا": {"voc": "مالًا", "root": "", "fam": [], "ex": [26], "gloss": "", "freq": 0, "rank": 0}, "كبيرا": {"voc": "كَبِيرًا", "root": "", "fam": [], "ex": [26], "gloss": "", "freq": 0, "rank": 0}, "وجه": {"voc": "وَجْهُ", "root": "وجه", "fam": [{"w": "وَجِيه", "f": 2}, {"w": "تَوَجَّهَ", "f": 1}, {"w": "وِجْهَة", "f": 1}], "ex": [27], "gloss": "face", "freq": 72, "rank": 152}, "الأهل": {"voc": "الأَهْلُ", "root": "اهل", "fam": [], "ex": [28], "gloss": "family, people of", "freq": 127, "rank": 84}, "هل": {"voc": "هَلْ", "root": "", "fam": [], "ex": [29], "gloss": "question particle", "freq": 93, "rank": 107}, "البحر": {"voc": "البَحْرِ", "root": "بحر", "fam": [{"w": "بَحِيرَة", "f": 1}], "ex": [30], "gloss": "sea", "freq": 41, "rank": 267}, "وعلى": {"voc": "وَعَلَى", "root": "", "fam": [], "ex": [30], "gloss": "on", "freq": 1445, "rank": 8}, "جبل": {"voc": "جَبَلٌ", "root": "جبل", "fam": [{"w": "جِبِلَّة", "f": 2}], "ex": [30], "gloss": "mountain", "freq": 39, "rank": 285}, "لي": {"voc": "لِي", "root": "لوي", "fam": [{"w": "يَلْ", "f": 3}, {"w": "لَوَّ", "f": 1}], "ex": [31], "gloss": "", "freq": 1, "rank": 3576}, "سألت": {"voc": "سَأَلْتُ", "root": "", "fam": [], "ex": [32], "gloss": "", "freq": 0, "rank": 0}, "جعلنا": {"voc": "جَعَلْنا", "root": "", "fam": [], "ex": [33], "gloss": "", "freq": 0, "rank": 0}, "وأخ": {"voc": "وَأَخٌ", "root": "", "fam": [], "ex": [34], "gloss": "", "freq": 0, "rank": 0}, "رأينا": {"voc": "رَأَيْنا", "root": "", "fam": [], "ex": [35], "gloss": "", "freq": 0, "rank": 0}, "بالماء": {"voc": "بِالماءِ", "root": "موه", "fam": [], "ex": [36], "gloss": "water", "freq": 63, "rank": 176}, "أمه": {"voc": "أُمِّهِ", "root": "", "fam": [], "ex": [36], "gloss": "", "freq": 0, "rank": 0}, "رجل": {"voc": "رَجُلٌ", "root": "رجل", "fam": [{"w": "رِجال", "f": 28}], "ex": [37], "gloss": "man", "freq": 29, "rank": 360}, "ولد": {"voc": "وَلَدٌ", "root": "ولد", "fam": [{"w": "والِد", "f": 14}, {"w": "والِدَي", "f": 10}, {"w": "وَلِيد", "f": 7}, {"w": "مَوْلُود", "f": 3}, {"w": "والِدَة", "f": 2}], "ex": [37], "gloss": "boy, child", "freq": 56, "rank": 200}, "ماله": {"voc": "مالَهُ", "root": "", "fam": [], "ex": [39], "gloss": "", "freq": 0, "rank": 0}, "وأتى": {"voc": "وَأَتَى", "root": "اتي", "fam": [{"w": "آتَى", "f": 271}, {"w": "آتِي", "f": 9}, {"w": "إِيتاء", "f": 3}, {"w": "مَأْتِيّ", "f": 1}, {"w": "مُؤْتي", "f": 1}], "ex": [39], "gloss": "to come, to bring", "freq": 264, "rank": 43}};
+const SENTENCES = ["الوَلَدُ فِي البَيْتِ مَعَ أَخِيهِ", "رَأَى الرَّجُلُ الكِتابَ عَلَى الأَرْضِ", "أَخَذَ الوَلَدُ الماءَ مِنْ يَدِ أَخِيهِ", "جاءَ النّاسُ إِلَى البَيْتِ فِي اللَّيْلِ", "أَكَلَ الرَّجُلُ الطَّعامَ فِي بَيْتِ أَخِيهِ", "الكِتابُ الكَبِيرُ عَلَى البابِ", "وَجَدَ الوَلَدُ الكِتابَ فِي بَيْتِ أَبِيهِ", "قالَ الرَّجُلُ لِأَخِيهِ إِنَّ الماءَ قَرِيبٌ", "عَلِمَ النّاسُ أَنَّ فِي العِلْمِ خَيْرًا عَظِيمًا", "رَأَيْتُ الشَّمْسَ وَالقَمَرَ فِي السَّماءِ", "أَتَى الرَّجُلُ إِلَى البَيْتِ بَعْدَ اللَّيْلِ", "فِي يَدِ الوَلَدِ كِتابٌ كَبِيرٌ", "سَأَلَ الوَلَدُ أَباهُ عَنِ الكِتابِ", "جَعَلَ الرَّجُلُ الماءَ فِي البَيْتِ", "أَهْلُ المَدِينَةِ رَأَوا الجَبَلَ وَالبَحْرَ", "لِلْوَلَدِ أَخٌ كَبِيرٌ وَأُمٌّ كَرِيمَةٌ", "ما وَجَدْتُ الكِتابَ فِي البَيْتِ", "كانَ الرَّجُلُ فِي المَدِينَةِ قَبْلَ اللَّيْلِ", "أَخَذْتُ الماءَ بِيَدِي فِي النَّهارِ", "عَيْنُ الوَلَدِ عَلَى الكِتابِ", "قالَ أَخِي إِنَّ الطَّعامَ عَلَى البابِ", "النّاسُ فِي المَدِينَةِ أَهْلُ عِلْمٍ", "رَأَى ابْنُ الرَّجُلِ الماءَ فِي الأَرْضِ", "أَرادَ الوَلَدُ أَنْ يَأْخُذَ الكِتابَ", "لَيْسَ فِي البَيْتِ ماءٌ وَلا طَعامٌ", "جاءَ أَبِي مِنَ المَدِينَةِ فِي ذَلِكَ اليَوْمِ", "عَلِمْتُ أَنَّ لِلرَّجُلِ مالًا كَبِيرًا", "وَجْهُ الوَلَدِ قَرِيبٌ مِنَ الماءِ", "أَكَلَ الأَهْلُ الطَّعامَ فِي اللَّيْلِ", "هَلْ رَأَيْتَ الكِتابَ عَلَى يَدِ أَخِي", "فِي البَحْرِ ماءٌ وَعَلَى الأَرْضِ جَبَلٌ", "قالَ لِي أَخِي إِنَّ البابَ كَبِيرٌ", "سَأَلْتُ الرَّجُلَ عَنْ أَهْلِ المَدِينَةِ", "جَعَلْنا الكِتابَ فِي يَدِ الوَلَدِ", "كانَ لِلْوَلَدِ ابْنٌ وَأَخٌ فِي البَيْتِ", "رَأَيْنا الشَّمْسَ فِي النَّهارِ وَالقَمَرَ فِي اللَّيْلِ", "أَتَى الوَلَدُ بِالماءِ إِلَى أُمِّهِ", "ما فِي البَيْتِ رَجُلٌ وَلا وَلَدٌ", "عَلِمَ أَبِي أَنَّ الطَّعامَ قَرِيبٌ", "أَخَذَ الرَّجُلُ مالَهُ وَأَتَى إِلَى المَدِينَةِ"];
+
+/* ---------- Arabic helpers ---------- */
+const MARKS = new Set([..."ًٌٍَُِّْٰ"]);
+const isMark = c => MARKS.has(c);
+const bare = w => [...w].filter(c => !isMark(c)).join("");
+function clusters(w){
+  const out=[];
+  for (const ch of w){ if (isMark(ch) && out.length) out[out.length-1].m.push(ch); else out.push({b:ch,m:[]}); }
+  return out;
+}
+/** rung 0 full · 1 internal vowels only · 2 bare */
+function atRung(w,r){
+  const cl=clusters(w);
+  if (r>=2) return cl.map(c=>({b:c.b,m:[]}));
+  if (r===1){ let last=-1; for(let i=cl.length-1;i>=0;i--) if(cl[i].m.length){last=i;break;}
+    return cl.map((c,i)=> i===last ? {b:c.b,m:[]} : c); }
+  return cl;
+}
+const renderWord=(w,r)=>atRung(w,r).map(c=>c.b+c.m.map(m=>`<i class="h">${m}</i>`).join("")).join("");
+function wordKey(w){
+  let b=bare(w);
+  b=b.replace(/^(وال|فال|بال|لال|كال)/,"ال");
+  b=b.replace(/^ال/,""); b=b.replace(/^[وفبلك]/,"");
+  return b||bare(w);
+}
+
+/* ---------- store ---------- */
+const KEY="wasl.v2";
+let S=(()=>{try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return{}}})();
+S.words=S.words||{}; S.hist=S.hist||[]; S.sessions=S.sessions||0; S.expo=S.expo||500;
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const rec=k=>S.words[k]||(S.words[k]={greens:[],flashOk:0,flashNo:0,seen:0,surface:""});
+const greens=k=>(S.words[k]?.greens.length)||0;
+const rungFor=k=>greens(k)>=3?2:(greens(k)>=1?1:0);
+const mastered=()=>Object.values(S.words).filter(w=>w.greens.length>=3).length;
+
+const $=id=>document.getElementById(id);
+const show=id=>{["intro","flash","read","result","summary"].forEach(s=>$(s).classList.add("hidden"));$(id).classList.remove("hidden")};
+const setCounter=()=>$("counter").textContent=`${mastered()} mastered`;
+setCounter(); pingServer();
+
+/* ================= FLASH DRILL — say it, don't match it =================
+   The response must require retrieving the word, not remembering its outline.
+   Picking a matching shape from four is solvable by visual memory with no
+   reading at all, so the drill asks you to SAY the word instead: a 400ms
+   exposure makes decoding impossible, and you cannot pronounce a shape you
+   did not read. Speech onset also gives a cleaner latency than a tap.
+   ========================================================================= */
+let fQueue=[],fIdx=0,fResults=[],fItem=null,fMaskAt=0;
+let fFrames=[],fRaf=0,fRecording=false,fHeard="";
+const N_FLASH=6, FLASH_TIMEOUT=5000;
+
+function beginFlash(){
+  const pool=[...FLASH_ITEMS].sort((a,b)=>{
+    const ra=rec(wordKey(a.w)), rb=rec(wordKey(b.w));
+    return (ra.flashOk-ra.flashNo)-(rb.flashOk-rb.flashNo)+Math.random()-0.5;
+  });
+  fQueue=pool.slice(0,N_FLASH); fIdx=0; fResults=[];
+  show("flash"); flashNext();
+}
+
+function flashNext(){
+  if(fIdx>=fQueue.length) return beginReading();
+  fItem=fQueue[fIdx]; fHeard="";
+  $("fprog").textContent=`say it · ${fIdx+1} of ${fQueue.length}`;
+  $("fchoices").classList.add("hidden");
+  $("fhint").textContent="Watch — then say it out loud.";
+  const el=$("fword"); el.classList.remove("mask");
+  el.innerHTML=renderWord(fItem.w,0);
+  const expo=Math.max(220,Math.min(900,S.expo));
+  setTimeout(()=>{
+    el.classList.add("mask"); fMaskAt=performance.now();
+    $("fhint").textContent=`Say it. · shown for ${expo}ms`;
+    startFlashCapture();
+  },expo);
+}
+
+async function startFlashCapture(){
+  fFrames=[]; fRecording=true; startRecorder();
+  let onset=null, sawSpeech=false, quietSince=null;
+  try{
+    if(!stream) stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    if(!ac) ac=new (window.AudioContext||window.webkitAudioContext)();
+    if(ac.state==="suspended") await ac.resume();
+    if(!analyser){ analyser=ac.createAnalyser(); analyser.fftSize=1024;
+      ac.createMediaStreamSource(stream).connect(analyser); }
+    micOK=true; startASRFlash();
+    const buf=new Float32Array(analyser.fftSize), t0=performance.now();
+    let amb=[], thr=0.012;
+    (function tick(){
+      if(!fRecording) return;
+      analyser.getFloatTimeDomainData(buf);
+      let s=0; for(let i=0;i<buf.length;i++) s+=buf[i]*buf[i];
+      const rms=Math.sqrt(s/buf.length), t=performance.now()-t0;
+      fFrames.push({t,rms});
+      if(t<300){ amb.push(rms); thr=Math.max(0.008, (amb.reduce((a,b)=>a+b,0)/amb.length)*4); }
+      else{
+        if(rms>=thr){ if(onset===null){ onset=t; sawSpeech=true; } quietSince=null; }
+        else if(sawSpeech){ if(quietSince===null) quietSince=t;
+          else if(t-quietSince>650) return finishFlash(onset); }
+      }
+      if(t>FLASH_TIMEOUT) return finishFlash(onset);
+      fRaf=requestAnimationFrame(tick);
+    })();
+  }catch(e){ micOK=false; fRecording=false; flashFallback(); }
+}
+
+function startASRFlash(){
+  if(!SRCtor) return;
+  try{
+    SR=new SRCtor(); SR.lang="ar-SA"; SR.continuous=false; SR.interimResults=true; SR.maxAlternatives=3;
+    SR.onresult=e=>{ let out=[];
+      for(let i=0;i<e.results.length;i++) for(let j=0;j<e.results[i].length;j++) out.push(e.results[i][j].transcript);
+      fHeard=out.join(" ").trim(); };
+    SR.onerror=()=>{}; SR.start();
+  }catch(e){ SR=null; }
+}
+
+function finishFlash(onset){
+  if(!fRecording) return;
+  fRecording=false; cancelAnimationFrame(fRaf); try{SR&&SR.stop()}catch(e){}
+  (async ()=>{
+    const blob=await stopRecorder();
+    if(blob && blob.size>1500 && serverUp!==false){
+      try{
+        const j=await postChoose(blob,[fItem.w,...fItem.d]);
+        if(!j.silent && j.confident) return scoreFlash(onset, j.best===fItem.w, j.best);
+      }catch(e){ serverUp=false; }
+    }
+    setTimeout(()=>scoreFlash(onset), SRCtor?420:0);
+  })();
+}
+
+/** score against the four KNOWN candidates — far easier than open dictation */
+function scoreFlash(onset, serverVerdict, serverBest){
+  const cands=[fItem.w,...fItem.d];
+  const el=$("fword"); el.classList.remove("mask");
+  const k=wordKey(fItem.w), r=rec(k); r.surface=r.surface||fItem.w;
+
+  if(!onset){
+    $("fhint").innerHTML=`Didn't hear anything — it was <b>${fItem.w}</b>. Not counted.`;
+    fResults.push({ok:null,rt:null});
+    return setTimeout(()=>{fIdx++;flashNext()},1600);
+  }
+  let verdict=serverVerdict!==undefined?serverVerdict:null, best=serverBest?{c:serverBest}:null;
+  if(verdict===null && fHeard){
+    const scored=cands.map(c=>({c,d:Math.min(...fHeard.split(/\s+/).map(hw=>dist(c,hw)))}))
+                      .sort((a,b)=>a.d-b.d);
+    best=scored[0];
+    if(best.d<=0.4) verdict = best.c===fItem.w;
+  }
+  const rt=Math.round(onset);
+  if(verdict===true){
+    r.flashOk++; S.expo=Math.max(220,S.expo-(rt<1200?60:25));
+    $("fhint").innerHTML=`Right — <b>${rt}ms</b> to start speaking.`;
+  }else if(verdict===false){
+    r.flashNo++; S.expo=Math.min(900,S.expo+110);
+    $("fhint").innerHTML=`Heard <b>${best.c}</b> — it was <b>${fItem.w}</b>.`;
+  }else{
+    $("fhint").innerHTML=`Couldn't make it out. It was <b>${fItem.w}</b> — did you get it?
+      <div class="row" style="margin-top:.5rem">
+        <button class="ghost" onclick="selfReport(true,${rt})">Yes</button>
+        <button class="quiet" onclick="selfReport(false,${rt})">No</button></div>`;
+    fResults.push({ok:null,rt,pending:true});
+    save(); return;
+  }
+  fResults.push({ok:verdict,rt}); save();
+  setTimeout(()=>{fIdx++;flashNext()}, verdict?800:1700);
+}
+
+function selfReport(ok,rt){
+  const r=rec(wordKey(fItem.w));
+  if(ok){ r.flashOk++; S.expo=Math.max(220,S.expo-25); } else { r.flashNo++; S.expo=Math.min(900,S.expo+110); }
+  const last=fResults[fResults.length-1]; if(last&&last.pending){ last.ok=ok; last.pending=false; }
+  save(); fIdx++; flashNext();
+}
+
+/** no microphone: fall back to the weaker shape-matching task, and say so */
+function flashFallback(){
+  const opts=[fItem.w,...fItem.d].map(w=>({w,ok:w===fItem.w})).sort(()=>Math.random()-.5);
+  $("fword").classList.add("mask");
+  $("fchoices").innerHTML=opts.map(o=>`<button class="choice" data-ok="${o.ok}">${renderWord(o.w,0)}</button>`).join("");
+  $("fchoices").classList.remove("hidden");
+  $("fhint").innerHTML="No microphone — falling back to picking the shape you saw. <b>This is a much weaker test</b>: matching a shape needs no reading.";
+  const t0=performance.now();
+  $("fchoices").querySelectorAll(".choice").forEach(b=>b.addEventListener("click",()=>{
+    const ok=b.dataset.ok==="true", rt=Math.round(performance.now()-t0);
+    const r=rec(wordKey(fItem.w));
+    if(ok){r.flashOk++;} else {r.flashNo++; S.expo=Math.min(900,S.expo+110);}
+    $("fword").classList.remove("mask");
+    $("fchoices").querySelectorAll(".choice").forEach(x=>{x.disabled=true;
+      if(x.dataset.ok==="true")x.classList.add("right"); else if(x===b)x.classList.add("wrong");});
+    fResults.push({ok,rt,weak:true}); save();
+    setTimeout(()=>{fIdx++;flashNext()}, ok?800:1500);
+  },{once:true}));
+}
+
+/* ================= identity: normalise + align what was heard ================= */
+/** collapse the spelling variation ASR introduces, so comparison is fair */
+function norm(w){
+  return bare(w)
+    .replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه")
+    .replace(/ـ/g,"").replace(/[^ء-ي]/g,"");
+}
+function lev(a,b){
+  const n=a.length,m=b.length; if(!n) return m; if(!m) return n;
+  let prev=[...Array(m+1).keys()],cur=new Array(m+1);
+  for(let i=1;i<=n;i++){ cur[0]=i;
+    for(let j=1;j<=m;j++) cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    [prev,cur]=[cur,prev];
+  }
+  return prev[m];
+}
+/** 0 = identical, 1 = nothing in common. Clitics are forgiven. */
+function dist(exp,got){
+  const a=norm(exp),b=norm(got); if(!a||!b) return 1;
+  const strip=s=>s.replace(/^(وال|فال|بال|كال|لال|ال)/,"").replace(/^[وفبلك]/,"");
+  const best=Math.min(lev(a,b), lev(strip(a),strip(b)), lev(strip(a),b), lev(a,strip(b)));
+  return best/Math.max(a.length,b.length);
+}
+/** Needleman–Wunsch over words — handles dropped and inserted words properly */
+function alignWords(exp,got){
+  const n=exp.length,m=got.length,GAP=0.85;
+  const D=Array.from({length:n+1},()=>new Array(m+1).fill(0));
+  const P=Array.from({length:n+1},()=>new Array(m+1).fill(""));
+  for(let i=1;i<=n;i++){D[i][0]=i*GAP;P[i][0]="del";}
+  for(let j=1;j<=m;j++){D[0][j]=j*GAP;P[0][j]="ins";}
+  for(let i=1;i<=n;i++)for(let j=1;j<=m;j++){
+    const s=D[i-1][j-1]+dist(exp[i-1],got[j-1]), d=D[i-1][j]+GAP, ins=D[i][j-1]+GAP;
+    if(s<=d&&s<=ins){D[i][j]=s;P[i][j]="sub";}
+    else if(d<=ins){D[i][j]=d;P[i][j]="del";}
+    else {D[i][j]=ins;P[i][j]="ins";}
+  }
+  const out=new Array(n).fill(null);
+  let i=n,j=m;
+  while(i>0||j>0){
+    const p=P[i]?.[j];
+    if(p==="sub"){ out[i-1]={heard:got[j-1],d:dist(exp[i-1],got[j-1])}; i--; j--; }
+    else if(p==="del"){ out[i-1]={heard:null,d:1}; i--; }
+    else if(p==="ins"){ j--; }
+    else break;
+  }
+  // confirmed only when the match is close; ASR noise must never fail a word
+  return out.map(o=>({confirmed: !!o && o.d<=0.34, heard:o?.heard||null}));
+}
+
+/* ================= READ-ALOUD: VAD + speech recognition ================= */
+let session=[],sIdx=0,words=[],results=[];
+let ac=null,stream=null,analyser=null,frames=[],raf=0,recording=false,micOK=false;
+let tapTimes=null, listenStart=0;        // fallback path / when we began listening
+let SR=null,srWords=[],srOK=false,srRan=false;
+const N_SENT=3;
+const SRCtor = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+function startASR(){
+  srWords=[]; srRan=false; srOK=false;
+  if(!SRCtor) return;
+  try{
+    SR=new SRCtor();
+    SR.lang="ar-SA"; SR.continuous=true; SR.interimResults=true; SR.maxAlternatives=1;
+    SR.onresult=e=>{
+      srOK=true; srRan=true;
+      let finals=[];
+      for(let i=0;i<e.results.length;i++){
+        const r=e.results[i];
+        if(r.isFinal) finals.push(r[0].transcript);
+      }
+      const interim=e.results[e.results.length-1];
+      const text=(finals.join(" ")+" "+(interim && !interim.isFinal?interim[0].transcript:"")).trim();
+      srWords=text.split(/\s+/).filter(Boolean);
+    };
+    SR.onerror=()=>{};
+    SR.onend=()=>{};
+    SR.start(); srRan=true;
+  }catch(e){ SR=null; }
+}
+function stopASR(){ try{ SR&&SR.stop(); }catch(e){} }
+
+function pickSentences(n){
+  const recent=new Set(S.hist.slice(-9));
+  return SENTENCES.map((s,i)=>{
+    const due=s.split(/\s+/).map(wordKey).filter(k=>greens(k)<3).length;
+    return {i,score:due*2+(recent.has(i)?0:3)+Math.random()};
+  }).sort((a,b)=>b.score-a.score).slice(0,n).map(x=>x.i);
+}
+
+function beginReading(){ session=pickSentences(N_SENT); sIdx=0; results=[]; renderSentence(); }
+
+function renderSentence(){
+  words=SENTENCES[session[sIdx]].split(/\s+/);
+  $("line").innerHTML=words.map(w=>{
+    const r=rungFor(wordKey(w));
+    return `<span class="wd ${r===1?"rung2":""}">${renderWord(w,r)}</span>`;
+  }).join("");
+  $("rprog").textContent=`reading ${sIdx+1} of ${session.length}`;
+  setCounter(); show("read"); startListening();
+}
+
+async function startListening(){
+  frames=[]; tapTimes=null;
+  try{
+    if(!stream) stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    if(!ac){ ac=new (window.AudioContext||window.webkitAudioContext)(); }
+    if(ac.state==="suspended") await ac.resume();
+    if(!analyser){
+      analyser=ac.createAnalyser(); analyser.fftSize=1024;
+      ac.createMediaStreamSource(stream).connect(analyser);
+    }
+    micOK=true; recording=true;
+    startRecorder();
+    if(serverUp===null) pingServer();
+    startASR();
+    const buf=new Float32Array(analyser.fftSize), t0=performance.now(); listenStart=450;
+    $("dot").classList.add("live");
+    $("recmsg").textContent = SRCtor ? "Listening — read the line aloud."
+                                     : "Listening for pauses (this browser can't recognise words).";
+    $("tapHint").textContent = SRCtor ? "" : "Word checking needs Chrome, Edge or Safari.";
+    (function tick(){
+      if(!recording) return;
+      analyser.getFloatTimeDomainData(buf);
+      let s=0; for(let i=0;i<buf.length;i++) s+=buf[i]*buf[i];
+      const rms=Math.sqrt(s/buf.length);
+      frames.push({t:performance.now()-t0,rms});
+      $("meter").style.width=Math.min(100,rms*900)+"%";
+      raf=requestAnimationFrame(tick);
+    })();
+  }catch(e){
+    micOK=false; recording=false;
+    $("micbox").classList.add("hidden");
+    $("tapHint").innerHTML="<b>No microphone.</b> Falling back to tapping each word — the grading is much weaker this way, because it can't hear pauses inside a word.";
+    enableTapFallback();
+  }
+}
+
+function enableTapFallback(){
+  tapTimes=[performance.now()]; let i=0;
+  const spans=[...$("line").querySelectorAll(".wd")];
+  spans.forEach((el,idx)=>{
+    el.style.cursor="pointer";
+    el.addEventListener("click",()=>{
+      if(idx!==i) return;
+      tapTimes.push(performance.now()); el.style.opacity=".55"; i++;
+      if(i>=spans.length) stopReading();
+    });
+  });
+}
+
+function stopListening(){ recording=false; cancelAnimationFrame(raf); $("dot").classList.remove("live"); $("meter").style.width="0"; }
+
+
+/* ================= SERVER: forced alignment against the known text =========
+   The browser engine below stays as an offline fallback, but it can only infer
+   word boundaries from energy. The service returns per-CHARACTER timings from a
+   CTC alignment path, so a silence between ك and ت is observed rather than guessed.
+   ========================================================================= */
+/* Backend location. Same origin when served by the Space itself; otherwise set
+   once from the UI or with ?api=https://<you>-wasl.hf.space and it is remembered. */
+const DEFAULT_API = "https://sadany2-wasl.hf.space";
+const API = (() => {
+  const q=new URLSearchParams(location.search).get("api");
+  if(q){ try{ localStorage.setItem("wasl.api", q.replace(/\/$/,"")); }catch(e){} }
+  let stored=null; try{ stored=localStorage.getItem("wasl.api"); }catch(e){}
+  if(stored) return stored;
+  // served by the Space itself -> same origin; anywhere else -> the Space
+  return location.hostname.endsWith(".hf.space") ? location.origin : DEFAULT_API;
+})();
+function setApi(){
+  const cur=(()=>{try{return localStorage.getItem("wasl.api")||""}catch(e){return""}})();
+  const v=prompt("Alignment server URL\\n\\nPaste your Hugging Face Space URL, e.g.\\nhttps://yourname-wasl.hf.space", cur);
+  if(v===null) return;
+  try{ v.trim() ? localStorage.setItem("wasl.api", v.trim().replace(/\/$/,"")) : localStorage.removeItem("wasl.api"); }catch(e){}
+  location.reload();
+}
+let serverUp=null, mediaRec=null, chunks=[];
+
+async function pingServer(){
+  try{
+    const r=await fetch(API+"/health",{cache:"no-store"});
+    const j=await r.json(); serverUp=!!j.ok;
+  }catch(e){ serverUp=false; }
+  const el=$("srvstate");
+  if(el) el.innerHTML = serverUp
+    ? 'per-character alignment · <a href="#" onclick="setApi();return false" style="color:inherit">change</a>'
+    : 'offline mode — rougher grading · <a href="#" onclick="setApi();return false" style="color:inherit">connect a server</a>';
+  return serverUp;
+}
+
+function startRecorder(){
+  chunks=[];
+  if(!stream||!window.MediaRecorder) return false;
+  const types=["audio/webm;codecs=opus","audio/webm","audio/mp4"];
+  const mime=types.find(t=>MediaRecorder.isTypeSupported(t))||"";
+  try{
+    mediaRec=new MediaRecorder(stream, mime?{mimeType:mime}:undefined);
+    mediaRec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+    mediaRec.start();
+    return true;
+  }catch(e){ mediaRec=null; return false; }
+}
+
+function stopRecorder(){
+  return new Promise(res=>{
+    if(!mediaRec||mediaRec.state==="inactive") return res(null);
+    mediaRec.onstop=()=>res(new Blob(chunks,{type:chunks[0]?.type||"audio/webm"}));
+    try{ mediaRec.stop(); }catch(e){ res(null); }
+  });
+}
+
+async function postAlign(blob, wordList){
+  const fd=new FormData();
+  fd.append("audio", blob, "clip.webm");
+  fd.append("words", wordList.join(" "));
+  const r=await fetch(API+"/align",{method:"POST",body:fd});
+  if(!r.ok) throw new Error("align "+r.status);
+  return r.json();
+}
+
+async function postChoose(blob, cands){
+  const fd=new FormData();
+  fd.append("audio", blob, "clip.webm");
+  fd.append("candidates", cands.join(" "));
+  const r=await fetch(API+"/choose",{method:"POST",body:fd});
+  if(!r.ok) throw new Error("choose "+r.status);
+  return r.json();
+}
+
+/** shape the server's reply like the local engine's, so the UI has one contract */
+function fromServer(j){
+  if(j.silent) return {silent:true};
+  const per=j.words.map(w=>({
+    state:w.state, grade:(w.state==="fluent")?"g":((w.state==="hesitant"||w.state==="slow")?"y":(w.state==="missing"?null:"r")),
+    label:w.label, span:w.end_ms-w.start_ms, lead:w.lead_ms, chars:w.chars, score:w.score
+  }));
+  const s=j.summary;
+  const line = s.spelled>0
+    ? {state:"spelled",label:`${s.spelled} word${s.spelled===1?"":"s"} came apart — silences inside the word itself`}
+    : (s.assembled>0
+      ? {state:"broken",label:`${s.assembled} word${s.assembled===1?"":"s"} worked out silently before being said`}
+      : {state:"connected",label:"words came out whole"});
+  return {silent:false, per, line, unreliable:false, server:true,
+          grades:per.map(p=>p.grade||"r"), words:j.words.length,
+          fluent:s.fluent, assembled:s.assembled, spelled:s.spelled, missing:s.missing,
+          compute:j.compute_seconds, audio:j.audio_seconds};
+}
+
+/* ==========================================================================
+   READING ANALYSIS ENGINE
+   Constrained by the known text: we are not asking "what did they say" but
+   "how was this known line produced". That turns a recognition problem into a
+   segmentation-and-alignment problem, which is tractable without a model.
+
+   Distinguishes three productions of the same correct word:
+     fluent    — one continuous burst, duration near expectation
+     assembled — long silence, then one clean burst (decoded silently first)
+     spelled   — several bursts inside the word (sounded out audibly)
+
+   Interface is deliberately backend-shaped: give it frames + expected words,
+   get per-word diagnoses. Swapping in server-side forced alignment later means
+   replacing segment()+alignBursts() and keeping classify() unchanged.
+   ========================================================================== */
+
+const AUDIO = (() => {
+  const MIN_BURST=40, DECHATTER=45, INNER_GAP=130, LEAD_GAP=380;
+
+  /** energy trace -> bursts and the silences between them. Minimal merging:
+      the aligner needs the boundaries, so we must not smooth them away. */
+  function segment(frames){
+    const amb=frames.filter(f=>f.t<400).map(f=>f.rms);
+    const ambMean=amb.length?amb.reduce((a,b)=>a+b,0)/amb.length:0;
+    const ambMax=amb.length?Math.max(...amb):0;
+    const sorted=frames.map(f=>f.rms).sort((a,b)=>a-b);
+    const p95=sorted[Math.floor(sorted.length*0.95)]||0;
+    const floor=Math.max(ambMean*3, ambMax*1.4, 0.005);
+    const on=Math.max(floor, p95*0.22), off=Math.max(floor*0.8, p95*0.12);
+    let runs=[],cur=null,live=false;
+    for(const f of frames){
+      if(!live && f.rms>=on){ live=true; cur={s:f.t,e:f.t}; }
+      else if(live){ if(f.rms>=off) cur.e=f.t; else { live=false; runs.push(cur); cur=null; } }
+    }
+    if(cur) runs.push(cur);
+    runs=runs.filter(r=>r.e-r.s>=MIN_BURST);
+    const bursts=[];
+    for(const r of runs){                       // only kill sub-frame chatter
+      const last=bursts[bursts.length-1];
+      if(last && r.s-last.e<DECHATTER) last.e=r.e; else bursts.push({...r});
+    }
+    const gaps=[];
+    for(let i=1;i<bursts.length;i++)
+      gaps.push({s:bursts[i-1].e, e:bursts[i].s, len:bursts[i].s-bursts[i-1].e});
+    return {bursts,gaps};
+  }
+
+  function expectations(words,totalSpeech){
+    const lens=words.map(w=>Math.max(bare(w).length,1));
+    const sum=lens.reduce((a,b)=>a+b,0);
+    const perChar=totalSpeech/Math.max(sum,1);
+    return lens.map(L=>Math.max(150,L*perChar));
+  }
+
+  /** Cut the utterance into one span per known word. Cuts prefer to land in
+      silences, but may fall inside a burst when speech runs words together —
+      which is what fluent reading sounds like. */
+  function placeCuts(bursts,gaps,exp){
+    const start=bursts[0].s, end=bursts[bursts.length-1].e, n=exp.length;
+    const cands=[{t:start,gap:0}];
+    for(const g of gaps) cands.push({t:(g.s+g.e)/2, gap:g.len});
+    // proportional fallbacks so we can always cut, even with no silences
+    const total=end-start, sumE=exp.reduce((a,b)=>a+b,0);
+    let acc=start;
+    for(let i=0;i<n-1;i++){ acc+=total*exp[i]/sumE; cands.push({t:acc,gap:0}); }
+    cands.push({t:end,gap:0});
+    cands.sort((a,b)=>a.t-b.t);
+    const C=cands.filter((c,i)=>i===0||c.t-cands[i-1].t>25);
+    const k=C.length-1;
+    if(k<n) return null;
+
+    const memo=new Map(), pick=new Map();
+    function go(w,a){
+      if(w===n) return a===k?0:1e6;
+      const key=w*(k+1)+a; if(memo.has(key)) return memo.get(key);
+      let best=1e9,bestB=a+1;
+      for(let b=a+1;b<=k-(n-w-1);b++){
+        const span=C[b].t-C[a].t;
+        if(span<=0) continue;
+        const ratio=span/exp[w];
+        const shape=Math.abs(Math.log(ratio))*1.9*(ratio<1?1.3:1);
+        const cut=b===k?0:Math.max(0,0.30-C[b].gap/900);   // reward cutting in a real silence
+        const c=shape+cut+go(w+1,b);
+        if(c<best){best=c;bestB=b;}
+      }
+      memo.set(key,best); pick.set(key,bestB);
+      return best;
+    }
+    if(go(0,0)>=1e6) return null;
+    const cuts=[C[0].t]; let a=0;
+    for(let w=0;w<n;w++){ const b=pick.get(w*(k+1)+a); cuts.push(C[b].t); a=b; }
+    return cuts;
+  }
+
+  /** the pedagogy, deliberately independent of how the timing was obtained */
+  function classify(words,cuts,bursts,gaps,exp,listenStart){
+    return words.map((w,i)=>{
+      const s=cuts[i], e=cuts[i+1], span=e-s, letters=Math.max(bare(w).length,1);
+      const inside=bursts.filter(b=>b.e>s+20 && b.s<e-20);
+      if(!inside.length) return {state:"missing",grade:null,label:"not heard"};
+      const voiced=inside.reduce((a,b)=>a+(Math.min(b.e,e)-Math.max(b.s,s)),0);
+      const inner=gaps.filter(g=>g.s>=s-10 && g.e<=e+10 && g.len>=INNER_GAP);
+      const firstOn=Math.max(inside[0].s,s);
+      const lead=firstOn-(i===0?listenStart:cuts[i]);
+      const ratio=span/exp[i];
+      const maxInner=inner.length?Math.max(...inner.map(g=>g.len)):0;
+
+      if(inner.length>=2 || inside.length>=Math.max(3,Math.ceil(letters/2)))
+        return {state:"spelled",grade:"r",bursts:inside.length,span:Math.round(span),
+                label:`sounded out — ${inside.length} separate pieces`};
+      if(inner.length===1)
+        return {state:"broken",grade:"r",bursts:inside.length,span:Math.round(span),
+                label:`broken apart — ${Math.round(maxInner)}ms silence inside the word`};
+      if(lead>Math.max(LEAD_GAP,exp[i]*1.1))
+        return {state:"assembled",grade:"r",bursts:1,span:Math.round(span),lead:Math.round(lead),
+                label:`${Math.round(lead)}ms of silence, then said whole — worked out before speaking`};
+      if(ratio>1.7) return {state:"slow",grade:"y",bursts:1,span:Math.round(span),label:`laboured — ${Math.round(ratio*100)}% of expected length`};
+      if(ratio>1.28) return {state:"hesitant",grade:"y",bursts:1,span:Math.round(span),label:"slightly hesitant"};
+      return {state:"fluent",grade:"g",bursts:1,span:Math.round(span),label:"read as one unit"};
+    });
+  }
+
+  /** One pass sets a provisional pace; a second pass re-estimates it from only the
+      words that came out fluent, so a single laboured word can no longer inflate
+      the baseline and hide itself. */
+  /** Line-level verdict. This is the reliable measurement: with the text known,
+      a fluent reading produces about one burst per word, while sounding words out
+      produces one per letter. Burst count and burst-length distribution carry that
+      signal even when we cannot say WHICH word was sounded out. */
+  function lineVerdict(bursts,words){
+    const ratio=bursts.length/words.length;
+    const durs=bursts.map(b=>b.e-b.s).sort((a,b)=>a-b);
+    const medDur=durs[Math.floor(durs.length/2)]||0;
+    const shortish=bursts.filter(b=>b.e-b.s<200).length/bursts.length;
+    if(ratio>=1.9 || (ratio>=1.5 && shortish>0.6))
+      return {state:"spelled",conf:"high",
+              label:`${bursts.length} bursts of sound for ${words.length} words — this line was sounded out letter by letter`};
+    if(ratio>=1.35)
+      return {state:"broken",conf:"medium",
+              label:`${bursts.length} bursts for ${words.length} words — some words came apart`};
+    return {state:"connected",conf:"high",medDur,
+            label:`${bursts.length} bursts for ${words.length} words — words came out whole`};
+  }
+
+  /** Two passes: a provisional pace, then re-estimated from only the fluent words
+      so one laboured word cannot inflate the baseline and hide itself. */
+  function analyse(frames,words,listenStart){
+    if(!frames.length) return null;
+    const {bursts,gaps}=segment(frames);
+    const speech=bursts.reduce((a,b)=>a+(b.e-b.s),0);
+    if(speech<300||!bursts.length) return {silent:true};
+    const lens=words.map(w=>Math.max(bare(w).length,1));
+    const ls=listenStart??bursts[0].s;
+    const line=lineVerdict(bursts,words);
+
+    let cuts;
+    if(bursts.length===words.length){
+      // unambiguous: one burst per word. Trust it directly rather than re-deriving.
+      cuts=[bursts[0].s,...bursts.map(b=>b.e)];
+    }else{
+      let exp=expectations(words,speech);
+      cuts=placeCuts(bursts,gaps,exp);
+      if(cuts){
+        const p0=classify(words,cuts,bursts,gaps,exp,ls);
+        const clean=p0.map((p,i)=>({p,i})).filter(x=>x.p.state==="fluent"||x.p.state==="hesitant");
+        if(clean.length){
+          const perChar=clean.reduce((a,x)=>a+(cuts[x.i+1]-cuts[x.i]),0)/
+                        Math.max(clean.reduce((a,x)=>a+lens[x.i],0),1);
+          const e2=lens.map(L=>Math.max(150,L*perChar));
+          const c2=placeCuts(bursts,gaps,e2);
+          if(c2) cuts=c2;
+        }
+      }
+    }
+    if(!cuts) return {silent:false,line,unreliable:true,
+      per:words.map(()=>({state:"unknown",grade:line.state==="connected"?"y":"r",label:"couldn't line this up"})),
+      grades:words.map(()=>line.state==="connected"?"y":"r"),
+      bursts:bursts.length,words:words.length,speech:Math.round(speech),fluent:0,assembled:0,spelled:0,missing:0};
+
+    const exp=expectations(words,speech);
+    const per=classify(words,cuts,bursts,gaps,exp,ls);
+    // when the line is heavily fragmented the per-word mapping is a guess; say so
+    const unreliable = bursts.length > words.length*1.35;
+    if(unreliable) per.forEach(p=>{ if(p.state==="fluent"||p.state==="hesitant"){ p.state="uncertain"; p.grade="y"; p.label="couldn't tell — the line was broken up around here"; } });
+    const t=s=>per.filter(p=>p.state===s).length;
+    return {silent:false,per,line,unreliable,grades:per.map(p=>p.grade||"r"),
+            bursts:bursts.length,words:words.length,speech:Math.round(speech),
+            fluent:t("fluent"),assembled:t("assembled"),
+            spelled:t("spelled")+t("broken"),missing:t("missing")};
+  }
+  return {analyse,segment,placeCuts,classify};
+})();
+
+function analyse(){ return AUDIO.analyse(frames,words,listenStart); }
+
+function analyseTaps(){
+  if(!tapTimes||tapTimes.length!==words.length+1) return null;
+  const rates=words.map((w,i)=>(tapTimes[i+1]-tapTimes[i])/Math.max(bare(w).length,1));
+  const med=[...rates].sort((a,b)=>a-b)[Math.floor(rates.length/2)]||1;
+  return {silent:false,taps:true,grades:rates.map(r=>r/med<=1.15?"g":(r/med<=1.8?"y":"r"))};
+}
+
+let lastIdent=null, lastSentIdx=null;
+
+async function stopReading(){
+  stopListening(); stopASR();
+  $("doneBtn").disabled=true; $("doneBtn").textContent="Scoring…";
+  let served=null;
+  const blob=await stopRecorder();
+  if(blob && blob.size>2000 && serverUp!==false){
+    try{ served=fromServer(await postAlign(blob, words)); }
+    catch(e){ serverUp=false; }
+  }
+  $("doneBtn").disabled=false; $("doneBtn").textContent="Done reading";
+  setTimeout(()=>gradeReading(served), (!served && SRCtor && micOK) ? 450 : 0);
+}
+
+function gradeReading(served){
+  const a = served || (micOK ? analyse() : analyseTaps());
+  const sentIdx=session[sIdx]; lastSentIdx=sentIdx;
+
+  if(!a || a.silent){
+    $("graded").innerHTML=words.map(w=>`<span class="wd">${renderWord(w,rungFor(wordKey(w)))}</span>`).join("");
+    $("diag").innerHTML=`<div class="warn">I didn't hear anything. Nothing was graded — the whole point is reading out loud, so this one doesn't count.</div>`;
+    results.push({graded:false});
+    $("nextBtn").textContent=(sIdx+1>=session.length)?"See summary":"Next sentence";
+    return show("result");
+  }
+
+  /* identity: confirm only, never fail */
+  const ident = (srWords.length ? alignWords(words, srWords)
+                                : words.map(()=>({confirmed:false,heard:null})));
+  lastIdent=ident;
+  const confirmedCount=ident.filter(x=>x.confirmed).length;
+
+  /* combine: fluency sets the colour, identity gates mastery */
+  const g=a.grades.map((v,i)=> (v==="g" && !ident[i].confirmed) ? "y" : v);
+
+  words.forEach((w,i)=>{
+    const k=wordKey(w), r=rec(k); r.seen++; r.surface=r.surface||w;
+    if(a.grades[i]==="g" && ident[i].confirmed && !r.greens.includes(sentIdx) && r.greens.length<3)
+      r.greens.push(sentIdx);
+  });
+  S.hist.push(sentIdx); save();
+
+  lastPer = a.per || null; closeCard();
+  $("graded").innerHTML=words.map((w,i)=>{
+    const r=rungFor(wordKey(w));
+    const unconf = !ident[i].confirmed ? " unconf" : "";
+    return `<span class="wd ${g[i]}${unconf} ${r===1?"rung2":""}" data-i="${i}" style="cursor:pointer">${renderWord(w,r)}</span>`;
+  }).join("");
+  $("graded").querySelectorAll(".wd").forEach(el=>el.addEventListener("click",()=>openCard(+el.dataset.i)));
+
+  const lineCls = a.line ? (a.line.state==="connected"?"g":(a.line.state==="spelled"?"r":"y")) : "";
+  const pauseLine = a.taps
+    ? `Graded from taps only — no pause detection.`
+    : `<div class="diagnosis ${lineCls}" style="margin-bottom:.4rem">${a.line?a.line.label:""}</div>
+       <b>${a.fluent}</b> whole · <b>${a.assembled}</b> worked out silently first · <b>${a.spelled}</b> came apart${a.unreliable?" · <i>per-word marks are a guess on a line this broken up</i>":""}. <b>Tap a word</b> for how it was read and what it means.
+       <br><span style="opacity:.7">${a.server?`per-character alignment on the server · ${a.compute}s for ${a.audio}s of audio`:"offline mode — word boundaries estimated from energy"}</span>`;
+  const idLine = !SRCtor
+    ? `<p class="small">This browser can't recognise words, so nothing could be confirmed — dotted underlines throughout.</p>`
+    : srWords.length
+      ? `<p class="small">Confirmed <b>${confirmedCount}</b> of <b>${words.length}</b> words. Only confirmed words can count toward mastery.</p>
+         <div class="heard">${srWords.join(" ")}</div>
+         <p class="small" style="margin-top:.3rem">↑ what the recogniser thought it heard. If that's wrong, it misheard you — say so below and the words still count.</p>`
+      : `<p class="small">The recogniser returned nothing. Your pauses were still measured; nothing could be confirmed.</p>`;
+
+  $("diag").innerHTML=`<p class="small">${pauseLine}</p>${idLine}
+    ${srWords.length&&confirmedCount<words.length?`<div class="row" style="margin-top:.5rem"><button class="quiet" onclick="overrideMisheard()">It misheard me — count these</button></div>`:""}`;
+
+  results.push({graded:true,grades:g,confirmed:confirmedCount,total:words.length});
+  $("nextBtn").textContent=(sIdx+1>=session.length)?"See summary":"Next sentence";
+  show("result");
+}
+
+/* ================= MEANING: derived, not translated ================= */
+let lastPer=null;
+
+function openCard(i){
+  const w=words[i], b=bare(w), d=DEFS[b]||DEFS[bare(w)]||null;
+  const p=lastPer?lastPer[i]:null;
+  const k=wordKey(w), r=rec(k);
+  const rung=rungFor(k);
+
+  const diag = p
+    ? `<div class="diagnosis ${p.grade||''}">${p.label}${p.span?` · ${p.span}ms`:""}</div>` : "";
+
+  const rootRow = d && d.root
+    ? `<div class="rootrow"><span class="label">root</span>
+         <span class="rootchip">${[...d.root].join(" · ")}</span>
+         ${d.rank?`<span class="label">#${d.rank} most frequent</span>`:""}</div>` : "";
+
+  const fam = d && d.fam && d.fam.length
+    ? `<div><div class="label" style="margin-bottom:.3rem">same root</div>
+         <div class="fam">${d.fam.map(f=>`<span>${f.w}</span>`).join("")}</div>
+         <p class="small" style="margin-top:.3rem">Same three letters, different shapes. The pattern changes what the root <i>does</i>.</p></div>` : "";
+
+  const exs = d && d.ex && d.ex.length
+    ? `<div><div class="label" style="margin-bottom:.3rem">seen in</div>
+         <div class="exs">${d.ex.map(ix=>`<div>${SENTENCES[ix]}</div>`).join("")}</div></div>` : "";
+
+  const gloss = d && d.gloss
+    ? `<div><button class="quiet" style="padding:.4rem .7rem;font-size:.8rem"
+         onclick="this.outerHTML='<div class=\\'gloss\\'>${d.gloss.replace(/'/g,"&#39;")}</div>'">Show English</button></div>`
+    : "";
+
+  $("card").innerHTML=`
+    <div class="cw">${renderWord(w,rung)}</div>
+    ${diag}
+    ${rootRow}${fam}${exs}
+    <p class="small">Read fluently ${r.greens.length}/3 times${r.flashOk?` · recognised ${r.flashOk} time${r.flashOk===1?"":"s"} on the flash`:""}.</p>
+    ${gloss}
+    <div class="row"><button class="quiet" onclick="closeCard()">Close</button></div>`;
+  $("card").classList.remove("hidden");
+  $("card").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function closeCard(){ $("card").classList.add("hidden"); }
+
+/** user asserts the recogniser was wrong — credit the words that were read fluently */
+function overrideMisheard(){
+  if(lastIdent===null) return;
+  const a=results[results.length-1];
+  words.forEach((w,i)=>{
+    if(a.grades[i]!=="r" && !lastIdent[i].confirmed){
+      const k=wordKey(w), r=rec(k);
+      if(!r.greens.includes(lastSentIdx) && r.greens.length<3 && a.grades[i]==="y") r.greens.push(lastSentIdx);
+    }
+  });
+  save(); setCounter();
+  $("graded").querySelectorAll(".wd.unconf").forEach(el=>el.classList.remove("unconf"));
+  $("diag").innerHTML=`<p class="small">Taken your word for it. Those readings now count toward mastery.</p>`;
+}
+
+function skipSentence(){ stopListening(); stopASR(); results.push({graded:false}); nextSentence(); }
+function nextSentence(){ sIdx++; if(sIdx>=session.length) return endSession(); renderSentence(); }
+
+/* ================= SUMMARY ================= */
+function endSession(){
+  stopListening();
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; analyser=null; }
+  S.sessions++; save();
+  const flat=results.flatMap(r=>r.grades||[]);
+  const c=x=>flat.filter(v=>v===x).length;
+  const fOk=fResults.filter(r=>r.ok).length;
+  const rts=fResults.filter(r=>r.ok).map(r=>r.rt);
+  const medRt=rts.length?Math.round([...rts].sort((a,b)=>a-b)[Math.floor(rts.length/2)]):0;
+
+  $("stats").innerHTML=`
+    <div class="stat"><b>${fOk}/${fResults.length}</b><span>recognised</span></div>
+    <div class="stat"><b>${medRt||"—"}</b><span>ms to answer</span></div>
+    <div class="stat"><b>${S.expo}</b><span>flash ms</span></div>
+    <div class="stat"><b>${c("g")}</b><span>fluent</span></div>
+    <div class="stat"><b>${c("r")}</b><span>broken up</span></div>
+    <div class="stat"><b>${mastered()}</b><span>mastered</span></div>`;
+
+  const climbing=Object.entries(S.words).filter(([,w])=>w.greens.length>0)
+    .sort((a,b)=>b[1].greens.length-a[1].greens.length).slice(0,6);
+  $("ladderCard").innerHTML=climbing.length?`
+    <h2>Your ladder</h2>
+    <p class="small">Each word at the rung it has earned. Three greens in three different sentences and the marks go for good.</p>
+    <div class="line" style="font-size:1.5rem;justify-content:flex-end;gap:.3em .6em">
+      ${climbing.map(([k,w])=>{
+        const r=w.greens.length>=3?2:1;
+        return `<span class="wd ${r===1?"rung2":""}" title="${w.greens.length}/3">${renderWord(w.surface||k,r)}</span>`;
+      }).join("")}
+    </div>
+    <p class="small">${climbing.map(([k,w])=>`${w.greens.length}/3`).join(" · ")}</p>`
+    : `<h2>Nothing climbing yet</h2><p class="small">A word needs one fluent reading to start losing its marks.</p>`;
+
+  $("note").textContent = c("r")>c("g")
+    ? "A lot of red on a first run is normal — it is finding your baseline, not judging you."
+    : "Come back tomorrow. The same words will reappear in different sentences.";
+  show("summary");
+}
+
+function wipe(){ if(confirm("Delete all progress on this device?")){ localStorage.removeItem(KEY); location.reload(); } }
+Object.assign(window,{setApi,beginFlash,stopReading,skipSentence,nextSentence,wipe,overrideMisheard,openCard,closeCard,selfReport});
+</script>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>류환의 돌을 축하하며</title>
+    <link href="https://fonts.googleapis.com/css2?family=East+Sea+Dokdo&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'East Sea Dokdo', cursive; 
+            background: #faf8f5; 
+            text-align: center; 
+            padding: 10px; 
+            min-height: 100vh;
+            margin: 0;
+        }
+        
+        .container { 
+            max-width: 800px; 
+            margin: auto; 
+            background: white; 
+            padding: 15px; 
+            border-radius: 20px; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1); 
+        }
+        
+        h1 { 
+            margin: 0 0 10px 0; 
+            font-size: 4.5rem; 
+            color: #2d3748; 
+        }
+        
+        .slide-frame { 
+            width: 100%; 
+            height: 750px; 
+            position: relative; 
+            border-radius: 15px; 
+            background-color: white; 
+            overflow: hidden; 
+            cursor: pointer; 
+        }
+        
+        .slide-img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            opacity: 0; 
+            object-position: center;
+            /* 클래식 사진첩 스타일: 왼쪽에서 오른쪽으로 부드럽게 밀려오며 나타나기 */
+            transform: translateX(-30px);
+            transition: opacity 1s ease-in-out, transform 1s ease-in-out; 
+        }
+        
+        /* 활성화 시 나타나기 (기본 클래식 효과) */
+        .slide-img.active { 
+            opacity: 1; 
+            transform: translateX(0); 
+        }
+        
+        .slide-frame.zoomed .slide-img.active { transform: scale(1.2); }
+        
+        .footer { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            font-size: 2.2rem; 
+            color: #4a5568; 
+            margin-top: 20px; 
+            padding: 0 10px; 
+        }
+        
+        .footer-quote { 
+            color: #ed64a6; 
+            font-weight: bold; 
+            flex-grow: 1; 
+            text-align: center; 
+            font-size: 4.5rem; 
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>류환의 돌을 축하하며</h1>
+    <div class="slide-frame" id="slide-box" onclick="zoomPhoto()"></div>
+    
+    <div class="footer">
+        <span id="page-count">사진 ( 1 / 23 )</span>
+        <span class="footer-quote" id="quote-text">첫돌을 축하해</span>
+        <span id="date-text">2026년 5월 2일</span>
+    </div>
+</div>
+
+<!-- 음악 파일 경로 적용 -->
+<audio id="bgm" src="music/류환의 첫돌 (1).mp3" loop></audio>
+
+<script>
+    const photos = [
+        {'file': '20260502.jpg', 'date': '2026년 5월 2일'}, {'file': '20260504.jpg', 'date': '2026년 5월 4일'}, 
+        {'file': '20260505.jpg', 'date': '2026년 5월 5일'}, {'file': '20260512.jpg', 'date': '2026년 5월 12일'}, 
+        {'file': '20260516.jpg', 'date': '2026년 5월 16일'}, {'file': '20260518.jpg', 'date': '2026년 5월 18일'}, 
+        {'file': '20260525.jpg', 'date': '2026년 5월 25일'}, {'file': '20260527.jpg', 'date': '2026년 5월 27일'}, 
+        {'file': '20260531.jpg', 'date': '2026년 5월 31일'}, {'file': '20260602.jpg', 'date': '2026년 6월 2일'}, 
+        {'file': '20260603.jpg', 'date': '2026년 6월 3일'}, {'file': '20260609.jpg', 'date': '2026년 6월 9일'}, 
+        {'file': '20260615.jpg', 'date': '2026년 6월 15일'}, {'file': '20260627.jpg', 'date': '2026년 6월 27일'}, 
+        {'file': '20260628.jpg', 'date': '2026년 6월 28일'}, {'file': '20260630.jpg', 'date': '2026년 6월 30일'}, 
+        {'file': '20260706.jpg', 'date': '2026년 7월 6일'},  {'file': '20260710.jpg', 'date': '2026년 7월 10일'}, 
+        {'file': '20260714.jpg', 'date': '2026년 7월 14일'}, {'file': '20260723.jpg', 'date': '2026년 7월 23일'}, 
+        {'file': '20260725.jpg', 'date': '2026년 7월 25일'}, {'file': '20260731.jpg', 'date': '2026년 7월 31일'}, 
+        {'file': '20260821.jpg', 'date': '2026년 8월 21일'}
+    ];
+    
+    const quotes = [
+        '첫돌을 축하해', '건강하게 자라다오', '태어나줘서 고마워', '사랑스러운 보물', '매일이 기적이야', 
+        '햇살처럼 눈부시게', '언제나 웃음꽃 가득', '꿈을 향해 첫걸음', '우리에게 온 축복', '씩씩하고 튼튼하게', 
+        '지혜로운 아이로', '사랑이 가득한 마음', '너는 우리의 전부', '함께라서 행복해', '반짝이는 미래를', 
+        '무럭무럭 자라라', '너의 웃음소리', '세상 무엇보다 소중해', '따뜻한 사람으로', '우리의 희망 류환', 
+        '매일이 봄날이야', '소중한 추억들', '엄마 아빠의 사랑'
+    ];
+
+    const slideBox = document.getElementById('slide-box');
+    photos.forEach((p, i) => { 
+        // 다중 애니메이션 클래스 대신 통일된 클래스 적용
+        slideBox.innerHTML += `<img src="photos/${p.file}" class="slide-img ${i === 0 ? 'active' : ''}" id="img-${i}">`; 
+    });
+
+    let current = 0, isPaused = false;
+    function nextSlide() {
+        if (isPaused) return;
+        document.getElementById(`img-${current}`).classList.remove('active');
+        current = (current + 1) % photos.length;
+        document.getElementById(`img-${current}`).classList.add('active');
+        document.getElementById('page-count').innerText = `사진 ( ${current + 1} / ${photos.length} )`;
+        document.getElementById('date-text').innerText = photos[current].date;
+        document.getElementById('quote-text').innerText = quotes[current];
+    }
+    
+    let interval = setInterval(nextSlide, 2000);
+
+    function zoomPhoto() {
+        isPaused = true;
+        slideBox.classList.add('zoomed');
+        setTimeout(() => {
+            slideBox.classList.remove('zoomed');
+            isPaused = false;
+        }, 5000);
+    }
+
+    const bgm = document.getElementById('bgm');
+    document.body.addEventListener('click', function() {
+        if (bgm.paused) {
+            bgm.play().catch(error => console.log("오디오 재생 실패:", error));
+        }
+    }, { once: true });
+</script>
+
+</body>
+</html>

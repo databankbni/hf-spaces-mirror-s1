@@ -17,8 +17,7 @@ from .data.repository import SQLiteRepository
 from .pipeline import resolve_lineups
 from .simulator.state import InningState
 
-# Statlines used for in-season projections; mirrors the API's current season.
-CURRENT_SEASON = 2026
+from .seasons import CURRENT_SEASON  # noqa: F401  (re-exported for callers)
 
 
 def _next_batting_slot(team_box) -> int:

@@ -261,6 +261,24 @@ class SleeperPropsSource:
                     if len(samples) >= 4:
                         break
                 out["team_samples"] = samples
+        # What each filter threw away, and how many props actually survive.
+        # Added because "why is this player missing" was only answerable by
+        # reading the parser — every drop looks identical from the board.
+        drops: dict[str, int] = {}
+        parsed = self.fetch_props(sport, drops)
+        out["parsed"] = len(parsed)
+        out["dropped"] = dict(sorted(drops.items(), key=lambda kv: -kv[1])[:30])
+        # Per stat, so a market coming through thin against the app's own board
+        # is visible as a number rather than as a hunch.
+        per_stat: dict[str, int] = {}
+        for pr in parsed:
+            k = f"{pr.side}/{pr.stat}"
+            per_stat[k] = per_stat.get(k, 0) + 1
+        out["parsed_by_stat"] = dict(sorted(per_stat.items()))
+        # One-sided markets, which is the shape the outcome_type gate used to
+        # remove wholesale.
+        out["one_sided"] = sum(
+            1 for pr in parsed if (pr.over_price is None) != (pr.under_price is None))
         out["players_loaded"] = len(self._players())
         return out
 
@@ -439,13 +457,22 @@ class SleeperPropsSource:
         resp.raise_for_status()
         return resp.json()
 
-    def fetch_props(self, sport: str = "mlb") -> list[PlayerProp]:
+    def fetch_props(self, sport: str = "mlb",
+                    drops: Optional[dict] = None) -> list[PlayerProp]:
         """Normalized props; empty list if unreachable, unparseable, or absent.
 
         The feed answers with every sport it runs regardless of the `sport`
         parameter — an MLB request comes back carrying esports markets too — so
         each line is filtered on its own `sport` field rather than trusted.
+
+        `drops` counts what each filter threw away. Every `continue` below ends
+        as a prop that isn't on the board, and from outside they all look the
+        same — a player Sleeper plainly offers who simply isn't there.
         """
+        def lost(stage: str) -> None:
+            if drops is not None:
+                drops[stage] = drops.get(stage, 0) + 1
+
         try:
             data = self._get(_LINES_URL, params={
                 "sport": sport, "include_props": "true", "dynamic": "true"})
@@ -461,11 +488,22 @@ class SleeperPropsSource:
             if str(it.get("sport") or "").lower() != sport.lower():
                 continue
             if str(it.get("subject_type") or "player").lower() != "player":
-                continue
-            if str(it.get("outcome_type") or "over_under").lower() != "over_under":
+                lost("not_a_player_subject")
                 continue
             if str(it.get("status") or "active").lower() != "active":
+                lost(f"status={it.get('status')}")
                 continue
+            # `outcome_type` is deliberately *not* filtered on. It used to be
+            # gated to "over_under", which quietly removed every one-sided
+            # market — Sleeper posts plenty of picks with only a MORE side, and
+            # home runs are mostly those, so the HR board came through nearly
+            # empty while hits and total bases were full.
+            #
+            # Nothing is lost by dropping the gate, because the real check is
+            # below and always was: an option has to be labelled over/high or
+            # under/low, carry a usable price, and have a numeric line. A market
+            # that can't be read as an over/under still fails that, and one that
+            # can is priceable whatever the feed calls it.
             # Both pregame and in-progress lines are kept; the caller decides
             # which it can price. A live one must be matched against a
             # simulation of the *remaining* innings, so it is tagged rather
@@ -477,6 +515,7 @@ class SleeperPropsSource:
                 continue
             mapped = _STAT_MAP.get(raw_stat.strip().lower())
             if mapped is None:
+                lost(f"unmapped_market={raw_stat.strip().lower()}")
                 continue
             side, stat = mapped
 
@@ -501,10 +540,12 @@ class SleeperPropsSource:
                 elif label.startswith("under") or label.startswith("low"):
                     under = price
             if over is None and under is None:
+                lost("no_price_either_side")
                 continue
             try:
                 line = float(line)
             except (TypeError, ValueError):
+                lost("no_usable_line_value")
                 continue
 
             subject = _first(it, "subject_id", "player_id", "subject")
@@ -512,6 +553,7 @@ class SleeperPropsSource:
             if not name:
                 name = _first(it, "player_name", "subject_name")
             if not name:
+                lost("no_name_resolved")
                 continue
 
             props.append(PlayerProp(

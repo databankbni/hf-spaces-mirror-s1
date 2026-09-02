@@ -18,6 +18,7 @@ from app.deps import (
     get_raw_message_limiter,
     get_read_model,
     get_settings_dep,
+    require_challenge_open,
 )
 from app.errors import (
     AlreadyPromoted,
@@ -133,7 +134,12 @@ def _server_message_fm(agent_id: str, via: str, dt: datetime) -> dict:
     }
 
 
-@router.post("/v1/messages", response_model=MessageResponse, status_code=201)
+@router.post(
+    "/v1/messages",
+    response_model=MessageResponse,
+    status_code=201,
+    dependencies=[Depends(require_challenge_open)],
+)
 def post_message(
     req: MessagePostRequest,
     request: Request,

@@ -26,6 +26,7 @@ from app.deps import (
     get_raw_message_limiter,
     get_read_model,
     get_settings_dep,
+    require_challenge_open,
 )
 from app.errors import (
     AlreadyPromoted,
@@ -204,7 +205,12 @@ def taskforce_digest(read_model: ReadModel) -> DigestTaskforces:
 # ───────────────────────── writes ─────────────────────────
 
 
-@router.post("/v1/taskforces", response_model=TaskforceCreateResponse, status_code=201)
+@router.post(
+    "/v1/taskforces",
+    response_model=TaskforceCreateResponse,
+    status_code=201,
+    dependencies=[Depends(require_challenge_open)],
+)
 def create_taskforce(
     req: TaskforceCreateRequest,
     request: Request,
@@ -299,6 +305,7 @@ def create_taskforce(
     "/v1/taskforces/{name}/files",
     response_model=TaskforceFileResponse,
     status_code=201,
+    dependencies=[Depends(require_challenge_open)],
 )
 def post_taskforce_file(
     name: str,

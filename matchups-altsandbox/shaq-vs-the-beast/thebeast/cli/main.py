@@ -219,7 +219,8 @@ def fetch_league_history(ctx: click.Context, seasons: str | None,
 @click.option("--days", default=7, type=int,
               help="Days of schedule to look back over. Already-graded games "
                    "are skipped, so a nightly run grades just the day before.")
-@click.option("--n", default=1500, help="Simulations per game.")
+@click.option("--n", default=None, type=int,
+              help="Simulations per game (default: the slate's own).")
 @click.option("--season", default=None, type=int, help="Statline season.")
 @click.option("--limit", default=None, type=int,
               help="Cap how many games to score this run.")

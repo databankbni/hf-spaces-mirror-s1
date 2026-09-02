@@ -1,0 +1,240 @@
+name: Promote ClimaFlora catalog v1.9 and persist edaphic build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - edaphic-v1.9-consolidation
+    paths:
+      - '.github/catalog-v1.9-status.json'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: promote-catalog-v1.9-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+      OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+      OVH_SFTP_USER: ${{ secrets.OVH_SFTP_USER }}
+      OVH_SFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+      OVH_SFTP_REMOTE_DIR: ${{ secrets.OVH_SFTP_REMOTE_DIR }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_BUILD_REPO: gyamotab/climaflora-edaphic-builds
+      V19_REMOTE_PATH: data/climaflora_global_plants_v1_9.sqlite.zst
+      V19_PUBLIC_URL: https://shugoan.com/climaflora/data/climaflora_global_plants_v1_9.sqlite.zst
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read validated candidate status
+        id: status
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          s = json.loads(Path('.github/catalog-v1.9-status.json').read_text())
+          assert s['status'] == 'ready', s
+          assert s['catalog_version'] == '1.9.0', s
+          assert s['base_catalog_version'] == '1.8.0', s
+          assert s['validation']['blocking_failures'] == 0, s
+          assert s['source_catalog']['immutable'] is True, s
+          print('run_id=' + str(s['run_id']))
+          print('sqlite_sha=' + s['sqlite_sha256'])
+          print('zst_sha=' + s['zst_sha256'])
+          print('build_sqlite_sha=' + s['build_sqlite_sha256'])
+          print('build_zst_sha=' + s['build_zst_sha256'])
+          PY
+
+      - name: Download validated v1.9 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: climaflora-global-plants-v1.9-candidate
+          path: candidate
+          run-id: ${{ steps.status.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Install validation and upload utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v zstd
+          python -m pip install --disable-pip-version-check 'paramiko>=3.5,<5' 'huggingface_hub>=0.34,<2'
+
+      - name: Independently revalidate candidate hashes and SQLite
+        shell: bash
+        env:
+          SQLITE_SHA: ${{ steps.status.outputs.sqlite_sha }}
+          ZST_SHA: ${{ steps.status.outputs.zst_sha }}
+          BUILD_SQLITE_SHA: ${{ steps.status.outputs.build_sqlite_sha }}
+          BUILD_ZST_SHA: ${{ steps.status.outputs.build_zst_sha }}
+        run: |
+          set -euo pipefail
+          cd candidate
+          echo "$ZST_SHA  climaflora_global_plants_v1_9.sqlite.zst" | sha256sum -c -
+          echo "$BUILD_ZST_SHA  climaflora_edaphic_build_v1_9.sqlite.zst" | sha256sum -c -
+          zstd -t climaflora_global_plants_v1_9.sqlite.zst
+          zstd -t climaflora_edaphic_build_v1_9.sqlite.zst
+          zstd -d -f climaflora_global_plants_v1_9.sqlite.zst -o audit.sqlite
+          echo "$SQLITE_SHA  audit.sqlite" | sha256sum -c -
+          python - <<'PY'
+          import sqlite3
+          with sqlite3.connect('audit.sqlite') as con:
+              assert con.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+              meta = dict(con.execute('SELECT key,value FROM climaflora_catalog_metadata'))
+              assert meta.get('catalog_version') == '1.9.0', meta
+              assert meta.get('scientific_ready') == 'true', meta
+              assert meta.get('edaphic_occurrence_min_n_for_scoring') == '10', meta
+              assert con.execute('SELECT COUNT(*) FROM plant_index').fetchone()[0] == 420532
+              assert con.execute('SELECT COUNT(*) FROM soil_geographic_prior WHERE scoring_enabled<>0').fetchone()[0] == 0
+              assert con.execute('SELECT COUNT(*) FROM (SELECT taxon_id,variable,COUNT(*) c FROM soil_envelope GROUP BY 1,2 HAVING c>1)').fetchone()[0] == 0
+          PY
+          rm audit.sqlite
+          zstd -d -f climaflora_edaphic_build_v1_9.sqlite.zst -o audit-build.sqlite
+          echo "$BUILD_SQLITE_SHA  audit-build.sqlite" | sha256sum -c -
+          python - <<'PY'
+          import sqlite3
+          with sqlite3.connect('audit-build.sqlite') as con:
+              assert con.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+              assert con.execute('SELECT COUNT(*) FROM edaphic_native_range_stats').fetchone()[0] >= 2800000
+          PY
+          rm audit-build.sqlite
+
+      - name: Upload v1.9 catalog alongside rollback catalogs on OVH
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in OVH_SFTP_HOST OVH_SFTP_USER OVH_SFTP_PASSWORD OVH_SFTP_REMOTE_DIR; do
+            test -n "${!name}"
+          done
+          python - <<'PY'
+          import os, posixpath, paramiko
+          host = os.environ['OVH_SFTP_HOST']
+          port = int(os.environ.get('OVH_SFTP_PORT') or '22')
+          user = os.environ['OVH_SFTP_USER']
+          password = os.environ['OVH_SFTP_PASSWORD']
+          base = os.environ['OVH_SFTP_REMOTE_DIR'].rstrip('/')
+          remote_rel = os.environ['V19_REMOTE_PATH']
+          transport = paramiko.Transport((host, port))
+          transport.banner_timeout = 30
+          transport.auth_timeout = 30
+          transport.connect(username=user, password=password)
+          sftp = paramiko.SFTPClient.from_transport(transport)
+          def mkdir_p(path):
+              cur = ''
+              for part in path.strip('/').split('/'):
+                  cur += '/' + part
+                  try: sftp.stat(cur)
+                  except FileNotFoundError: sftp.mkdir(cur)
+          remote = posixpath.join(base, remote_rel)
+          mkdir_p(posixpath.dirname(remote))
+          sftp.put('candidate/climaflora_global_plants_v1_9.sqlite.zst', remote)
+          sftp.close(); transport.close()
+          PY
+
+      - name: Persist edaphic build database on Hugging Face Hub
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$HF_TOKEN"
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ['HF_TOKEN'])
+          repo = os.environ['HF_BUILD_REPO']
+          api.create_repo(repo_id=repo, repo_type='dataset', private=True, exist_ok=True)
+          uploads = {
+              'candidate/climaflora_edaphic_build_v1_9.sqlite.zst': 'v1.9/climaflora_edaphic_build.sqlite.zst',
+              'candidate/climaflora_edaphic_build_v1_9.sqlite.zst.sha256': 'v1.9/climaflora_edaphic_build.sqlite.zst.sha256',
+              'candidate/climaflora_edaphic_build.sqlite.sha256': 'v1.9/climaflora_edaphic_build.sqlite.sha256',
+              'candidate/climaflora_global_plants_v1_9.report.json': 'v1.9/climaflora_global_plants_v1_9.report.json',
+          }
+          for local, remote in uploads.items():
+              api.upload_file(path_or_fileobj=local, path_in_repo=remote, repo_id=repo, repo_type='dataset', commit_message='Persist ClimaFlora edaphic v1.9 build artifact')
+          files = set(api.list_repo_files(repo_id=repo, repo_type='dataset'))
+          for remote in uploads.values():
+              assert remote in files, (remote, sorted(files))
+          print('Persisted and verified:', repo)
+          PY
+
+      - name: Verify public v1.9 object byte-for-byte
+        shell: bash
+        env:
+          ZST_SHA: ${{ steps.status.outputs.zst_sha }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 1200 "$V19_PUBLIC_URL" -o public-v1.9.zst; then
+              observed="$(sha256sum public-v1.9.zst | awk '{print $1}')"
+              if [ "$observed" = "$ZST_SHA" ]; then
+                echo "Public v1.9 verified: $observed"
+                exit 0
+              fi
+            fi
+            sleep $((attempt*5))
+          done
+          exit 1
+
+      - name: Record reversible v1.9 promotion
+        shell: bash
+        env:
+          RUN_ID: ${{ steps.status.outputs.run_id }}
+          SQLITE_SHA: ${{ steps.status.outputs.sqlite_sha }}
+          ZST_SHA: ${{ steps.status.outputs.zst_sha }}
+          BUILD_SQLITE_SHA: ${{ steps.status.outputs.build_sqlite_sha }}
+          BUILD_ZST_SHA: ${{ steps.status.outputs.build_zst_sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          s = json.loads(Path('.github/catalog-v1.9-status.json').read_text())
+          out = {
+            'status': 'uploaded_verified',
+            'catalog_version': '1.9.0',
+            'source_run_id': os.environ['RUN_ID'],
+            'branch': os.environ.get('GITHUB_REF_NAME'),
+            'sqlite_sha256': os.environ['SQLITE_SHA'],
+            'zst_sha256': os.environ['ZST_SHA'],
+            'public_url': 'https://shugoan.com/climaflora/data/climaflora_global_plants_v1_9.sqlite.zst',
+            'build_repo': 'gyamotab/climaflora-edaphic-builds',
+            'build_path': 'v1.9/climaflora_edaphic_build.sqlite.zst',
+            'build_sqlite_sha256': os.environ['BUILD_SQLITE_SHA'],
+            'build_zst_sha256': os.environ['BUILD_ZST_SHA'],
+            'stats': s['stats'],
+            'validation': s['validation'],
+            'previous_catalogs_retained': [
+              'climaflora_global_plants_v1_8.sqlite.zst','climaflora_global_plants_v1_7.sqlite.zst',
+              'climaflora_global_plants_v1_6.sqlite.zst','climaflora_global_plants_v1_2.sqlite.zst'
+            ],
+            'promoted_at': datetime.now(timezone.utc).isoformat(),
+          }
+          Path('/tmp/catalog-v1.9-promotion.json').write_text(json.dumps(out, indent=2, ensure_ascii=False) + '\n')
+          PY
+          BRANCH="$GITHUB_REF_NAME"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$BRANCH" && git reset --hard "origin/$BRANCH"
+            cp /tmp/catalog-v1.9-promotion.json .github/catalog-v1.9-promotion.json
+            git add .github/catalog-v1.9-promotion.json
+            git diff --cached --quiet && exit 0
+            git commit -m 'Record verified ClimaFlora v1.9 promotion [skip ci]'
+            git push origin "HEAD:$BRANCH" && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

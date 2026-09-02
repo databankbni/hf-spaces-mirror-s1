@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLM Leaderboard - Small Language Model Benchmarks</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            900: '#14532d',
+                        },
+                        darkbg: '#0b0f17',
+                        darkcard: '#111827',
+                        darkborder: '#1f2937'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f17;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+<body class="bg-darkbg text-slate-100 font-sans min-h-screen antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-darkborder bg-darkcard/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="h-9 w-9 rounded-lg bg-gradient-to-br from-brand-500 to-emerald-700 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
+                    <i class="fa-solid fa-circle-nodes"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-none tracking-tight">SLM Leaderboard</h1>
+                    <p class="text-xs text-slate-400 mt-0.5">Small Language Model Performance & Efficiency Index</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <a href="#submit-guide" onclick="toggleSubmitModal()" class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition shadow-md shadow-brand-500/10">
+                    <i class="fa-solid fa-code-pull-request"></i>
+                    <span>Submit Model (PR)</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+
+        <!-- Summary & Info Cards -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-darkcard border border-darkborder rounded-xl p-5 relative overflow-hidden">
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Evaluated SLMs</div>
+                <div id="stat-total-models" class="text-3xl font-extrabold mt-2 text-slate-100">0</div>
+                <div class="text-xs text-emerald-400 mt-1"><i class="fa-solid fa-arrow-up text-[10px]"></i> Active Community Leaderboard</div>
+            </div>
+            <div class="bg-darkcard border border-darkborder rounded-xl p-5 relative overflow-hidden">
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">Top Intelligence Score</div>
+                <div id="stat-top-score" class="text-3xl font-extrabold mt-2 text-brand-500">0.0%</div>
+                <div id="stat-top-model" class="text-xs text-slate-400 mt-1 truncate">-</div>
+            </div>
+            <div class="bg-darkcard border border-darkborder rounded-xl p-5 relative overflow-hidden">
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">Evaluation Suite</div>
+                <div class="text-3xl font-extrabold mt-2 text-slate-100">5 Benchmarks</div>
+                <div class="text-xs text-slate-400 mt-1">Standard evaluation</div>
+            </div>
+            <div class="bg-darkcard border border-darkborder rounded-xl p-5 relative overflow-hidden">
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">Parameter Cap</div>
+                <div class="text-3xl font-extrabold mt-2 text-slate-100">&lt; 500 Million</div>
+                <div class="text-xs text-slate-400 mt-1">Focused strictly on sub-500M edge & small AI</div>
+            </div>
+        </section>
+
+        <!-- SECTION 1: Leaderboard Table -->
+        <section class="bg-darkcard border border-darkborder rounded-xl p-6 shadow-xl">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-list-ol text-brand-500"></i> Benchmark Leaderboard
+                    </h2>
+                    <p class="text-sm text-slate-400">Sort by weighted overall score or individual benchmark metrics.</p>
+                </div>
+
+                <!-- Filters & Search -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- Search input -->
+                    <div class="relative min-w-[220px]">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                        <input type="text" id="search-input" placeholder="Search model or creator..." class="w-full bg-darkbg border border-darkborder rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500">
+                    </div>
+
+                    <!-- Size Filter -->
+                    <div class="flex items-center gap-1 bg-darkbg p-1 border border-darkborder rounded-lg" id="size-filters">
+                        <button data-size="all" class="size-filter-btn active text-xs px-2.5 py-1 rounded-md font-medium transition bg-brand-600 text-white">All</button>
+                        <button data-size="1M" class="size-filter-btn text-xs px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition">&lt;1M</button>
+                        <button data-size="10M" class="size-filter-btn text-xs px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition">&lt;10M</button>
+                        <button data-size="100M" class="size-filter-btn text-xs px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition">&lt;100M</button>
+                        <button data-size="250M" class="size-filter-btn text-xs px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition">&lt;250M</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-darkborder text-slate-400 text-xs uppercase bg-darkbg/50">
+                            <th class="py-3 px-3 w-12 text-center">Rank</th>
+                            <th class="py-3 px-3">Model</th>
+                            <th class="py-3 px-3">Creator / Org</th>
+                            <th class="py-3 px-3 text-right">Params</th>
+                            <th class="py-3 px-3 text-right cursor-pointer hover:text-white font-bold text-brand-400" onclick="sortTable('overall')">
+                                Overall Index <i class="fa-solid fa-sort ml-1 text-[10px]"></i>
+                            </th>
+                            <th class="py-3 px-3 text-right cursor-pointer hover:text-white" onclick="sortTable('AIME 2026')">
+                                AIME 2026 <span class="text-[10px] text-slate-500">(1.5x)</span> <i class="fa-solid fa-sort ml-1 text-[10px]"></i>
+                            </th>
+                            <th class="py-3 px-3 text-right cursor-pointer hover:text-white" onclick="sortTable('Arc_easy')">
+                                ARC-E <span class="text-[10px] text-slate-500">(1.0x)</span> <i class="fa-solid fa-sort ml-1 text-[10px]"></i>
+                            </th>
+                            <th class="py-3 px-3 text-right cursor-pointer hover:text-white" onclick="sortTable('Arc_challenge')">
+                                ARC-C <span class="text-[10px] text-slate-500">(0.5x)</span> <i class="fa-solid fa-sort ml-1 text-[10px]"></i>
+                            </th>
+                            <th class="py-3 px-3 text-right cursor-pointer hover:text-white" onclick="sortTable('PIQA')">
+                                PIQA <span class="text-[10px] text-slate-500">(1.0x)</span> <i class="fa-solid fa-sort ml-1 text-[10px]"></i>
+                            </th>
+                            <th class="py-3 px-3 text-right cursor-pointer hover:text-white" onclick="sortTable('HellaSwag')">
+                                HellaSwag <span class="text-[10px] text-slate-500">(1.0x)</span> <i class="fa-solid fa-sort ml-1 text-[10px]"></i>
+                            </th>
+                            <th class="py-3 px-3 text-center">Card</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body" class="divide-y divide-darkborder font-mono text-xs">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECTION 2: Visual Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Chart 1: Intelligence Index vs Parameters (Log Scale) -->
+            <div class="lg:col-span-2 bg-darkcard border border-darkborder rounded-xl p-6 shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-brand-500"></i> Intelligence Index vs. Parameter Count
+                        </h3>
+                        <p class="text-xs text-slate-400">Logarithmic scale X-axis with average trend vs Top-10% efficiency frontier.</p>
+                    </div>
+                </div>
+                <div class="h-[360px] w-full relative">
+                    <canvas id="scatterChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Org/User Leaderboard Share -->
+            <div class="bg-darkcard border border-darkborder rounded-xl p-6 shadow-xl flex flex-col justify-between">
+                <div>
+                    <h3 class="text-lg font-bold flex items-center gap-2 mb-1">
+                        <i class="fa-solid fa-pie-chart text-brand-500"></i> Creator / Org Share
+                    </h3>
+                    <p class="text-xs text-slate-400 mb-4">Distribution of submitted SLMs by organization or individual creator.</p>
+                </div>
+                <div class="h-[280px] w-full relative my-auto">
+                    <canvas id="shareChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 3: Per-Model Insights Section -->
+        <section class="bg-darkcard border border-darkborder rounded-xl p-6 shadow-xl">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass-chart text-brand-500"></i> Per-Model Radar & Skill Insights
+                    </h2>
+                    <p class="text-sm text-slate-400">Analyze benchmark strengths/weaknesses compared against the overall SLM average.</p>
+                </div>
+
+                <!-- Model Selector Dropdown -->
+                <div class="min-w-[280px]">
+                    <label for="insight-model-select" class="block text-xs font-medium text-slate-400 mb-1">Select Model to Inspect:</label>
+                    <select id="insight-model-select" class="w-full bg-darkbg border border-darkborder rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <!-- Radar Chart -->
+                <div class="lg:col-span-6 h-[340px] relative">
+                    <canvas id="radarChart"></canvas>
+                </div>
+
+                <!-- Breakdown Cards -->
+                <div class="lg:col-span-6 space-y-4">
+                    <div id="insight-model-header" class="p-4 bg-darkbg border border-darkborder rounded-lg flex items-center justify-between">
+                        <!-- Dynamic Content -->
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-darkbg/70 border border-emerald-900/30 p-4 rounded-lg">
+                            <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                <i class="fa-solid fa-circle-check"></i> Benchmark Strengths
+                            </h4>
+                            <ul id="insight-strengths" class="text-xs space-y-1.5 text-slate-300">
+                                <!-- Dynamic -->
+                            </ul>
+                        </div>
+                        <div class="bg-darkbg/70 border border-rose-900/30 p-4 rounded-lg">
+                            <h4 class="text-xs font-bold text-rose-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                <i class="fa-solid fa-triangle-exclamation"></i> Optimization Opportunities
+                            </h4>
+                            <ul id="insight-weaknesses" class="text-xs space-y-1.5 text-slate-300">
+                                <!-- Dynamic -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Submission Modal Guide -->
+    <div id="submit-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-darkcard border border-darkborder rounded-xl max-w-2xl w-full p-6 relative shadow-2xl">
+            <button onclick="toggleSubmitModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-xl font-bold text-slate-100 flex items-center gap-2 mb-2">
+                <i class="fa-solid fa-code-pull-request text-brand-500"></i> How to Submit Your SLM via PR
+            </h3>
+            <p class="text-xs text-slate-400 mb-4">
+                To add your model or configure your Organization/User color, edit the script dictionaries in this HTML file and open a Pull Request on Hugging Face Spaces!
+            </p>
+
+            <div class="space-y-3 bg-darkbg p-4 rounded-lg border border-darkborder text-xs font-mono text-slate-300 overflow-x-auto">
+                <p class="text-slate-400">// 1. Add your Org/User Color to CREATOR_COLORS:</p>
+                <p class="text-emerald-400">"YourName": "#FF5733",</p>
+                
+                <p class="text-slate-400 mt-2">// 2. Add your Model entry to MODELS_DATA:</p>
+                <pre class="text-brand-400">
+{
+  name: "My-Custom-SLM-1B",
+  creator: "YourName",
+  params: 1000000000, // exact parameter count integer
+  card_url: "https://huggingface.co/YourName/My-Custom-SLM-1B",
+  scores: {
+    "AIME 2026": 0.12,
+    "Arc_easy": 0.74,
+    "Arc_challenge": 0.48,
+    "PIQA": 0.81,
+    "HellaSwag": 0.69
+  }
+}</pre>
+              <p class="text-slate-400">// Note: If you don't get a score for a benchmark, set it to 0</p>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="toggleSubmitModal()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold px-4 py-2 rounded-lg">Got it!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- LEADERBOARD DATA & LOGIC ENGINE                                          -->
+    <!-- ========================================================================= -->
+    <script>
+        // =========================================================================
+        // 1. CREATOR COLOR MAP (Configure your Username / Org Color here via PR)
+        // =========================================================================
+        const CREATOR_COLORS = {
+            "Martico2432": "#00ff00",
+            "HuggingFaceTB": "#e7db0d",
+            "SupraLabs": "#58a6ff",
+        };
+
+        // =========================================================================
+        // 2. BENCHMARK CONFIGURATION (Eval weights based on lm_eval standard)
+        // =========================================================================
+        const BENCHMARK_CONFIG = { // DO NOT TOUCH
+            "AIME 2026":     { weight: 1.5, min: 0, max: 1 },
+            "Arc_easy":      { weight: 1.0, min: 0, max: 1 },
+            "Arc_challenge": { weight: 0.5, min: 0, max: 1 },
+            "PIQA":          { weight: 1.0, min: 0, max: 1 },
+            "HellaSwag":     { weight: 1.0, min: 0, max: 1 }
+        };
+
+        // =========================================================================
+        // 3. MODELS JSON DATA (Add new models here via Hugging Face PR)
+        // =========================================================================
+        const MODELS_DATA = [
+            {
+                name: "SRLM-1M",
+                creator: "Martico2432",
+                params: 904000,
+                card_url: "https://huggingface.co/Martico2432/srlm-1m",
+                scores: { "AIME 2026": 0.0, "Arc_easy": 0.2866, "Arc_challenge": 0.2415, "PIQA": 0.5092, "HellaSwag": 0.2665 }
+            },
+            {
+                name: "SmolLM2-135M-Instruct",
+                creator: "HuggingFaceTB",
+                params: 135000000,
+                card_url: "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct",
+                scores: { "AIME 2026": 0.0, "Arc_easy": 0.4588, "Arc_challenge": 0.2892, "PIQA": 0.663, "HellaSwag": 0.409 }
+            },
+            {
+                name: "SupraElegans-500k",
+                creator: "SupraLabs",
+                params: 612000,
+                card_url: "https://huggingface.co/SupraLabs/SupraElegans-500k",
+                scores: { "AIME 2026": 0.0, "Arc_easy": 0.21, "Arc_challenge": 0.22, "PIQA": 0.49728, "HellaSwag": 0.24278 }
+            },
+        ];
+
+        // Global State Variables
+        let processedModels = [];
+        let currentSortColumn = 'overall';
+        let sortDirection = 'desc';
+        let activeSizeFilter = 'all';
+        let searchQuery = '';
+        let scatterChartObj = null;
+        let shareChartObj = null;
+        let radarChartObj = null;
+
+        // Calculate Weighted Score for a model
+        function calculateOverallScore(scores) {
+            let totalWeightedScore = 0;
+            let totalWeight = 0;
+
+            for (const [bench, cfg] of Object.entries(BENCHMARK_CONFIG)) {
+                const val = scores[bench] !== undefined ? scores[bench] : 0;
+                totalWeightedScore += val * cfg.weight;
+                totalWeight += cfg.weight;
+            }
+
+            // Return scaled percentage (0 to 100)
+            return (totalWeightedScore / totalWeight) * 100;
+        }
+
+        // Initialize and Process Model Data
+        function initData() {
+            processedModels = MODELS_DATA.map(m => {
+                const overall = calculateOverallScore(m.scores);
+                return {
+                    ...m,
+                    overall: overall
+                };
+            });
+            sortModels();
+        }
+
+        // Format Big Numbers (Params)
+        function formatParams(num) {
+            if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(0) + 'K';
+            return num.toString();
+        }
+
+        // Get Creator Color Helper
+        function getCreatorColor(creator) {
+            return CREATOR_COLORS[creator] || CREATOR_COLORS["Community"];
+        }
+
+        // Sort Models Logic
+        function sortModels() {
+            processedModels.sort((a, b) => {
+                let valA = currentSortColumn === 'overall' ? a.overall : (a.scores[currentSortColumn] * 100 || 0);
+                let valB = currentSortColumn === 'overall' ? b.overall : (b.scores[currentSortColumn] * 100 || 0);
+
+                return sortDirection === 'desc' ? valB - valA : valA - valB;
+            });
+        }
+
+        function sortTable(column) {
+            if (currentSortColumn === column) {
+                sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
+            } else {
+                currentSortColumn = column;
+                sortDirection = 'desc';
+            }
+            sortModels();
+            renderTable();
+        }
+
+        function formatScore(score) {
+          return score > 0 ? `${score.toFixed(1)}` : '-';
+        }
+
+        // Render Leaderboard Table
+        function renderTable() {
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '';
+
+            const filtered = processedModels.filter(m => {
+                // Size filter
+                let passSize = true;
+                if (activeSizeFilter === '1M') passSize = m.params < 1e6;
+                else if (activeSizeFilter === '10M') passSize = m.params < 10e6;
+                else if (activeSizeFilter === '100M') passSize = m.params < 100e6;
+                else if (activeSizeFilter === '250') passSize = m.params < 250e6;
+                // Search query
+                let passSearch = true;
+                if (searchQuery.trim() !== '') {
+                    const q = searchQuery.toLowerCase();
+                    passSearch = m.name.toLowerCase().includes(q) || m.creator.toLowerCase().includes(q);
+                }
+
+                return passSize && passSearch;
+            });
+
+            filtered.forEach((m, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-darkbg/80 transition border-b border-darkborder/50";
+
+                const color = getCreatorColor(m.creator);
+
+                tr.innerHTML = `
+                    <td class="py-3 px-3 text-center text-slate-400 font-sans text-xs font-semibold">${idx + 1}</td>
+                    <td class="py-3 px-3 font-semibold font-sans text-slate-100 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full inline-block" style="background-color: ${color}"></span>
+                        ${m.name}
+                    </td>
+                    <td class="py-3 px-3 font-sans">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-white/90 border border-white/10" style="background-color: ${color}20; color: ${color}; border-color: ${color}40">
+                            ${m.creator}
+                        </span>
+                    </td>
+                    <td class="py-3 px-3 text-right text-slate-400">${formatParams(m.params)}</td>
+                    <td class="py-3 px-3 text-right font-bold text-brand-400 font-sans text-sm">${m.overall.toFixed(1)}%</td>
+                    <td class="py-3 px-3 text-right text-slate-300">${(formatScore(m.scores['AIME 2026'] * 100))}%</td>
+                    <td class="py-3 px-3 text-right text-slate-300">${(formatScore(m.scores['Arc_easy'] * 100))}%</td>
+                    <td class="py-3 px-3 text-right text-slate-300">${(formatScore(m.scores['Arc_challenge'] * 100))}%</td>
+                    <td class="py-3 px-3 text-right text-slate-300">${(formatScore(m.scores['PIQA'] * 100))}%</td>
+                    <td class="py-3 px-3 text-right text-slate-300">${(formatScore(m.scores['HellaSwag'] * 100))}%</td>
+                    <td class="py-3 px-3 text-center">
+                        <a href="${m.card_url}" target="_blank" class="text-slate-400 hover:text-brand-400 text-xs transition">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+
+            // Update Statistics Banner
+            document.getElementById('stat-total-models').innerText = processedModels.length;
+            if (processedModels.length > 0) {
+                const top = [...processedModels].sort((a,b) => b.overall - a.overall)[0];
+                document.getElementById('stat-top-score').innerText = top.overall.toFixed(1) + '%';
+                document.getElementById('stat-top-model').innerText = `${top.name} (${top.creator})`;
+            }
+        }
+
+        // =========================================================================
+        // CHARTS LOGIC (Scatter Chart, Org Share, Radar Chart)
+        // =========================================================================
+
+        function initScatterChart() {
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+
+            const scatterData = processedModels.map(m => ({
+                x: m.params,
+                y: m.overall,
+                modelName: m.name,
+                creator: m.creator,
+                color: getCreatorColor(m.creator)
+            }));
+
+            // Sort scatterData by params for trendline calculations
+            scatterData.sort((a, b) => a.x - b.x);
+
+            // Logarithmic regression fit for average line
+            const avgTrendPoints = generateTrendline(scatterData, 0.5);
+            const topTrendPoints = generateTrendline(scatterData, 0.9); // Top 10% efficiency line
+
+            if (scatterChartObj) scatterChartObj.destroy();
+
+            scatterChartObj = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'SLM Models',
+                            data: scatterData,
+                            backgroundColor: scatterData.map(d => d.color),
+                            pointRadius: 6,
+                            pointHoverRadius: 9,
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 1
+                        },
+                        {
+                            label: 'Average Trend',
+                            data: avgTrendPoints,
+                            type: 'line',
+                            borderColor: '#94a3b8',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        },
+                        {
+                            label: 'Efficient Frontier (Top 10%)',
+                            data: topTrendPoints,
+                            type: 'line',
+                            borderColor: '#22c55e',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'logarithmic',
+                            title: { display: true, text: 'Parameters Count (Log Scale)', color: '#94a3b8' },
+                            grid: { color: '#1f2937' },
+                            ticks: {
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return formatParams(value);
+                                }
+                            }
+                        },
+                        y: {
+                            title: { display: true, text: 'Intelligence Index (%)', color: '#94a3b8' },
+                            grid: { color: '#1f2937' },
+                            ticks: { color: '#94a3b8' },
+                            // min: 0,
+                            // max: 100
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#cbd5e1', font: { size: 11 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    if (point.modelName) {
+                                        return `${point.modelName} (${point.creator}): ${point.y.toFixed(1)}% | ${formatParams(point.x)} params`;
+                                    }
+                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Helper to generate simple exponential/log trendline points
+        function generateTrendline(data, quantileOffset = 0.5) {
+  if (!data || data.length < 2) return [];
+
+  // 1. Sort data by parameter count (X)
+  const sorted = [...data].sort((a, b) => a.x - b.x);
+
+  // 2. Compute Ordinary Least Squares (OLS) for Y = a * log10(X) + b
+  let sumLnX = 0, sumY = 0, sumLnX2 = 0, sumLnXY = 0;
+  const n = sorted.length;
+
+  sorted.forEach(p => {
+    const logX = Math.log10(p.x);
+    sumLnX += logX;
+    sumY += p.y;
+    sumLnX2 += logX * logX;
+    sumLnXY += logX * p.y;
+  });
+
+  const slope = (n * sumLnXY - sumLnX * sumY) / (n * sumLnX2 - sumLnX * sumLnX);
+  const intercept = (sumY - slope * sumLnX) / n;
+
+  // 3. Calculate residuals to find standard deviation (for accurate top-10% curve)
+  const residuals = sorted.map(p => p.y - (slope * Math.log10(p.x) + intercept));
+  const meanResidual = residuals.reduce((a, b) => a + b, 0) / n;
+  const stdDev = Math.sqrt(residuals.reduce((sq, r) => sq + Math.pow(r - meanResidual, 2), 0) / n);
+
+  // Determine vertical offset based on quantile
+  // quantileOffset = 0.5 -> Mean trend
+  // quantileOffset = 0.9 -> Top 10% (~1.28 standard deviations above mean)
+  let offset = 0;
+  if (quantileOffset > 0.5) {
+    // 1.28 * stdDev corresponds to the ~90th percentile in a normal distribution
+    const zScore = quantileOffset >= 0.9 ? 1.28 : (quantileOffset - 0.5) * 2.56;
+    offset = zScore * stdDev;
+  }
+
+  // 4. Generate smooth curve points across log space
+  const minLog = Math.log10(sorted[0].x);
+  const maxLog = Math.log10(sorted[sorted.length - 1].x);
+  const points = [];
+  const steps = 30;
+
+  for (let i = 0; i <= steps; i++) {
+    const currentLog = minLog + (i / steps) * (maxLog - minLog);
+    const currentX = Math.pow(10, currentLog);
+    
+    // Y = fitted_line + quantile_offset
+    let estimatedY = (slope * currentLog + intercept) + offset;
+
+    // Clamp between 0% and 100%
+    estimatedY = Math.min(100, Math.max(0, estimatedY));
+
+    points.push({ x: currentX, y: estimatedY });
+  }
+
+  return points;
+}
+
+        function initShareChart() {
+            const ctx = document.getElementById('shareChart').getContext('2d');
+
+            const creatorCounts = {};
+            processedModels.forEach(m => {
+                creatorCounts[m.creator] = (creatorCounts[m.creator] || 0) + 1;
+            });
+
+            const labels = Object.keys(creatorCounts);
+            const counts = Object.values(creatorCounts);
+            const colors = labels.map(l => getCreatorColor(l));
+
+            if (shareChartObj) shareChartObj.destroy();
+
+            shareChartObj = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: colors,
+                        borderColor: '#111827',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#cbd5e1', font: { size: 10 }, boxWidth: 12 }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+
+        // Radar & Insights Logic
+        function populateInsightSelector() {
+            const select = document.getElementById('insight-model-select');
+            select.innerHTML = '';
+
+            processedModels.forEach((m) => {
+                const opt = document.createElement('option');
+                opt.value = m.name;
+                opt.textContent = `${m.name} (${m.creator}) - ${m.overall.toFixed(1)}%`;
+                select.appendChild(opt);
+            });
+
+            select.addEventListener('change', (e) => {
+                updateInsights(e.target.value);
+            });
+
+            if (processedModels.length > 0) {
+                updateInsights(processedModels[0].name);
+            }
+        }
+
+        function calculateBenchmarkAverages() {
+            const averages = {};
+            for (const bench of Object.keys(BENCHMARK_CONFIG)) {
+                let sum = 0;
+                processedModels.forEach(m => {
+                    sum += (m.scores[bench] || 0) * 100;
+                });
+                averages[bench] = sum / (processedModels.length || 1);
+            }
+            return averages;
+        }
+
+        function updateInsights(modelName) {
+            const model = processedModels.find(m => m.name === modelName);
+            if (!model) return;
+
+            const benchAverages = calculateBenchmarkAverages();
+            const benchKeys = Object.keys(BENCHMARK_CONFIG);
+
+            const modelScores = benchKeys.map(k => (model.scores[k] * 100) || 0);
+            const avgScores = benchKeys.map(k => benchAverages[k]);
+
+            // Render Radar Chart
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            if (radarChartObj) radarChartObj.destroy();
+
+            const creatorColor = getCreatorColor(model.creator);
+
+            radarChartObj = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: benchKeys,
+                    datasets: [
+                        {
+                            label: model.name,
+                            data: modelScores,
+                            backgroundColor: `${creatorColor}33`,
+                            borderColor: creatorColor,
+                            borderWidth: 2,
+                            pointBackgroundColor: creatorColor
+                        },
+                        {
+                            label: 'SLM Average',
+                            data: avgScores,
+                            backgroundColor: 'rgba(148, 163, 184, 0.1)',
+                            borderColor: '#64748b',
+                            borderWidth: 1.5,
+                            borderDash: [4, 4],
+                            pointBackgroundColor: '#64748b'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: '#1f2937' },
+                            grid: { color: '#1f2937' },
+                            pointLabels: { color: '#cbd5e1', font: { size: 11 } },
+                            ticks: { display: false },
+                            suggestedMin: 0,
+                            suggestedMax: 100
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#cbd5e1', font: { size: 11 } } }
+                    }
+                }
+            });
+
+            // Update Header Card
+            const headerDiv = document.getElementById('insight-model-header');
+            headerDiv.innerHTML = `
+                <div>
+                    <h3 class="text-base font-bold text-slate-100">${model.name}</h3>
+                    <p class="text-xs text-slate-400">${model.creator} • ${formatParams(model.params)} parameters</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-2xl font-black text-brand-400">${model.overall.toFixed(1)}%</div>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider">Overall Score</p>
+                </div>
+            `;
+
+            // Strengths and Weaknesses Lists
+            const strengthsUl = document.getElementById('insight-strengths');
+            const weaknessesUl = document.getElementById('insight-weaknesses');
+
+            strengthsUl.innerHTML = '';
+            weaknessesUl.innerHTML = '';
+
+            benchKeys.forEach(bench => {
+                const score = (model.scores[bench] * 100) || 0;
+                const avg = benchAverages[bench];
+                const diff = score - avg;
+
+                const li = document.createElement('li');
+                li.className = "flex items-center justify-between";
+
+                if (diff >= 0) {
+                    li.innerHTML = `
+                        <span>${bench}: <strong class="text-white">${score.toFixed(1)}%</strong></span>
+                        <span class="text-emerald-400 text-[11px] font-mono">+${diff.toFixed(1)}% vs avg</span>
+                    `;
+                    strengthsUl.appendChild(li);
+                } else {
+                    li.innerHTML = `
+                        <span>${bench}: <strong class="text-white">${score.toFixed(1)}%</strong></span>
+                        <span class="text-rose-400 text-[11px] font-mono">${diff.toFixed(1)}% vs avg</span>
+                    `;
+                    weaknessesUl.appendChild(li);
+                }
+            });
+
+            if (!strengthsUl.hasChildNodes()) {
+                strengthsUl.innerHTML = '<li class="text-slate-500 italic">No metrics above current SLM average.</li>';
+            }
+            if (!weaknessesUl.hasChildNodes()) {
+                weaknessesUl.innerHTML = '<li class="text-slate-500 italic">Exceeds average across all benchmark benchmarks!</li>';
+            }
+        }
+
+        // =========================================================================
+        // EVENT LISTENERS & MODAL HANDLERS
+        // =========================================================================
+
+        function toggleSubmitModal() {
+            const modal = document.getElementById('submit-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initData();
+            renderTable();
+            initScatterChart();
+            initShareChart();
+            populateInsightSelector();
+
+            // Search input listener
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                searchQuery = e.target.value;
+                renderTable();
+            });
+
+            // Filter button listeners
+            document.querySelectorAll('.size-filter-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.size-filter-btn').forEach(b => {
+                        b.classList.remove('active', 'bg-brand-600', 'text-white');
+                        b.classList.add('text-slate-400');
+                    });
+
+                    e.target.classList.add('active', 'bg-brand-600', 'text-white');
+                    e.target.classList.remove('text-slate-400');
+
+                    activeSizeFilter = e.target.getAttribute('data-size');
+                    renderTable();
+                });
+            });
+        });
+    </script>
+</body>
+</html>

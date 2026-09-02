@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silverstone British GP — Crowd Flow Optimiser</title>
+    <style>
+        /* ================================================================== */
+        /* 1. STYLING & DASHBOARD LAYOUT (CSS)                                */
+        /* ================================================================== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            color: #e10600; /* F1 Red Color */
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        /* Two-column responsive grid layout */
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1450px;
+            margin: 0 auto;
+        }
+
+        /* Left Panel: Sliders & Controls */
+        .controls-panel {
+            flex: 1;
+            min-width: 320px;
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #333;
+        }
+
+        .controls-panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #00cc66;
+        }
+
+        .slider-group {
+            margin-bottom: 15px;
+        }
+
+        .slider-group label {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: #ddd;
+        }
+
+        .slider-group input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .value-badge {
+            color: #e10600;
+            font-weight: bold;
+        }
+
+        /* Right Panel: Interactive Canvas Map & Report */
+        .map-panel {
+            flex: 2;
+            min-width: 450px;
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #333;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            background-color: #181818;
+            border-radius: 8px;
+            border: 1px solid #444;
+            display: block;
+        }
+
+        /* Report Box Styling */
+        .report-box {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #252525;
+            border-radius: 8px;
+            border-left: 5px solid #00cc66;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .report-box.alert {
+            border-left-color: #ff4444;
+            background-color: #2a1a1a;
+        }
+
+        .report-box h3 {
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge-red { background-color: #ff4444; color: white; }
+        .badge-green { background-color: #00cc66; color: black; }
+        .badge-purple { background-color: #a020f0; color: white; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🏎️ SILVERSTONE BRITISH GP — CROWD FLOW OPTIMISER</h1>
+        <p>Real-time interconnected crowd routing, dynamic bottleneck propagation & multi-path detours</p>
+    </header>
+
+    <div class="dashboard">
+        <!-- ============================================================== -->
+        <!-- LEFT PANEL: USER SLIDER INPUTS                                 -->
+        <!-- ============================================================== -->
+        <div class="controls-panel">
+            <h2>⚙️ Grandstand Crowd Inputs</h2>
+            
+            <div class="slider-group">
+                <label for="hamilton">Hamilton Straight GS: <span id="hamilton-val" class="value-badge">65</span> fans/min</label>
+                <input type="range" id="hamilton" min="10" max="100" value="65" oninput="updateSimulation()">
+            </div>
+
+            <div class="slider-group">
+                <label for="becketts">Becketts GS: <span id="becketts-val" class="value-badge">60</span> fans/min</label>
+                <input type="range" id="becketts" min="10" max="100" value="60" oninput="updateSimulation()">
+            </div>
+
+            <div class="slider-group">
+                <label for="stowe">Stowe GS: <span id="stowe-val" class="value-badge">40</span> fans/min</label>
+                <input type="range" id="stowe" min="10" max="100" value="40" oninput="updateSimulation()">
+            </div>
+
+            <div class="slider-group">
+                <label for="village">Village GS: <span id="village-val" class="value-badge">55</span> fans/min</label>
+                <input type="range" id="village" min="10" max="100" value="55" oninput="updateSimulation()">
+            </div>
+
+            <div class="slider-group">
+                <label for="club">Club GS: <span id="club-val" class="value-badge">50</span> fans/min</label>
+                <input type="range" id="club" min="10" max="100" value="50" oninput="updateSimulation()">
+            </div>
+
+            <hr style="border-color: #333; margin: 20px 0;">
+
+            <div style="font-size: 12px; color: #aaa; line-height: 1.4;">
+                <p><strong>💡 Dynamic Flow Rules:</strong></p>
+                <p>• <strong>Gate 1 Threshold:</strong> 50 fans/min</p>
+                <p>• <strong>Gate 3 Threshold:</strong> 45 fans/min</p>
+                <p>• Bottlenecks cause cascading <span class="badge badge-red">RED</span> corridor congestions.</p>
+                <p>• Active rerouting renders complex multi-node <span class="badge badge-purple">PURPLE</span> Google Maps detours.</p>
+            </div>
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- RIGHT PANEL: HTML5 CANVAS MAP & TEXT ANALYSIS REPORT           -->
+        <!-- ============================================================== -->
+        <div class="map-panel">
+            <canvas id="silverstoneCanvas" width="900" height="520"></canvas>
+            <div id="reportBox" class="report-box">
+                <!-- Dynamic Text Report Injected Here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- 2. JAVASCRIPT SIMULATION & CANVAS DRAWING LOGIC                    -->
+    <!-- ================================================================== -->
+    <script>
+        // Gate Capacity Limits
+        const GATE_1_CAPACITY = 50;
+        const GATE_3_CAPACITY = 45;
+
+        function updateSimulation() {
+            // 1. READ SLIDER VALUES FROM HTML INPUTS
+            const hamiltonCrowd = parseInt(document.getElementById('hamilton').value);
+            const beckettsCrowd = parseInt(document.getElementById('becketts').value);
+            const stoweCrowd = parseInt(document.getElementById('stowe').value);
+            const villageCrowd = parseInt(document.getElementById('village').value);
+            const clubCrowd = parseInt(document.getElementById('club').value);
+
+            // Update UI slider text badges
+            document.getElementById('hamilton-val').innerText = hamiltonCrowd;
+            document.getElementById('becketts-val').innerText = beckettsCrowd;
+            document.getElementById('stowe-val').innerText = stoweCrowd;
+            document.getElementById('village-val').innerText = villageCrowd;
+            document.getElementById('club-val').innerText = clubCrowd;
+
+            // 2. MATHEMATICAL TRAFFIC LOAD CALCULATIONS
+            const gate1Load = Math.round(hamiltonCrowd * 0.5 + beckettsCrowd * 0.3 + villageCrowd * 0.3);
+            const gate2Load = Math.round(hamiltonCrowd * 0.2 + clubCrowd * 0.4);
+            const gate3Load = Math.round(stoweCrowd * 0.6 + beckettsCrowd * 0.4);
+            const gate4Load = Math.round(villageCrowd * 0.4 + hamiltonCrowd * 0.2);
+
+            // Bottleneck flags
+            const isGate1Bottleneck = gate1Load > GATE_1_CAPACITY;
+            const isGate3Bottleneck = gate3Load > GATE_3_CAPACITY;
+            const excessGate1 = isGate1Bottleneck ? (gate1Load - GATE_1_CAPACITY) : 0;
+            const excessGate3 = isGate3Bottleneck ? (gate3Load - GATE_3_CAPACITY) : 0;
+
+            // 3. DRAW MAP ON HTML5 CANVAS
+            drawCanvasMap(
+                hamiltonCrowd, beckettsCrowd, stoweCrowd, villageCrowd, clubCrowd,
+                gate1Load, gate3Load, isGate1Bottleneck, isGate3Bottleneck
+            );
+
+            // 4. UPDATE TEXT REPORT
+            updateReport(gate1Load, gate2Load, gate3Load, gate4Load, isGate1Bottleneck, isGate3Bottleneck, excessGate1, excessGate3);
+        }
+
+        function drawCanvasMap(hamilton, becketts, stowe, village, club, gate1Load, gate3Load, isGate1Bottleneck, isGate3Bottleneck) {
+            const canvas = document.getElementById('silverstoneCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Clear canvas background
+            ctx.fillStyle = '#181818';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Map coordinate converter
+            function toCanvas(x, y) {
+                return {
+                    x: x * 65 + 430,
+                    y: -y * 48 + 260
+                };
+            }
+
+            // -------------------------------------------------------------
+            // A. DRAW F1 CIRCUIT TRACK
+            // -------------------------------------------------------------
+            const trackPoints = [
+                {x: -1, y: 0}, {x: 1, y: -2}, {x: 3, y: -3}, {x: 2, y: -4},
+                {x: -1, y: -3}, {x: -2, y: -1}, {x: -3, y: 1}, {x: -1, y: 3},
+                {x: 1, y: 4}, {x: 3, y: 4}, {x: 4, y: 2}, {x: 2, y: 0}, {x: -1, y: 0}
+            ];
+
+            // Outer track border
+            ctx.beginPath();
+            trackPoints.forEach((pt, idx) => {
+                const c = toCanvas(pt.x, pt.y);
+                if (idx === 0) ctx.moveTo(c.x, c.y);
+                else ctx.lineTo(c.x, c.y);
+            });
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 14;
+            ctx.stroke();
+
+            // Racing line
+            ctx.beginPath();
+            ctx.setLineDash([6, 6]);
+            trackPoints.forEach((pt, idx) => {
+                const c = toCanvas(pt.x, pt.y);
+                if (idx === 0) ctx.moveTo(c.x, c.y);
+                else ctx.lineTo(c.x, c.y);
+            });
+            ctx.strokeStyle = '#aaaaaa';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
+
+            // -------------------------------------------------------------
+            // B. DEFINE MAP NODES (Grandstands, Food, Hubs, Gates)
+            // -------------------------------------------------------------
+            const nodes = {
+                // Grandstands
+                "Hamilton GS": { pos: toCanvas(-1.5, 0), type: "gs", label: `Hamilton (${hamilton})` },
+                "Becketts GS": { pos: toCanvas(1, 3.5), type: "gs", label: `Becketts (${becketts})` },
+                "Stowe GS": { pos: toCanvas(3.5, 2), type: "gs", label: `Stowe (${stowe})` },
+                "Village GS": { pos: toCanvas(-2.5, 1.5), type: "gs", label: `Village (${village})` },
+                "Club GS": { pos: toCanvas(1.5, -3), type: "gs", label: `Club (${club})` },
+
+                // Food Stalls & Arenas
+                "Main Fan Zone": { pos: toCanvas(-0.2, 0.8), type: "food", label: "🍔 Main Fan Zone" },
+                "Becketts Food": { pos: toCanvas(1.8, 2.8), type: "food", label: "🌭 Becketts Food" },
+                "Village Plaza": { pos: toCanvas(-1.8, 2.2), type: "food", label: "🍕 Village Plaza" },
+                "Club Eats": { pos: toCanvas(0.2, -2.2), type: "food", label: "🍦 Club Eats" },
+
+                // Intermediate Junction Hubs
+                "Arena Crossroad": { pos: toCanvas(-1.2, 0.8), type: "hub", label: "📍 Arena Hub" },
+                "Becketts Interchange": { pos: toCanvas(0.5, 2.2), type: "hub", label: "📍 Becketts Hub" },
+                "South Bypass": { pos: toCanvas(-0.8, -1.5), type: "hub", label: "📍 South Hub" },
+
+                // Gates
+                "Main Gate 1": { pos: toCanvas(-3.5, 0), type: "gate", label: "🚪 Main Gate 1" },
+                "South Gate 2": { pos: toCanvas(1, -4.2), type: "gate", label: "🚪 South Gate 2" },
+                "East Gate 3": { pos: toCanvas(4.5, -1), type: "gate", label: "🚪 East Gate 3" },
+                "West Gate 4": { pos: toCanvas(-4.0, 2.8), type: "gate", label: "🚪 West Gate 4" }
+            };
+
+            // -------------------------------------------------------------
+            // C. INTERCONNECTED STANDARD PEDESTRIAN PATHS (GREEN / RED)
+            // -------------------------------------------------------------
+            const paths = [
+                // Network towards Gate 1 (Turns Red on Gate 1 Bottleneck)
+                { start: "Hamilton GS", end: "Arena Crossroad", color: isGate1Bottleneck ? "#ff4444" : "#00cc66" },
+                { start: "Arena Crossroad", end: "Main Fan Zone", color: isGate1Bottleneck ? "#ff4444" : "#00cc66" },
+                { start: "Main Fan Zone", end: "Main Gate 1", color: isGate1Bottleneck ? "#ff4444" : "#00cc66" },
+                { start: "Village GS", end: "Arena Crossroad", color: isGate1Bottleneck ? "#ff4444" : "#00cc66" },
+
+                // Network towards Becketts & Gate 3
+                { start: "Becketts GS", end: "Becketts Interchange", color: isGate3Bottleneck ? "#ff4444" : "#00cc66" },
+                { start: "Becketts Interchange", end: "Becketts Food", color: isGate3Bottleneck ? "#ff4444" : "#00cc66" },
+                { start: "Becketts Interchange", end: "Main Fan Zone", color: isGate1Bottleneck ? "#ff4444" : "#00cc66" },
+                { start: "Becketts Food", end: "Stowe GS", color: isGate3Bottleneck ? "#ff4444" : "#00cc66" },
+                { start: "Stowe GS", end: "East Gate 3", color: isGate3Bottleneck ? "#ff4444" : "#00cc66" },
+
+                // West & South Paths
+                { start: "Village GS", end: "Village Plaza", color: "#00cc66" },
+                { start: "Village Plaza", end: "West Gate 4", color: "#00cc66" },
+                { start: "Hamilton GS", end: "South Bypass", color: "#00cc66" },
+                { start: "South Bypass", end: "Club Eats", color: "#00cc66" },
+                { start: "Club GS", end: "Club Eats", color: "#00cc66" },
+                { start: "Club Eats", end: "South Gate 2", color: "#00cc66" }
+            ];
+
+            paths.forEach(p => {
+                ctx.beginPath();
+                ctx.moveTo(nodes[p.start].pos.x, nodes[p.start].pos.y);
+                ctx.lineTo(nodes[p.end].pos.x, nodes[p.end].pos.y);
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            });
+
+            // -------------------------------------------------------------
+            // D. EXPANDED GOOGLE MAPS MULTI-NODE DETOURS (PURPLE)
+            // -------------------------------------------------------------
+            if (isGate1Bottleneck) {
+                // Multi-leg Detour 1: Fan Zone -> South Bypass -> Club Eats -> South Gate 2
+                ctx.beginPath();
+                ctx.setLineDash([8, 6]);
+                ctx.moveTo(nodes["Main Fan Zone"].pos.x, nodes["Main Fan Zone"].pos.y);
+                ctx.lineTo(nodes["South Bypass"].pos.x, nodes["South Bypass"].pos.y);
+                ctx.lineTo(nodes["Club Eats"].pos.x, nodes["Club Eats"].pos.y);
+                ctx.lineTo(nodes["South Gate 2"].pos.x, nodes["South Gate 2"].pos.y);
+                ctx.strokeStyle = "#a020f0";
+                ctx.lineWidth = 5;
+                ctx.stroke();
+
+                // Multi-leg Detour 2: Arena Hub -> Village Plaza -> West Gate 4
+                ctx.beginPath();
+                ctx.moveTo(nodes["Arena Crossroad"].pos.x, nodes["Arena Crossroad"].pos.y);
+                ctx.lineTo(nodes["Village Plaza"].pos.x, nodes["Village Plaza"].pos.y);
+                ctx.lineTo(nodes["West Gate 4"].pos.x, nodes["West Gate 4"].pos.y);
+                ctx.strokeStyle = "#a020f0";
+                ctx.lineWidth = 5;
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            if (isGate3Bottleneck) {
+                // Detour 3: Becketts Interchange -> Arena Hub -> South Bypass -> South Gate 2
+                ctx.beginPath();
+                ctx.setLineDash([8, 6]);
+                ctx.moveTo(nodes["Becketts Interchange"].pos.x, nodes["Becketts Interchange"].pos.y);
+                ctx.lineTo(nodes["Arena Crossroad"].pos.x, nodes["Arena Crossroad"].pos.y);
+                ctx.lineTo(nodes["South Bypass"].pos.x, nodes["South Bypass"].pos.y);
+                ctx.lineTo(nodes["South Gate 2"].pos.x, nodes["South Gate 2"].pos.y);
+                ctx.strokeStyle = "#a020f0";
+                ctx.lineWidth = 5;
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // -------------------------------------------------------------
+            // E. DRAW NODE BOXES AND LABELS
+            // -------------------------------------------------------------
+            for (let key in nodes) {
+                const n = nodes[key];
+                ctx.font = "bold 11px Arial";
+                const textWidth = ctx.measureText(n.label).width;
+                const boxPadding = 7;
+                
+                let boxColor = "#3498db"; // Blue for Grandstands
+                if (n.type === "food") boxColor = "#f39c12"; // Orange for Food
+                if (n.type === "hub") boxColor = "#7f8c8d";  // Grey for Hubs
+                if (n.type === "gate") {
+                    if ((key === "Main Gate 1" && isGate1Bottleneck) || (key === "East Gate 3" && isGate3Bottleneck)) {
+                        boxColor = "#ff4444";
+                    } else {
+                        boxColor = "#00cc66";
+                    }
+                }
+
+                // Draw background rounded box
+                ctx.fillStyle = boxColor;
+                ctx.beginPath();
+                ctx.roundRect(
+                    n.pos.x - textWidth / 2 - boxPadding,
+                    n.pos.y - 12,
+                    textWidth + boxPadding * 2,
+                    24,
+                    6
+                );
+                ctx.fill();
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Draw label text
+                ctx.fillStyle = "#ffffff";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(n.label, n.pos.x, n.pos.y);
+            }
+
+            // Draw Legend
+            ctx.font = "11px Arial";
+            ctx.fillStyle = "#ffffff";
+            ctx.textAlign = "left";
+            ctx.fillText("🟢 Clear Pathway", 20, 25);
+            ctx.fillText("🔴 Congested Network Segment", 140, 25);
+            ctx.fillText("🟣 Google Maps Active Multi-Leg Detour", 330, 25);
+        }
+
+        function updateReport(gate1, gate2, gate3, gate4, isG1Alert, isG3Alert, excess1, excess3) {
+            const reportDiv = document.getElementById('reportBox');
+            
+            if (isG1Alert || isG3Alert) {
+                reportDiv.className = "report-box alert";
+                let alertsHtml = `<h3 style="color: #ff4444;">🔴 NETWORK BOTTLENECK ALERT ACTIVATED</h3>`;
+                
+                if (isG1Alert) {
+                    alertsHtml += `<p>• <strong>Main Gate 1 Bottleneck:</strong> Load <code>${gate1}</code> fans/min (Max limit: ${GATE_1_CAPACITY}). Overflow: <code>${excess1}</code> fans.</p>`;
+                }
+                if (isG3Alert) {
+                    alertsHtml += `<p>• <strong>East Gate 3 Bottleneck:</strong> Load <code>${gate3}</code> fans/min (Max limit: ${GATE_3_CAPACITY}). Overflow: <code>${excess3}</code> fans.</p>`;
+                }
+
+                alertsHtml += `
+                    <hr style="border-color: #552222; margin: 10px 0;">
+                    <h4 style="color: #a020f0;">🔄 Dynamic Rerouting Protocol:</h4>
+                    <p>• Activating interconnected <span class="badge badge-purple">PURPLE DETOURS</span> across <strong>Arena Hub</strong>, <strong>South Bypass</strong>, and <strong>Becketts Interchange</strong>.</p>
+                    <p>• Directing overflow pedestrian traffic to under-utilized exit points at <strong>South Gate 2</strong> and <strong>West Gate 4</strong>.</p>
+                `;
+                reportDiv.innerHTML = alertsHtml;
+            } else {
+                reportDiv.className = "report-box";
+                reportDiv.innerHTML = `
+                    <h3 style="color: #00cc66;">🟢 ALL INTERCONNECTED PATHWAYS OPTIMAL</h3>
+                    <p>• <strong>Main Gate 1 Load:</strong> <code>${gate1}</code> / ${GATE_1_CAPACITY} fans/min (Safe)</p>
+                    <p>• <strong>South Gate 2 Load:</strong> <code>${gate2}</code> / 50 fans/min (Safe)</p>
+                    <p>• <strong>East Gate 3 Load:</strong> <code>${gate3}</code> / ${GATE_3_CAPACITY} fans/min (Safe)</p>
+                    <p>• <strong>West Gate 4 Load:</strong> <code>${gate4}</code> / 45 fans/min (Safe)</p>
+                    <p style="margin-top: 5px; color: #aaa;"><em>Status: Grid flow is balanced across all junctions. No purple detour routing required.</em></p>
+                `;
+            }
+        }
+
+        // Initialize simulation on initial page load
+        window.onload = updateSimulation;
+    </script>
+</body>
+</html>
+

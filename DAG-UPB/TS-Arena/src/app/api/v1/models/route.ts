@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 
+import { createLogger } from '@/src/lib/logger';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_DASH_BOARD_API_URL || '';
 const API_KEY = process.env.NEXT_PUBLIC_DASH_BOARD_API_KEY || '';
+
+const log = createLogger('/api/v1/models');
 
 /**
  * Proxy for `GET /api/v1/models` on the dashboard-api. Returns the flat
@@ -11,7 +15,10 @@ const API_KEY = process.env.NEXT_PUBLIC_DASH_BOARD_API_KEY || '';
  * endpoint. See ticket frontend #33.
  */
 export async function GET() {
-  const url = `${API_BASE_URL}/api/v1/models`;
+  const path = '/api/v1/models';
+  const url = `${API_BASE_URL}${path}`;
+
+  log.debug(`upstream GET ${path}`);
 
   try {
     const response = await fetch(url, {
@@ -23,7 +30,7 @@ export async function GET() {
     }
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Fetch error for /api/v1/models:', error);
+    log.error('failed to fetch models list', error);
     return NextResponse.json(
       { error: 'Failed to fetch models list' },
       { status: 500 },

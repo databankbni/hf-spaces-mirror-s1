@@ -1,0 +1,68 @@
+name: Coordinate ClimaFlora edaphic v2 build
+
+on:
+  push:
+    branches: [edaphic-v2.0-enrichment]
+    paths:
+      - '.github/edaphic-v2-source-status.json'
+      - '.github/edaphic-v2-synonym-source-status.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coordinate-edaphic-v2-build
+  cancel-in-progress: true
+
+jobs:
+  coordinate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Check primary readiness and compute deterministic trigger
+        id: gate
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          primary_path=Path('.github/edaphic-v2-source-status.json')
+          if not primary_path.exists():
+              print('ready=false')
+              raise SystemExit(0)
+          primary=json.loads(primary_path.read_text())
+          if primary.get('status')!='ready' or primary.get('catalog_version')!='1.9.0':
+              print('ready=false')
+              raise SystemExit(0)
+          synonym_run='NONE'
+          synonym_path=Path('.github/edaphic-v2-synonym-source-status.json')
+          if synonym_path.exists():
+              synonym=json.loads(synonym_path.read_text())
+              if synonym.get('status')=='ready' and synonym.get('catalog_version')=='1.9.0':
+                  synonym_run=str(synonym['run_id'])
+          token=(
+              f"primary_run={primary['run_id']}\n"
+              f"synonym_run={synonym_run}\n"
+              "base_catalog=1.9.0\n"
+          )
+          Path('/tmp/edaphic-v2-build-trigger').write_text(token)
+          print('ready=true')
+          print(f'synonym_run={synonym_run}')
+          PY
+      - name: Publish build trigger
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          BRANCH=edaphic-v2.0-enrichment
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$BRANCH" && git reset --hard "origin/$BRANCH"
+            cp /tmp/edaphic-v2-build-trigger .github/edaphic-v2-build-trigger
+            git add .github/edaphic-v2-build-trigger
+            git diff --cached --quiet && exit 0
+            git commit -m 'Trigger ClimaFlora edaphic v2 build from validated sources'
+            git push origin "HEAD:$BRANCH" && exit 0
+            sleep $((attempt*2))
+          done
+          exit 1

@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Movie Review Sentiment</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: "Inter", Arial, sans-serif;
+
+            background:
+                radial-gradient(
+                    circle at 10% 10%,
+                    rgba(99, 102, 241, 0.30),
+                    transparent 30%
+                ),
+                radial-gradient(
+                    circle at 90% 90%,
+                    rgba(124, 58, 237, 0.25),
+                    transparent 30%
+                ),
+                #0f172a;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            padding: 30px 15px;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 820px;
+
+            background: #ffffff;
+
+            border-radius: 26px;
+
+            padding: 45px;
+
+            box-shadow:
+                0 25px 70px rgba(0, 0, 0, 0.35);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo {
+            width: 68px;
+            height: 68px;
+
+            margin: 0 auto 18px;
+
+            border-radius: 18px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #6366f1,
+                    #7c3aed
+                );
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            color: white;
+
+            font-size: 24px;
+            font-weight: 800;
+
+            letter-spacing: -1px;
+
+            box-shadow:
+                0 10px 25px
+                rgba(99, 102, 241, 0.35);
+        }
+
+        h1 {
+            font-size: 34px;
+            font-weight: 800;
+
+            color: #111827;
+
+            letter-spacing: -1px;
+
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            font-weight: 500;
+
+            color: #64748b;
+        }
+
+        .input-area {
+            margin-top: 30px;
+        }
+
+        textarea {
+            width: 100%;
+
+            min-height: 190px;
+
+            padding: 20px;
+
+            resize: vertical;
+
+            border: 2px solid #e2e8f0;
+
+            border-radius: 18px;
+
+            background: #f8fafc;
+
+            color: #1e293b;
+
+            font-family: "Inter", Arial, sans-serif;
+
+            font-size: 16px;
+
+            line-height: 1.65;
+
+            outline: none;
+
+            transition: 0.25s;
+        }
+
+        textarea::placeholder {
+            color: #94a3b8;
+        }
+
+        textarea:focus {
+            border-color: #6366f1;
+
+            background: #ffffff;
+
+            box-shadow:
+                0 0 0 5px
+                rgba(99, 102, 241, 0.10);
+        }
+
+        .button {
+            width: 100%;
+
+            margin-top: 20px;
+
+            padding: 18px;
+
+            border: none;
+
+            border-radius: 16px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #6366f1,
+                    #7c3aed
+                );
+
+            color: white;
+
+            font-family: "Inter", Arial, sans-serif;
+
+            font-size: 17px;
+
+            font-weight: 700;
+
+            cursor: pointer;
+
+            box-shadow:
+                0 10px 25px
+                rgba(99, 102, 241, 0.30);
+
+            transition: 0.25s;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+
+            box-shadow:
+                0 15px 30px
+                rgba(99, 102, 241, 0.38);
+        }
+
+        .button:disabled {
+            opacity: 0.65;
+            cursor: wait;
+            transform: none;
+        }
+
+        .message {
+            display: none;
+
+            margin-top: 20px;
+
+            padding: 16px;
+
+            border-radius: 14px;
+
+            text-align: center;
+
+            background: #f8fafc;
+
+            color: #64748b;
+
+            font-size: 14px;
+
+            font-weight: 500;
+        }
+
+        .message.visible {
+            display: block;
+        }
+
+        .progress {
+            display: none;
+
+            margin-top: 20px;
+        }
+
+        .progress.visible {
+            display: block;
+        }
+
+        .progress-label {
+            text-align: center;
+
+            color: #64748b;
+
+            font-size: 13px;
+
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            width: 100%;
+
+            height: 7px;
+
+            background: #e2e8f0;
+
+            border-radius: 10px;
+
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            width: 0%;
+
+            height: 100%;
+
+            background:
+                linear-gradient(
+                    90deg,
+                    #6366f1,
+                    #8b5cf6
+                );
+
+            transition: width 0.3s;
+        }
+
+        .result {
+            display: none;
+
+            margin-top: 22px;
+
+            padding: 28px;
+
+            border-radius: 20px;
+
+            text-align: center;
+        }
+
+        .result.visible {
+            display: block;
+        }
+
+        .result.positive {
+            background: #ecfdf5;
+
+            border: 2px solid #a7f3d0;
+        }
+
+        .result.negative {
+            background: #fff1f2;
+
+            border: 2px solid #fecdd3;
+        }
+
+        .result-title {
+            font-size: 13px;
+
+            font-weight: 700;
+
+            text-transform: uppercase;
+
+            letter-spacing: 1px;
+
+            margin-bottom: 10px;
+        }
+
+        .positive .result-title {
+            color: #059669;
+        }
+
+        .negative .result-title {
+            color: #e11d48;
+        }
+
+        .sentiment {
+            font-size: 32px;
+
+            font-weight: 800;
+
+            margin-bottom: 8px;
+        }
+
+        .positive .sentiment {
+            color: #047857;
+        }
+
+        .negative .sentiment {
+            color: #be123c;
+        }
+
+        .confidence {
+            font-size: 15px;
+
+            font-weight: 500;
+
+            color: #64748b;
+        }
+
+        .footer {
+            margin-top: 28px;
+
+            text-align: center;
+
+            color: #94a3b8;
+
+            font-size: 13px;
+
+            font-weight: 500;
+        }
+
+        @media (max-width: 600px) {
+
+            .card {
+                padding: 28px 20px;
+            }
+
+            h1 {
+                font-size: 27px;
+            }
+
+            textarea {
+                min-height: 170px;
+            }
+        }
+    </style>
+</head>
+
+
+<body>
+
+<div class="card">
+
+    <div class="header">
+
+        <div class="logo">
+            MR
+        </div>
+
+        <h1>
+            Movie Review Sentiment
+        </h1>
+
+        <p class="subtitle">
+            AI-powered sentiment analysis for movie reviews
+        </p>
+
+    </div>
+
+
+    <div class="input-area">
+
+        <textarea
+            id="review"
+            placeholder="Enter your movie review here..."
+        >This movie was absolutely fantastic. The story was engaging, and the acting was excellent.</textarea>
+
+
+        <button
+            id="analyzeButton"
+            class="button"
+        >
+            Analyze Sentiment
+        </button>
+
+
+        <div
+            id="message"
+            class="message"
+        ></div>
+
+
+        <div
+            id="progress"
+            class="progress"
+        >
+
+            <div
+                id="progressLabel"
+                class="progress-label"
+            >
+                Loading AI model...
+            </div>
+
+            <div class="progress-bar">
+
+                <div
+                    id="progressFill"
+                    class="progress-fill"
+                ></div>
+
+            </div>
+
+        </div>
+
+
+        <div
+            id="result"
+            class="result"
+        >
+
+            <div class="result-title">
+                Prediction
+            </div>
+
+            <div
+                id="sentiment"
+                class="sentiment"
+            >
+                Positive
+            </div>
+
+            <div
+                id="confidence"
+                class="confidence"
+            >
+                Confidence: 0%
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="footer">
+        Powered by DistilBERT &bull; IMDb Dataset
+    </div>
+
+</div>
+
+
+<script type="module">
+
+    import {
+        pipeline,
+        env
+    }
+    from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2";
+
+
+    /*
+        IMPORTANT
+
+        The model runs directly inside
+        the user's browser.
+
+        No Flask server.
+        No API key.
+        No Hugging Face secret.
+    */
+
+    env.allowLocalModels = false;
+
+
+    const MODEL_NAME =
+        "Xenova/distilbert-base-uncased-finetuned-sst-2-english";
+
+
+    let sentimentPipeline = null;
+
+    let modelLoading = false;
+
+
+    const reviewInput =
+        document.getElementById("review");
+
+
+    const analyzeButton =
+        document.getElementById("analyzeButton");
+
+
+    const message =
+        document.getElementById("message");
+
+
+    const progress =
+        document.getElementById("progress");
+
+
+    const progressLabel =
+        document.getElementById("progressLabel");
+
+
+    const progressFill =
+        document.getElementById("progressFill");
+
+
+    const result =
+        document.getElementById("result");
+
+
+    const sentiment =
+        document.getElementById("sentiment");
+
+
+    const confidence =
+        document.getElementById("confidence");
+
+
+    function showMessage(text) {
+
+        message.textContent = text;
+
+        message.classList.add("visible");
+    }
+
+
+    function hideMessage() {
+
+        message.classList.remove("visible");
+    }
+
+
+    function setProgress(text, value) {
+
+        progress.classList.add("visible");
+
+        progressLabel.textContent = text;
+
+        progressFill.style.width =
+            value + "%";
+    }
+
+
+    function hideProgress() {
+
+        progress.classList.remove("visible");
+    }
+
+
+    async function loadModel() {
+
+        if (sentimentPipeline) {
+            return sentimentPipeline;
+        }
+
+
+        if (modelLoading) {
+
+            while (modelLoading) {
+
+                await new Promise(
+                    resolve =>
+                        setTimeout(resolve, 300)
+                );
+            }
+
+            return sentimentPipeline;
+        }
+
+
+        modelLoading = true;
+
+        analyzeButton.disabled = true;
+
+
+        showMessage(
+            "Loading the AI model. The first load may take a little time."
+        );
+
+
+        setProgress(
+            "Downloading AI model...",
+            5
+        );
+
+
+        try {
+
+            sentimentPipeline =
+                await pipeline(
+                    "sentiment-analysis",
+                    MODEL_NAME,
+                    {
+                        progress_callback:
+                            function(data) {
+
+                                if (
+                                    data.status ===
+                                    "progress"
+                                ) {
+
+                                    let value =
+                                        Number(
+                                            data.progress
+                                        );
+
+                                    if (
+                                        !Number.isFinite(value)
+                                    ) {
+                                        value = 0;
+                                    }
+
+                                    value =
+                                        Math.max(
+                                            0,
+                                            Math.min(
+                                                100,
+                                                value
+                                            )
+                                        );
+
+                                    setProgress(
+                                        "Downloading AI model...",
+                                        value
+                                    );
+                                }
+                            }
+                    }
+                );
+
+
+            setProgress(
+                "AI model ready.",
+                100
+            );
+
+
+            showMessage(
+                "AI model loaded successfully."
+            );
+
+
+            modelLoading = false;
+
+            analyzeButton.disabled = false;
+
+
+            return sentimentPipeline;
+
+        } catch (error) {
+
+            console.error(
+                "MODEL ERROR:",
+                error
+            );
+
+
+            modelLoading = false;
+
+            analyzeButton.disabled = false;
+
+
+            setProgress(
+                "Model could not be loaded.",
+                0
+            );
+
+
+            showMessage(
+                "Model loading failed. Please refresh the page and try again."
+            );
+
+
+            throw error;
+        }
+    }
+
+
+    async function analyzeReview() {
+
+        const text =
+            reviewInput.value.trim();
+
+
+        if (!text) {
+
+            showMessage(
+                "Please enter a movie review first."
+            );
+
+            return;
+        }
+
+
+        analyzeButton.disabled = true;
+
+
+        hideMessage();
+
+        hideProgress();
+
+        result.classList.remove(
+            "visible",
+            "positive",
+            "negative"
+        );
+
+
+        try {
+
+            showMessage(
+                "Analyzing your movie review..."
+            );
+
+
+            const classifier =
+                await loadModel();
+
+
+            const output =
+                await classifier(text);
+
+
+            if (
+                !output ||
+                output.length === 0
+            ) {
+
+                throw new Error(
+                    "No prediction returned."
+                );
+            }
+
+
+            const prediction =
+                output[0];
+
+
+            const label =
+                String(
+                    prediction.label
+                ).toUpperCase();
+
+
+            const score =
+                Number(
+                    prediction.score
+                );
+
+
+            if (!Number.isFinite(score)) {
+
+                throw new Error(
+                    "Invalid confidence score."
+                );
+            }
+
+
+            if (
+                label === "POSITIVE"
+            ) {
+
+                result.className =
+                    "result visible positive";
+
+                sentiment.textContent =
+                    "Positive";
+
+            } else {
+
+                result.className =
+                    "result visible negative";
+
+                sentiment.textContent =
+                    "Negative";
+            }
+
+
+            confidence.textContent =
+                "Confidence: " +
+                (score * 100).toFixed(2) +
+                "%";
+
+
+            hideMessage();
+
+            hideProgress();
+
+
+        } catch (error) {
+
+            console.error(
+                "ANALYSIS ERROR:",
+                error
+            );
+
+
+            result.classList.remove(
+                "visible"
+            );
+
+
+            showMessage(
+                "Unable to analyze the review. Please refresh the page and try again."
+            );
+
+        } finally {
+
+            analyzeButton.disabled =
+                false;
+        }
+    }
+
+
+    analyzeButton.addEventListener(
+        "click",
+        analyzeReview
+    );
+
+
+    /*
+        We intentionally DO NOT load
+        the model automatically.
+
+        The model starts when the user
+        clicks Analyze Sentiment.
+    */
+
+</script>
+
+</body>
+</html>

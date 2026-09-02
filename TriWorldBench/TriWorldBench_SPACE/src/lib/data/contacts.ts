@@ -7,6 +7,7 @@ export function getContacts(): ContactInfo[] {
   return all<ContactInfo>(getDb().prepare("SELECT * FROM contact_info ORDER BY sort_order, id")).map((contact) => ({
     ...contact,
     labelText: localized(contact.label_en ?? contact.label, contact.label_zh),
+    valueText: localized(contact.value_en ?? contact.value, contact.value_zh),
     descriptionText: localized(contact.description_en, contact.description_zh),
   }));
 }

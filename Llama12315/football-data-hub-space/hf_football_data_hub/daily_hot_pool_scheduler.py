@@ -95,19 +95,32 @@ def _schedule() -> dict[str, list[list[str] | None]]:
     raise RuntimeError("schedule_fetch_failed:" + ";".join(errors))
 
 
+_CROW_HEADERS = {
+    "User-Agent": "Mozilla/5.0",
+    "Referer": "https://live.titan007.com/index2in1.aspx?id=3",
+    "Accept-Language": "zh-CN,zh;q=0.9",
+}
+
+
 def _crow_ids() -> set[str]:
+    """Crow roster is a filter, never the schedule source.
+
+    Empty/blocked sbOddsData.js must return an empty set so collect() can
+    still publish bfdata_ut.js identity rows. Raising here historically
+    aborted the whole daily pool (2026-08-18 slot #630/#720).
+    """
     errors = []
     for url in CROW_ROSTER_URLS:
         try:
-            response = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
+            response = requests.get(url, timeout=30, headers=_CROW_HEADERS)
             response.raise_for_status()
-            ids = set(CROW_SDATA_ID.findall(response.text))
+            ids = set(CROW_SDATA_ID.findall(response.text or ""))
             if ids:
                 return ids
-            errors.append(f"{url}:empty")
+            errors.append(f"{url}:empty:{len(response.content)}")
         except Exception as exc:
             errors.append(f"{url}:{type(exc).__name__}")
-    raise RuntimeError("crow_roster_fetch_failed:" + ";".join(errors))
+    return set()
 
 
 def _rows(source: dict[str, list[list[str] | None]], at: datetime, crow_ids: set[str] | None = None) -> list[dict]:
@@ -133,8 +146,26 @@ def _sha(rows: list[dict]) -> str:
 
 def collect(now_fn: Callable[[], datetime] = lambda: datetime.now(TZ), sleep_fn: Callable[[int], None] = time.sleep) -> dict:
     captured_at = now_fn().astimezone(TZ)
-    roster_ids = _crow_ids()
-    rows = _rows(_schedule(), captured_at, roster_ids)
+    try:
+        roster_ids = _crow_ids()
+    except Exception:
+        roster_ids = set()
+    schedule = _schedule()
+    if roster_ids:
+        rows = _rows(schedule, captured_at, roster_ids)
+        roster = {
+            "verified": True, "url": CROW_ROSTER_URLS[0], "size": len(roster_ids),
+            "vip_host_used": False, "status": "crow_roster_ok",
+        }
+    else:
+        # Crow filter unavailable: keep the Titan schedule identity pool so
+        # /ready and /hot-matches still serve today's card. Host JC admission
+        # remains the production universe; this is not a Crow-priced claim.
+        rows = _rows(schedule, captured_at, None)
+        roster = {
+            "verified": False, "url": CROW_ROSTER_URLS[0], "size": 0,
+            "vip_host_used": False, "status": "crow_roster_empty_schedule_fallback",
+        }
     previous = store.load_json(rel_crow_full_merged_pool(captured_at.date().isoformat())) or {}
     previous_rows = {row["match_id"]: row for row in previous.get("matches", []) if row.get("match_id")}
     previous_rows.update({row["match_id"]: row for row in rows})
@@ -142,17 +173,18 @@ def collect(now_fn: Callable[[], datetime] = lambda: datetime.now(TZ), sleep_fn:
     started = [row for row in rows if row["kickoff_local"] <= captured_at.isoformat()]
     future = [row for row in rows if row["kickoff_local"] > captured_at.isoformat()]
     slot = _current_slot(captured_at) or captured_at.strftime("%H%M")
+    coverage = "ALL_MATCHES_CROW_PRICED" if roster["verified"] else "SCHEDULE_IDENTITY_FALLBACK"
     pool = {
         "artifact_type": "crow_full_pool", "schema_version": 4,
         "pool_date": captured_at.date().isoformat(), "captured_at": captured_at.isoformat(),
         "capture_slot": slot,
-        "source_filter": "titan007_live:Crow:赛事:所有比赛:全部:全选",
-        "coverage_mode": "ALL_MATCHES_CROW_PRICED", "collector": "hf_free_space_uptimerobot_trigger",
+        "source_filter": "titan007_live:Crow:赛事:所有比赛:全部:全选" if roster["verified"] else "titan007_live:bfdata_ut:schedule_identity",
+        "coverage_mode": coverage, "collector": "hf_free_space_uptimerobot_trigger",
         "includes_started": True, "cloud_only": True, "accepted": bool(rows),
         "freshness_status": "CURRENT_DATE_CONFIRMED", "match_count": len(rows),
         "started_or_finished_count": len(started), "future_count": len(future),
         "match_ids": sorted(row["match_id"] for row in rows), "matches": rows,
-        "roster": {"verified": True, "url": CROW_ROSTER_URLS[0], "size": len(roster_ids), "vip_host_used": False},
+        "roster": roster,
         "canonical_sha256": _sha(rows),
         "data_only_guard": {"model_call_performed": False, "analysis_performed": False, "final_pick_written": False, "bankroll_written": False},
     }
